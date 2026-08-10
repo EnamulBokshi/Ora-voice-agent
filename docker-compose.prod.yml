@@ -1,0 +1,36 @@
+services:
+  ora-mongodb:
+    image: mongo:7.0
+    container_name: ora-mongodb
+    restart: always
+    ports:
+      # Host port 27018 mapped to container port 27017 to avoid conflict with existing live MongoDB on VPS
+      - "${ORA_MONGO_PORT:-27018}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ora_prod_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_this_in_prod_secret}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-ora_production}
+    volumes:
+      - ora_mongo_data:/data/db
+    networks:
+      - ora-production-network
+
+  ora-redis:
+    image: redis:7-alpine
+    container_name: ora-redis
+    restart: always
+    ports:
+      # Host port 6380 mapped to container port 6379 to avoid conflict with existing Redis on VPS
+      - "${ORA_REDIS_PORT:-6380}:6379"
+    volumes:
+      - ora_redis_data:/data
+    networks:
+      - ora-production-network
+
+volumes:
+  ora_mongo_data:
+  ora_redis_data:
+
+networks:
+  ora-production-network:
+    driver: bridge
