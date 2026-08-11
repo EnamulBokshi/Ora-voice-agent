@@ -18,7 +18,9 @@ import { UsersModule } from '../users/users.module';
         secret:
           configService.get<string>('JWT_SECRET') ||
           'ora-secret-key-change-in-prod',
-        signOptions: { expiresIn: '15m' },
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_EXPIRATION') || '1h',
+        },
       }),
     }),
   ],
