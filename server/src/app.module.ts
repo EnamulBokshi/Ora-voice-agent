@@ -5,6 +5,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { ProductsModule } from './products/products.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { RagModule } from './rag/rag.module';
 import { RedisModule } from './common/redis/redis.module';
 import { MailModule } from './mail/mail.module';
 
@@ -27,6 +30,9 @@ import { MailModule } from './mail/mail.module';
     MailModule,
     AuthModule,
     UsersModule,
+    ProductsModule,
+    KnowledgeModule,
+    RagModule,
   ],
   controllers: [AppController],
   providers: [AppService],

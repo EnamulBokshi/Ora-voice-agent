@@ -1,6 +1,6 @@
-# ORA Monorepo API Documentation — Authentication Phase
+# ORA Monorepo API Documentation
 
-This document provides complete API reference specifications for the **Authentication Phase** (`/api/auth`), including endpoints, HTTP methods, headers, cookies, request DTOs, response envelope structures, and payload examples.
+This document provides complete API reference specifications across all backend modules, detailing endpoints, HTTP methods, headers, cookies, request DTOs, response envelopes, query parameters, and JSON payload examples.
 
 ---
 
@@ -21,7 +21,7 @@ interface SuccessEnvelope<T> {
 interface ErrorEnvelope {
   success: false;
   error: {
-    code: string;           // E.g., 'INVALID_CREDENTIALS', 'EMAIL_ALREADY_EXISTS', 'TOKEN_THEFT_DETECTED'
+    code: string;           // E.g., 'INVALID_CREDENTIALS', 'PRODUCT_NOT_FOUND', 'KNOWLEDGE_DOC_NOT_FOUND'
     message: string;        // Human-readable explanation
     correlationId: string; // Unique request tracing ID (e.g. 'req-a1b2c3d4')
   };
@@ -30,7 +30,9 @@ interface ErrorEnvelope {
 
 ---
 
-## 2. Authentication Endpoints Summary
+## 2. Phase 1: Authentication & User Management (`/api/auth`)
+
+### Summary
 
 | Endpoint | Method | Auth Guard | Description |
 |---|---|---|---|
@@ -44,208 +46,124 @@ interface ErrorEnvelope {
 
 ---
 
-## 3. Detailed Endpoint Reference & Examples
+## 3. Phase 2: Product Catalog & Knowledge Base (`/api/products`, `/api/knowledge`)
 
-### 3.1 `POST /api/auth/register`
+### Summary
 
-Creates a new merchant account (`Business`) and primary owner account (`AdminUser`). Sends a 6-digit recipient verification OTP code via email.
-
-- **URL:** `/api/auth/register`
-- **Method:** `POST`
-- **Headers:** `Content-Type: application/json`
-- **Cookies Set:**
-  - `refreshToken`: httpOnly, Secure, SameSite=Strict, Path=/api/auth, Max-Age=7 days
-  - `sessionId`: httpOnly, Secure, SameSite=Strict, Path=/api/auth, Max-Age=7 days
-
-#### Request Payload Body (`RegisterDto`)
-```json
-{
-  "businessName": "Aura Commerce Store",
-  "domain": "auracommerce.com",
-  "name": "Alex Merchant",
-  "email": "alex@auracommerce.com",
-  "password": "SuperSecretPassword123!"
-}
-```
-
-#### Response Example (201 Created)
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "66b8d2e1a4f8901234567890",
-      "name": "Alex Merchant",
-      "email": "alex@auracommerce.com",
-      "role": "owner",
-      "emailVerified": false
-    },
-    "business": {
-      "id": "66b8d2e1a4f890123456789f",
-      "name": "Aura Commerce Store",
-      "domain": "auracommerce.com",
-      "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456"
-    }
-  }
-}
-```
-
-#### Error Example — Duplicate Email (409 Conflict)
-```json
-{
-  "success": false,
-  "error": {
-    "code": "EMAIL_ALREADY_EXISTS",
-    "message": "Email address is already registered.",
-    "correlationId": "req-9f8e7d6c"
-  }
-}
-```
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/products` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Create a new product record in merchant catalog. |
+| `/api/products` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List & search catalog products with pagination & filters. |
+| `/api/products/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single product details by ID. |
+| `/api/products/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update product details (price, stock, availability, tags). |
+| `/api/products/:id` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Delete a product from tenant catalog. |
+| `/api/products/batch-sync` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Bulk upsert products from feeds or platform webhooks. |
+| `/api/products/:id/verify-live` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Perform live verification update of price & stock. |
+| `/api/knowledge` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Create store context document & auto-chunk text. |
+| `/api/knowledge` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List store knowledge base documents for tenant. |
+| `/api/knowledge/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single knowledge base document. |
+| `/api/knowledge/:id/chunks` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Retrieve chunked text snippets for document. |
+| `/api/knowledge/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update document title/content & re-chunk. |
+| `/api/knowledge/:id` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Delete document and cascade delete its chunks. |
 
 ---
 
-### 3.2 `POST /api/auth/login`
+## 4. Phase 3: RAG & Vector Store Pipeline (`/api/rag`)
 
-Authenticates an existing `AdminUser` via email and password.
+### Summary
 
-- **URL:** `/api/auth/login`
-- **Method:** `POST`
-- **Headers:** `Content-Type: application/json`
-- **Cookies Set:** `refreshToken`, `sessionId`
-
-#### Request Payload Body (`LoginDto`)
-```json
-{
-  "email": "alex@auracommerce.com",
-  "password": "SuperSecretPassword123!"
-}
-```
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "66b8d2e1a4f8901234567890",
-      "name": "Alex Merchant",
-      "email": "alex@auracommerce.com",
-      "role": "owner",
-      "emailVerified": true
-    },
-    "business": {
-      "id": "66b8d2e1a4f890123456789f",
-      "name": "Aura Commerce Store",
-      "domain": "auracommerce.com",
-      "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456"
-    }
-  }
-}
-```
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/rag/search-products` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Semantic vector product search with candidate cap (top 5) & fallback. |
+| `/api/rag/search-knowledge` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Semantic vector search on store policies, FAQs & sales playbooks. |
+| `/api/rag/search` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Combined hybrid semantic search across products and store rules. |
+| `/api/rag/reindex-tenant` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Trigger bulk vector re-indexing for tenant catalog and knowledge base. |
 
 ---
 
-### 3.3 `POST /api/auth/refresh`
+### 4.1 `POST /api/rag/search-products`
 
-Rotates the refresh token stored in `httpOnly` cookie and issues a fresh 15-minute Access Token.
+Performs tenant-isolated semantic vector search on product catalog. Returns ranked products capped at top 5. Automatically triggers live keyword search fallback if vector confidence is low or zero matches are found.
 
-- **URL:** `/api/auth/refresh`
+- **URL:** `/api/rag/search-products`
 - **Method:** `POST`
-- **Cookies Required:** `refreshToken`, `sessionId`
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-#### Error Example — Token Theft / Mismatch (401 Unauthorized)
-```json
-{
-  "success": false,
-  "error": {
-    "code": "TOKEN_THEFT_DETECTED",
-    "message": "Security alert: Invalid refresh token presented. Session revoked.",
-    "correlationId": "req-1a2b3c4d"
-  }
-}
-```
-
----
-
-### 3.4 `POST /api/auth/logout`
-
-Revokes the user's active session in Redis and clears authentication cookies.
-
-- **URL:** `/api/auth/logout`
-- **Method:** `POST`
-- **Cookies Required:** `sessionId`
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "data": {
-    "message": "Logged out successfully."
-  }
-}
-```
-
----
-
-### 3.5 `GET /api/auth/me`
-
-Retrieves profile details for the currently authenticated `AdminUser` and their merchant `Business`.
-
-- **URL:** `/api/auth/me`
-- **Method:** `GET`
 - **Headers:** `Authorization: Bearer <accessToken>`
 
-#### Response Example (200 OK)
+#### Request Payload Body (`SearchRagDto`)
+```json
+{
+  "query": "Wireless noise canceling headphones with long battery life",
+  "limit": 5,
+  "confidenceThreshold": 0.65
+}
+```
+
+#### Response Example (200 OK — Vector Match)
 ```json
 {
   "success": true,
   "data": {
-    "user": {
-      "id": "66b8d2e1a4f8901234567890",
-      "name": "Alex Merchant",
-      "email": "alex@auracommerce.com",
-      "role": "owner",
-      "emailVerified": true
-    },
-    "business": {
-      "id": "66b8d2e1a4f890123456789f",
-      "name": "Aura Commerce Store",
-      "domain": "auracommerce.com",
-      "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456",
-      "status": "active"
-    }
+    "query": "Wireless noise canceling headphones with long battery life",
+    "fallbackTriggered": false,
+    "results": [
+      {
+        "entityId": "66b8e1f0a4f8901234567891",
+        "entityType": "product",
+        "text": "Wireless Noise-Canceling Headphones Premium over-ear headphones...",
+        "score": 0.92,
+        "data": {
+          "_id": "66b8e1f0a4f8901234567891",
+          "name": "Wireless Noise-Canceling Headphones",
+          "price": 299.99,
+          "availability": "in_stock",
+          "stockQuantity": 45
+        }
+      }
+    ]
+  }
+}
+```
+
+#### Response Example (200 OK — Fallback Triggered)
+```json
+{
+  "success": true,
+  "data": {
+    "query": "Custom rare mechanical keyboard",
+    "fallbackTriggered": true,
+    "results": [
+      {
+        "entityId": "66b8e1f0a4f8901234567899",
+        "entityType": "product",
+        "text": "Custom Rare Mechanical Keyboard Hot-swappable RGB...",
+        "score": 0.7,
+        "data": {
+          "_id": "66b8e1f0a4f8901234567899",
+          "name": "Custom Rare Mechanical Keyboard",
+          "price": 180.00,
+          "availability": "in_stock"
+        }
+      }
+    ]
   }
 }
 ```
 
 ---
 
-### 3.6 `POST /api/auth/verify-otp`
+### 4.2 `POST /api/rag/search-knowledge`
 
-Validates a 6-digit OTP code sent to the merchant's email.
+Performs semantic vector search on store policies, FAQs, and brand rules to fetch context snippets for RAG prompt augmentation.
 
-- **URL:** `/api/auth/verify-otp`
+- **URL:** `/api/rag/search-knowledge`
 - **Method:** `POST`
-- **Headers:**
-  - `Authorization: Bearer <accessToken>`
-  - `Content-Type: application/json`
+- **Headers:** `Authorization: Bearer <accessToken>`
 
-#### Request Payload Body (`VerifyOtpDto`)
+#### Request Payload Body (`SearchRagDto`)
 ```json
 {
-  "code": "482910"
+  "query": "What is the return policy for international shipping?",
+  "limit": 3
 }
 ```
 
@@ -254,31 +172,30 @@ Validates a 6-digit OTP code sent to the merchant's email.
 {
   "success": true,
   "data": {
-    "message": "Email address successfully verified.",
-    "emailVerified": true
-  }
-}
-```
-
-#### Error Example — Invalid OTP Code (400 Bad Request)
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_OTP",
-    "message": "Invalid verification code. 3 attempts remaining.",
-    "correlationId": "req-5e6f7g8h"
+    "query": "What is the return policy for international shipping?",
+    "results": [
+      {
+        "entityId": "66b8f3a0a4f89012345678c9",
+        "entityType": "knowledge_chunk",
+        "text": "We offer a hassle-free 30-day money-back guarantee for all original unopened products. International express shipping takes 5-7 business days...",
+        "score": 0.88,
+        "metadata": {
+          "docTitle": "30-Day Return Policy & Shipping Rules",
+          "docType": "policy"
+        }
+      }
+    ]
   }
 }
 ```
 
 ---
 
-### 3.7 `POST /api/auth/resend-otp`
+### 4.3 `POST /api/rag/reindex-tenant`
 
-Triggers a new 6-digit OTP code email generation.
+Triggers a full re-indexing of all products and knowledge base documents for the tenant.
 
-- **URL:** `/api/auth/resend-otp`
+- **URL:** `/api/rag/reindex-tenant`
 - **Method:** `POST`
 - **Headers:** `Authorization: Bearer <accessToken>`
 
@@ -287,7 +204,9 @@ Triggers a new 6-digit OTP code email generation.
 {
   "success": true,
   "data": {
-    "message": "New verification OTP sent to your email."
+    "message": "Tenant bulk re-indexing completed successfully.",
+    "indexedProducts": 45,
+    "indexedChunks": 128
   }
 }
 ```
