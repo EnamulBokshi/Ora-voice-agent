@@ -8,7 +8,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
 
   app.useGlobalPipes(
@@ -29,7 +29,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 5000;
   await app.listen(port);
-  console.log(`🚀 ORA Server backend listening on http://localhost:${port}/api`);
+  console.log(`🚀 ORA Server backend listening on http://localhost:${port}/api/v1`);
 
 }
 bootstrap();

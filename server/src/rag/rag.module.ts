@@ -8,12 +8,14 @@ import { VectorStoreService } from './services/vector-store.service';
 import { VectorIndex, VectorIndexSchema } from './schemas/vector-index.schema';
 import { ProductsModule } from '../products/products.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
     ConfigModule,
     ProductsModule,
     KnowledgeModule,
+    EventsModule,
     MongooseModule.forFeature([
       { name: VectorIndex.name, schema: VectorIndexSchema },
     ]),

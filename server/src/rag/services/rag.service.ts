@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { VectorStoreService } from './vector-store.service';
 import { EmbeddingService } from './embedding.service';
 import { ProductsService } from '../../products/products.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
+import { EventsService } from '../../events/events.service';
+import { EventType } from '../../events/schemas/event.schema';
 import { EntityType, SearchResultItem } from '../interfaces/vector-entry.interface';
 
 @Injectable()
@@ -14,6 +16,7 @@ export class RagService {
     private readonly embeddingService: EmbeddingService,
     private readonly productsService: ProductsService,
     private readonly knowledgeService: KnowledgeService,
+    @Optional() private readonly eventsService?: EventsService,
   ) {}
 
   async searchProducts(
@@ -43,6 +46,13 @@ export class RagService {
       // Step 2a: Zero / Low-confidence fallback
       fallbackTriggered = true;
       this.logger.log(`[RAG Engine] RAG_FALLBACK_TRIGGERED for query: "${queryText}" (businessId: ${businessId})`);
+      if (this.eventsService) {
+        this.eventsService
+          .logEvent(businessId, EventType.RAG_FALLBACK_TRIGGERED, { queryText })
+          .catch((err) =>
+            this.logger.error(`Failed to log RAG_FALLBACK_TRIGGERED event: ${err.message}`),
+          );
+      }
 
       const fallbackProducts = await this.productsService.findAll(businessId, {
         search: queryText,

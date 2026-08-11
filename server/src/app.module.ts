@@ -14,6 +14,10 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { BillingModule } from './billing/billing.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { EventsModule } from './events/events.module';
+import { IngestionModule } from './ingestion/ingestion.module';
+import { OrdersModule } from './orders/orders.module';
+import { AiVoiceModule } from './ai-voice/ai-voice.module';
 import { RedisModule } from './common/redis/redis.module';
 import { MailModule } from './mail/mail.module';
 
@@ -34,6 +38,7 @@ import { MailModule } from './mail/mail.module';
     }),
     RedisModule,
     MailModule,
+    EventsModule,
     AuthModule,
     UsersModule,
     ProductsModule,
@@ -45,6 +50,9 @@ import { MailModule } from './mail/mail.module';
     GatewayModule,
     BillingModule,
     InvoicesModule,
+    IngestionModule,
+    OrdersModule,
+    AiVoiceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
