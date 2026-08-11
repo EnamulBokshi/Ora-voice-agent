@@ -413,7 +413,7 @@ export class AuthService {
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: (this.configService.get<string>('JWT_EXPIRATION') || '1h') as any,
+      expiresIn: (this.configService.get<string>('JWT_EXPIRATION') || '15m') as any,
     });
 
     const refreshToken = crypto.randomBytes(32).toString('hex');
