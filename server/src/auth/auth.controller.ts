@@ -130,8 +130,8 @@ export class AuthController {
     const cookieOptions = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'strict' as const,
-      path: '/api/auth',
+      sameSite: 'lax' as const,
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
 
@@ -142,10 +142,11 @@ export class AuthController {
   private clearAuthCookies(res: Response) {
     const cookieOptions = {
       httpOnly: true,
-      path: '/api/auth',
+      path: '/',
     };
 
     res.clearCookie('refreshToken', cookieOptions);
     res.clearCookie('sessionId', cookieOptions);
   }
+
 }

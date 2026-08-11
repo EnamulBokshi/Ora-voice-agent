@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Bell, Store } from 'lucide-react';
 import { TopNavSearch } from './top-nav-search';
 import { ThemeToggle } from './theme-toggle';
+import { LogoutButton } from '../auth/LogoutButton';
 
 interface TopNavProps {
   greeting?: string;
@@ -88,7 +89,10 @@ export function TopNav({ greeting, activeTab = 'overview' }: TopNavProps) {
         >
           <Store size={17} />
         </button>
+
+        <LogoutButton variant="topnav" />
       </div>
     </header>
+
   );
 }

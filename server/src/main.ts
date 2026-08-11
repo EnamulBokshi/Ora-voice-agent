@@ -27,8 +27,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 5000;
   await app.listen(port);
   console.log(`🚀 ORA Server backend listening on http://localhost:${port}/api`);
+
 }
 bootstrap();
