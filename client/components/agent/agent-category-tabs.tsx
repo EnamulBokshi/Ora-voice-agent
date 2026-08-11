@@ -20,7 +20,10 @@ const CATEGORIES: ('All' | KnowledgeCategory)[] = [
 
 export function AgentCategoryTabs({ activeCategory, onSelectCategory }: AgentCategoryTabsProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 no-scrollbar border-b" style={{ borderColor: 'var(--glass-border)' }}>
+    <div
+      className="flex items-center gap-2 overflow-x-auto py-2.5 mb-5 no-scrollbar border-b shrink-0"
+      style={{ borderColor: 'var(--glass-border)' }}
+    >
       {CATEGORIES.map((cat) => {
         const isActive = cat === activeCategory;
 
@@ -28,7 +31,7 @@ export function AgentCategoryTabs({ activeCategory, onSelectCategory }: AgentCat
           <button
             key={cat}
             onClick={() => onSelectCategory(cat)}
-            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
               isActive
                 ? 'shadow-sm'
                 : 'hover:text-foreground hover:bg-[var(--surface-high)]'
@@ -36,7 +39,7 @@ export function AgentCategoryTabs({ activeCategory, onSelectCategory }: AgentCat
             style={
               isActive
                 ? {
-                    background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                    background: 'color-mix(in srgb, var(--primary) 14%, transparent)',
                     borderColor: 'var(--primary)',
                     color: 'var(--primary)',
                   }

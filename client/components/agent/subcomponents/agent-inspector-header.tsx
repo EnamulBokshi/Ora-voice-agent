@@ -5,9 +5,11 @@ import { KnowledgeItem } from '../agent-types';
 
 interface AgentInspectorHeaderProps {
   item: KnowledgeItem;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function AgentInspectorHeader({ item }: AgentInspectorHeaderProps) {
+export function AgentInspectorHeader({ item, onEdit, onDelete }: AgentInspectorHeaderProps) {
   return (
     <div
       className="px-6 py-4 border-b flex justify-between items-center shrink-0 flex-wrap gap-4"
@@ -28,7 +30,7 @@ export function AgentInspectorHeader({ item }: AgentInspectorHeaderProps) {
                 color: 'var(--ora-success)',
               }}
             >
-              Active & Vector-Indexed
+              Active & Published
             </span>
           ) : (
             <span
@@ -48,6 +50,7 @@ export function AgentInspectorHeader({ item }: AgentInspectorHeaderProps) {
 
       <div className="flex items-center gap-2">
         <button
+          onClick={onEdit}
           className="p-2 rounded-xl text-muted-foreground hover:text-[var(--primary)] hover:bg-[var(--surface-high)] border transition-colors"
           style={{ borderColor: 'var(--glass-border)' }}
           title="Edit Item"
@@ -55,6 +58,7 @@ export function AgentInspectorHeader({ item }: AgentInspectorHeaderProps) {
           <Edit3 size={15} />
         </button>
         <button
+          onClick={onDelete}
           className="p-2 rounded-xl text-muted-foreground hover:text-[var(--ora-error)] hover:bg-[var(--surface-high)] border transition-colors"
           style={{ borderColor: 'var(--glass-border)' }}
           title="Delete Item"
