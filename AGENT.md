@@ -281,3 +281,95 @@ app.useGlobalPipes(new ValidationPipe({
 - **Never return an unwrapped object/array from a controller.** Use the response envelope from Section 7.2, even for trivial endpoints — consistency here is what lets the frontend's shared client work everywhere.
 - **When two AI-generated PRs might touch the same guard, filter, or shared type, prefer extending the existing implementation over writing a parallel one.** Search `/common` and `/packages/shared-types` before creating a new decorator, guard, or DTO shape that might already exist under a slightly different name.
 - **If asked to add a feature that would require loosening `secure`, `sameSite`, `whitelist`, or `forbidNonWhitelisted` from their defaults in this file, implement the feature without loosening them and flag the tension explicitly** rather than silently relaxing a security default to make a task easier.
+
+---
+
+## 16. ORA Design System — Color Rules
+
+The ORA Merchant Dashboard uses a **centralized design-token system** defined exclusively in `client/app/globals.css`. All color values are global CSS custom properties consumed via Tailwind's `@theme inline` block. No component, page, or module may hardcode brand hex values.
+
+### Selected Palette
+
+Source: ORA Brand Color Palette (`#2E2910` / `#2C5745` / `#EBE3A7` / `#EB7D00`).
+
+| Role | Light Mode | Dark Mode | Usage |
+|---|---|---|---|
+| **Primary** | `#2C5745` | `#3d7a60` | Brand identity, buttons, active nav, CTAs, key metrics |
+| **Primary Foreground** | `#EBE3A7` | `#EBE3A7` | Text on primary surfaces |
+| **Secondary** | `#EB7D00` | `#EB7D00` | Secondary CTAs, supporting actions, highlights |
+| **Secondary Foreground** | `#2E2910` | `#2E2910` | Text on secondary surfaces |
+| **Brand Accent** | `#EBE3A7` | `#EBE3A7` | Warm ivory highlight, selected state badges |
+| **Brand Deep** | `#2E2910` | `#2E2910` | Dark olive reference tone |
+
+### Utility / Semantic Colors
+
+| Semantic | Value (light) | Value (dark) | Meaning |
+|---|---|---|---|
+| **Success** (`--ora-success`) | `#2C5745` | `#3d7a60` | ORA Online, positive trend, completed |
+| **Warning** (`--ora-warning`) | `#EB7D00` | `#EB7D00` | Needs attention, caution state |
+| **Error** (`--ora-error`) | `#c0392b` | `#e05252` | System error, critical failure |
+| **Info** (`--ora-info`) | `#009eb9` | `#4cd7f6` | Informational state, processing hint |
+
+### Chart Palette
+
+Charts across all pages (Overview, Sales, Conversations, Analytics, Reports) **must** use this series in order:
+
+| Series | Token | Value (dark) | Role |
+|---|---|---|---|
+| 1 | `--chart-1` | `#3d7a60` | Primary metric |
+| 2 | `--chart-2` | `#EB7D00` | Secondary metric |
+| 3 | `--chart-3` | `#EBE3A7` | Tertiary / accent |
+| 4 | `--chart-4` | `#4cd7f6` | Info / comparison |
+| 5 | `--chart-5` | `#e05252` | Negative / error |
+| 6 | `--chart-6` | `#8fa99a` | Background / muted |
+
+Never assign ad-hoc colors to individual charts. Use `var(--chart-N)` or the Tailwind alias `bg-chart-N` / `text-chart-N`.
+
+### Agent Status Colors
+
+ORA is an AI sales agent — status must be immediately understandable. Always pair status colors with an icon or label (never color-only communication).
+
+| State | Token | Dark Value | Meaning |
+|---|---|---|---|
+| Online | `--status-online` | `#3d7a60` | ORA active, selling |
+| Active | `--status-active` | `#52b88a` | Live conversation in progress |
+| Warning | `--status-warning` | `#EB7D00` | Needs merchant attention |
+| Offline | `--status-offline` | `#8fa99a` | Agent paused / inactive |
+| Error | `--status-error` | `#e05252` | System error |
+| Processing | `--status-processing` | `#4cd7f6` | ORA thinking / loading |
+
+### Background / Surface Foundation
+
+The dark navy **Obsidian Intelligence** structural layer is preserved and must not be altered:
+
+```
+--background          #020617   Global page background
+--surface-lowest      #010f1f   Sidebar, deepest surface
+--surface-low         #0d1c2d   Nested panels
+--surface-container   #122131   Cards, primary containers
+--surface-high        #1c2b3c   Interactive surfaces
+--surface-highest     #273647   Elevated elements
+--surface-bright      #2c3a4c   Highlighted/focused surfaces
+```
+
+### Token Naming Convention
+
+| Scope | Pattern | Example |
+|---|---|---|
+| Brand primary | `--primary`, `--primary-hover`, `--primary-active` | `var(--primary)` |
+| Brand secondary | `--secondary`, `--secondary-hover`, `--secondary-active` | `var(--secondary)` |
+| Semantic utility | `--ora-success`, `--ora-warning`, `--ora-error`, `--ora-info` | `var(--ora-success)` |
+| Chart series | `--chart-1` through `--chart-6` | `var(--chart-2)` |
+| Agent status | `--status-online`, `--status-active`, etc. | `var(--status-warning)` |
+| Structural surface | `--surface-lowest` through `--surface-bright` | `var(--surface-container)` |
+
+### Rules for AI Agents and Developers
+
+1. **Never hardcode `#2C5745`, `#EB7D00`, `#EBE3A7`, or any brand color inside a component.** Use the CSS token or its Tailwind mapping (e.g., `bg-primary`, `text-secondary`).
+2. **Never create a second theme system.** `client/app/globals.css` is the single source of truth. Do not add competing CSS variables in component files, page files, or separate theme configs.
+3. **Reuse existing semantic tokens before creating new ones.** If a color need fits `--ora-success`, `--ora-warning`, `--ora-error`, or `--ora-info`, use those. Do not define one-off tokens per page.
+4. **Charts must use the centralized chart palette** (`--chart-1` through `--chart-6`) in order. Do not pick arbitrary colors for individual charts.
+5. **New dashboard pages inherit the color system automatically** through `globals.css` — no per-page color setup is needed or allowed.
+6. **Accessibility:** The selected green (`#3d7a60`) on dark navy (`#020617`) meets WCAG AA for large text/UI elements. For body text, always use `--foreground` or `--on-surface` tokens, not raw primary green. Status indicators must be paired with icons or labels.
+7. **Do not consolidate `--ora-success` and `--primary` even though they share a similar hue** — they serve distinct semantic roles. Success indicates outcome states; primary indicates brand action. Keep them separate.
+8. **Light mode** uses warmer neutral surfaces (`#f8f7f0`, `#f0efe8`) derived from the ivory palette tone. Do not introduce cool-gray light-mode backgrounds.
