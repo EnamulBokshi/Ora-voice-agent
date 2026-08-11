@@ -1,4 +1,7 @@
-packages: []
+packages:
+  - 'client'
+  - 'server'
+  - 'packages/*'
 
 allowBuilds:
   sharp: true

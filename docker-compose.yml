@@ -1,0 +1,34 @@
+services:
+  ora-mongodb:
+    image: mongo:7.0
+    container_name: ora-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ora_admin
+      MONGO_INITDB_ROOT_PASSWORD: ora_password_dev
+      MONGO_INITDB_DATABASE: ora_db
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ora-network
+
+  ora-redis:
+    image: redis:7-alpine
+    container_name: ora-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ora-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  ora-network:
+    driver: bridge
