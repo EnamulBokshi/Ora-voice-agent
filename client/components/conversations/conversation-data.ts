@@ -1,0 +1,166 @@
+import { ConversationItem } from './conversation-types';
+
+export const MOCK_CONVERSATIONS: ConversationItem[] = [
+  {
+    id: 'conv-1',
+    customerName: 'Fahim Rahman',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    channel: 'voice',
+    status: 'active',
+    lastMessageTime: '2m ago',
+    previewMessage: '"I\'m looking for a good pair of running shoes under $100."',
+    tags: [
+      { label: 'Product discovery', type: 'intent' },
+      { label: 'Order influenced', type: 'outcome' },
+    ],
+    duration: '3m 42s',
+    sessionRef: '#CONV-8F24A',
+    intelligence: {
+      intent: 'Product discovery',
+      sentiment: 'Positive',
+      extractedBudget: 'Under $100',
+      productsDiscussed: [
+        {
+          id: 'prod-1',
+          name: 'Nike Pegasus 41',
+          price: '$99.00',
+          description: 'Everyday neutral running shoe',
+          inStock: true,
+          liveVerified: true,
+          image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop&q=80',
+        },
+      ],
+      salesOutcome: {
+        status: 'Order Influenced',
+        ref: '#ORD-1024',
+      },
+    },
+    transcript: [
+      {
+        id: 'm1',
+        sender: 'customer',
+        text: "Hi there. I'm looking for a good pair of running shoes. My budget is strictly under $100.",
+        time: 'Today, 10:42 AM',
+      },
+      {
+        id: 'm2',
+        sender: 'ora',
+        text: 'Hello Fahim! I can absolutely help you find a great pair of running shoes under $100. Based on top reviews for comfort and durability in that price range, I highly recommend the Nike Pegasus 41.',
+        product: {
+          id: 'prod-1',
+          name: 'Nike Pegasus 41',
+          price: '$99.00',
+          description: 'Everyday neutral running shoe',
+          inStock: true,
+          liveVerified: true,
+          image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop&q=80',
+        },
+      },
+      {
+        id: 'm3',
+        sender: 'customer',
+        text: "Those look great. Yes, how does the sizing run? I'm usually a 10.5 in Adidas.",
+      },
+      {
+        id: 'm4',
+        sender: 'ora',
+        text: '',
+        isTyping: true,
+      },
+    ],
+  },
+  {
+    id: 'conv-2',
+    customerName: 'Sarah Ahmed',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    channel: 'chat',
+    status: 'completed',
+    lastMessageTime: '15m ago',
+    previewMessage: '"Thanks, the sizing guide was very helpful. I\'ll take the medium."',
+    tags: [{ label: 'Support', type: 'support' }],
+    duration: '5m 12s',
+    sessionRef: '#CONV-7C12B',
+    intelligence: {
+      intent: 'Sizing inquiry',
+      sentiment: 'Positive',
+      extractedBudget: '$50 - $80',
+      productsDiscussed: [
+        {
+          id: 'prod-2',
+          name: 'Minimalist Hoodie',
+          price: '$65.00',
+          description: 'Premium organic cotton pullover',
+          inStock: true,
+          liveVerified: true,
+          image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&auto=format&fit=crop&q=80',
+        },
+      ],
+      salesOutcome: {
+        status: 'Cart Addition',
+        ref: '#CART-4402',
+      },
+    },
+    transcript: [
+      {
+        id: 'm1',
+        sender: 'customer',
+        text: 'Hi, I need help picking the right size for the hoodie.',
+        time: 'Today, 10:25 AM',
+      },
+      {
+        id: 'm2',
+        sender: 'ora',
+        text: 'I can help with that! Our Minimalist Hoodie has a relaxed fit. If you prefer a tailored look, size Medium fits up to 38" chest.',
+        product: {
+          id: 'prod-2',
+          name: 'Minimalist Hoodie',
+          price: '$65.00',
+          description: 'Premium organic cotton pullover',
+          inStock: true,
+          liveVerified: true,
+          image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&auto=format&fit=crop&q=80',
+        },
+      },
+      {
+        id: 'm3',
+        sender: 'customer',
+        text: "Thanks, the sizing guide was very helpful. I'll take the medium.",
+      },
+    ],
+  },
+  {
+    id: 'conv-3',
+    customerName: 'John Doe',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    channel: 'chat',
+    status: 'needs_attention',
+    lastMessageTime: '1h ago',
+    previewMessage: '"My order hasn\'t arrived yet, tracking says delivered?"',
+    tags: [{ label: 'Escalation', type: 'escalation' }],
+    duration: '8m 04s',
+    sessionRef: '#CONV-2D44E',
+    intelligence: {
+      intent: 'Order tracking issue',
+      sentiment: 'Negative',
+      extractedBudget: 'N/A',
+      productsDiscussed: [],
+      salesOutcome: {
+        status: 'Escalated to Human Agent',
+        ref: '#TICK-9081',
+      },
+    },
+    transcript: [
+      {
+        id: 'm1',
+        sender: 'customer',
+        text: "My order hasn't arrived yet, tracking says delivered?",
+        time: 'Today, 9:40 AM',
+      },
+      {
+        id: 'm2',
+        sender: 'ora',
+        text: "I understand your concern! Let me immediately check carrier logs for Order #ORD-8821. I have escalated this session so a human support agent can review doorstep delivery photos with you.",
+      },
+    ],
+  },
+];
