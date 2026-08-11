@@ -14,6 +14,7 @@ import {
   User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LogoutButton } from '../auth/LogoutButton';
 
 interface NavItem {
   label: string;
@@ -127,8 +128,8 @@ export function Sidebar({ activePage = 'command' }: SidebarProps) {
         style={{ background: 'var(--border)' }}
       />
 
-      {/* ── Merchant Profile ──────────────────────────────── */}
-      <div className="px-4">
+      {/* ── Merchant Profile & Logout ───────────────────────── */}
+      <div className="px-4 space-y-1">
         <Link
           href="/profile"
           className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-[var(--surface-high)] transition-all duration-200 text-xs font-medium group"
@@ -144,7 +145,9 @@ export function Sidebar({ activePage = 'command' }: SidebarProps) {
           </div>
           <span>Merchant Profile</span>
         </Link>
+        <LogoutButton variant="sidebar" />
       </div>
     </aside>
   );
 }
+
