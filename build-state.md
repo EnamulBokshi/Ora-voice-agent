@@ -44,15 +44,50 @@ Implementation of the core e-commerce product catalog engine (`Product`) and con
 | **Knowledge Service** | `server/src/knowledge/knowledge.service.ts` | Completed | Context document CRUD, automatic text chunking engine (~500 chars, 50-char overlap), chunk retrieval, and cascade deletion. |
 | **Knowledge Controller** | `server/src/knowledge/knowledge.controller.ts` | Completed | Endpoints: `/api/knowledge` (POST, GET), `/api/knowledge/:id` (GET, PATCH, DELETE), `/api/knowledge/:id/chunks` (GET). |
 
+---
+
+## 🟢 Phase 3: RAG & Vector Store Pipeline (COMPLETED)
+
+### Overview
+Implementation of tenant-isolated vector search, embedding generation, RAG prompt augmentation, candidate capping (top 5), zero/low-confidence live keyword fallback, self-healing embedding enqueueing, and bulk re-indexing for merchant catalogs.
+
+### Implemented Components
+
+| Component / Layer | Location | Status | Details |
+|---|---|---|---|
+| **VectorIndex Schema** | `server/src/rag/schemas/vector-index.schema.ts` | Completed | Persistent vector storage carrying `businessId`, `entityType` (`product` \| `knowledge_chunk`), `entityId`, vector array, and metadata. |
+| **Embedding Service** | `server/src/rag/services/embedding.service.ts` | Completed | Generates 768-dimensional text embeddings via Gemini API (`text-embedding-004`) with normalized TF-IDF vectorizer fallback. |
+| **Vector Store Service** | `server/src/rag/services/vector-store.service.ts` | Completed | Tenant-isolated vector indexing, cosine similarity scoring, entity upserts, and deletion routines. |
+| **RAG Service** | `server/src/rag/services/rag.service.ts` | Completed | Semantic search for products & knowledge chunks. Enforces candidate cap (top 5), triggers live keyword fallback on zero/low-confidence matches, enqueues self-healing embeddings, and handles tenant re-indexing. |
+| **RAG Controller** | `server/src/rag/rag.controller.ts` | Completed | Endpoints: `/api/rag/search-products`, `/api/rag/search-knowledge`, `/api/rag/search`, `/api/rag/reindex-tenant`. |
+
+---
+
+## 🟢 Phase 4: Customer & Voice/Chat Conversation Gateway (COMPLETED)
+
+### Overview
+Implementation of end-shopper customer profile management (`Customer` with AES-256 field-level PII encryption), AI agent configuration & sales playbooks (`AgentConfig`, `VoiceSettings`, `SalesPlaybook`), conversation & message logging (`Conversation`, `Message`), REST APIs, and a real-time WebSocket Gateway (`ConversationGateway`) featuring `biz_live_xxxx` publishable key auth, RAG integration, and Redis 10s idle session state management.
+
+### Implemented Components
+
+| Component / Layer | Location | Status | Details |
+|---|---|---|---|
+| **Encryption Utility** | `server/src/common/utils/encryption.util.ts` | Completed | Field-level AES-256-GCM encryption/decryption helper for customer PII. |
+| **Customer Schema & Service** | `server/src/customers/schemas/customer.schema.ts`, `server/src/customers/customers.service.ts` | Completed | Manages end-shopper profiles, PII encryption/decryption (`emailEncrypted`, `phoneEncrypted`), and preference extraction. |
+| **Customers Controller** | `server/src/customers/customers.controller.ts` | Completed | Endpoints: `/api/customers` (POST, GET), `/api/customers/:id` (GET, PATCH). |
+| **AgentConfig Schemas & Service** | `server/src/agent-config/schemas/agent-config.schema.ts`, `server/src/agent-config/agent-config.service.ts` | Completed | Stores brand voice rules, 10s idle timeout config, discount floor limits, voice IDs, and sales playbooks. |
+| **AgentConfig Controller** | `server/src/agent-config/agent-config.controller.ts` | Completed | Endpoints: `/api/agent-config` (GET, PATCH). |
+| **Conversation & Message Schemas** | `server/src/conversations/schemas/conversation.schema.ts`, `server/src/conversations/schemas/message.schema.ts` | Completed | Stores customer session tokens (`sessionId`), channel types (`widget_chat`, `widget_voice`), message roles, transcript logs, and tool calls. |
+| **Conversations Service & Controller** | `server/src/conversations/conversations.service.ts`, `server/src/conversations/conversations.controller.ts` | Completed | Session resolution, message appending, transcript querying, Redis session state (`session:conv:{sessionId}`), and closing conversations. |
+| **WebSocket Gateway** | `server/src/gateway/conversation.gateway.ts` | Completed | Socket.io gateway supporting `biz_live_xxxx` publishable key auth, `init-session`, `send-message` with RAG semantic lookup, and streaming response events. |
+
 ### Unit Testing & Compilation Verification
 - **Build Status**: Passed (`nest build`)
-- **Unit Test Suites**: 7 passed (10 tests) (`auth.service.spec.ts`, `auth.controller.spec.ts`, `users.service.spec.ts`, `users.controller.spec.ts`, `products.service.spec.ts`, `knowledge.service.spec.ts`, `app.controller.spec.ts`).
+- **Unit Test Suites**: 11 passed (17 tests) (`auth.service.spec.ts`, `auth.controller.spec.ts`, `users.service.spec.ts`, `users.controller.spec.ts`, `products.service.spec.ts`, `knowledge.service.spec.ts`, `embedding.service.spec.ts`, `rag.service.spec.ts`, `encryption.util.spec.ts`, `customers.service.spec.ts`, `app.controller.spec.ts`).
 
 ---
 
 ## 🟡 Next Planned Phases
 
-- [ ] **Phase 3: RAG & Vector Store Pipeline** (`server/src/rag`)
-- [ ] **Phase 4: Customer & Voice/Chat Conversation Gateway** (`server/src/gateway`, `server/src/conversations`)
 - [ ] **Phase 5: Dual Payment Billing & Invoicing Engine** (`server/src/billing`, `server/src/invoices`)
 - [ ] **Phase 6: Admin Dashboard UI Integration** (`client/`)

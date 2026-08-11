@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
+    "tsConfigPath": "tsconfig.json",
     "assets": [
       { "include": "mail/templates/**/*", "outDir": "dist/mail/templates", "watchAssets": true }
     ]
