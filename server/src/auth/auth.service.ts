@@ -102,6 +102,8 @@ export class AuthService {
       createdAt: new Date().toISOString(),
     });
 
+    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
+
     return {
       tokens,
       sessionId,
@@ -118,6 +120,7 @@ export class AuthService {
         domain: business.domain,
         publishableKey: business.publishableKey,
       },
+      ...(isDev ? { devOtpCode: otpCode } : {}),
     };
   }
 
