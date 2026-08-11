@@ -2,6 +2,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as ejs from 'ejs';
 
+/**
+ * ORA Brand Theme Baseline
+ * Electric Violet (`#6C5CE7`), Cyan Teal (`#2DD4C8`), Void Dark (`#12121A`).
+ */
+export const ORA_EMAIL_THEME = {
+  primary: '#6C5CE7',       // Electric Violet
+  primaryDark: '#5645C7',   // Dark Violet CTA
+  secondary: '#2DD4C8',     // Cyan Teal Accent
+  bgVoid: '#12121A',        // Header Dark BG
+  bgLight: '#F7F7FB',       // Light Canvas BG
+  bgWhite: '#FFFFFF',       // Card Container
+  borderLight: '#E4E4EE',   // Structural Border
+  textPrimary: '#15151F',   // Main Heading Text
+  textSecondary: '#4A4A6A', // Body Text
+  textMuted: '#6B6B8A',     // Subtitle Text
+  textLight: '#8B8BB0',     // Secondary Muted Text
+};
+
 export interface VerifyEmailData {
   recipientName: string;
   verifyUrl: string;
