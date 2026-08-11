@@ -16,6 +16,7 @@ const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
 const products_module_1 = require("./products/products.module");
 const knowledge_module_1 = require("./knowledge/knowledge.module");
+const rag_module_1 = require("./rag/rag.module");
 const redis_module_1 = require("./common/redis/redis.module");
 const mail_module_1 = require("./mail/mail.module");
 let AppModule = class AppModule {
@@ -42,6 +43,7 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             products_module_1.ProductsModule,
             knowledge_module_1.KnowledgeModule,
+            rag_module_1.RagModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
