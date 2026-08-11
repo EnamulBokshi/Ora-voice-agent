@@ -10,10 +10,10 @@ import { DomainException } from '../common/exceptions/domain.exception';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: Partial<Record<keyof UsersService, jest.Mock>>;
-  let jwtService: Partial<Record<keyof JwtService, jest.Mock>>;
-  let redisService: Partial<Record<keyof RedisService, jest.Mock>>;
-  let mailService: Partial<Record<keyof MailService, jest.Mock>>;
+  let usersService: Record<string, jest.Mock>;
+  let jwtService: Record<string, jest.Mock>;
+  let redisService: Record<string, jest.Mock>;
+  let mailService: Record<string, jest.Mock>;
 
   const mockBusiness = {
     _id: '507f1f77bcf86cd799439011',
