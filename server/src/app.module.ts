@@ -12,6 +12,8 @@ import { CustomersModule } from './customers/customers.module';
 import { AgentConfigModule } from './agent-config/agent-config.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { BillingModule } from './billing/billing.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { RedisModule } from './common/redis/redis.module';
 import { MailModule } from './mail/mail.module';
 
@@ -41,6 +43,8 @@ import { MailModule } from './mail/mail.module';
     AgentConfigModule,
     ConversationsModule,
     GatewayModule,
+    BillingModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
