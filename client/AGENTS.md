@@ -1,6 +1,6 @@
 # Client Engineering Standards & AI Coding Rules (`client/`)
 
-This document governs frontend development in the `client/` package (Next.js Dashboard & UI). All AI coding assistants and developers MUST follow these guidelines.
+This document governs frontend development in the `client/` package (Next.js Dashboard & UI). All AI coding assistants and developers MUST follow these guidelines, aligned with [ORA-Final-Architecture.md (v5)](file:///home/nullpointer/Documents/work/hype_corporation/ORA/ORA-Final-Architecture.md).
 
 ---
 
@@ -25,7 +25,7 @@ This document governs frontend development in the `client/` package (Next.js Das
   - Types & Models → `types/` (or shared types package)
 
 ### 4. Service & Action Organization
-- **Server Actions:** All Server Actions (marked with `"use server"`) MUST reside inside `actions/` (e.g., `actions/auth-actions.ts`). Do not inline Server Actions inside components.
+- **Server Actions:** All Server Actions (marked with `"use server"`) MUST reside inside `actions/` (e.g., `actions/auth-actions.ts`, `actions/billing-actions.ts`). Do not inline Server Actions inside components.
 - **API & Data Fetching:** External API integrations and HTTP requests belong in `services/` (e.g., `services/api.ts`, `services/business-service.ts`).
 - UI components must **NEVER** perform raw `fetch` calls directly against external APIs. Use the centralized API client wrapper (`lib/api-client.ts`).
 
@@ -39,6 +39,23 @@ This document governs frontend development in the `client/` package (Next.js Das
 ### 6. Client State vs Server State
 - RTK (Redux Toolkit) is used for reactive client state (e.g., cart, active drawer state, live session UI).
 - RTK is **never** the single source of truth for persisted data; full state must re-hydrate via server calls on mount.
+
+### 7. Widget Embed & Delivery Architecture (v5 Section 11)
+- The merchant embed code uses a two-stage loader pattern:
+  ```html
+  <script>
+    (function(w,d,s,id){
+      if (w.ORA) return;
+      w.ORA = w.ORA || function(){ (w.ORA.q = w.ORA.q || []).push(arguments); };
+      var js = d.createElement(s); js.id = id; js.async = true;
+      js.src = "https://cdn.ora.ai/widget/v2/loader.js";
+      d.body.appendChild(js);
+    })(window, document, "script", "ora-widget");
+    ORA('init', { apiKey: 'biz_live_xxxx' });
+  </script>
+  ```
+- **Publishable Key (`biz_live_xxxx`):** Public tenant identifier, safe to display in merchant dashboard.
+- **Shadow DOM Mount:** The widget mounts inside a Shadow DOM root to prevent host page CSS pollution.
 
 ---
 
