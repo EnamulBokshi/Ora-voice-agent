@@ -1,9 +1,9 @@
 ---
 name: nextjs-best-practices
-description: Core development rules and standards for Next.js 16+ applications, focusing on Server Components, clean architecture, reusability, proxy-based auth routing, services/actions separation, and industry best practices.
+description: Core development rules and standards for Next.js 16+ applications, focusing on Server Components, clean architecture, reusability, proxy-based auth routing, services/actions separation, and widget embed delivery standards aligned with ORA Architecture v5.
 ---
 
-# Next.js 16+ Architecture & Coding Standards
+# Next.js 16+ Architecture & Coding Standards (ORA Architecture v5 Aligned)
 
 This skill defines mandatory rules, patterns, and architectural constraints for development in this repository.
 
@@ -27,14 +27,14 @@ This skill defines mandatory rules, patterns, and architectural constraints for 
 
 ### 3. Component-Based Architecture & Strict Code Separation
 - **Modular Components First**: **ALWAYS** prefer a component-based architecture. Never write an entire page, feature, or complex UI in a single monolithic file.
-- **File Separation**: Break down complex UI sections into smaller, single-responsibility components placed in `components/` or dedicated feature folders (e.g., `components/buses/BusTable.tsx`, `components/buses/BusMetricsCard.tsx`).
+- **File Separation**: Break down complex UI sections into smaller, single-responsibility components placed in `components/` or dedicated feature folders (e.g., `components/dashboard/MetricsCard.tsx`, `components/billing/PlanTable.tsx`).
 - **Clean Boundaries**: Keep visual presentation (components), business logic (custom hooks/services), server operations (`actions/`), and data structures (`types/`) in separate files.
 
 ---
 
 ### 4. Service & Action Organization (`services/` & `actions/`)
-- **Server Actions (`actions/`)**: All Server Actions (functions annotated with `"use server"`) MUST be organized inside the `actions/` directory (e.g., `actions/bus-actions.ts`, `actions/auth-actions.ts`). Do not inline Server Actions inside page or component files.
-- **API Services & Data Fetching (`services/`)**: All external API integrations, HTTP client callers, database layer queries, and data fetching services MUST reside inside the `services/` directory (e.g., `services/api.ts`, `services/bus-service.ts`).
+- **Server Actions (`actions/`)**: All Server Actions (functions annotated with `"use server"`) MUST be organized inside the `actions/` directory (e.g., `actions/billing-actions.ts`, `actions/auth-actions.ts`). Do not inline Server Actions inside page or component files.
+- **API Services & Data Fetching (`services/`)**: All external API integrations, HTTP client callers, database layer queries, and data fetching services MUST reside inside the `services/` directory (e.g., `services/api.ts`, `services/business-service.ts`).
 - **Clean Separation**: UI components should never execute raw fetch requests or inline server database logic directly; they must import and call structured services or server actions.
 
 ---
@@ -45,17 +45,24 @@ This skill defines mandatory rules, patterns, and architectural constraints for 
 
 ---
 
-### 6. Maximum Reusability & Clean Architecture
+### 6. Widget Embed & Delivery Standards (ORA Architecture v5 - Section 11)
+- **Two-Stage Loader Pattern**: The widget embed code uses a lightweight stable loader snippet fetching CDN bundles (`loader.js` → `widget.<hash>.js`).
+- **Publishable Key (`biz_live_xxxx`)**: Public key for WebSocket session initiation, displayable in dashboard UI.
+- **Shadow DOM Mount**: Widget UI components must render into a Shadow DOM root to prevent styling conflicts with third-party merchant sites.
+
+---
+
+### 7. Maximum Reusability & Clean Architecture
 - **DRY Principle**: Avoid duplicating UI blocks, logic, or state handlers. Extract reusable primitives into component libraries (`components/ui/` or `components/shared/`).
 - **Atomic & Modular Design**:
   - Keep components small, single-purpose, and focused.
   - Separate business logic (custom hooks) from visual presentation.
-  - Group domain components logically by feature (e.g., `components/buses/`, `components/reports/`).
+  - Group domain components logically by feature (e.g., `components/billing/`, `components/settings/`).
 - **Design Tokens**: Standardize colors, spacing, and typography using CSS variables or central design tokens instead of ad-hoc arbitrary values.
 
 ---
 
-### 7. Type Safety & Code Quality
+### 8. Type Safety & Code Quality
 - **Strict TypeScript**:
   - Prohibit explicit or implicit `any` types.
   - Define clear `interface` or `type` contracts for all component props, API payloads, and state models.
@@ -66,7 +73,7 @@ This skill defines mandatory rules, patterns, and architectural constraints for 
 
 ---
 
-### 8. Performance & Security Best Practices
+### 9. Performance & Security Best Practices
 - **Optimal Image & Asset Loading**: Use `next/image` with proper width, height, and optimization attributes.
 - **Dynamic Imports**: Lazily import heavy client-only dependencies using `next/dynamic`.
 - **Security Baseline**: Sanitize user inputs, enforce HTTPS, and never expose sensitive keys or server secrets in client-facing components.
