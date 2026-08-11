@@ -1,4 +1,420 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
+import { UsersService } from '../users/users.service';
+import { RedisService } from '../common/redis/redis.service';
+import { MailService } from '../mail/mail.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { DomainException } from '../common/exceptions/domain.exception';
+import { AdminRole } from '../users/enums/admin-role.enum';
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
 
 @Injectable()
-export class AuthService {}
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    private readonly redisService: RedisService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  async register(
+    dto: RegisterDto,
+    reqInfo: { userAgent?: string; ip?: string },
+  ) {
+    const existingUser = await this.usersService.findByEmail(dto.email);
+    if (existingUser) {
+      throw new DomainException(
+        'EMAIL_ALREADY_EXISTS',
+        'Email address is already registered.',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    const business = await this.usersService.createBusiness(
+      dto.businessName,
+      dto.domain,
+    );
+
+    const user = await this.usersService.createAdminUser({
+      businessId: business._id.toString(),
+      email: dto.email,
+      passwordHash,
+      name: dto.name,
+      role: AdminRole.OWNER,
+    });
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const pendingOtpHash = await bcrypt.hash(otpCode, 10);
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      pendingOtpHash,
+      otpExpiresAt,
+      otpAttemptCount: 0,
+    });
+
+    // Send verification email
+    await this.mailService.sendVerificationEmail(user.email, {
+      recipientName: user.name,
+      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+      code: otpCode,
+      expireMinutes: 10,
+    });
+
+    // Generate tokens & session
+    const sessionId = crypto.randomUUID();
+    const tokens = await this.generateTokens(
+      user._id.toString(),
+      business._id.toString(),
+      user.email,
+      user.role,
+      sessionId,
+    );
+
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+
+    await this.redisService.setSession(sessionId, {
+      adminUserId: user._id.toString(),
+      businessId: business._id.toString(),
+      email: user.email,
+      role: user.role,
+      refreshTokenHash,
+      userAgent: reqInfo.userAgent,
+      ip: reqInfo.ip,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      tokens,
+      sessionId,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: false,
+      },
+      business: {
+        id: business._id.toString(),
+        name: business.name,
+        domain: business.domain,
+        publishableKey: business.publishableKey,
+      },
+    };
+  }
+
+  async login(dto: LoginDto, reqInfo: { userAgent?: string; ip?: string }) {
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user) {
+      throw new DomainException(
+        'INVALID_CREDENTIALS',
+        'Invalid email or password.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
+    if (!isPasswordValid) {
+      throw new DomainException(
+        'INVALID_CREDENTIALS',
+        'Invalid email or password.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const business = await this.usersService.findBusinessById(
+      user.businessId.toString(),
+    );
+    if (!business) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        'Associated business tenant not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const sessionId = crypto.randomUUID();
+    const tokens = await this.generateTokens(
+      user._id.toString(),
+      business._id.toString(),
+      user.email,
+      user.role,
+      sessionId,
+    );
+
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+
+    await this.redisService.setSession(sessionId, {
+      adminUserId: user._id.toString(),
+      businessId: business._id.toString(),
+      email: user.email,
+      role: user.role,
+      refreshTokenHash,
+      userAgent: reqInfo.userAgent,
+      ip: reqInfo.ip,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      tokens,
+      sessionId,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+      },
+      business: {
+        id: business._id.toString(),
+        name: business.name,
+        domain: business.domain,
+        publishableKey: business.publishableKey,
+      },
+    };
+  }
+
+  async refresh(
+    refreshToken: string,
+    sessionId: string,
+    reqInfo: { userAgent?: string; ip?: string },
+  ) {
+    if (!refreshToken || !sessionId) {
+      throw new DomainException(
+        'INVALID_SESSION',
+        'Session ID and refresh token are required.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const session = await this.redisService.getSession(sessionId);
+    if (!session) {
+      throw new DomainException(
+        'SESSION_EXPIRED',
+        'Session has expired or was revoked. Please log in again.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const isMatch = await bcrypt.compare(
+      refreshToken,
+      session.refreshTokenHash,
+    );
+    if (!isMatch) {
+      // Token Theft / Reuse Detected! Immediately revoke session.
+      this.logger.error(
+        `[Token Theft Detected] Mismatch on sessionId ${sessionId} for user ${session.adminUserId}. Revoking session.`,
+      );
+      await this.redisService.revokeSession(sessionId);
+      throw new DomainException(
+        'TOKEN_THEFT_DETECTED',
+        'Security alert: Invalid refresh token presented. Session revoked.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    // Generate new rotated refresh token & new access token
+    const newTokens = await this.generateTokens(
+      session.adminUserId,
+      session.businessId,
+      session.email,
+      session.role,
+      sessionId,
+    );
+
+    const newRefreshTokenHash = await bcrypt.hash(newTokens.refreshToken, 10);
+
+    // Update session in Redis with rotated refresh token hash
+    await this.redisService.setSession(sessionId, {
+      ...session,
+      refreshTokenHash: newRefreshTokenHash,
+      userAgent: reqInfo.userAgent || session.userAgent,
+      ip: reqInfo.ip || session.ip,
+    });
+
+    return newTokens;
+  }
+
+  async logout(sessionId: string) {
+    if (sessionId) {
+      await this.redisService.revokeSession(sessionId);
+    }
+    return { message: 'Successfully logged out.' };
+  }
+
+  async verifyOtp(adminUserId: string, code: string) {
+    const user = await this.usersService.findById(adminUserId);
+    if (!user) {
+      throw new DomainException(
+        'USER_NOT_FOUND',
+        'Admin user profile not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (user.emailVerified) {
+      return { message: 'Email address is already verified.', emailVerified: true };
+    }
+
+    if (!user.pendingOtpHash || !user.otpExpiresAt) {
+      throw new DomainException(
+        'OTP_NOT_REQUESTED',
+        'No active verification OTP found. Please request a new code.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (new Date() > new Date(user.otpExpiresAt)) {
+      throw new DomainException(
+        'OTP_EXPIRED',
+        'Verification code has expired. Please request a new code.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (user.otpAttemptCount >= 5) {
+      throw new DomainException(
+        'OTP_MAX_ATTEMPTS',
+        'Maximum verification attempts reached. Please request a new code.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const isValid = await bcrypt.compare(code, user.pendingOtpHash);
+    if (!isValid) {
+      await this.usersService.updateAdminUser(user._id.toString(), {
+        otpAttemptCount: user.otpAttemptCount + 1,
+      });
+      throw new DomainException(
+        'INVALID_OTP',
+        `Invalid verification code. ${4 - user.otpAttemptCount} attempts remaining.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      emailVerified: true,
+      pendingOtpHash: undefined,
+      otpExpiresAt: undefined,
+      otpAttemptCount: 0,
+    });
+
+    return {
+      message: 'Email address successfully verified.',
+      emailVerified: true,
+    };
+  }
+
+  async resendOtp(adminUserId: string) {
+    const user = await this.usersService.findById(adminUserId);
+    if (!user) {
+      throw new DomainException(
+        'USER_NOT_FOUND',
+        'Admin user profile not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (user.emailVerified) {
+      return { message: 'Email address is already verified.' };
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const pendingOtpHash = await bcrypt.hash(otpCode, 10);
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      pendingOtpHash,
+      otpExpiresAt,
+      otpAttemptCount: 0,
+    });
+
+    await this.mailService.sendVerificationEmail(user.email, {
+      recipientName: user.name,
+      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+      code: otpCode,
+      expireMinutes: 10,
+    });
+
+    return { message: 'New verification OTP sent to your email.' };
+  }
+
+  async getProfile(adminUserId: string) {
+    const user = await this.usersService.findById(adminUserId);
+    if (!user) {
+      throw new DomainException(
+        'USER_NOT_FOUND',
+        'User profile not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const business = await this.usersService.findBusinessById(
+      user.businessId.toString(),
+    );
+
+    return {
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+      },
+      business: business
+        ? {
+            id: business._id.toString(),
+            name: business.name,
+            domain: business.domain,
+            publishableKey: business.publishableKey,
+            status: business.status,
+          }
+        : null,
+    };
+  }
+
+  private async generateTokens(
+    adminUserId: string,
+    businessId: string,
+    email: string,
+    role: string,
+    sessionId: string,
+  ): Promise<AuthTokens> {
+    const payload = {
+      sub: adminUserId,
+      businessId,
+      email,
+      role,
+      sessionId,
+    };
+
+    const accessToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '15m',
+    });
+
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+
+    return { accessToken, refreshToken };
+  }
+}

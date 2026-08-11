@@ -1,0 +1,71 @@
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td>
+      <div style="display: inline-block; background-color: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.25); border-radius: 20px; padding: 4px 12px; margin-bottom: 12px;">
+        <span style="color: #DC2626; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">
+          Security Notification
+        </span>
+      </div>
+      <h1 style="margin: 0 0 12px 0; color: #15151F; font-size: 24px; font-weight: 800;">Security Alert: <%= eventName %></h1>
+      <p style="margin: 0 0 20px 0; color: #4A4A6A; font-size: 15px; line-height: 24px;">
+        Hi <strong><%= recipientName %></strong>,<br>
+        We detected a security-sensitive event associated with your ORA merchant account:
+      </p>
+    </td>
+  </tr>
+
+  <!-- Event Details Card -->
+  <tr>
+    <td style="background-color: #FFF5F5; border: 1px solid #FEE2E2; border-radius: 12px; padding: 18px 22px; margin-bottom: 24px;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td style="padding-bottom: 8px; color: #991B1B; font-size: 13px;">
+            <strong>Event:</strong> <%= eventName %>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom: 8px; color: #991B1B; font-size: 13px;">
+            <strong>Timestamp:</strong> <%= timestamp %>
+          </td>
+        </tr>
+        <% if (device) { %>
+        <tr>
+          <td style="padding-bottom: 8px; color: #991B1B; font-size: 13px;">
+            <strong>Device/Browser:</strong> <%= device %>
+          </td>
+        </tr>
+        <% } %>
+        <% if (location) { %>
+        <tr>
+          <td style="color: #991B1B; font-size: 13px;">
+            <strong>Location:</strong> <%= location %>
+          </td>
+        </tr>
+        <% } %>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Action Button -->
+  <tr>
+    <td align="center" style="padding: 10px 0 24px 0;">
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="border-radius: 10px; background-color: #DC2626; box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35);">
+            <a href="<%= secureAccountUrl %>" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #FFFFFF; text-decoration: none; border-radius: 10px; padding: 14px 32px; display: inline-block; font-weight: 700;">
+              Secure My Account &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding-top: 16px; border-top: 1px solid #F0F0F8;">
+      <p style="margin: 0; color: #8B8BB0; font-size: 13px;">
+        If this was you, no further action is required. If you did not authorize this action, please lock your account immediately.
+      </p>
+    </td>
+  </tr>
+</table>
