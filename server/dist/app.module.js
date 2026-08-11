@@ -17,6 +17,10 @@ const users_module_1 = require("./users/users.module");
 const products_module_1 = require("./products/products.module");
 const knowledge_module_1 = require("./knowledge/knowledge.module");
 const rag_module_1 = require("./rag/rag.module");
+const customers_module_1 = require("./customers/customers.module");
+const agent_config_module_1 = require("./agent-config/agent-config.module");
+const conversations_module_1 = require("./conversations/conversations.module");
+const gateway_module_1 = require("./gateway/gateway.module");
 const redis_module_1 = require("./common/redis/redis.module");
 const mail_module_1 = require("./mail/mail.module");
 let AppModule = class AppModule {
@@ -44,6 +48,10 @@ exports.AppModule = AppModule = __decorate([
             products_module_1.ProductsModule,
             knowledge_module_1.KnowledgeModule,
             rag_module_1.RagModule,
+            customers_module_1.CustomersModule,
+            agent_config_module_1.AgentConfigModule,
+            conversations_module_1.ConversationsModule,
+            gateway_module_1.GatewayModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

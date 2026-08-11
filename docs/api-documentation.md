@@ -21,7 +21,7 @@ interface SuccessEnvelope<T> {
 interface ErrorEnvelope {
   success: false;
   error: {
-    code: string;           // E.g., 'INVALID_CREDENTIALS', 'PRODUCT_NOT_FOUND', 'KNOWLEDGE_DOC_NOT_FOUND'
+    code: string;           // E.g., 'INVALID_CREDENTIALS', 'PRODUCT_NOT_FOUND', 'CUSTOMER_NOT_FOUND'
     message: string;        // Human-readable explanation
     correlationId: string; // Unique request tracing ID (e.g. 'req-a1b2c3d4')
   };
@@ -81,132 +81,78 @@ interface ErrorEnvelope {
 
 ---
 
-### 4.1 `POST /api/rag/search-products`
+## 5. Phase 4: Customer, Agent Config & Conversation Gateway
 
-Performs tenant-isolated semantic vector search on product catalog. Returns ranked products capped at top 5. Automatically triggers live keyword search fallback if vector confidence is low or zero matches are found.
+### Summary
 
-- **URL:** `/api/rag/search-products`
-- **Method:** `POST`
-- **Headers:** `Authorization: Bearer <accessToken>`
+| Endpoint / Gateway | Protocol | Auth Guard | Description |
+|---|---|---|---|
+| `/api/customers` | `POST` / `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Manage end-shopper profiles with AES-256 field-level PII encryption. |
+| `/api/customers/:id` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Fetch or update customer PII & preferences. |
+| `/api/agent-config` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve or update brand voice, voice IDs, and sales playbook settings. |
+| `/api/conversations` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | List merchant customer conversation sessions with pagination. |
+| `/api/conversations/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve transcript with full message history and tool calls. |
+| `/api/conversations/:id/close` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Mark conversation session closed. |
+| `ws://<host>/conversations` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Real-time chat & voice session gateway. |
 
-#### Request Payload Body (`SearchRagDto`)
+---
+
+### 5.1 WebSocket Gateway Protocol Reference
+
+#### Socket Connection Namespace
+- **URL:** `ws://localhost:4000/conversations` (or `wss://<domain>/conversations`)
+
+#### Socket Event 1: `init-session` (Client -> Server)
 ```json
 {
-  "query": "Wireless noise canceling headphones with long battery life",
-  "limit": 5,
-  "confidenceThreshold": 0.65
+  "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456",
+  "sessionId": "conv_sess_9021a8b7",
+  "channel": "widget_chat"
 }
 ```
 
-#### Response Example (200 OK — Vector Match)
+#### Socket Event 1 Response: `session-initialized` (Server -> Client)
 ```json
 {
   "success": true,
-  "data": {
-    "query": "Wireless noise canceling headphones with long battery life",
-    "fallbackTriggered": false,
-    "results": [
+  "sessionId": "conv_sess_9021a8b7",
+  "businessId": "66b8d2e1a4f890123456789f",
+  "status": "active"
+}
+```
+
+#### Socket Event 2: `send-message` (Client -> Server)
+```json
+{
+  "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456",
+  "sessionId": "conv_sess_9021a8b7",
+  "content": "Do you have noise canceling headphones under $300?"
+}
+```
+
+#### Socket Event 2 Response: `message-received` (Server -> Client)
+```json
+{
+  "sessionId": "conv_sess_9021a8b7",
+  "messageId": "66b901a2a4f89012345678b4",
+  "role": "assistant",
+  "content": "Thank you for reaching out! I recommend checking out Wireless Noise-Canceling Headphones ($299.99).",
+  "ragContext": {
+    "products": [
       {
         "entityId": "66b8e1f0a4f8901234567891",
         "entityType": "product",
-        "text": "Wireless Noise-Canceling Headphones Premium over-ear headphones...",
         "score": 0.92,
         "data": {
-          "_id": "66b8e1f0a4f8901234567891",
           "name": "Wireless Noise-Canceling Headphones",
           "price": 299.99,
-          "availability": "in_stock",
-          "stockQuantity": 45
-        }
-      }
-    ]
-  }
-}
-```
-
-#### Response Example (200 OK — Fallback Triggered)
-```json
-{
-  "success": true,
-  "data": {
-    "query": "Custom rare mechanical keyboard",
-    "fallbackTriggered": true,
-    "results": [
-      {
-        "entityId": "66b8e1f0a4f8901234567899",
-        "entityType": "product",
-        "text": "Custom Rare Mechanical Keyboard Hot-swappable RGB...",
-        "score": 0.7,
-        "data": {
-          "_id": "66b8e1f0a4f8901234567899",
-          "name": "Custom Rare Mechanical Keyboard",
-          "price": 180.00,
           "availability": "in_stock"
         }
       }
-    ]
-  }
-}
-```
-
----
-
-### 4.2 `POST /api/rag/search-knowledge`
-
-Performs semantic vector search on store policies, FAQs, and brand rules to fetch context snippets for RAG prompt augmentation.
-
-- **URL:** `/api/rag/search-knowledge`
-- **Method:** `POST`
-- **Headers:** `Authorization: Bearer <accessToken>`
-
-#### Request Payload Body (`SearchRagDto`)
-```json
-{
-  "query": "What is the return policy for international shipping?",
-  "limit": 3
-}
-```
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "data": {
-    "query": "What is the return policy for international shipping?",
-    "results": [
-      {
-        "entityId": "66b8f3a0a4f89012345678c9",
-        "entityType": "knowledge_chunk",
-        "text": "We offer a hassle-free 30-day money-back guarantee for all original unopened products. International express shipping takes 5-7 business days...",
-        "score": 0.88,
-        "metadata": {
-          "docTitle": "30-Day Return Policy & Shipping Rules",
-          "docType": "policy"
-        }
-      }
-    ]
-  }
-}
-```
-
----
-
-### 4.3 `POST /api/rag/reindex-tenant`
-
-Triggers a full re-indexing of all products and knowledge base documents for the tenant.
-
-- **URL:** `/api/rag/reindex-tenant`
-- **Method:** `POST`
-- **Headers:** `Authorization: Bearer <accessToken>`
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "data": {
-    "message": "Tenant bulk re-indexing completed successfully.",
-    "indexedProducts": 45,
-    "indexedChunks": 128
-  }
+    ],
+    "knowledge": [],
+    "fallbackTriggered": false
+  },
+  "timestamp": "2026-08-11T16:15:00.000Z"
 }
 ```

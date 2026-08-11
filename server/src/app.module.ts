@@ -8,6 +8,10 @@ import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { RagModule } from './rag/rag.module';
+import { CustomersModule } from './customers/customers.module';
+import { AgentConfigModule } from './agent-config/agent-config.module';
+import { ConversationsModule } from './conversations/conversations.module';
+import { GatewayModule } from './gateway/gateway.module';
 import { RedisModule } from './common/redis/redis.module';
 import { MailModule } from './mail/mail.module';
 
@@ -33,6 +37,10 @@ import { MailModule } from './mail/mail.module';
     ProductsModule,
     KnowledgeModule,
     RagModule,
+    CustomersModule,
+    AgentConfigModule,
+    ConversationsModule,
+    GatewayModule,
   ],
   controllers: [AppController],
   providers: [AppService],
