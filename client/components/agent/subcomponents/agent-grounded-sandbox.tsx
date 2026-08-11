@@ -20,12 +20,12 @@ export function AgentGroundedSandbox({ item }: AgentGroundedSandboxProps) {
     setIsSimulating(true);
     setTimeout(() => {
       setSimulatedAnswer(
-        `Based on the official ${item.title}, here is ORA's grounded answer: ${
+        `Based on your ${item.title}, ORA will answer: ${
           testQuery.toLowerCase().includes('delivery') || testQuery.toLowerCase().includes('dhaka')
             ? 'Inside Dhaka delivery takes 1-2 business days for ৳60 via Pathao/RedX. Outside Dhaka takes 3-5 days for ৳120.'
             : testQuery.toLowerCase().includes('return')
             ? 'Returns are allowed within 7 days hassle-free as long as the original product tags and packaging are intact.'
-            : `All details regarding ${item.title} are retrieved from the grounded vector index (ID: vector-${item.id}).`
+            : `ORA relies directly on your ${item.title} to answer customer questions accurately.`
         }`
       );
       setIsSimulating(false);
@@ -35,7 +35,7 @@ export function AgentGroundedSandbox({ item }: AgentGroundedSandboxProps) {
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-        <MessageSquare size={13} /> ORA Grounded Sandbox (Live Test)
+        <MessageSquare size={13} /> Test ORA AI Assistant (Live Preview)
       </h3>
 
       <div
@@ -85,7 +85,7 @@ export function AgentGroundedSandbox({ item }: AgentGroundedSandboxProps) {
                 color: 'var(--primary)',
               }}
             >
-              <BookOpen size={11} /> Grounded in: {item.groundingSimulation.sourceTag}
+              <BookOpen size={11} /> Source Policy: {item.groundingSimulation.sourceTag}
             </div>
           </div>
         </div>
@@ -111,7 +111,7 @@ export function AgentGroundedSandbox({ item }: AgentGroundedSandboxProps) {
             >
               <p>{simulatedAnswer}</p>
               <span className="text-[10px] text-[var(--secondary)] font-bold flex items-center gap-1">
-                <Sparkles size={11} /> Live RAG Citation Match
+                <Sparkles size={11} /> Verified Store Response
               </span>
             </div>
           </div>
