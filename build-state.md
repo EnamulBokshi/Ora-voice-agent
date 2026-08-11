@@ -81,13 +81,33 @@ Implementation of end-shopper customer profile management (`Customer` with AES-2
 | **Conversations Service & Controller** | `server/src/conversations/conversations.service.ts`, `server/src/conversations/conversations.controller.ts` | Completed | Session resolution, message appending, transcript querying, Redis session state (`session:conv:{sessionId}`), and closing conversations. |
 | **WebSocket Gateway** | `server/src/gateway/conversation.gateway.ts` | Completed | Socket.io gateway supporting `biz_live_xxxx` publishable key auth, `init-session`, `send-message` with RAG semantic lookup, and streaming response events. |
 
+---
+
+## 🟢 Phase 5: Payment Billing & Invoicing Engine (COMPLETED)
+
+### Overview
+Implementation of the provider-abstracted subscription billing engine, Stripe USD payment processing, plan tier seeding (`Free`, `Growth`, `Scale`), append-only financial audit trails (`PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`), sequential human-readable invoice numbering (`ORA-2026-000123`) backed by atomic Mongoose counters (`$inc`), and usage limit enforcement (`PlanLimitGuard` & `@Metered(...)`).
+
+### Implemented Components
+
+| Component / Layer | Location | Status | Details |
+|---|---|---|---|
+| **Payment Provider Abstraction** | `server/src/billing/providers/payment-provider.interface.ts` | Completed | Provider contract for creating/canceling subscriptions, charging renewals, and verifying webhook signatures. |
+| **Stripe Provider** | `server/src/billing/providers/stripe.provider.ts` | Completed | Stripe provider implementation for USD auto-renewing subscriptions and webhook handling. |
+| **bKash Provider Stub** | `server/src/billing/providers/bkash.provider.ts` | Completed | bKash stub provider (temporarily bypassed per user instructions). |
+| **Plan & Subscription Schemas** | `server/src/billing/schemas/plan.schema.ts`, `server/src/billing/schemas/subscription.schema.ts` | Completed | Mongoose schemas for subscription plans and merchant subscriptions. |
+| **PaymentTransaction Schema** | `server/src/billing/schemas/payment-transaction.schema.ts` | Completed | Append-only transaction audit log. |
+| **Invoice & DeliveryLog Schemas** | `server/src/invoices/schemas/invoice.schema.ts`, `server/src/invoices/schemas/invoice-delivery-log.schema.ts`, `server/src/invoices/schemas/invoice-counter.schema.ts` | Completed | Append-only invoice schema, sequential `ORA-2026-000123` counter, and delivery attempt logs. |
+| **PlanLimitGuard & Decorator** | `server/src/common/guards/plan-limit.guard.ts`, `server/src/common/decorators/metered.decorator.ts` | Completed | Metered decorator and guard checking Redis usage counters (`usage:{businessId}:{period}:{metric}`). Throws `PLAN_LIMIT_EXCEEDED` on breach. |
+| **Billing Service & Controller** | `server/src/billing/billing.service.ts`, `server/src/billing/billing.controller.ts` | Completed | Endpoints: `/api/billing/plans` (GET), `/api/billing/subscription` (GET), `/api/billing/subscribe` (POST), `/api/billing/cancel` (POST), `/api/billing/webhooks/stripe` (POST). |
+| **Invoices Service & Controller** | `server/src/invoices/invoices.service.ts`, `server/src/invoices/invoices.controller.ts` | Completed | Endpoints: `/api/invoices` (GET), `/api/invoices/:id` (GET), `/api/invoices/:id/resend` (POST). |
+
 ### Unit Testing & Compilation Verification
 - **Build Status**: Passed (`nest build`)
-- **Unit Test Suites**: 11 passed (17 tests) (`auth.service.spec.ts`, `auth.controller.spec.ts`, `users.service.spec.ts`, `users.controller.spec.ts`, `products.service.spec.ts`, `knowledge.service.spec.ts`, `embedding.service.spec.ts`, `rag.service.spec.ts`, `encryption.util.spec.ts`, `customers.service.spec.ts`, `app.controller.spec.ts`).
+- **Unit Test Suites**: 13 passed (19 tests) (`auth.service.spec.ts`, `auth.controller.spec.ts`, `users.service.spec.ts`, `users.controller.spec.ts`, `products.service.spec.ts`, `knowledge.service.spec.ts`, `embedding.service.spec.ts`, `rag.service.spec.ts`, `encryption.util.spec.ts`, `customers.service.spec.ts`, `billing.service.spec.ts`, `invoices.service.spec.ts`, `app.controller.spec.ts`).
 
 ---
 
 ## 🟡 Next Planned Phases
 
-- [ ] **Phase 5: Dual Payment Billing & Invoicing Engine** (`server/src/billing`, `server/src/invoices`)
 - [ ] **Phase 6: Admin Dashboard UI Integration** (`client/`)

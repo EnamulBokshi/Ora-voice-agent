@@ -21,7 +21,7 @@ interface SuccessEnvelope<T> {
 interface ErrorEnvelope {
   success: false;
   error: {
-    code: string;           // E.g., 'INVALID_CREDENTIALS', 'PRODUCT_NOT_FOUND', 'CUSTOMER_NOT_FOUND'
+    code: string;           // E.g., 'INVALID_CREDENTIALS', 'PRODUCT_NOT_FOUND', 'PLAN_LIMIT_EXCEEDED'
     message: string;        // Human-readable explanation
     correlationId: string; // Unique request tracing ID (e.g. 'req-a1b2c3d4')
   };
@@ -81,7 +81,7 @@ interface ErrorEnvelope {
 
 ---
 
-## 5. Phase 4: Customer, Agent Config & Conversation Gateway
+## 5. Phase 4: Customer, Agent Config & Conversation Gateway (`/api/customers`, `/api/agent-config`, `/api/conversations`)
 
 ### Summary
 
@@ -97,62 +97,59 @@ interface ErrorEnvelope {
 
 ---
 
-### 5.1 WebSocket Gateway Protocol Reference
+## 6. Phase 5: Payment Billing & Invoicing Engine (`/api/billing`, `/api/invoices`)
 
-#### Socket Connection Namespace
-- **URL:** `ws://localhost:4000/conversations` (or `wss://<domain>/conversations`)
+### Summary
 
-#### Socket Event 1: `init-session` (Client -> Server)
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/billing/plans` | `GET` | Public | All Roles | List available pricing plans (`Free`, `Growth`, `Scale`). |
+| `/api/billing/subscription` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch active business subscription and current Redis usage counters. |
+| `/api/billing/subscribe` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Subscribe or upgrade business plan tier via Stripe. |
+| `/api/billing/cancel` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner | Cancel active business subscription at period end. |
+| `/api/billing/webhooks/stripe` | `POST` | Public (Stripe Signature) | N/A | Public webhook handler for Stripe events. |
+| `/api/invoices` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List merchant invoices with pagination. |
+| `/api/invoices/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single invoice details by ID. |
+| `/api/invoices/:id/resend` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Manually resend invoice PDF email and audit log delivery attempt. |
+
+---
+
+### 6.1 Subscribe Payload Example (`POST /api/billing/subscribe`)
+
 ```json
 {
-  "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456",
-  "sessionId": "conv_sess_9021a8b7",
-  "channel": "widget_chat"
+  "planId": "growth",
+  "billingProvider": "stripe"
 }
 ```
 
-#### Socket Event 1 Response: `session-initialized` (Server -> Client)
+### 6.2 Subscribe Response Example
 ```json
 {
   "success": true,
-  "sessionId": "conv_sess_9021a8b7",
-  "businessId": "66b8d2e1a4f890123456789f",
-  "status": "active"
-}
-```
-
-#### Socket Event 2: `send-message` (Client -> Server)
-```json
-{
-  "publishableKey": "biz_live_8f3a91bc7d0e4129b0123456",
-  "sessionId": "conv_sess_9021a8b7",
-  "content": "Do you have noise canceling headphones under $300?"
-}
-```
-
-#### Socket Event 2 Response: `message-received` (Server -> Client)
-```json
-{
-  "sessionId": "conv_sess_9021a8b7",
-  "messageId": "66b901a2a4f89012345678b4",
-  "role": "assistant",
-  "content": "Thank you for reaching out! I recommend checking out Wireless Noise-Canceling Headphones ($299.99).",
-  "ragContext": {
-    "products": [
-      {
-        "entityId": "66b8e1f0a4f8901234567891",
-        "entityType": "product",
-        "score": 0.92,
-        "data": {
-          "name": "Wireless Noise-Canceling Headphones",
-          "price": 299.99,
-          "availability": "in_stock"
-        }
-      }
-    ],
-    "knowledge": [],
-    "fallbackTriggered": false
-  },
-  "timestamp": "2026-08-11T16:15:00.000Z"
+  "data": {
+    "subscription": {
+      "_id": "66b91f0a4f890123456789a1",
+      "businessId": "66b8d2e1a4f890123456789f",
+      "planId": "growth",
+      "billingProvider": "stripe",
+      "status": "active",
+      "currentPeriodStart": "2026-08-11T10:50:00.000Z",
+      "currentPeriodEnd": "2026-09-10T10:50:00.000Z",
+      "cancelAtPeriodEnd": false
+    },
+    "transaction": {
+      "_id": "66b91f0a4f890123456789a2",
+      "amount": 49,
+      "currency": "USD",
+      "status": "succeeded"
+    },
+    "invoice": {
+      "invoiceNumber": "ORA-2026-000101",
+      "pdfUrl": "https://cdn.ora.ai/invoices/ORA-2026-000101.pdf",
+      "amountUsdCents": 4900,
+      "status": "generated"
+    }
+  }
 }
 ```
