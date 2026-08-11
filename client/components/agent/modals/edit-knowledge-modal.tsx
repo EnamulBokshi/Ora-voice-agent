@@ -1,69 +1,77 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Edit3 } from 'lucide-react';
-import { KnowledgeCategory, KnowledgeItem } from '../agent-types';
+import { Edit3, X, Loader2 } from 'lucide-react';
+import { updateKnowledgeDocApi } from '@/services/knowledge-service';
+import { DocType } from '@/types/knowledge';
+import { KnowledgeItem, mapKnowledgeDocToItem } from '../agent-types';
 
 interface EditKnowledgeModalProps {
   isOpen: boolean;
   item: KnowledgeItem | null;
   onClose: () => void;
-  onSave: (updatedItem: KnowledgeItem) => void;
+  onSaved: (updatedItem: KnowledgeItem) => void;
 }
 
-const CATEGORIES: KnowledgeCategory[] = [
-  'Store Policies',
-  'Shipping & Delivery',
-  'Returns & Refunds',
-  'Payment',
-  'Warranty',
-  'FAQs',
-  'Documents',
-];
-
-export function EditKnowledgeModal({ isOpen, item, onClose, onSave }: EditKnowledgeModalProps) {
+export function EditKnowledgeModal({
+  isOpen,
+  item,
+  onClose,
+  onSaved,
+}: EditKnowledgeModalProps) {
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<KnowledgeCategory>('Store Policies');
-  const [heading, setHeading] = useState('');
-  const [description, setDescription] = useState('');
+  const [docType, setDocType] = useState<DocType>(DocType.POLICY);
+  const [content, setContent] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (item) {
       setTitle(item.title);
-      setCategory(item.category);
-      setHeading(item.previewContent.heading);
-      setDescription(item.previewContent.description);
+      setDocType(item.docType);
+      setContent(item.content);
+      setSourceUrl(item.sourceUrl || '');
     }
   }, [item]);
 
   if (!isOpen || !item) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !heading.trim()) return;
+    if (!title.trim() || !content.trim()) {
+      setError('Document title and content are required.');
+      return;
+    }
 
-    const updatedItem: KnowledgeItem = {
-      ...item,
-      title,
-      category,
-      lastEdited: 'Just now by Admin',
-      previewContent: {
-        ...item.previewContent,
-        heading,
-        description: description || item.previewContent.description,
-      },
-    };
+    try {
+      setLoading(true);
+      setError(null);
 
-    onSave(updatedItem);
-    onClose();
+      const result = await updateKnowledgeDocApi(item.id, {
+        title: title.trim(),
+        docType,
+        content: content.trim(),
+        sourceUrl: sourceUrl.trim() || undefined,
+      });
+
+      onSaved(mapKnowledgeDocToItem(result.document, item.chunks));
+      onClose();
+    } catch (err: any) {
+      console.error('Failed to update knowledge doc:', err);
+      setError(err.message || 'Failed to update store knowledge document.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg rounded-2xl border p-6 flex flex-col gap-5 shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg rounded-3xl border p-6 shadow-2xl overflow-hidden flex flex-col gap-5"
         style={{
-          background: 'var(--surface-container)',
+          background: 'var(--surface-container-high)',
           borderColor: 'var(--glass-border)',
         }}
       >
@@ -77,8 +85,10 @@ export function EditKnowledgeModal({ isOpen, item, onClose, onSave }: EditKnowle
               <Edit3 size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-base text-foreground">Edit Knowledge Item</h3>
-              <p className="text-xs text-muted-foreground">Update policy content and grounding rules</p>
+              <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                Edit Knowledge Item
+              </h3>
+              <p className="text-xs text-muted-foreground">Updating content re-syncs the document for AI search automatically.</p>
             </div>
           </div>
           <button
@@ -89,10 +99,16 @@ export function EditKnowledgeModal({ isOpen, item, onClose, onSave }: EditKnowle
           </button>
         </div>
 
-        {/* Modal Body / Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error && (
+          <div className="p-3 rounded-xl border text-xs bg-red-500/10 border-red-500/20 text-red-400">
+            {error}
+          </div>
+        )}
+
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Title / Subject *</label>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Document Title / Subject *</label>
             <input
               type="text"
               required
@@ -104,40 +120,41 @@ export function EditKnowledgeModal({ isOpen, item, onClose, onSave }: EditKnowle
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Category *</label>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Document Type *</label>
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as KnowledgeCategory)}
+              value={docType}
+              onChange={(e) => setDocType(e.target.value as DocType)}
               className="w-full bg-[var(--surface-high)] border rounded-xl py-2 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
               style={{ borderColor: 'var(--glass-border)' }}
             >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              <option value={DocType.POLICY}>Store Policy</option>
+              <option value={DocType.FAQ}>FAQ</option>
+              <option value={DocType.BRAND_RULE}>Brand Rule / Guideline</option>
+              <option value={DocType.SALES_PLAYBOOK}>Sales Playbook</option>
+              <option value={DocType.PRODUCT_MANUAL}>Product Manual</option>
+              <option value={DocType.UPLOADED_DOC}>Uploaded Document</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Main Heading *</label>
-            <input
-              type="text"
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Content / Text *</label>
+            <textarea
+              rows={6}
               required
-              value={heading}
-              onChange={(e) => setHeading(e.target.value)}
-              className="w-full bg-[var(--surface-high)] border rounded-xl py-2 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full bg-[var(--surface-high)] border rounded-xl py-2.5 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors resize-none leading-relaxed"
               style={{ borderColor: 'var(--glass-border)' }}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Description / Overview</label>
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-[var(--surface-high)] border rounded-xl py-2 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors resize-none"
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Reference Source URL</label>
+            <input
+              type="url"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              className="w-full bg-[var(--surface-high)] border rounded-xl py-2 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
               style={{ borderColor: 'var(--glass-border)' }}
             />
           </div>
@@ -153,13 +170,22 @@ export function EditKnowledgeModal({ isOpen, item, onClose, onSave }: EditKnowle
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-md hover:opacity-90 transition-all flex items-center gap-1.5"
+              disabled={loading}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-md hover:opacity-90 transition-all flex items-center gap-1.5 disabled:opacity-50"
               style={{
                 background: 'var(--logo-gradient)',
                 boxShadow: 'var(--logo-glow)',
               }}
             >
-              <Edit3 size={14} /> Save Changes
+              {loading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Syncing & Saving...
+                </>
+              ) : (
+                <>
+                  <Edit3 size={14} /> Update Document
+                </>
+              )}
             </button>
           </div>
         </form>

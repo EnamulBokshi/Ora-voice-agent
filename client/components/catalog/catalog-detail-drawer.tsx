@@ -1,22 +1,45 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { useState } from 'react';
+import { X, Zap, Edit3, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { ProductItem } from './catalog-types';
 import { CatalogPerformanceCard } from './subcomponents/catalog-performance-card';
 import { CatalogLiveVerificationCard } from './subcomponents/catalog-live-verification-card';
 import { CatalogAgentActivityTimeline } from './subcomponents/catalog-agent-activity-timeline';
 
 interface CatalogDetailDrawerProps {
-  product: ProductItem;
+  product: ProductItem | null;
   onClose: () => void;
+  onEdit: (product: ProductItem) => void;
+  onDelete: (id: string) => void;
+  onVerifyLive: (id: string) => Promise<void>;
 }
 
-export function CatalogDetailDrawer({ product, onClose }: CatalogDetailDrawerProps) {
-  const prod = product;
+export function CatalogDetailDrawer({
+  product,
+  onClose,
+  onEdit,
+  onDelete,
+  onVerifyLive,
+}: CatalogDetailDrawerProps) {
+  const [verifying, setVerifying] = useState(false);
+
+  if (!product) {
+    return null;
+  }
+
+  const handleVerify = async () => {
+    try {
+      setVerifying(true);
+      await onVerifyLive(product.id);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   return (
     <aside
-      className="w-[360px] shrink-0 rounded-2xl border flex flex-col h-full overflow-hidden backdrop-blur-xl hidden xl:flex"
+      className="w-[360px] shrink-0 rounded-2xl border flex flex-col h-full overflow-hidden backdrop-blur-xl hidden xl:flex shadow-2xl"
       style={{
         background: 'var(--surface-container)',
         borderColor: 'var(--glass-border)',
@@ -28,21 +51,42 @@ export function CatalogDetailDrawer({ product, onClose }: CatalogDetailDrawerPro
         style={{ borderColor: 'var(--glass-border)' }}
       >
         <div>
-          <h3 className="font-bold text-base text-foreground leading-tight">{prod.name}</h3>
+          <h3 className="font-bold text-base text-foreground leading-tight">{product.name}</h3>
           <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-            <span>{prod.category}</span>
+            <span>{product.category}</span>
             <span>•</span>
-            <span className="text-[11px] font-medium" style={{ color: 'var(--ora-success)' }}>
-              Active
+            <span
+              className="text-[11px] font-medium"
+              style={{
+                color: product.rawDoc?.isActive ? 'var(--ora-success)' : 'var(--ora-warning)',
+              }}
+            >
+              {product.rawDoc?.isActive ? 'Active' : 'Inactive'}
             </span>
           </p>
         </div>
-        <button
-          onClick={onClose}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-full hover:bg-[var(--surface-high)]"
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onEdit(product)}
+            title="Edit Product"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-full hover:bg-[var(--surface-high)]"
+          >
+            <Edit3 size={15} />
+          </button>
+          <button
+            onClick={() => onDelete(product.id)}
+            title="Delete Product"
+            className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-full hover:bg-[var(--surface-high)]"
+          >
+            <Trash2 size={15} />
+          </button>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-full hover:bg-[var(--surface-high)]"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable Content */}
@@ -50,45 +94,75 @@ export function CatalogDetailDrawer({ product, onClose }: CatalogDetailDrawerPro
         {/* Product Overview Card */}
         <div className="flex gap-3.5 items-center">
           <img
-            src={prod.image}
-            alt={prod.name}
-            className="w-20 h-20 rounded-xl object-cover border shrink-0"
+            src={product.image}
+            alt={product.name}
+            className="w-20 h-20 rounded-xl object-cover border shrink-0 bg-background"
             style={{ borderColor: 'var(--glass-border)' }}
           />
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-baseline mb-1">
               <span className="text-lg font-bold font-mono" style={{ color: 'var(--primary)' }}>
-                {prod.price}
+                {product.price}
               </span>
               <span
-                className="px-2 py-0.5 rounded text-[10px] font-semibold border"
+                className="px-2 py-0.5 rounded text-[10px] font-semibold border uppercase"
                 style={{
                   background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
                   borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)',
                   color: 'var(--primary)',
                 }}
               >
-                {prod.brand}
+                {product.brand}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground font-mono">SKU: {prod.sku}</p>
+            <p className="text-xs text-muted-foreground font-mono">SKU: {product.sku}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Tier: {product.source}</p>
           </div>
         </div>
+
+        {product.description && (
+          <div className="p-3 rounded-xl border text-xs text-muted-foreground leading-relaxed" style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}>
+            <span className="font-semibold text-foreground block mb-1">Description</span>
+            {product.description}
+          </div>
+        )}
+
+        {/* Live Verification Trigger Button */}
+        <button
+          onClick={handleVerify}
+          disabled={verifying}
+          className="w-full py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-2 transition-all hover:bg-[var(--surface-high)]"
+          style={{
+            background: 'color-mix(in srgb, var(--primary) 10%, transparent)',
+            borderColor: 'var(--primary)',
+            color: 'var(--primary)',
+          }}
+        >
+          {verifying ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Verifying Price & Stock...
+            </>
+          ) : (
+            <>
+              <Zap size={14} /> Run Live Verification Update
+            </>
+          )}
+        </button>
 
         <div className="h-px w-full" style={{ background: 'var(--glass-border)' }} />
 
         {/* ORA Performance Metrics */}
-        <CatalogPerformanceCard performance={prod.performance} />
+        <CatalogPerformanceCard performance={product.performance} />
 
         {/* Live Verification & Embeddings */}
         <CatalogLiveVerificationCard
-          price={prod.price}
-          inventoryCount={prod.inventoryCount}
-          embeddings={prod.embeddings}
+          price={product.price}
+          inventoryCount={product.inventoryCount}
+          embeddings={product.embeddings}
         />
 
         {/* Recent Agent Activity */}
-        <CatalogAgentActivityTimeline activity={prod.recentActivity} />
+        <CatalogAgentActivityTimeline activity={product.recentActivity} />
       </div>
     </aside>
   );

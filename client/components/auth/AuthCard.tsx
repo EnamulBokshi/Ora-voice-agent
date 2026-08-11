@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { AuthHeader } from './AuthHeader';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
@@ -9,7 +9,9 @@ import { OtpVerificationForm } from './OtpVerificationForm';
 import { AuthResponseData } from '@/types/auth';
 
 export const AuthCard: React.FC = () => {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get('from') || '/sales';
+
   const [mode, setMode] = useState<'login' | 'register' | 'otp'>('register');
   const [sessionToken, setSessionToken] = useState<string | undefined>(undefined);
   const [registeredEmail, setRegisteredEmail] = useState<string | undefined>(undefined);
@@ -24,7 +26,7 @@ export const AuthCard: React.FC = () => {
     if (!data.user.emailVerified) {
       setMode('otp');
     } else {
-      window.location.href = '/sales';
+      window.location.href = redirectTarget;
     }
   };
 
@@ -32,13 +34,12 @@ export const AuthCard: React.FC = () => {
     if (typeof window !== 'undefined' && data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
     }
-    window.location.href = '/sales';
+    window.location.href = redirectTarget;
   };
 
   const handleOtpVerifiedSuccess = () => {
-    window.location.href = '/sales';
+    window.location.href = redirectTarget;
   };
-
 
   return (
     <div className="flex flex-col justify-center w-full min-h-full p-6 sm:p-8 lg:p-10 bg-[#12121A] text-white max-w-xl mx-auto">
@@ -71,5 +72,4 @@ export const AuthCard: React.FC = () => {
       </div>
     </div>
   );
-
 };

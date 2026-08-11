@@ -18,6 +18,7 @@ export class ApiClientError extends Error {
 export async function apiClient<T>(
   endpoint: string,
   options: RequestInit = {},
+  isRetry = false,
 ): Promise<T> {
   const url = endpoint.startsWith('http')
     ? endpoint
@@ -27,6 +28,14 @@ export async function apiClient<T>(
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+
+  // Automatically attach Bearer access token from localStorage if available and not set
+  if (typeof window !== 'undefined' && !headers['Authorization']) {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
 
   const config: RequestInit = {
     ...options,
@@ -51,11 +60,63 @@ export async function apiClient<T>(
       );
     }
 
+    const isUnauthorized =
+      res.status === 401 ||
+      (json.success === false && json.error?.code === 'Unauthorized');
+
+    // Auto-refresh access token if 401 Unauthorized occurs and token rotation is possible
+    if (
+      isUnauthorized &&
+      !isRetry &&
+      !endpoint.includes('/auth/refresh') &&
+      !endpoint.includes('/auth/login')
+    ) {
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+
+        const refreshJson = await refreshRes.json();
+        const newToken =
+          refreshJson.data?.accessToken || refreshJson.accessToken;
+
+        if (refreshRes.ok && newToken) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('accessToken', newToken);
+          }
+          headers['Authorization'] = `Bearer ${newToken}`;
+          return apiClient<T>(endpoint, { ...options, headers }, true);
+        }
+      } catch (refreshErr) {
+        console.error('Failed to auto-refresh session token:', refreshErr);
+      }
+
+      // If token refresh fails, clear stale token and redirect to login if in browser
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        if (!window.location.pathname.startsWith('/auth')) {
+          const currentPath = window.location.pathname;
+          window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
+        }
+      }
+    }
+
     if (!res.ok || json.success === false) {
       const err: ApiError = json.error || {
         code: 'UNKNOWN_ERROR',
         message: 'An unexpected error occurred.',
       };
+
+      // If persistent 401 occurs, clear stale token and handle redirect
+      if (isUnauthorized && typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        if (!window.location.pathname.startsWith('/auth')) {
+          const currentPath = window.location.pathname;
+          window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
+        }
+      }
 
       throw new ApiClientError(
         err.code || 'HTTP_ERROR',
