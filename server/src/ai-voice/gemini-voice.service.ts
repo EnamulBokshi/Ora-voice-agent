@@ -63,15 +63,19 @@ export class GeminiVoiceService {
         `[GeminiVoiceService] WebSocket connected to Gemini 2.0 Live API for session ${options.sessionId}`,
       );
 
-      const geminiModel =
-        this.configService.get<string>('GEMINI_MODEL') ||
-        process.env.GEMINI_MODEL ||
-        'models/gemini-2.5-flash';
+      let geminiModel =
+        this.configService.get<string>('GEMINI_LIVE_MODEL') ||
+        process.env.GEMINI_LIVE_MODEL ||
+        'models/gemini-2.0-flash-exp';
+
+      // Clean prefix if user included models/
+      const cleanModel = geminiModel.replace(/^models\//, '');
+      const setupModel = `models/${cleanModel}`;
 
       // Send Setup Handshake Payload
       const setupPayload = {
         setup: {
-          model: geminiModel,
+          model: setupModel,
           generationConfig: {
             responseModalities: ['AUDIO', 'TEXT'],
             speechConfig: {
@@ -159,10 +163,14 @@ export class GeminiVoiceService {
       if (options.onError) options.onError(err);
     });
 
-    ws.on('close', () => {
-      this.logger.log(
-        `[GeminiVoiceService] WebSocket closed for session ${options.sessionId}`,
+    ws.on('close', (code, reason) => {
+      const reasonStr = reason ? reason.toString('utf8') : '';
+      this.logger.warn(
+        `[GeminiVoiceService] WebSocket closed for session ${options.sessionId} (code: ${code}, reason: ${reasonStr || 'No reason provided'})`,
       );
+      if (options.onError && reasonStr) {
+        options.onError(new Error(`Gemini WebSocket closed: ${reasonStr} (code: ${code})`));
+      }
       if (options.onClose) options.onClose();
     });
 
