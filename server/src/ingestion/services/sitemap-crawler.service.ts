@@ -28,7 +28,7 @@ export class SitemapCrawlerService {
           category: dto.category || 'General',
           attributes: dto.attributes || {},
           sourceTier: SourceTier.TIER3_PASSIVE,
-          confidenceScore: 0.5,
+          confidenceScore: 0.3,
         },
       ],
     });

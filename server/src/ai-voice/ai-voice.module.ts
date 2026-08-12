@@ -8,6 +8,7 @@ import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { RedisModule } from '../common/redis/redis.module';
 import { EventsModule } from '../events/events.module';
 import { AgentConfigModule } from '../agent-config/agent-config.module';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AgentConfigModule } from '../agent-config/agent-config.module';
     RedisModule,
     EventsModule,
     AgentConfigModule,
+    OrdersModule,
   ],
   providers: [GeminiVoiceService, AiToolsExecutor],
   exports: [GeminiVoiceService, AiToolsExecutor],

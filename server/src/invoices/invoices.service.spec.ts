@@ -4,6 +4,7 @@ import { InvoicesService } from './invoices.service';
 import { Invoice } from './schemas/invoice.schema';
 import { InvoiceCounter } from './schemas/invoice-counter.schema';
 import { InvoiceDeliveryLog } from './schemas/invoice-delivery-log.schema';
+import { PdfGeneratorService } from './services/pdf-generator.service';
 
 describe('InvoicesService', () => {
   let service: InvoicesService;
@@ -12,6 +13,7 @@ describe('InvoicesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InvoicesService,
+        PdfGeneratorService,
         {
           provide: getModelToken(Invoice.name),
           useValue: {

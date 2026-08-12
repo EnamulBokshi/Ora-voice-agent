@@ -50,6 +50,29 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles('owner' as any, 'admin' as any)
+  @Post('bkash/execute-agreement')
+  @HttpCode(HttpStatus.OK)
+  async executeBkashAgreement(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() body: { paymentID: string; planId?: string },
+  ) {
+    return this.billingService.executeBkashAgreement(
+      user.businessId,
+      body.paymentID,
+      body.planId,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles('owner' as any, 'admin' as any)
+  @Post('process-renewals')
+  @HttpCode(HttpStatus.OK)
+  async processRenewals() {
+    return this.billingService.processBkashRenewals();
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
   @Roles('owner' as any)
   @Post('cancel')
   @HttpCode(HttpStatus.OK)

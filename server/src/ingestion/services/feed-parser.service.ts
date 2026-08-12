@@ -51,7 +51,7 @@ export class FeedParserService {
             : ProductAvailability.OUT_OF_STOCK,
         category: item.category,
         sourceTier: SourceTier.TIER2_FEED,
-        confidenceScore: 0.8,
+        confidenceScore: 0.7,
       };
     });
 

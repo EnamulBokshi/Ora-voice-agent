@@ -103,24 +103,26 @@ Implementation of end-shopper customer profiles (`Customer` with AES-256 field-l
 ## 🟢 Phase 6: Payment Billing & Invoicing Engine (COMPLETED)
 
 ### Overview
-Implementation of the provider-abstracted subscription billing engine, Stripe USD payment processing, plan tier seeding (`Free`, `Growth`, `Scale`), append-only financial audit trails (`PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`), sequential human-readable invoice numbering (`ORA-2026-000123`) backed by atomic Mongoose counters (`$inc`), and usage limit enforcement (`PlanLimitGuard` & `@Metered(...)`).
+Implementation of the provider-abstracted subscription billing engine supporting dual payment providers (**Stripe USD** & **bKash BDT Tokenized Checkout**), active bKash tokenized agreement renewal processing, plan tier seeding (`Free`, `Growth`, `Scale`), append-only financial audit trails (`PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`), sequential human-readable invoice numbering (`ORA-2026-000123`) backed by atomic Mongoose counters (`$inc`), PDF rendering engine (`PdfGeneratorService`), and usage limit enforcement (`PlanLimitGuard` & `@Metered(...)`).
 
 ### Implemented Components
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
-| **Payment Provider Contract & Stripe** | `server/src/billing/providers/stripe.provider.ts` | Completed | Provider implementation for USD auto-renewing subscriptions and webhook listeners. |
+| **Stripe Payment Provider** | `server/src/billing/providers/stripe.provider.ts` | Completed | Provider implementation for USD auto-renewing subscriptions and webhook listeners. |
+| **bKash Tokenized Provider** | `server/src/billing/providers/bkash.provider.ts` | Completed | bKash Tokenized Checkout API v1.2.0-beta integration (grant token, create/execute agreement, tokenized payment execution, cancel agreement, renewal charge). |
+| **bKash Renewal Scheduler** | `server/src/billing/billing.service.ts` | Completed | Active renewal runner (`processBkashRenewals()`) charging tokenized agreements at period end and updating status (`ACTIVE`/`PAST_DUE`). |
 | **Plan & Subscription Schemas** | `server/src/billing/schemas/plan.schema.ts`, `server/src/billing/schemas/subscription.schema.ts` | Completed | Mongoose schemas for subscription plans and merchant subscriptions. |
-| **Invoice Engine** | `server/src/invoices/invoices.service.ts`, `server/src/invoices/invoices.controller.ts` | Completed | Invoice generation, sequential `ORA-2026-000123` counter, PDF email delivery, and resending endpoints (`/api/v1/invoices`, `/api/v1/invoices/:id`, `/api/v1/invoices/:id/resend`). |
+| **Invoice Engine & PDF Generator** | `server/src/invoices/invoices.service.ts`, `server/src/invoices/services/pdf-generator.service.ts`, `server/src/invoices/invoices.controller.ts` | Completed | Invoice generation, sequential `ORA-2026-000123` counter, server-side HTML/PDF renderer (`PdfGeneratorService`), PDF endpoint (`/api/v1/invoices/:id/pdf`), and resending (`/api/v1/invoices/:id/resend`). |
 | **PlanLimitGuard & Decorator** | `server/src/common/guards/plan-limit.guard.ts`, `server/src/common/decorators/metered.decorator.ts` | Completed | Metered decorator and guard checking Redis usage counters (`usage:{businessId}:{period}:{metric}`). Throws `PLAN_LIMIT_EXCEEDED` on breach. |
-| **Billing Service & Controller** | `server/src/billing/billing.service.ts`, `server/src/billing/billing.controller.ts` | Completed | Endpoints: `/api/v1/billing/plans` (GET), `/api/v1/billing/subscription` (GET), `/api/v1/billing/subscribe` (POST), `/api/v1/billing/cancel` (POST), `/api/v1/billing/webhooks/stripe` (POST). |
+| **Billing Service & Controller** | `server/src/billing/billing.service.ts`, `server/src/billing/billing.controller.ts` | Completed | Endpoints: `/api/v1/billing/plans` (GET), `/api/v1/billing/subscription` (GET), `/api/v1/billing/subscribe` (POST), `/api/v1/billing/bkash/execute-agreement` (POST), `/api/v1/billing/process-renewals` (POST), `/api/v1/billing/cancel` (POST), `/api/v1/billing/webhooks/stripe` (POST). |
 
 ---
 
 ### Verification Summary
 - **Build Status**: Passed (`pnpm --filter server build`)
-- **Unit Test Suites**: **16 passed (22 tests total)**:
-  - `auth.service.spec.ts`, `auth.controller.spec.ts`
+- **Unit & Integration Test Suites**: **18 passed (24 tests total)**:
+  - `auth.service.spec.ts`, `auth.controller.spec.ts`, `security-integration.spec.ts`
   - `users.service.spec.ts`, `users.controller.spec.ts`
   - `products.service.spec.ts`
   - `feed-parser.service.spec.ts`
@@ -130,5 +132,5 @@ Implementation of the provider-abstracted subscription billing engine, Stripe US
   - `customers.service.spec.ts`
   - `orders.service.spec.ts`
   - `ai-tools.executor.spec.ts`
-  - `billing.service.spec.ts`, `invoices.service.spec.ts`
+  - `bkash.provider.spec.ts`, `billing.service.spec.ts`, `invoices.service.spec.ts`
   - `app.controller.spec.ts`

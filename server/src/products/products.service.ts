@@ -186,7 +186,7 @@ export class ProductsService {
   async verifyLive(
     businessId: string,
     id: string,
-    liveData: {
+    liveData?: {
       price?: number;
       stockQuantity?: number;
       availability?: ProductAvailability;
@@ -194,11 +194,13 @@ export class ProductsService {
   ) {
     const product = await this.findOne(businessId, id);
 
-    if (liveData.price !== undefined) product.price = liveData.price;
-    if (liveData.stockQuantity !== undefined)
-      product.stockQuantity = liveData.stockQuantity;
-    if (liveData.availability !== undefined)
-      product.availability = liveData.availability;
+    if (liveData) {
+      if (liveData.price !== undefined) product.price = liveData.price;
+      if (liveData.stockQuantity !== undefined)
+        product.stockQuantity = liveData.stockQuantity;
+      if (liveData.availability !== undefined)
+        product.availability = liveData.availability;
+    }
 
     product.lastVerifiedAt = new Date();
     product.confidenceScore = 1.0;

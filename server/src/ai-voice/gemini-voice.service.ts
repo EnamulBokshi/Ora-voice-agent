@@ -63,10 +63,15 @@ export class GeminiVoiceService {
         `[GeminiVoiceService] WebSocket connected to Gemini 2.0 Live API for session ${options.sessionId}`,
       );
 
+      const geminiModel =
+        this.configService.get<string>('GEMINI_MODEL') ||
+        process.env.GEMINI_MODEL ||
+        'models/gemini-2.5-flash';
+
       // Send Setup Handshake Payload
       const setupPayload = {
         setup: {
-          model: 'models/gemini-2.0-flash-exp',
+          model: geminiModel,
           generationConfig: {
             responseModalities: ['AUDIO', 'TEXT'],
             speechConfig: {

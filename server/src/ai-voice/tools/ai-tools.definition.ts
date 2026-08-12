@@ -1,8 +1,8 @@
 export const ORA_TOOL_DECLARATIONS = [
   {
-    name: 'search_products',
+    name: 'find_products',
     description:
-      'Search the merchant product catalog for matching items based on user query, optional category, or maximum price.',
+      'Search catalog for matching products with live-verified price, stock quantity, and availability status. Use this tool for product discovery.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -37,20 +37,6 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
-    name: 'check_inventory',
-    description: 'Check real-time stock availability and inventory levels for a product.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        productId: {
-          type: 'STRING',
-          description: 'The unique MongoDB product ID.',
-        },
-      },
-      required: ['productId'],
-    },
-  },
-  {
     name: 'add_to_cart',
     description: 'Add a specified product and quantity to the customer session shopping cart.',
     parameters: {
@@ -66,6 +52,29 @@ export const ORA_TOOL_DECLARATIONS = [
         },
       },
       required: ['productId'],
+    },
+  },
+  {
+    name: 'place_order',
+    description:
+      'Complete order placement for all items currently in the customer shopping cart (Tier 1 integrated merchants).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        shippingAddress: {
+          type: 'STRING',
+          description: 'Optional customer shipping address.',
+        },
+      },
+    },
+  },
+  {
+    name: 'redirect_to_checkout',
+    description:
+      'Generate a direct link to the merchant storefront checkout page (Tier 2-4 merchants).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
     },
   },
   {

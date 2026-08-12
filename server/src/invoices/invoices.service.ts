@@ -1,10 +1,11 @@
 import { Injectable, HttpStatus, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Invoice, InvoiceDocument, InvoiceStatus } from './schemas/invoice.schema';
 import { InvoiceCounter, InvoiceCounterDocument } from './schemas/invoice-counter.schema';
 import { InvoiceDeliveryLog, InvoiceDeliveryLogDocument } from './schemas/invoice-delivery-log.schema';
 import { DomainException } from '../common/exceptions/domain.exception';
+import { PdfGeneratorService } from './services/pdf-generator.service';
 
 @Injectable()
 export class InvoicesService {
@@ -17,6 +18,7 @@ export class InvoicesService {
     private readonly counterModel: Model<InvoiceCounterDocument>,
     @InjectModel(InvoiceDeliveryLog.name)
     private readonly deliveryLogModel: Model<InvoiceDeliveryLogDocument>,
+    private readonly pdfGeneratorService: PdfGeneratorService,
   ) {}
 
   async generateInvoice(params: {
@@ -40,8 +42,6 @@ export class InvoicesService {
     const formattedSeq = String(counter.seq).padStart(6, '0');
     const invoiceNumber = `ORA-${currentYear}-${formattedSeq}`;
 
-    const pdfUrl = `https://cdn.ora.ai/invoices/${invoiceNumber}.pdf`;
-
     const invoice = new this.invoiceModel({
       invoiceNumber,
       businessId: params.businessId as any,
@@ -51,11 +51,15 @@ export class InvoicesService {
       amountBdtPaisa: params.amountBdtPaisa,
       currency: params.currency || 'USD',
       taxAmount: 0,
-      pdfUrl,
+      pdfUrl: `/api/v1/invoices/temp-placeholder`,
       status: InvoiceStatus.GENERATED,
     });
 
     const savedInvoice = await invoice.save();
+
+    // Assign final API route for PDF download endpoint
+    savedInvoice.pdfUrl = `/api/v1/invoices/${savedInvoice._id}/pdf`;
+    await savedInvoice.save();
 
     // Log delivery attempt
     await new this.deliveryLogModel({
@@ -63,10 +67,12 @@ export class InvoicesService {
       attemptNumber: 1,
       trigger: 'auto',
       status: 'succeeded',
-      providerResponse: { message: 'Invoice PDF generated and link attached.' },
+      providerResponse: { message: 'Invoice PDF rendered and delivery link generated.' },
     }).save();
 
-    this.logger.log(`[InvoicesService] Generated sequential invoice ${invoiceNumber} for business ${params.businessId}`);
+    this.logger.log(
+      `[InvoicesService] Generated sequential invoice ${invoiceNumber} for business ${params.businessId}`,
+    );
 
     return savedInvoice;
   }
@@ -113,6 +119,11 @@ export class InvoicesService {
     }
 
     return invoice;
+  }
+
+  async getInvoiceHtml(businessId: string, id: string): Promise<string> {
+    const invoice = await this.findOne(businessId, id);
+    return this.pdfGeneratorService.generateInvoiceHtml(invoice);
   }
 
   async resendInvoice(businessId: string, id: string) {

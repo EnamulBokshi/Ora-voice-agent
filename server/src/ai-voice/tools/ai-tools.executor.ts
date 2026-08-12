@@ -5,6 +5,7 @@ import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { EventsService } from '../../events/events.service';
 import { EventType } from '../../events/schemas/event.schema';
+import { OrdersService } from '../../orders/orders.service';
 
 @Injectable()
 export class AiToolsExecutor {
@@ -16,6 +17,7 @@ export class AiToolsExecutor {
     private readonly knowledgeService: KnowledgeService,
     private readonly redisService: RedisService,
     private readonly eventsService: EventsService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   async executeTool(
@@ -30,14 +32,19 @@ export class AiToolsExecutor {
 
     try {
       switch (toolName) {
+        case 'find_products':
         case 'search_products':
-          return await this.handleSearchProducts(businessId, args);
+          return await this.handleFindProducts(businessId, args);
         case 'get_product_details':
           return await this.handleGetProductDetails(businessId, args);
         case 'check_inventory':
           return await this.handleCheckInventory(businessId, args);
         case 'add_to_cart':
           return await this.handleAddToCart(businessId, sessionId, args);
+        case 'place_order':
+          return await this.handlePlaceOrder(businessId, sessionId, args);
+        case 'redirect_to_checkout':
+          return await this.handleRedirectToCheckout(businessId, sessionId);
         case 'get_store_policy':
           return await this.handleGetStorePolicy(businessId, args);
         default:
@@ -51,15 +58,41 @@ export class AiToolsExecutor {
     }
   }
 
-  private async handleSearchProducts(businessId: string, args: Record<string, any>) {
+  private async handleFindProducts(businessId: string, args: Record<string, any>) {
+    // 1. Semantic RAG search for shortlist of candidate product IDs
     const ragRes = await this.ragService.searchCombined(businessId, args.query, {
       limit: 5,
     });
 
+    // 2. Batch live verify price and stock availability for candidates
+    const liveVerifiedProducts: any[] = [];
+    for (const prod of ragRes.products) {
+      const targetId =
+        (prod as any).entityId ||
+        (prod as any).id ||
+        (prod as any)._id ||
+        ((prod as any).data && (prod as any).data._id);
+      if (!targetId) continue;
+      const live = await this.productsService.verifyLive(businessId, targetId.toString());
+      if (live) {
+        liveVerifiedProducts.push({
+          id: live._id.toString(),
+          name: live.name,
+          price: live.price,
+          currency: live.currency,
+          availability: live.availability,
+          stockQuantity: live.stockQuantity,
+          category: live.category,
+          sourceTier: live.sourceTier,
+          confidenceScore: live.confidenceScore,
+        });
+      }
+    }
+
     return {
       success: true,
       query: args.query,
-      products: ragRes.products,
+      products: liveVerifiedProducts,
       fallbackTriggered: ragRes.fallbackTriggered,
     };
   }
@@ -73,13 +106,14 @@ export class AiToolsExecutor {
   }
 
   private async handleCheckInventory(businessId: string, args: Record<string, any>) {
-    const product = await this.productsService.findOne(businessId, args.productId);
+    const product = await this.productsService.verifyLive(businessId, args.productId);
     return {
       success: true,
       productId: product._id.toString(),
       name: product.name,
       stockQuantity: product.stockQuantity || 0,
       availability: product.availability,
+      price: product.price,
     };
   }
 
@@ -88,7 +122,7 @@ export class AiToolsExecutor {
     sessionId: string,
     args: Record<string, any>,
   ) {
-    const product = await this.productsService.findOne(businessId, args.productId);
+    const product = await this.productsService.verifyLive(businessId, args.productId);
     const quantity = args.quantity || 1;
 
     const redisKey = `cart:conv:${sessionId}`;
@@ -117,6 +151,57 @@ export class AiToolsExecutor {
       success: true,
       message: `Added ${quantity} x ${product.name} to cart.`,
       cart,
+    };
+  }
+
+  private async handlePlaceOrder(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ) {
+    const redisKey = `cart:conv:${sessionId}`;
+    const rawCart = await this.redisService.getClient().get(redisKey);
+    const cart = rawCart ? JSON.parse(rawCart) : { items: [] };
+
+    if (!cart.items || cart.items.length === 0) {
+      return {
+        success: false,
+        message: 'Cart is empty. Add products to cart before placing an order.',
+      };
+    }
+
+    const totalAmount = cart.items.reduce(
+      (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
+      0,
+    );
+
+    const order = await this.ordersService.create(businessId, {
+      items: cart.items,
+      totalAmount,
+      currency: 'USD',
+      shippingAddress: args.shippingAddress
+        ? { addressLine1: args.shippingAddress }
+        : {},
+      metadata: { sessionId, placedVia: 'voice_agent' },
+    });
+
+    // Clear cart in Redis after order completion
+    await this.redisService.getClient().del(redisKey);
+
+    return {
+      success: true,
+      orderNumber: order.orderNumber,
+      totalAmount: order.totalAmount,
+      status: order.status,
+      message: `Order ${order.orderNumber} placed successfully!`,
+    };
+  }
+
+  private async handleRedirectToCheckout(businessId: string, sessionId: string) {
+    return {
+      success: true,
+      checkoutUrl: `http://localhost:3000/checkout?sessionId=${sessionId}&biz=${businessId}`,
+      message: 'Redirecting customer to storefront checkout page.',
     };
   }
 
