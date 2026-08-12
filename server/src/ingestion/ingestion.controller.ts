@@ -56,6 +56,12 @@ export class IngestionController {
       );
     }
 
+    if (platform === 'woocommerce') {
+      const businessId = businessIdHeader || payload.businessId || 'default_tenant';
+      const products = Array.isArray(payload) ? payload : (payload.products || [payload]);
+      return this.woocommerceService.syncProducts(businessId, products);
+    }
+
     return { received: true, platform };
   }
 
