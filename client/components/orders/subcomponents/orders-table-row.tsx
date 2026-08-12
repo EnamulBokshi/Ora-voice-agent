@@ -1,12 +1,13 @@
 'use client';
 
 import { ChevronRight } from 'lucide-react';
-import { OrderRecord } from '../orders-types';
-import { OrderChannelBadge, OrderStatusBadge } from './orders-status-badges';
+import { Order } from '@/services/orders-service';
+import { OrderStatusBadge } from './orders-status-badges';
+import { formatCurrency } from '@/lib/format';
 
 interface OrdersTableRowProps {
-  order: OrderRecord;
-  onSelectOrder: (order: OrderRecord) => void;
+  order: Order;
+  onSelectOrder: (order: Order) => void;
 }
 
 export function OrdersTableRow({ order, onSelectOrder }: OrdersTableRowProps) {
@@ -15,47 +16,28 @@ export function OrdersTableRow({ order, onSelectOrder }: OrdersTableRowProps) {
   return (
     <tr
       onClick={() => onSelectOrder(o)}
-      className="hover:bg-[var(--surface-high)]/60 cursor-pointer transition-colors group"
+      className="hover:bg-surface-high cursor-pointer transition-colors"
     >
-      {/* Order ID */}
-      <td className="py-4 px-5 font-mono font-bold" style={{ color: 'var(--primary)' }}>
-        {o.id}
+      <td className="py-3.5 px-5 font-mono font-medium text-foreground">{o.orderNumber}</td>
+
+      <td className="py-3.5 px-5 font-medium text-foreground max-w-[260px] truncate">
+        {o.items.map((i) => `${i.name} (x${i.quantity})`).join(', ')}
       </td>
 
-      {/* Customer */}
-      <td className="py-4 px-5">
-        <p className="font-bold text-foreground">{o.customerName}</p>
-        <p className="text-[11px] text-muted-foreground">{o.customerEmail}</p>
+      <td className="py-3.5 px-5 text-right font-medium tabular-nums text-foreground">
+        {formatCurrency(o.totalAmount, o.currency)}
       </td>
 
-      {/* Channel Badge */}
-      <td className="py-4 px-5">
-        <OrderChannelBadge channel={o.channel} />
-      </td>
-
-      {/* Products */}
-      <td className="py-4 px-5 font-medium text-foreground max-w-[220px] truncate">
-        {o.items.map((i) => `${i.name} (x${i.qty})`).join(', ')}
-      </td>
-
-      {/* Total */}
-      <td className="py-4 px-5 text-right font-mono font-bold text-sm">
-        ${o.totalAmount.toFixed(2)}
-      </td>
-
-      {/* Status */}
-      <td className="py-4 px-5 text-center">
+      <td className="py-3.5 px-5 text-center">
         <OrderStatusBadge status={o.status} />
       </td>
 
-      {/* Date */}
-      <td className="py-4 px-5 text-muted-foreground text-[11px]">{o.timestamp}</td>
+      <td className="py-3.5 px-5 text-muted-foreground text-[12px]">
+        {new Date(o.createdAt).toLocaleDateString()}
+      </td>
 
-      {/* Action */}
-      <td className="py-4 px-5 text-right">
-        <button className="text-muted-foreground group-hover:text-[var(--primary)] transition-colors p-1 rounded-lg">
-          <ChevronRight size={16} />
-        </button>
+      <td className="py-3.5 px-5 text-right">
+        <ChevronRight size={16} className="inline text-muted-foreground" />
       </td>
     </tr>
   );

@@ -3,15 +3,22 @@
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  collapsed?: boolean;
+}
+
+export function ThemeToggle({ collapsed }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <div className="w-10 h-10" />;
+    return (
+      <div className={cn('w-9 h-9', collapsed && 'flex items-center justify-center')} />
+    );
   }
 
   const isDark = resolvedTheme === 'dark';
@@ -21,25 +28,13 @@ export function ThemeToggle() {
       id="theme-toggle"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 group"
-      style={{
-        background: 'var(--toggle-bg)',
-        border:     '1px solid var(--toggle-border)',
-      }}
-    >
-      {isDark ? (
-        <Sun
-          size={16}
-          className="transition-all duration-300 group-hover:rotate-45"
-          style={{ color: 'var(--secondary)' }}
-        />
-      ) : (
-        <Moon
-          size={16}
-          className="transition-all duration-300 group-hover:-rotate-12"
-          style={{ color: 'var(--primary)' }}
-        />
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className={cn(
+        'rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors',
+        collapsed ? 'w-9 h-9' : 'w-9 h-9'
       )}
+    >
+      {isDark ? <Sun size={16} /> : <Moon size={16} />}
     </button>
   );
 }

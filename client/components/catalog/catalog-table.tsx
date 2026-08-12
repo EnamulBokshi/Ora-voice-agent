@@ -48,18 +48,18 @@ export function CatalogTable({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search catalog by name, SKU, or category..."
-            className="w-full bg-[var(--surface-high)] border rounded-xl py-2 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
-            style={{ borderColor: 'var(--glass-border)' }}
+            className="w-full bg-[var(--surface-high)] border rounded-md py-2 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
+            style={{ borderColor: 'var(--border)' }}
           />
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={onBatchSync}
-            className="px-3.5 py-2 rounded-xl text-xs font-medium border flex items-center gap-1.5 text-foreground hover:bg-[var(--surface-high)] transition-all"
+            className="px-3.5 py-2 rounded-md text-xs font-medium border flex items-center gap-1.5 text-foreground hover:bg-[var(--surface-high)] transition-all"
             style={{
-              background: 'var(--glass-bg)',
-              borderColor: 'var(--glass-border)',
+              background: 'var(--surface-container)',
+              borderColor: 'var(--border)',
             }}
           >
             <RefreshCw size={14} /> Batch Feed Sync
@@ -67,10 +67,9 @@ export function CatalogTable({
 
           <button
             onClick={onAddProduct}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow-md hover:opacity-90 transition-all flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-md text-xs font-bold text-white shadow-md hover:opacity-90 transition-all flex items-center gap-1.5"
             style={{
-              background: 'var(--logo-gradient)',
-              boxShadow: 'var(--logo-glow)',
+              background: 'var(--primary)',
             }}
           >
             <PackagePlus size={14} /> Add Product
@@ -80,10 +79,10 @@ export function CatalogTable({
 
       {/* Table Container */}
       <div
-        className="rounded-2xl border overflow-hidden flex-1 flex flex-col backdrop-blur-md"
+        className="rounded-md border overflow-hidden flex-1 flex flex-col"
         style={{
-          background: 'var(--glass-bg)',
-          borderColor: 'var(--glass-border)',
+          background: 'var(--surface-container)',
+          borderColor: 'var(--border)',
         }}
       >
         <div className="overflow-x-auto flex-1">
@@ -106,7 +105,7 @@ export function CatalogTable({
                   <th className="py-3.5 px-4 text-right">ACTIONS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--glass-border)] text-foreground">
+              <tbody className="divide-y divide-[var(--border)] text-foreground">
                 {products.map((item) => {
                   const isSelected = item.id === selectedId;
 
@@ -127,7 +126,7 @@ export function CatalogTable({
                             src={item.image}
                             alt={item.name}
                             className="w-9 h-9 rounded-lg object-cover border shrink-0 bg-background"
-                            style={{ borderColor: 'var(--glass-border)' }}
+                            style={{ borderColor: 'var(--border)' }}
                           />
                           <div className="flex flex-col">
                             <span className="font-semibold text-foreground">{item.name}</span>

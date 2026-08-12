@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { ConversationItem } from './conversation-types';
 import { ConversationCard } from './subcomponents/conversation-card';
 
@@ -29,14 +29,10 @@ export function ConversationListPanel({
 
   return (
     <div
-      className="w-[320px] shrink-0 flex flex-col border-r h-full overflow-hidden"
-      style={{
-        background: 'var(--surface-container)',
-        borderColor: 'var(--glass-border)',
-      }}
+      className="w-[300px] shrink-0 flex flex-col border-r border-border h-full overflow-hidden bg-surface-container"
     >
       {/* Search & Filter Header */}
-      <div className="p-3.5 border-b flex flex-col gap-2.5" style={{ borderColor: 'var(--glass-border)' }}>
+      <div className="p-3.5 border-b border-border flex flex-col gap-2.5">
         <div className="relative w-full">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -44,84 +40,47 @@ export function ConversationListPanel({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search..."
-            className="w-full bg-[var(--surface-high)] border rounded-xl py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
-            style={{ borderColor: 'var(--glass-border)' }}
+            className="w-full bg-surface-high border border-border rounded-md py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
         <div className="flex items-center justify-between gap-1.5">
           {/* Tabs */}
-          <div
-            className="flex items-center gap-1 p-1 rounded-xl border text-xs flex-1"
-            style={{
-              background: 'var(--glass-bg)',
-              borderColor: 'var(--glass-border)',
-            }}
-          >
+          <div className="flex items-center gap-1 p-1 rounded-md border border-border bg-surface-low text-xs flex-1">
             <button
               onClick={() => onTabChange('all')}
-              className={`flex-1 py-1 rounded-lg font-medium transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
+              className={`flex-1 py-1 rounded font-medium transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'all'
-                  ? 'bg-[var(--surface-high)] text-foreground shadow-sm font-semibold'
+                  ? 'bg-surface-high text-foreground font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               All
-              <span className="text-[9px] px-1 rounded" style={{ background: 'var(--surface-lowest)' }}>
-                {allCount}
-              </span>
+              <span className="text-[9px] px-1 rounded bg-surface-lowest">{allCount}</span>
             </button>
 
             <button
               onClick={() => onTabChange('active')}
-              className={`flex-1 py-1 rounded-lg font-medium transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
+              className={`flex-1 py-1 rounded font-medium transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'active'
-                  ? 'bg-[var(--surface-high)] text-foreground shadow-sm font-semibold'
+                  ? 'bg-surface-high text-foreground font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Active
-              <span
-                className="text-[9px] px-1 rounded font-bold"
-                style={{
-                  background: 'color-mix(in srgb, var(--primary) 15%, transparent)',
-                  color: 'var(--primary)',
-                }}
-              >
-                {activeCount}
-              </span>
+              <span className="text-[9px] px-1 rounded bg-surface-lowest text-primary">{activeCount}</span>
             </button>
 
             <button
               onClick={() => onTabChange('completed')}
-              className={`flex-1 py-1 rounded-lg font-medium transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
+              className={`flex-1 py-1 rounded font-medium transition-all text-center flex items-center justify-center gap-1 text-[11px] ${
                 activeTab === 'completed'
-                  ? 'bg-[var(--surface-high)] text-foreground shadow-sm font-semibold'
+                  ? 'bg-surface-high text-foreground font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Done
-              <span className="text-[9px] px-1 rounded" style={{ background: 'var(--surface-lowest)' }}>
-                {completedCount}
-              </span>
-            </button>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground border hover:bg-[var(--surface-high)] transition-colors"
-              style={{ borderColor: 'var(--glass-border)' }}
-              title="Filter"
-            >
-              <Filter size={13} />
-            </button>
-            <button
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground border hover:bg-[var(--surface-high)] transition-colors"
-              style={{ borderColor: 'var(--glass-border)' }}
-              title="Sort"
-            >
-              <ArrowUpDown size={13} />
+              <span className="text-[9px] px-1 rounded bg-surface-lowest">{completedCount}</span>
             </button>
           </div>
         </div>

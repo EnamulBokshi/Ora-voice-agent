@@ -1,105 +1,124 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Loader2 } from 'lucide-react';
+import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
+import { Plan } from '@/types/billing';
+import { demoPlans } from '@/lib/demo-data';
+import { formatCurrency } from '@/lib/format';
+import { useEffect } from 'react';
 
-const PLANS = [
-  {
-    name: 'Starter',
-    price: '$49',
-    period: '/mo',
-    features: ['1,000 AI Conversations', 'Basic Analytics', 'Email Support'],
-    isCurrent: false,
-    actionLabel: 'Downgrade',
-  },
-  {
-    name: 'Pro',
-    price: '$199',
-    period: '/mo',
-    features: ['10,000 AI Conversations', '3,000 Voice Minutes', 'Advanced Analytics', 'Priority Support'],
-    isCurrent: true,
-    actionLabel: 'Active Plan',
-  },
-  {
-    name: 'Business',
-    price: '$499',
-    period: '/mo',
-    features: ['50,000 AI Conversations', 'Custom Voice Agent', 'Dedicated CSM'],
-    isCurrent: false,
-    actionLabel: 'Upgrade',
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    features: ['Unlimited Volume', 'On-Prem Deployment', '24/7 Phone Support'],
-    isCurrent: false,
-    actionLabel: 'Contact Sales',
-  },
-];
+interface PlanComparisonGridProps {
+  currentPlanId: string | null;
+  onSubscribed: () => void;
+}
 
-export function PlanComparisonGrid() {
+export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparisonGridProps) {
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [subscribingId, setSubscribingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getBillingPlansApi()
+      .then((plans) => setPlans(plans && plans.length > 0 ? plans : demoPlans))
+      .catch(() => setPlans(demoPlans))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSubscribe = async (plan: Plan) => {
+    setSubscribingId(plan._id);
+    try {
+      const result = await subscribePlanApi({ planId: plan.planId, provider: 'stripe' });
+      if (result.clientSecret) {
+        // In production Stripe Checkout would be redirected; backend handles the rest.
+        onSubscribed();
+      } else {
+        onSubscribed();
+      }
+    } catch {
+      // silent
+    } finally {
+      setSubscribingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="rounded-md border border-border bg-surface-container p-8 flex items-center justify-center text-muted-foreground">
+        <Loader2 className="animate-spin mr-2" size={14} /> Loading plans...
+      </div>
+    );
+  }
+
+  if (plans.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="mb-8 space-y-4">
-      <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Available Plans</h2>
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold text-foreground">Available plans</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {PLANS.map((plan) => (
-          <div
-            key={plan.name}
-            className={`rounded-2xl p-6 border flex flex-col justify-between backdrop-blur-md relative transition-all duration-300 ${
-              plan.isCurrent ? 'scale-[1.02] shadow-2xl' : 'hover:scale-[1.01]'
-            }`}
-            style={{
-              background: plan.isCurrent
-                ? 'color-mix(in srgb, var(--primary) 10%, var(--surface-container))'
-                : 'var(--glass-bg)',
-              borderColor: plan.isCurrent ? 'var(--primary)' : 'var(--glass-border)',
-              boxShadow: plan.isCurrent ? '0 0 20px color-mix(in srgb, var(--primary) 20%, transparent)' : 'none',
-            }}
-          >
-            {plan.isCurrent && (
-              <span
-                className="absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-bl-xl rounded-tr-2xl text-white"
-                style={{ background: 'var(--primary)' }}
-              >
-                Current Plan
-              </span>
-            )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {plans.map((plan) => {
+          const isCurrent = plan.planId === currentPlanId;
+          const isSubscribing = subscribingId === plan._id;
 
-            <div>
-              <h3 className="text-base font-bold mb-1" style={{ color: plan.isCurrent ? 'var(--primary)' : 'var(--foreground)' }}>
-                {plan.name}
-              </h3>
-              <div className="text-2xl font-bold font-mono text-foreground mb-4">
-                {plan.price}
-                <span className="text-xs font-normal text-muted-foreground">{plan.period}</span>
+          return (
+            <div
+              key={plan._id}
+              className={`rounded-md border bg-surface-container p-5 flex flex-col ${
+                isCurrent ? 'border-primary' : 'border-border'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-semibold text-foreground">{plan.name}</h3>
+                {isCurrent && (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase"
+                    style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
+                  >
+                    Current
+                  </span>
+                )}
+              </div>
+              <div className="text-xl font-semibold tabular-nums text-foreground mb-4">
+                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                <span className="text-xs font-normal text-muted-foreground">/mo</span>
               </div>
 
-              <ul className="space-y-2.5 mb-6 text-xs text-muted-foreground">
-                {plan.features.map((feat, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <Check size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
-                    <span className={plan.isCurrent ? 'text-foreground font-medium' : ''}>{feat}</span>
-                  </li>
-                ))}
+              <ul className="space-y-2 text-[12px] text-muted-foreground mb-5 flex-1">
+                <li className="flex items-start gap-2">
+                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
+                  {plan.limits.conversationMinutes.toLocaleString()} conversation minutes
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
+                  {plan.limits.ordersPerMonth.toLocaleString()} orders per month
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
+                  {plan.limits.connectedStores} connected store{plan.limits.connectedStores === 1 ? '' : 's'}
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
+                  {plan.limits.seats} seat{plan.limits.seats === 1 ? '' : 's'}
+                </li>
               </ul>
-            </div>
 
-            <button
-              disabled={plan.isCurrent}
-              className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                plan.isCurrent
-                  ? 'bg-[var(--surface-high)] text-muted-foreground cursor-default border'
-                  : 'bg-[var(--primary)] text-white hover:opacity-90 shadow-md'
-              }`}
-              style={{
-                borderColor: plan.isCurrent ? 'var(--glass-border)' : 'transparent',
-              }}
-            >
-              {plan.actionLabel}
-            </button>
-          </div>
-        ))}
+              <button
+                onClick={() => handleSubscribe(plan)}
+                disabled={isCurrent || isSubscribing}
+                className={`w-full py-2 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  isCurrent
+                    ? 'bg-surface-high text-muted-foreground cursor-default'
+                    : 'bg-primary text-primary-foreground hover:opacity-90'
+                }`}
+              >
+                {isSubscribing ? 'Subscribing...' : isCurrent ? 'Current plan' : 'Subscribe'}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

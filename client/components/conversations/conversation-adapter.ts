@@ -1,5 +1,5 @@
 import { Conversation, Message } from '@/types/conversation';
-import { ConversationItem, ChatMessage, ConversationIntelligence } from './conversation-types';
+import { ConversationItem, ChatMessage } from './conversation-types';
 
 function formatRelativeTime(dateString?: string): string {
   if (!dateString) return 'Just now';
@@ -24,7 +24,7 @@ export function mapApiConversationToUi(
   messages: Message[] = [],
 ): ConversationItem {
   const channel = conv.channel === 'widget_voice' ? 'voice' : 'chat';
-  const status =
+  const status: ConversationItem['status'] =
     conv.status === 'closed'
       ? 'completed'
       : conv.status === 'suspended'
@@ -40,30 +40,14 @@ export function mapApiConversationToUi(
     conv.metadata?.customerName ||
     (conv.customerId ? `Customer #${conv.customerId.slice(-4)}` : `Shopper #${conv.sessionId.slice(-4)}`);
 
-  const avatar =
-    conv.metadata?.avatar ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(customerName)}`;
-
-  const intelligence: ConversationIntelligence = conv.metadata?.intelligence || {
-    intent: conv.metadata?.intent || 'General Inquiry',
-    sentiment: conv.metadata?.sentiment || 'Neutral',
-    extractedBudget: conv.metadata?.extractedBudget || 'N/A',
-    productsDiscussed: conv.metadata?.productsDiscussed || [],
-    salesOutcome: conv.metadata?.salesOutcome,
-  };
-
   return {
     id: conv._id,
     customerName,
-    avatar,
     channel,
     status,
     lastMessageTime: formatRelativeTime(conv.lastActivityAt || conv.createdAt),
     previewMessage,
-    tags: conv.metadata?.tags || [{ label: 'Live Session', type: 'intent' }],
-    duration: conv.metadata?.duration || '1m 30s',
     sessionRef: formatSessionRef(conv.sessionId),
-    intelligence,
     transcript: mapApiMessagesToUi(messages),
   };
 }
@@ -75,8 +59,9 @@ export function mapApiMessagesToUi(messages: Message[]): ChatMessage[] {
       id: m._id,
       sender: isOra ? 'ora' : 'customer',
       text: m.content,
-      time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
-      product: m.metadata?.product,
+      time: m.timestamp
+        ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : undefined,
       isTyping: false,
     };
   });

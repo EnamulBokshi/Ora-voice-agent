@@ -32,11 +32,10 @@ export function CatalogMetrics({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Indexed */}
         <div
-          className="rounded-2xl p-5 border relative overflow-hidden flex flex-col justify-between"
+          className="rounded-md p-5 border relative overflow-hidden flex flex-col justify-between"
           style={{
-            background: 'var(--glass-bg)',
-            borderColor: 'var(--glass-border)',
-            backdropFilter: 'blur(16px)',
+            background: 'var(--surface-container)',
+            borderColor: 'var(--border)',
           }}
         >
           <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">
@@ -47,11 +46,10 @@ export function CatalogMetrics({
 
         {/* Verified */}
         <div
-          className="rounded-2xl p-5 border relative overflow-hidden flex flex-col justify-between"
+          className="rounded-md p-5 border relative overflow-hidden flex flex-col justify-between"
           style={{
-            background: 'var(--glass-bg)',
-            borderColor: 'var(--glass-border)',
-            backdropFilter: 'blur(16px)',
+            background: 'var(--surface-container)',
+            borderColor: 'var(--border)',
           }}
         >
           <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">
@@ -65,11 +63,10 @@ export function CatalogMetrics({
 
         {/* Needs Attention */}
         <div
-          className="rounded-2xl p-5 border relative overflow-hidden flex flex-col justify-between"
+          className="rounded-md p-5 border relative overflow-hidden flex flex-col justify-between"
           style={{
-            background: 'color-mix(in srgb, var(--ora-warning) 8%, var(--glass-bg))',
+            background: 'color-mix(in srgb, var(--ora-warning) 8%, var(--surface-container))',
             borderColor: 'color-mix(in srgb, var(--ora-warning) 30%, transparent)',
-            backdropFilter: 'blur(16px)',
           }}
         >
           <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">
@@ -85,11 +82,10 @@ export function CatalogMetrics({
 
         {/* ORA Sales Orders */}
         <div
-          className="rounded-2xl p-5 border relative overflow-hidden flex flex-col justify-between"
+          className="rounded-md p-5 border relative overflow-hidden flex flex-col justify-between"
           style={{
-            background: 'var(--glass-bg)',
-            borderColor: 'var(--glass-border)',
-            backdropFilter: 'blur(16px)',
+            background: 'var(--surface-container)',
+            borderColor: 'var(--border)',
           }}
         >
           <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wider mb-1">
@@ -106,7 +102,7 @@ export function CatalogMetrics({
 
       {/* Catalog Health & AI Search Index Banner */}
       <div
-        className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-md"
+        className="rounded-md p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         style={{
           background: 'color-mix(in srgb, var(--secondary) 10%, transparent)',
           borderColor: 'color-mix(in srgb, var(--secondary) 25%, transparent)',
@@ -133,7 +129,7 @@ export function CatalogMetrics({
           {onOpenRagPlayground && (
             <button
               onClick={onOpenRagPlayground}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold border text-purple-300 transition-all flex items-center gap-1.5 hover:bg-purple-500/10"
+              className="px-3 py-1.5 rounded-md text-xs font-semibold border text-[var(--secondary)] transition-all flex items-center gap-1.5 hover:bg-[var(--surface-high)]"
               style={{
                 background: 'color-mix(in srgb, var(--secondary) 15%, transparent)',
                 borderColor: 'color-mix(in srgb, var(--secondary) 30%, transparent)',
@@ -146,10 +142,10 @@ export function CatalogMetrics({
           {onOpenReindex && (
             <button
               onClick={onOpenReindex}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold border text-foreground transition-all flex items-center gap-1.5 hover:bg-[var(--surface-high)]"
+              className="px-3 py-1.5 rounded-md text-xs font-semibold border text-foreground transition-all flex items-center gap-1.5 hover:bg-[var(--surface-high)]"
               style={{
-                background: 'var(--glass-bg)',
-                borderColor: 'var(--glass-border)',
+                background: 'var(--surface-container)',
+                borderColor: 'var(--border)',
               }}
             >
               <RefreshCw size={13} className="text-[var(--primary)]" /> Sync AI Index

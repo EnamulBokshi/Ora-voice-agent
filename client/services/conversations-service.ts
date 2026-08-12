@@ -5,6 +5,8 @@ import {
   Conversation,
 } from '@/types/conversation';
 
+export type { Conversation } from '@/types/conversation';
+
 export async function getConversationsApi(params?: {
   page?: number;
   limit?: number;

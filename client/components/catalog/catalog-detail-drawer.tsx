@@ -39,16 +39,16 @@ export function CatalogDetailDrawer({
 
   return (
     <aside
-      className="w-[360px] shrink-0 rounded-2xl border flex flex-col h-full overflow-hidden backdrop-blur-xl hidden xl:flex shadow-2xl"
+      className="w-[360px] shrink-0 rounded-md border flex flex-col h-full overflow-hidden hidden xl:flex"
       style={{
         background: 'var(--surface-container)',
-        borderColor: 'var(--glass-border)',
+        borderColor: 'var(--border)',
       }}
     >
       {/* Header */}
       <div
         className="p-4 border-b flex justify-between items-start shrink-0"
-        style={{ borderColor: 'var(--glass-border)' }}
+        style={{ borderColor: 'var(--border)' }}
       >
         <div>
           <h3 className="font-bold text-base text-foreground leading-tight">{product.name}</h3>
@@ -96,8 +96,8 @@ export function CatalogDetailDrawer({
           <img
             src={product.image}
             alt={product.name}
-            className="w-20 h-20 rounded-xl object-cover border shrink-0 bg-background"
-            style={{ borderColor: 'var(--glass-border)' }}
+            className="w-20 h-20 rounded-md object-cover border shrink-0 bg-background"
+            style={{ borderColor: 'var(--border)' }}
           />
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-baseline mb-1">
@@ -121,7 +121,7 @@ export function CatalogDetailDrawer({
         </div>
 
         {product.description && (
-          <div className="p-3 rounded-xl border text-xs text-muted-foreground leading-relaxed" style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}>
+          <div className="p-3 rounded-md border text-xs text-muted-foreground leading-relaxed" style={{ background: 'var(--surface-container)', borderColor: 'var(--border)' }}>
             <span className="font-semibold text-foreground block mb-1">Description</span>
             {product.description}
           </div>
@@ -131,7 +131,7 @@ export function CatalogDetailDrawer({
         <button
           onClick={handleVerify}
           disabled={verifying}
-          className="w-full py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-2 transition-all hover:bg-[var(--surface-high)]"
+          className="w-full py-2 px-3 rounded-md text-xs font-semibold border flex items-center justify-center gap-2 transition-all hover:bg-[var(--surface-high)]"
           style={{
             background: 'color-mix(in srgb, var(--primary) 10%, transparent)',
             borderColor: 'var(--primary)',
@@ -149,7 +149,7 @@ export function CatalogDetailDrawer({
           )}
         </button>
 
-        <div className="h-px w-full" style={{ background: 'var(--glass-border)' }} />
+        <div className="h-px w-full" style={{ background: 'var(--border)' }} />
 
         {/* ORA Performance Metrics */}
         <CatalogPerformanceCard performance={product.performance} />

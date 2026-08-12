@@ -16,17 +16,12 @@ export function proxy(request: NextRequest) {
   // All protected dashboard and command center routes
   const isProtectedRoute =
     pathname === '/' ||
-    pathname.startsWith('/sales') ||
     pathname.startsWith('/catalog') ||
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
-    pathname.startsWith('/agent') ||
     pathname.startsWith('/billing') ||
-    pathname.startsWith('/analytics') ||
     pathname.startsWith('/profile') ||
-    pathname.startsWith('/live-activity') ||
-    pathname.startsWith('/orders') ||
-    pathname.startsWith('/system');
+    pathname.startsWith('/orders');
 
   // 1. Unauthenticated user attempting to access dashboard -> Redirect to /auth
   if (isProtectedRoute && !isAuthenticated) {

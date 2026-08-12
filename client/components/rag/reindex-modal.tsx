@@ -42,12 +42,12 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-lg rounded-3xl border p-6 lg:p-8 shadow-2xl overflow-hidden flex flex-col gap-6"
+        className="relative w-full max-w-lg rounded-lg border p-6 lg:p-8 shadow-2xl overflow-hidden flex flex-col gap-6"
         style={{
-          background: 'var(--surface-container-high)',
-          borderColor: 'var(--glass-border)',
+          background: 'var(--surface-container)',
+          borderColor: 'var(--border)',
         }}
       >
         {/* Modal Title & Header */}
@@ -83,7 +83,7 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
 
         {/* Content Body */}
         {error && (
-          <div className="p-4 rounded-2xl border text-xs bg-red-500/10 border-red-500/20 text-red-400 flex items-start gap-2.5">
+          <div className="p-4 rounded-lg border text-xs bg-error/10 border-error/20 text-error flex items-start gap-2.5">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />
             <div>
               <p className="font-bold">Sync Error</p>
@@ -94,7 +94,7 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
 
         {result ? (
           <div
-            className="p-5 rounded-2xl border flex flex-col gap-4"
+            className="p-5 rounded-lg border flex flex-col gap-4"
             style={{
               background: 'color-mix(in srgb, var(--primary) 8%, var(--surface-low))',
               borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)',
@@ -112,7 +112,7 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
                 className="p-3.5 rounded-xl border flex flex-col gap-1"
                 style={{
                   background: 'var(--surface-high)',
-                  borderColor: 'var(--glass-border)',
+                  borderColor: 'var(--border)',
                 }}
               >
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold">
@@ -125,7 +125,7 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
                 className="p-3.5 rounded-xl border flex flex-col gap-1"
                 style={{
                   background: 'var(--surface-high)',
-                  borderColor: 'var(--glass-border)',
+                  borderColor: 'var(--border)',
                 }}
               >
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold">
@@ -144,7 +144,7 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
               className="p-3.5 rounded-xl border flex items-center gap-3 text-foreground/90"
               style={{
                 background: 'var(--surface-high)',
-                borderColor: 'var(--glass-border)',
+                borderColor: 'var(--border)',
               }}
             >
               <Sparkles size={16} className="text-[var(--primary)] shrink-0" />
@@ -154,12 +154,12 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2 border-t" style={{ borderColor: 'var(--glass-border)' }}>
+        <div className="flex items-center justify-end gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
           <button
             type="button"
             onClick={handleClose}
             disabled={loading}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            className="px-4 py-2.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             {result ? 'Close' : 'Cancel'}
           </button>
@@ -168,10 +168,9 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
               type="button"
               onClick={handleStartReindex}
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-lg transition-all disabled:opacity-50"
+              className="px-5 py-2.5 rounded-md text-xs font-semibold text-primary-foreground flex items-center gap-2 shadow-lg transition-all disabled:opacity-50"
               style={{
                 background: 'var(--primary)',
-                boxShadow: '0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent)',
               }}
             >
               {loading ? (

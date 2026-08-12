@@ -33,7 +33,7 @@ export interface Subscription {
 
 export interface SubscriptionUsage {
   conversationMinutes: number;
-  ordersCount: number;
+  ordersPerMonth: number;
 }
 
 export interface SubscriptionDetailsResponse {

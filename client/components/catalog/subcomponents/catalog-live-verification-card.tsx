@@ -17,13 +17,13 @@ export function CatalogLiveVerificationCard({
     <div className="space-y-4">
       {/* Live Verification Card */}
       <div
-        className="p-3.5 rounded-xl border space-y-2.5"
+        className="p-3.5 rounded-md border space-y-2.5"
         style={{
-          background: 'var(--glass-bg)',
-          borderColor: 'var(--glass-border)',
+          background: 'var(--surface-container)',
+          borderColor: 'var(--border)',
         }}
       >
-        <div className="flex items-center gap-2 pb-2 border-b" style={{ borderColor: 'var(--glass-border)' }}>
+        <div className="flex items-center gap-2 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
           <CheckCircle2 size={15} style={{ color: 'var(--ora-success)' }} />
           <h4 className="text-xs font-semibold text-foreground">Live Verification</h4>
         </div>
@@ -64,7 +64,7 @@ export function CatalogLiveVerificationCard({
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border"
               style={{
                 background: 'var(--surface-high)',
-                borderColor: 'var(--glass-border)',
+                borderColor: 'var(--border)',
                 color: 'var(--muted-foreground)',
               }}
             >

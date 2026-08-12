@@ -1,28 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { OrderRecord, OrderStatus } from '@/components/orders/orders-types';
+import { Order } from '@/services/orders-service';
 import { OrderDetailDrawer } from '@/components/orders/order-detail-drawer';
 import { OrdersToolbar } from './subcomponents/orders-toolbar';
 import { OrdersTableRow } from './subcomponents/orders-table-row';
+import { formatCurrency } from '@/lib/format';
 
 interface OrdersTableProps {
-  orders: OrderRecord[];
+  orders: Order[];
+  onReload: () => void;
 }
 
-export function OrdersTable({ orders }: OrdersTableProps) {
+export function OrdersTable({ orders, onReload }: OrdersTableProps) {
   const [search, setSearch] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | OrderStatus>('all');
-  const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<'all' | Order['status']>('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filteredOrders = orders.filter((o) => {
     if (selectedStatus !== 'all' && o.status !== selectedStatus) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
-        o.id.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q) ||
-        o.customerEmail.toLowerCase().includes(q) ||
+        o.orderNumber.toLowerCase().includes(q) ||
         o.items.some((i) => i.name.toLowerCase().includes(q))
       );
     }
@@ -30,14 +30,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   });
 
   return (
-    <div
-      className="rounded-2xl border flex flex-col overflow-hidden backdrop-blur-md"
-      style={{
-        background: 'var(--glass-bg)',
-        borderColor: 'var(--glass-border)',
-      }}
-    >
-      {/* Search & Filter Toolbar */}
+    <div className="rounded-md border border-border bg-surface-container overflow-hidden">
       <OrdersToolbar
         search={search}
         onSearchChange={setSearch}
@@ -45,37 +38,45 @@ export function OrdersTable({ orders }: OrdersTableProps) {
         onStatusChange={setSelectedStatus}
       />
 
-      {/* Orders Data Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
-          <thead>
-            <tr className="border-b bg-[var(--surface-container)]/50 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold">
-              <th className="py-3.5 px-5">ORDER ID</th>
-              <th className="py-3.5 px-5">CUSTOMER</th>
-              <th className="py-3.5 px-5">CHANNEL</th>
-              <th className="py-3.5 px-5">PRODUCTS</th>
-              <th className="py-3.5 px-5 text-right">TOTAL</th>
-              <th className="py-3.5 px-5 text-center">STATUS</th>
-              <th className="py-3.5 px-5">DATE</th>
-              <th className="py-3.5 px-5 text-right">ACTION</th>
-            </tr>
-          </thead>
+      {filteredOrders.length === 0 ? (
+        <div className="p-8 text-center text-[13px] text-muted-foreground">
+          {orders.length === 0
+            ? 'No orders yet. Orders created by ORA from widget conversations will appear here.'
+            : 'No orders match your filters.'}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[13px] whitespace-nowrap">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground uppercase text-[11px] tracking-wider font-medium">
+                <th className="py-3 px-5">Order</th>
+                <th className="py-3 px-5">Items</th>
+                <th className="py-3 px-5 text-right">Total</th>
+                <th className="py-3 px-5 text-center">Status</th>
+                <th className="py-3 px-5">Date</th>
+                <th className="py-3 px-5 text-right">Action</th>
+              </tr>
+            </thead>
 
-          <tbody className="divide-y divide-[var(--glass-border)] text-foreground">
-            {filteredOrders.map((order) => (
-              <OrdersTableRow
-                key={order.id}
-                order={order}
-                onSelectOrder={setSelectedOrder}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+            <tbody className="divide-y divide-border text-foreground">
+              {filteredOrders.map((order) => (
+                <OrdersTableRow
+                  key={order._id}
+                  order={order}
+                  onSelectOrder={setSelectedOrder}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {/* Drawer modal */}
       {selectedOrder && (
-        <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+        <OrderDetailDrawer
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onStatusUpdated={onReload}
+        />
       )}
     </div>
   );

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_CONVERSATIONS } from './conversation-data';
 import { ConversationItem } from './conversation-types';
 import { mapApiConversationToUi, mapApiMessagesToUi } from './conversation-adapter';
 import {
@@ -11,7 +10,7 @@ import {
 } from '@/services/conversations-service';
 import { ConversationListPanel } from './conversation-list-panel';
 import { ConversationTranscript } from './conversation-transcript';
-import { ConversationIntelligenceSidebar } from './conversation-intelligence-sidebar';
+import { demoConversationItems } from '@/lib/demo-data';
 import { Loader2 } from 'lucide-react';
 
 export function ConversationsClient() {
@@ -24,27 +23,17 @@ export function ConversationsClient() {
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch initial conversations list from backend API
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await getConversationsApi({ page: 1, limit: 50 });
-      if (res && res.items && res.items.length > 0) {
-        // Real DB data available -> display dynamic database records
-        const mapped = res.items.map((conv) => mapApiConversationToUi(conv));
-        setConversations(mapped);
-        setSelectedId(mapped[0].id);
-      } else {
-        // DB empty -> fall back to mock data
-        setConversations(MOCK_CONVERSATIONS);
-        setSelectedId(MOCK_CONVERSATIONS[0].id);
-      }
-    } catch (err: any) {
-      console.warn('Failed to fetch conversations from API, using mock data:', err);
-      setError(err?.message || 'Failed to connect to backend server');
-      setConversations(MOCK_CONVERSATIONS);
-      setSelectedId(MOCK_CONVERSATIONS[0].id);
+      const mapped = (res?.items ?? []).map((conv) => mapApiConversationToUi(conv));
+      const items = mapped.length > 0 ? mapped : demoConversationItems;
+      setConversations(items);
+      setSelectedId((prev) => prev || items[0]?.id || '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load conversations');
     } finally {
       setIsLoading(false);
     }
@@ -54,51 +43,48 @@ export function ConversationsClient() {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Fetch transcript when selectedId changes (if it's a real API ID)
   useEffect(() => {
-    if (!selectedId || selectedId.startsWith('conv-')) return; // Skip API fetch for mock item IDs
+    if (!selectedId) return;
 
+    let active = true;
     async function fetchTranscript() {
       setIsLoadingTranscript(true);
       try {
         const data = await getConversationTranscriptApi(selectedId);
-        if (data && data.messages) {
-          const uiMessages = mapApiMessagesToUi(data.messages);
-          setConversations((prev) =>
-            prev.map((item) =>
-              item.id === selectedId
-                ? {
-                    ...item,
-                    transcript: uiMessages,
-                    previewMessage:
-                      uiMessages.length > 0
-                        ? `"${uiMessages[uiMessages.length - 1].text.slice(0, 80)}"`
-                        : item.previewMessage,
-                  }
-                : item,
-            ),
-          );
-        }
+        if (!active) return;
+        const uiMessages = mapApiMessagesToUi(data.messages ?? []);
+        setConversations((prev) =>
+          prev.map((item) =>
+            item.id === selectedId
+              ? {
+                  ...item,
+                  transcript: uiMessages,
+                  previewMessage:
+                    uiMessages.length > 0
+                      ? `"${uiMessages[uiMessages.length - 1].text.slice(0, 80)}"`
+                      : item.previewMessage,
+                }
+              : item,
+          ),
+        );
       } catch (err) {
-        console.error('Failed to load transcript:', err);
+        if (active) console.error('Failed to load transcript:', err);
       } finally {
-        setIsLoadingTranscript(false);
+        if (active) setIsLoadingTranscript(false);
       }
     }
 
     fetchTranscript();
+    return () => {
+      active = false;
+    };
   }, [selectedId]);
 
-
-
-  // Close session action
   const handleCloseSession = async () => {
     if (!selectedId || isClosing) return;
     setIsClosing(true);
     try {
-      if (!selectedId.startsWith('conv-')) {
-        await closeConversationApi(selectedId);
-      }
+      await closeConversationApi(selectedId);
       setConversations((prev) =>
         prev.map((item) => (item.id === selectedId ? { ...item, status: 'completed' } : item)),
       );
@@ -130,27 +116,33 @@ export function ConversationsClient() {
     return (
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-primary" size={24} />
-          <span className="text-sm font-medium">Loading ORA Conversations...</span>
+          <Loader2 className="animate-spin text-primary" size={20} />
+          <span className="text-sm font-medium">Loading conversations...</span>
         </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-sm text-muted-foreground px-6">
+        {error}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 flex h-full w-full overflow-hidden relative">
-      {/* Left fixed 320px conversation list */}
+    <div className="flex-1 flex h-full w-full overflow-hidden">
       <ConversationListPanel
         conversations={filteredConversations}
         selectedId={selectedId}
-        onSelect={(id) => setSelectedId(id)}
+        onSelect={setSelectedId}
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={setActiveTab}
         searchQuery={searchQuery}
-        onSearchChange={(q) => setSearchQuery(q)}
+        onSearchChange={setSearchQuery}
       />
 
-      {/* Middle flex-1 conversation transcript stream */}
       {selectedConversation ? (
         <ConversationTranscript
           conversation={selectedConversation}
@@ -160,16 +152,9 @@ export function ConversationsClient() {
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-          No conversation selected.
+          No conversations yet. Conversations from the ORA widget will appear here.
         </div>
-      )}
-
-      {/* Right fixed 280px intelligence sidebar */}
-      {selectedConversation && (
-        <ConversationIntelligenceSidebar intelligence={selectedConversation.intelligence} />
       )}
     </div>
   );
 }
-
-

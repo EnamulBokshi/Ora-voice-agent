@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import { AuthBackground } from '@/components/auth/AuthBackground';
 import { AuthCard } from '@/components/auth/AuthCard';
 
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 export default function AuthPage() {
   return (
     <AuthBackground>
-      <AuthCard />
+      <Suspense fallback={null}>
+        <AuthCard />
+      </Suspense>
     </AuthBackground>
   );
 }

@@ -6,42 +6,21 @@
 
 /* =============================================================================
    ORA COMMAND CENTER — GLOBAL DESIGN TOKENS
-   Single source of truth for ALL colors, gradients, glows, and UI tokens.
-
-   Palette — ORA Violet / Cyan System
-     DARK MODE
-       --color-base:       #12121A  — Deep void background
-       --color-surface:    #1B1C27  — Elevated card surface
-       --color-foreground: #EDEEF4  — Primary readable text
-       --color-border:     #2A2C3A  — Subtle structural borders
-       --color-primary:    #6C5CE7  — Electric Violet (primary actions)
-       --color-secondary:  #2DD4C8  — Cyan Teal (accents / success states)
-
-     LIGHT MODE
-       --color-base:       #F7F7FB  — Near-white canvas
-       --color-surface:    #FFFFFF  — Pure white card surface
-       --color-foreground: #15151F  — Near-black text
-       --color-border:     #E4E4EE  — Soft lavender border
-       --color-primary:    #5645C7  — Deeper Violet (WCAG-safe on white)
-       --color-secondary:  #129E93  — Deep Teal (WCAG-safe on white)
-
-   ⚠️  DO NOT hardcode hex values inside components.
-       Always consume these CSS custom properties via var(--token).
+   Single source of truth. Palette per AGENTS.md §9 (ORA brand system):
+   Primary #2C5745 / #3d7a60 · Secondary #EB7D00 · Accent #EBE3A7 · Deep #2E2910
+   Surfaces: Obsidian scale (#020617 → #2c3a4c)
    ============================================================================= */
 
 @theme inline {
     /* ── Typography ─────────────────────────────────────────────────────────── */
-    --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);
+    --font-heading: var(--font-sans);
 
-    /* ── Radius scale ───────────────────────────────────────────────────────── */
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+    /* ── Radius scale (restrained) ──────────────────────────────────────────── */
+    --radius-sm: calc(var(--radius) * 0.75);
+    --radius-md: var(--radius);
+    --radius-lg: calc(var(--radius) * 1.25);
+    --radius-xl: calc(var(--radius) * 1.5);
 
     /* ── Shadcn/Tailwind standard token bridge ──────────────────────────────── */
     --color-background: var(--background);
@@ -115,263 +94,170 @@
     --color-on-surface: var(--on-surface);
     --color-on-surface-variant: var(--on-surface-variant);
     --color-outline-variant: var(--outline-variant);
-
-    /* ── Component-level token bridge ───────────────────────────────────────── */
-    --color-logo-text:              var(--logo-text);
-    --color-nav-active-dot:         var(--nav-active-dot);
-    --color-toggle-bg:              var(--toggle-bg);
-    --color-toggle-border:          var(--toggle-border);
-    --color-glass-bg:               var(--glass-bg);
-    --color-glass-border:           var(--glass-border);
-
-    /* ── KPI sparkline series token bridge ──────────────────────────────────── */
-    --color-spark-conversations-a:  var(--spark-conversations-a);
-    --color-spark-conversations-b:  var(--spark-conversations-b);
-    --color-spark-revenue-a:        var(--spark-revenue-a);
-    --color-spark-revenue-b:        var(--spark-revenue-b);
-    --color-spark-conversion-a:     var(--spark-conversion-a);
-    --color-spark-conversion-b:     var(--spark-conversion-b);
-    --color-spark-aov-a:            var(--spark-aov-a);
-    --color-spark-aov-b:            var(--spark-aov-b);
-    --color-spark-orders-a:         var(--spark-orders-a);
-    --color-spark-orders-b:         var(--spark-orders-b);
 }
 
 /* =============================================================================
    LIGHT MODE TOKENS
    ============================================================================= */
 :root {
-    /* ── Radius ─────────────────────────────────────────────────────────────── */
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
-    /* ── Core palette ───────────────────────────────────────────────────────── */
-    --primary:              #5645C7;
-    --primary-hover:        #4737B0;
-    --primary-active:       #392A99;
-    --primary-foreground:   #FFFFFF;
+    /* ── Core palette (AGENTS.md §9) ───────────────────────────────────────── */
+    --primary:              #2C5745;
+    --primary-hover:        #25493A;
+    --primary-active:       #1E3B2F;
+    --primary-foreground:   #EBE3A7;
 
-    --secondary:            #129E93;
-    --secondary-hover:      #0D8A80;
-    --secondary-active:     #09736B;
-    --secondary-foreground: #FFFFFF;
+    --secondary:            #EB7D00;
+    --secondary-hover:      #D06F00;
+    --secondary-active:     #B56100;
+    --secondary-foreground: #2E2910;
 
     /* ── Utility / Semantic colors ──────────────────────────────────────────── */
-    --ora-success:              #129E93;
-    --ora-success-foreground:   #FFFFFF;
-    --ora-warning:              #F59E0B;
-    --ora-warning-foreground:   #1C1400;
-    --ora-error:                #DC2626;
-    --ora-error-foreground:     #FFF5F5;
-    --ora-info:                 #5645C7;
+    --ora-success:              #2C5745;
+    --ora-success-foreground:   #EBE3A7;
+    --ora-warning:              #EB7D00;
+    --ora-warning-foreground:   #2E2910;
+    --ora-error:                #c0392b;
+    --ora-error-foreground:     #FFF5F2;
+    --ora-info:                 #009eb9;
     --ora-info-foreground:      #FFFFFF;
 
     /* ── Shadcn bridge tokens ───────────────────────────────────────────────── */
-    --accent:                   #EEEDFB;
-    --accent-foreground:        #5645C7;
-    --muted:                    #F0F0F8;
-    --muted-foreground:         #6B6B8A;
-    --destructive:              #DC2626;
-    --ring:                     #5645C7;
-    --input:                    #E4E4EE;
-    --border:                   #E4E4EE;
+    --accent:                   #E8ECE4;
+    --accent-foreground:        #2C5745;
+    --muted:                    #EEF1EB;
+    --muted-foreground:         #5B6657;
+    --destructive:              #c0392b;
+    --ring:                     #2C5745;
+    --input:                    #D8DED4;
+    --border:                   #D8DED4;
 
     /* ── Background & Surface (light) ───────────────────────────────────────── */
-    --background:               #F7F7FB;
-    --foreground:               #15151F;
+    --background:               #F6F8F4;
+    --foreground:               #1A1F1A;
     --card:                     #FFFFFF;
-    --card-foreground:          #15151F;
+    --card-foreground:          #1A1F1A;
     --popover:                  #FFFFFF;
-    --popover-foreground:       #15151F;
+    --popover-foreground:       #1A1F1A;
 
-    /* ── Surface elevation scale (light) ────────────────────────────────────── */
-    --surface-lowest:           #EFEFF7;
-    --surface-low:              #E8E8F2;
-    --surface-container:        #E0E0EC;
-    --surface-high:             #D8D8E8;
-    --surface-highest:          #CECEDE;
-    --surface-bright:           #F7F7FB;
-    --on-surface:               #15151F;
-    --on-surface-variant:       #4A4A6A;
-    --outline-variant:          #D0D0E4;
+    /* ── Surface elevation scale (light, green-tinted neutrals) ─────────────── */
+    --surface-lowest:           #EDF1EA;
+    --surface-low:              #E3E8DF;
+    --surface-container:        #DCE2D8;
+    --surface-high:             #D0D8CC;
+    --surface-highest:          #C4CDC0;
+    --surface-bright:           #F6F8F4;
+    --on-surface:               #1A1F1A;
+    --on-surface-variant:       #4C5748;
+    --outline-variant:          #D0D8CC;
 
-    /* ── Chart series (light) ───────────────────────────────────────────────── */
-    --chart-1:  #5645C7;
-    --chart-2:  #129E93;
-    --chart-3:  #2DD4C8;
-    --chart-4:  #F59E0B;
-    --chart-5:  #DC2626;
-    --chart-6:  #8B8BB0;
+    /* ── Chart series (AGENTS.md §9 order) ──────────────────────────────────── */
+    --chart-1:  #2C5745;
+    --chart-2:  #EB7D00;
+    --chart-3:  #8A7A3D;
+    --chart-4:  #009eb9;
+    --chart-5:  #c0392b;
+    --chart-6:  #6B7F73;
 
     /* ── Agent Status colors ────────────────────────────────────────────────── */
-    --status-online:        #129E93;
-    --status-active:        #2DD4C8;
-    --status-warning:       #F59E0B;
-    --status-offline:       #8B8BB0;
-    --status-error:         #DC2626;
-    --status-processing:    #5645C7;
+    --status-online:        #2C5745;
+    --status-active:        #3E8A68;
+    --status-warning:       #EB7D00;
+    --status-offline:       #8A958D;
+    --status-error:         #c0392b;
+    --status-processing:    #009eb9;
 
     /* ── Sidebar ────────────────────────────────────────────────────────────── */
-    --sidebar:                      #EFEFF7;
-    --sidebar-foreground:           #15151F;
-    --sidebar-primary:              #5645C7;
-    --sidebar-primary-foreground:   #FFFFFF;
-    --sidebar-accent:               #E0E0EC;
-    --sidebar-accent-foreground:    #15151F;
-    --sidebar-border:               #E4E4EE;
-    --sidebar-ring:                 #5645C7;
-
-    /* ── Component-level tokens (light) ─────────────────────────────────────── */
-
-    /* Logo / Brand mark */
-    --logo-gradient:          linear-gradient(135deg, #392A99 0%, #5645C7 60%, #129E93 130%);
-    --logo-glow:              0 0 18px rgba(86,69,199,0.4), 0 0 32px rgba(18,158,147,0.15);
-    --logo-text:              #FFFFFF;
-
-    /* Sidebar nav active state */
-    --nav-active-bg:          linear-gradient(90deg, rgba(86,69,199,0.12) 0%, rgba(86,69,199,0.03) 100%);
-    --nav-active-border:      #5645C7;
-    --nav-active-dot:         #129E93;
-
-    /* Top nav bar */
-    --topnav-bg:              rgba(247,247,251,0.85);
-    --topnav-border:          #E4E4EE;
-
-    /* Theme toggle button */
-    --toggle-bg:              rgba(86,69,199,0.08);
-    --toggle-border:          rgba(86,69,199,0.20);
-
-    /* Glassmorphism cards (light — semi-opaque white) */
-    --glass-bg:               rgba(255,255,255,0.75);
-    --glass-border:           rgba(0,0,0,0.06);
-
-    /* KPI sparkline series — light mode */
-    --spark-conversations-a:  #5645C7;
-    --spark-conversations-b:  #818CF8;
-    --spark-revenue-a:        #9333EA;
-    --spark-revenue-b:        #C084FC;
-    --spark-conversion-a:     #129E93;
-    --spark-conversion-b:     #2DD4C8;
-    --spark-aov-a:            #DB2777;
-    --spark-aov-b:            #F472B6;
-    --spark-orders-a:         #059669;
-    --spark-orders-b:         #34D399;
+    --sidebar:                      #EDF1EA;
+    --sidebar-foreground:           #1A1F1A;
+    --sidebar-primary:              #2C5745;
+    --sidebar-primary-foreground:   #EBE3A7;
+    --sidebar-accent:               #DCE2D8;
+    --sidebar-accent-foreground:    #1A1F1A;
+    --sidebar-border:               #D8DED4;
+    --sidebar-ring:                 #2C5745;
 }
 
 /* =============================================================================
-   DARK MODE TOKENS — Primary dashboard mode
+   DARK MODE TOKENS — Obsidian Intelligence surfaces (AGENTS.md §9)
    ============================================================================= */
 .dark {
     /* ── Core palette ───────────────────────────────────────────────────────── */
-    --primary:              #6C5CE7;
-    --primary-hover:        #7D6FEF;
-    --primary-active:       #5645C7;
-    --primary-foreground:   #FFFFFF;
+    --primary:              #3d7a60;
+    --primary-hover:        #4C8C71;
+    --primary-active:       #32674F;
+    --primary-foreground:   #EBE3A7;
 
-    --secondary:            #2DD4C8;
-    --secondary-hover:      #3DDED3;
-    --secondary-active:     #129E93;
-    --secondary-foreground: #0D1117;
+    --secondary:            #EB7D00;
+    --secondary-hover:      #F08C1F;
+    --secondary-active:     #D06F00;
+    --secondary-foreground: #2E2910;
 
     /* ── Utility / Semantic colors (dark) ───────────────────────────────────── */
-    --ora-success:              #2DD4C8;
-    --ora-success-foreground:   #0D1117;
-    --ora-warning:              #FBBF24;
-    --ora-warning-foreground:   #1C1400;
-    --ora-error:                #F87171;
-    --ora-error-foreground:     #1A0000;
-    --ora-info:                 #818CF8;
-    --ora-info-foreground:      #0D1117;
+    --ora-success:              #3d7a60;
+    --ora-success-foreground:   #EBE3A7;
+    --ora-warning:              #EB7D00;
+    --ora-warning-foreground:   #2E2910;
+    --ora-error:                #e05252;
+    --ora-error-foreground:     #1F0A0A;
+    --ora-info:                 #4cd7f6;
+    --ora-info-foreground:      #062A33;
 
     /* ── Shadcn bridge tokens (dark) ────────────────────────────────────────── */
-    --accent:                   #1E1D2E;
-    --accent-foreground:        #EDEEF4;
-    --muted:                    #17172A;
-    --muted-foreground:         #8B8BA8;
-    --destructive:              #F87171;
-    --ring:                     #6C5CE7;
-    --input:                    rgba(108,92,231,0.15);
-    --border:                   #2A2C3A;
+    --accent:                   #1A2B22;
+    --accent-foreground:        #EBE3A7;
+    --muted:                    #14202B;
+    --muted-foreground:         #94A3A0;
+    --destructive:              #e05252;
+    --ring:                     #3d7a60;
+    --input:                    #26374A;
+    --border:                   #26374A;
 
-    /* ── Background & Surface (dark) ────────────────────────────────────────── */
-    --background:               #12121A;
-    --foreground:               #EDEEF4;
-    --card:                     #1B1C27;
-    --card-foreground:          #EDEEF4;
-    --popover:                  #1B1C27;
-    --popover-foreground:       #EDEEF4;
+    /* ── Background & Surface (dark, Obsidian) ──────────────────────────────── */
+    --background:               #020617;
+    --foreground:               #E7EBE2;
+    --card:                     #122131;
+    --card-foreground:          #E7EBE2;
+    --popover:                  #122131;
+    --popover-foreground:       #E7EBE2;
 
-    /* ── Surface elevation scale (dark) ─────────────────────────────────────── */
-    --surface-lowest:           #0D0D14;
-    --surface-low:              #151620;
-    --surface-container:        #1B1C27;
-    --surface-high:             #22233A;
-    --surface-highest:          #2A2C3A;
-    --surface-bright:           #32334A;
-    --on-surface:               #EDEEF4;
-    --on-surface-variant:       #9293B0;
-    --outline-variant:          #2A2C3A;
+    /* ── Surface elevation scale (dark, Obsidian) ───────────────────────────── */
+    --surface-lowest:           #010f1f;
+    --surface-low:              #0d1c2d;
+    --surface-container:        #122131;
+    --surface-high:             #1c2b3c;
+    --surface-highest:          #273647;
+    --surface-bright:           #2c3a4c;
+    --on-surface:               #E7EBE2;
+    --on-surface-variant:       #9AA8A3;
+    --outline-variant:          #1c2b3c;
 
-    /* ── Chart series (dark) ────────────────────────────────────────────────── */
-    --chart-1:  #6C5CE7;
-    --chart-2:  #2DD4C8;
-    --chart-3:  #818CF8;
-    --chart-4:  #FBBF24;
-    --chart-5:  #F87171;
-    --chart-6:  #8B8BA8;
+    /* ── Chart series (dark, AGENTS.md §9) ──────────────────────────────────── */
+    --chart-1:  #3d7a60;
+    --chart-2:  #EB7D00;
+    --chart-3:  #EBE3A7;
+    --chart-4:  #4cd7f6;
+    --chart-5:  #e05252;
+    --chart-6:  #8fa99a;
 
     /* ── Agent Status colors (dark) ─────────────────────────────────────────── */
-    --status-online:        #2DD4C8;
-    --status-active:        #3DDED3;
-    --status-warning:       #FBBF24;
-    --status-offline:       #8B8BA8;
-    --status-error:         #F87171;
-    --status-processing:    #818CF8;
+    --status-online:        #3d7a60;
+    --status-active:        #52b88a;
+    --status-warning:       #EB7D00;
+    --status-offline:       #8fa99a;
+    --status-error:         #e05252;
+    --status-processing:    #4cd7f6;
 
     /* ── Sidebar (dark) ─────────────────────────────────────────────────────── */
-    --sidebar:                      #0D0D14;
-    --sidebar-foreground:           #EDEEF4;
-    --sidebar-primary:              #6C5CE7;
-    --sidebar-primary-foreground:   #FFFFFF;
-    --sidebar-accent:               #1B1C27;
-    --sidebar-accent-foreground:    #EDEEF4;
-    --sidebar-border:               #2A2C3A;
-    --sidebar-ring:                 #6C5CE7;
-
-    /* ── Component-level tokens (dark) ──────────────────────────────────────── */
-
-    /* Logo / Brand mark */
-    --logo-gradient:          linear-gradient(135deg, #5645C7 0%, #6C5CE7 60%, #2DD4C8 130%);
-    --logo-glow:              0 0 18px rgba(108,92,231,0.55), 0 0 36px rgba(45,212,200,0.2);
-    --logo-text:              #FFFFFF;
-
-    /* Sidebar nav active state */
-    --nav-active-bg:          linear-gradient(90deg, rgba(108,92,231,0.18) 0%, rgba(108,92,231,0.04) 100%);
-    --nav-active-border:      #6C5CE7;
-    --nav-active-dot:         #2DD4C8;
-
-    /* Top nav bar */
-    --topnav-bg:              rgba(18,18,26,0.85);
-    --topnav-border:          #2A2C3A;
-
-    /* Theme toggle button */
-    --toggle-bg:              rgba(108,92,231,0.12);
-    --toggle-border:          rgba(108,92,231,0.28);
-
-    /* Glassmorphism cards (dark — ultra-transparent) */
-    --glass-bg:               rgba(255,255,255,0.03);
-    --glass-border:           rgba(255,255,255,0.08);
-
-    /* KPI sparkline series — dark mode */
-    --spark-conversations-a:  #6C5CE7;
-    --spark-conversations-b:  #818CF8;
-    --spark-revenue-a:        #9333EA;
-    --spark-revenue-b:        #C084FC;
-    --spark-conversion-a:     #2DD4C8;
-    --spark-conversion-b:     #22D3EE;
-    --spark-aov-a:            #DB2777;
-    --spark-aov-b:            #F472B6;
-    --spark-orders-a:         #059669;
-    --spark-orders-b:         #34D399;
+    --sidebar:                      #010f1f;
+    --sidebar-foreground:           #E7EBE2;
+    --sidebar-primary:              #3d7a60;
+    --sidebar-primary-foreground:   #EBE3A7;
+    --sidebar-accent:               #122131;
+    --sidebar-accent-foreground:    #E7EBE2;
+    --sidebar-border:               #26374A;
+    --sidebar-ring:                 #3d7a60;
 }
 
 /* =============================================================================
@@ -383,7 +269,7 @@
     }
 
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-foreground antialiased;
     }
 
     html {
@@ -392,45 +278,14 @@
 }
 
 /* =============================================================================
-   ANIMATION UTILITIES — waveform bars + LIVE badge pulse
+   ACCESSIBILITY — respect reduced motion preferences
    ============================================================================= */
-
-/* Waveform — 7-bar animated equalizer (used in Voice Sessions panel) */
-@keyframes wave {
-    0%, 100% { height: 4px;  }
-    50%       { height: 16px; }
-}
-
-.waveform {
-    display:     flex;
-    align-items: center;
-    gap:         2px;
-    height:      16px;
-}
-.waveform span {
-    display:          block;
-    width:            3px;
-    background-color: var(--primary);
-    border-radius:    9999px;
-    animation:        wave 1.2s ease-in-out infinite;
-}
-.waveform-secondary span { background-color: var(--secondary);   }
-.waveform-success   span { background-color: var(--ora-success);  }
-
-.waveform span:nth-child(1) { animation-delay: 0.0s; height: 4px;  }
-.waveform span:nth-child(2) { animation-delay: 0.1s; height: 8px;  }
-.waveform span:nth-child(3) { animation-delay: 0.2s; height: 12px; }
-.waveform span:nth-child(4) { animation-delay: 0.3s; height: 16px; }
-.waveform span:nth-child(5) { animation-delay: 0.4s; height: 12px; }
-.waveform span:nth-child(6) { animation-delay: 0.5s; height: 8px;  }
-.waveform span:nth-child(7) { animation-delay: 0.6s; height: 4px;  }
-
-/* Pulse-ring — used on LIVE badge dot and status indicator dots */
-@keyframes pulse-ring {
-    0%   { transform: scale(0.85); opacity: 1;   }
-    70%  { transform: scale(1.1);  opacity: 0.3; }
-    100% { transform: scale(0.85); opacity: 1;   }
-}
-.animate-pulse-ring {
-    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
