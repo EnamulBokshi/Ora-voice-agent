@@ -1,6 +1,0 @@
-$kind: collection
-name: Ora
-variables:
-  - key: json_web_token_08qw
-    secret: true
-    disabled: false
