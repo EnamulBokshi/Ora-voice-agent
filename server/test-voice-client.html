@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ORA Voice Agent Free Test Playground</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #090d16; color: #e2e8f0; padding: 40px; max-width: 600px; margin: 0 auto; }
+    h1 { color: #3d7a60; font-size: 24px; margin-bottom: 8px; }
+    p { color: #94a3b8; font-size: 14px; }
+    .card { background: #121d2d; border: 1px solid #1e2d42; border-radius: 12px; padding: 24px; margin-top: 20px; }
+    label { display: block; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; margin-bottom: 16px; box-sizing: border-box; }
+    button { background: #2C5745; color: #EBE3A7; border: none; padding: 12px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; font-size: 15px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { margin-top: 16px; font-size: 14px; font-weight: bold; color: #38bdf8; }
+    .meter { height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .meter-fill { height: 100%; width: 0%; background: #2DD4C8; transition: width 0.1s ease; }
+    .transcript { margin-top: 16px; background: #070a12; padding: 12px; border-radius: 8px; min-height: 100px; max-height: 250px; overflow-y: auto; font-size: 13px; color: #cbd5e1; }
+    .warning-box { background: rgba(235, 125, 0, 0.15); border: 1px solid #EB7D00; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #EBE3A7; }
+  </style>
+</head>
+<body>
+
+  <h1>🎙️ ORA Voice Agent Playground</h1>
+  <p>Test real-time simultaneous voice chatting with Gemini 2.5 Live for free.</p>
+
+  <div class="card">
+    <div class="warning-box">
+      ⚠️ <strong>Prerequisite:</strong> Ensure you have added your free <code>GEMINI_API_KEY</code> into <code>server/.env</code> file.
+    </div>
+
+    <label>Publishable Key</label>
+    <input type="text" id="pubKey" value="biz_live_mock_key_12345" placeholder="Enter your business publishable key">
+
+    <label>Session ID</label>
+    <input type="text" id="sessionId" value="sess_test_123">
+
+    <button id="toggleBtn" onclick="toggleVoiceSession()">Start Speaking</button>
+
+    <div class="status" id="statusText">Status: Idle</div>
+    <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+    <div class="transcript" id="transcriptBox">Transcripts and ORA responses will appear here...</div>
+  </div>
+
+  <script>
+    let socket;
+    let audioContext;
+    let mediaStream;
+    let isConnected = false;
+    let audioChunkCount = 0;
+
+    async function toggleVoiceSession() {
+      if (isConnected) {
+        stopVoiceSession();
+      } else {
+        await startVoiceSession();
+      }
+    }
+
+    async function startVoiceSession() {
+      const publishableKey = document.getElementById('pubKey').value.trim();
+      const sessionId = document.getElementById('sessionId').value.trim();
+
+      document.getElementById('statusText').innerText = "Connecting to Voice Gateway...";
+      
+      socket = io("http://localhost:5000/voice", { transports: ['websocket'] });
+
+      socket.on("connect", () => {
+        document.getElementById('statusText').innerText = "Socket connected. Initializing Gemini Session...";
+        socket.emit("start-voice-session", { publishableKey, sessionId });
+      });
+
+      socket.on("voice-session-started", async () => {
+        isConnected = true;
+        audioChunkCount = 0;
+        document.getElementById('toggleBtn').innerText = "Stop Session";
+        document.getElementById('toggleBtn').style.background = "#e05252";
+        document.getElementById('statusText').innerText = "🔴 Session Active — Speak into your microphone!";
+
+        await startMicrophoneCapture();
+      });
+
+      socket.on("audio-stream", (data) => {
+        document.getElementById('statusText').innerText = "🔊 ORA is speaking...";
+        playIncomingAudioPcm(data.audio);
+      });
+
+      socket.on("text-stream", (data) => {
+        const box = document.getElementById('transcriptBox');
+        box.innerText += "\n[ORA]: " + data.text;
+        box.scrollTop = box.scrollHeight;
+      });
+
+      socket.on("voice-error", (err) => {
+        document.getElementById('statusText').innerText = "❌ Error: " + (err.message || JSON.stringify(err));
+        document.getElementById('statusText').style.color = "#e05252";
+      });
+
+      socket.on("voice-session-ended", () => {
+        document.getElementById('statusText').innerText = "Session ended by server (Check GEMINI_API_KEY in server/.env).";
+        stopVoiceSession();
+      });
+    }
+
+    async function startMicrophoneCapture() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const source = audioContext.createMediaStreamSource(mediaStream);
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        processor.onaudioprocess = (e) => {
+          if (!isConnected) return;
+          const inputData = e.inputBuffer.getChannelData(0);
+
+          // Calculate Mic Volume Level for Meter UI
+          let sum = 0;
+          for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
+          const rms = Math.sqrt(sum / inputData.length);
+          const level = Math.min(100, Math.floor(rms * 400));
+          document.getElementById('meterFill').style.width = level + "%";
+
+          // Skip completely silent frames (noise gate)
+          if (rms < 0.01) return;
+
+          const pcm16 = floatTo16BitPCM(inputData);
+          const base64Audio = arrayBufferToBase64(pcm16.buffer);
+          audioChunkCount++;
+
+          if (audioChunkCount % 10 === 0) {
+            document.getElementById('statusText').innerText = `🎙️ Voice Detected! (Sent ${audioChunkCount} speech chunks)`;
+          }
+
+          socket.emit("audio-chunk", { audio: base64Audio });
+        };
+      } catch (err) {
+        document.getElementById('statusText').innerText = "Mic Error: " + err.message;
+      }
+    }
+
+    let audioQueueTime = 0;
+    let playbackContext = null;
+
+    function playIncomingAudioPcm(base64Pcm) {
+      try {
+        if (!playbackContext) {
+          playbackContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        }
+        if (playbackContext.state === 'suspended') {
+          playbackContext.resume();
+        }
+
+        const bytes = base64ToUint8Array(base64Pcm);
+        const int16Array = new Int16Array(bytes.buffer);
+        const float32Array = new Float32Array(int16Array.length);
+
+        for (let i = 0; i < int16Array.length; i++) {
+          float32Array[i] = int16Array[i] / 32768.0;
+        }
+
+        const buffer = playbackContext.createBuffer(1, float32Array.length, 24000);
+        buffer.getChannelData(0).set(float32Array);
+        const source = playbackContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(playbackContext.destination);
+
+        const currentTime = playbackContext.currentTime;
+        if (audioQueueTime < currentTime) {
+          audioQueueTime = currentTime;
+        }
+
+        source.start(audioQueueTime);
+        audioQueueTime += buffer.duration;
+      } catch (e) {
+        console.error("Audio playback error:", e);
+      }
+    }
+
+    function stopVoiceSession() {
+      if (socket) {
+        socket.emit("stop-voice-session");
+        socket.disconnect();
+      }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      isConnected = false;
+      document.getElementById('toggleBtn').innerText = "Start Speaking";
+      document.getElementById('toggleBtn').style.background = "#2C5745";
+      document.getElementById('statusText').innerText = "Status: Session Stopped";
+      document.getElementById('statusText').style.color = "#38bdf8";
+      document.getElementById('meterFill').style.width = "0%";
+    }
+
+    function floatTo16BitPCM(output) {
+      const buffer = new ArrayBuffer(output.length * 2);
+      const view = new DataView(buffer);
+      for (let i = 0; i < output.length; i++) {
+        const s = Math.max(-1, Math.min(1, output[i]));
+        view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      return new Uint8Array(buffer);
+    }
+
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToUint8Array(base64) {
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    }
+  </script>
+</body>
+</html>

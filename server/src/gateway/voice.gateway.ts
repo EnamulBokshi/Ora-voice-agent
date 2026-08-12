@@ -65,9 +65,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const business = await this.businessModel
+    let business = await this.businessModel
       .findOne({ publishableKey })
       .exec();
+
+    if (!business && publishableKey === 'biz_live_mock_key_12345') {
+      business = await this.businessModel
+        .findOneAndUpdate(
+          { publishableKey: 'biz_live_mock_key_12345' },
+          { name: 'Dev Playground Store', publishableKey: 'biz_live_mock_key_12345', status: 'active' },
+          { upsert: true, new: true },
+        )
+        .exec();
+    }
+
     if (!business) {
       client.emit('voice-error', { message: 'Invalid publishable key.' });
       return;
