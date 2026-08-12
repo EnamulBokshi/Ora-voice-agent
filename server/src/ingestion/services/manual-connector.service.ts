@@ -39,7 +39,7 @@ export class ManualConnectorService {
           availability: ProductAvailability.IN_STOCK,
           category,
           sourceTier: SourceTier.TIER4_MANUAL,
-          confidenceScore: 0.2,
+          confidenceScore: 0.5,
         },
       ],
     });

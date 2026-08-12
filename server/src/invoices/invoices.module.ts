@@ -5,6 +5,7 @@ import { InvoicesController } from './invoices.controller';
 import { Invoice, InvoiceSchema } from './schemas/invoice.schema';
 import { InvoiceCounter, InvoiceCounterSchema } from './schemas/invoice-counter.schema';
 import { InvoiceDeliveryLog, InvoiceDeliveryLogSchema } from './schemas/invoice-delivery-log.schema';
+import { PdfGeneratorService } from './services/pdf-generator.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { InvoiceDeliveryLog, InvoiceDeliveryLogSchema } from './schemas/invoice-
     ]),
   ],
   controllers: [InvoicesController],
-  providers: [InvoicesService],
-  exports: [InvoicesService, MongooseModule],
+  providers: [InvoicesService, PdfGeneratorService],
+  exports: [InvoicesService, PdfGeneratorService, MongooseModule],
 })
 export class InvoicesModule {}

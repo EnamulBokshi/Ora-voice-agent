@@ -8,6 +8,7 @@ import { Subscription, SubscriptionSchema } from './schemas/subscription.schema'
 import { PaymentTransaction, PaymentTransactionSchema } from './schemas/payment-transaction.schema';
 import { StripeProvider } from './providers/stripe.provider';
 import { BkashProvider } from './providers/bkash.provider';
+import { BillingSchedulerService } from './services/billing-scheduler.service';
 import { InvoicesModule } from '../invoices/invoices.module';
 
 @Module({
@@ -21,7 +22,7 @@ import { InvoicesModule } from '../invoices/invoices.module';
     ]),
   ],
   controllers: [BillingController],
-  providers: [BillingService, StripeProvider, BkashProvider],
-  exports: [BillingService, StripeProvider, BkashProvider, MongooseModule],
+  providers: [BillingService, StripeProvider, BkashProvider, BillingSchedulerService],
+  exports: [BillingService, StripeProvider, BkashProvider, BillingSchedulerService, MongooseModule],
 })
 export class BillingModule {}

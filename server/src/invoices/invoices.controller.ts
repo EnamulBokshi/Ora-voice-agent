@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards, HttpCode, HttpStatus, Header } from '@nestjs/common';
 import { InvoicesService } from './invoices.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
@@ -25,6 +25,15 @@ export class InvoicesController {
     @Param('id') id: string,
   ) {
     return this.invoicesService.findOne(user.businessId, id);
+  }
+
+  @Get(':id/pdf')
+  @Header('Content-Type', 'text/html')
+  async getInvoicePdf(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+  ) {
+    return this.invoicesService.getInvoiceHtml(user.businessId, id);
   }
 
   @Post(':id/resend')
