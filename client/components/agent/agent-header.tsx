@@ -7,6 +7,7 @@ interface AgentHeaderProps {
   onAddKnowledge?: () => void;
   onOpenRagPlayground?: () => void;
   onOpenReindex?: () => void;
+  onOpenVoiceTest?: () => void;
   itemsCount?: number;
   docsCount?: number;
 }
@@ -16,6 +17,7 @@ export function AgentHeader({
   onAddKnowledge,
   onOpenRagPlayground,
   onOpenReindex,
+  onOpenVoiceTest,
 }: AgentHeaderProps) {
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
@@ -42,6 +44,14 @@ export function AgentHeader({
 
       {/* Action Buttons */}
       <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <button
+          onClick={onOpenVoiceTest}
+          className="px-3.5 py-2 rounded-xl text-xs font-bold border text-emerald-300 transition-all flex items-center gap-1.5 hover:bg-emerald-500/20 shadow-md bg-emerald-950/40 border-emerald-500/30"
+        >
+          <Sparkles size={14} className="text-emerald-400 animate-pulse" />
+          Test Voice Agent
+        </button>
+
         <button
           onClick={onOpenRagPlayground}
           className="px-3.5 py-2 rounded-xl text-xs font-semibold border text-purple-300 transition-all flex items-center gap-1.5 hover:bg-purple-500/10 shadow-sm"
