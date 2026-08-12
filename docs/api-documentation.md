@@ -58,10 +58,10 @@ interface ErrorEnvelope {
 | `/api/v1/products/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update product details (price, stock, availability, tags). |
 | `/api/v1/products/:id` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Delete a product from tenant catalog. |
 | `/api/v1/products/batch-sync` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Bulk upsert products with source tier tracking. |
-| `/api/v1/ingestion/webhooks/:platform` | `POST` | Public (HMAC Header) | N/A | **Tier 1**: Shopify / WooCommerce platform webhook listener (HMAC signature verified & Redis idempotency). |
-| `/api/v1/ingestion/feed` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 2**: Parse Google Merchant / Meta XML catalog feed URL (`SourceTier.TIER2_FEED`, `confidenceScore: 0.8`). |
-| `/api/v1/ingestion/passive` | `POST` | `ApiKeyGuard` | N/A | **Tier 3**: Storefront passive capture & sitemap crawler (`SourceTier.TIER3_PASSIVE`, `confidenceScore: 0.5`). |
-| `/api/v1/ingestion/manual` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 4**: Custom payload endpoint with field mapping config (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.2`). |
+| `/api/v1/ingestion/webhooks/:platform` | `POST` | Public (HMAC Header) | N/A | **Tier 1**: Shopify / WooCommerce platform webhook listener (HMAC signature verified & Redis idempotency, `confidenceScore: 1.0`). |
+| `/api/v1/ingestion/feed` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 2**: Parse Google Merchant / Meta XML catalog feed URL (`SourceTier.TIER2_FEED`, `confidenceScore: 0.7`). |
+| `/api/v1/ingestion/passive` | `POST` | `ApiKeyGuard` | N/A | **Tier 3**: Storefront passive capture & sitemap crawler (`SourceTier.TIER3_PASSIVE`, `confidenceScore: 0.3`). |
+| `/api/v1/ingestion/manual` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 4**: Custom payload endpoint with field mapping config (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.5`). |
 | `/api/v1/knowledge` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Create store context document & auto-chunk text. |
 | `/api/v1/knowledge` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List store knowledge base documents for tenant. |
 | `/api/v1/knowledge/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single knowledge base document. |
@@ -110,12 +110,12 @@ interface ErrorEnvelope {
 | `/api/v1/conversations/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve transcript with full message history and tool calls. |
 | `/api/v1/conversations/:id/close` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Mark conversation session closed. |
 | `ws://<host>/conversations` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Text chat conversation gateway with RAG lookup. |
-| `ws://<host>/voice` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Real-time bidirectional audio streaming & tool execution powered by Gemini 2.0 Multimodal Live API. |
+| `ws://<host>/voice` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Real-time bidirectional audio streaming & tool execution powered by Gemini 2.5 (`GEMINI_MODEL=models/gemini-2.5-flash`). |
 
 ### 6.1 Gemini Real-Time Voice Gateway Protocol (`ws://<host>/voice`)
 
 #### Client Socket Events
-- `start-voice-session`: `{ publishableKey: string, sessionId: string }` — Initiates Bidi session with Gemini 2.0 Live API.
+- `start-voice-session`: `{ publishableKey: string, sessionId: string }` — Initiates Bidi session with Gemini Live API.
 - `audio-chunk`: `{ audio: string }` — Base64 encoded PCM 16kHz microphone audio chunk.
 - `stop-voice-session`: Closes active voice session.
 
@@ -124,6 +124,14 @@ interface ErrorEnvelope {
 - `audio-stream`: `{ sessionId: string, audio: string, mimeType: 'audio/pcm;rate=24000' }` — Streaming model speech output.
 - `text-stream`: `{ sessionId: string, text: string }` — Transcription text.
 - `voice-error`: `{ message: string }`
+
+#### Executable AI Agent Tools
+- `find_products`: Unified search and live verification tool returning pre-verified product price and stock quantity.
+- `get_product_details`: Fetches full product metadata.
+- `add_to_cart`: Adds item to Redis session cart (`cart:conv:{sessionId}`).
+- `place_order`: Places customer order directly from Redis cart (Tier 1 integrated merchants).
+- `redirect_to_checkout`: Generates storefront checkout URL (Tier 2-4 merchants).
+- `get_store_policy`: Searches knowledge base for FAQs and policies.
 
 ---
 

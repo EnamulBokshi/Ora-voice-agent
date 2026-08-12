@@ -7,7 +7,7 @@ This document maintains the active progress tracking of implemented modules, dom
 ## 🟢 Phase 1: Authentication & User Management (COMPLETED)
 
 ### Overview
-Complete multi-tenant AdminUser authentication, merchant tenant provisioning (`Business`), RBAC role enforcement, Redis session management with token theft detection, configurable JWT access token TTL (`JWT_EXPIRATION`), and recipient-email OTP verification (v5 Architecture Section 10.10).
+Complete multi-tenant AdminUser authentication, merchant tenant provisioning (`Business`), RBAC role enforcement, Redis session management with token theft detection, configurable JWT access token TTL (`JWT_EXPIRATION`), recipient-email OTP verification (v5 Architecture Section 10.10), domain allowlisting, and per-tenant rate limiting guardrails (`ApiKeyGuard`).
 
 ### Implemented Components
 
@@ -21,7 +21,7 @@ Complete multi-tenant AdminUser authentication, merchant tenant provisioning (`B
 | **JWT Strategy & Guard** | `server/src/auth/strategies/jwt.strategy.ts`, `server/src/common/guards/jwt-auth.guard.ts` | Completed | Validates Bearer JWT access tokens (configurable via `JWT_EXPIRATION`, default `15m`) and checks Redis active session status. |
 | **RBAC Roles Guard** | `server/src/common/guards/roles.guard.ts` | Completed | `@Roles(...)` metadata validator for `owner`, `admin`, and `staff` access control. |
 | **Tenant Scope Guard** | `server/src/common/guards/tenant-scope.guard.ts` | Completed | Enforces tenant boundary (`businessId`) on protected routes. |
-| **ApiKey Guard** | `server/src/common/guards/api-key.guard.ts` | Completed | Validates publishable widget keys (`biz_live_xxxx`) and resolves tenant context for widget endpoints. |
+| **ApiKey Guard** | `server/src/common/guards/api-key.guard.ts` | Completed | Validates publishable widget keys (`biz_live_xxxx`), domain allowlisting (`Origin`/`Referer`), and Redis per-tenant rate limiting (120 req/min). |
 | **Response Interceptors & Exception Filters** | `server/src/common/interceptors/transform.interceptor.ts`, `server/src/common/filters/all-exceptions.filter.ts` | Completed | Standardized success `{ success: true, data }` and error `{ success: false, error: { code, message, correlationId } }` envelopes. |
 | **Mail & OTP Engine** | `server/src/mail/mail.service.ts`, `server/src/mail/email-templates.ts` | Completed | Resend API integration with fallback SMTP, rendering EJS template emails (`verify-email.ejs`, `otp-code.ejs`). |
 | **Redis Session Layer** | `server/src/common/redis/redis.service.ts` | Completed | Manages `session:{sessionId}` in Redis with 7-day TTL and instant session revocation. |
@@ -31,22 +31,22 @@ Complete multi-tenant AdminUser authentication, merchant tenant provisioning (`B
 ## 🟢 Phase 2: Product Catalog & Tiered Data Ingestion Engine (COMPLETED)
 
 ### Overview
-Implementation of the multi-tenant e-commerce product catalog (`Product`), context feeding knowledge base (`KnowledgeBase` & `KnowledgeChunk`), and 4-tier merchant data ingestion strategy. Supports confidence scoring, platform webhooks, Google Merchant/Meta catalog feed parsing, passive storefront capture, custom endpoint field mapping, and automatic text chunking (~500 character snippets) for vector search.
+Implementation of the multi-tenant e-commerce product catalog (`Product`), context feeding knowledge base (`KnowledgeBase` & `KnowledgeChunk`), and 4-tier merchant data ingestion strategy matching Master Architecture Section 4.2 confidence score ladder (Connector `1.0`, Feed `0.7`, Manual `0.5`, Passive `0.3`, Stale `0.1`).
 
 ### Implemented Components
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
-| **Product Schema** | `server/src/products/schemas/product.schema.ts` | Completed | Multi-tenant schema with `nativeProductId`, price, currency, availability status, stockQuantity, images, attributes, source tier (`TIER1_CONNECTOR`, `TIER2_FEED`, `TIER3_PASSIVE`, `TIER4_MANUAL`), confidence score, and recommendation metrics. |
+| **Product Schema** | `server/src/products/schemas/product.schema.ts` | Completed | Multi-tenant schema with `nativeProductId`, price, currency, availability status, stockQuantity, images, attributes, source tier (`TIER1_CONNECTOR`, `TIER2_FEED`, `TIER3_PASSIVE`, `TIER4_MANUAL`), confidence score ladder (Section 4.2 aligned), and recommendation metrics. |
 | **Products Service & Controller** | `server/src/products/products.service.ts`, `server/src/products/products.controller.ts` | Completed | Catalog CRUD, pagination, search, category filter, batch sync (`BatchSyncProductsDto`), live-verification update (`verifyLive`), and recommendation metrics. |
-| **Shopify Connector** | `server/src/ingestion/services/shopify-connector.service.ts` | Completed | **Tier 1**: OAuth webhook handler (`POST /api/v1/ingestion/webhooks/shopify`) with HMAC verification (`X-Shopify-Hmac-SHA256`) and Redis idempotency deduplication (`webhook:shopify:{id}`). |
+| **Shopify Connector** | `server/src/ingestion/services/shopify-connector.service.ts` | Completed | **Tier 1**: OAuth webhook handler (`POST /api/v1/ingestion/webhooks/shopify`) with HMAC verification (`X-Shopify-Hmac-SHA256`) and Redis idempotency (`confidenceScore: 1.0`). |
 | **WooCommerce Connector** | `server/src/ingestion/services/woocommerce-connector.service.ts` | Completed | **Tier 1**: REST catalog ingestion (`SourceTier.TIER1_CONNECTOR`, `confidenceScore: 1.0`). |
-| **Feed Parser** | `server/src/ingestion/services/feed-parser.service.ts` | Completed | **Tier 2**: Google Merchant / Meta XML catalog feed parser (`SourceTier.TIER2_FEED`, `confidenceScore: 0.8`). |
-| **Sitemap Crawler & Passive Capture** | `server/src/ingestion/services/sitemap-crawler.service.ts` | Completed | **Tier 3**: Sitemap XML diff-check crawler and storefront passive capture (`POST /api/v1/ingestion/passive`) with `ApiKeyGuard` (`SourceTier.TIER3_PASSIVE`, `confidenceScore: 0.5`). |
-| **Manual Connector** | `server/src/ingestion/services/manual-connector.service.ts` | Completed | **Tier 4**: Custom payload endpoint with field mapping config (`POST /api/v1/ingestion/manual`) (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.2`). |
+| **Feed Parser** | `server/src/ingestion/services/feed-parser.service.ts` | Completed | **Tier 2**: Google Merchant / Meta XML catalog feed parser (`SourceTier.TIER2_FEED`, `confidenceScore: 0.7`). |
+| **Sitemap Crawler & Passive Capture** | `server/src/ingestion/services/sitemap-crawler.service.ts` | Completed | **Tier 3**: Sitemap XML diff-check crawler and storefront passive capture (`POST /api/v1/ingestion/passive`) (`SourceTier.TIER3_PASSIVE`, `confidenceScore: 0.3`). |
+| **Manual Connector** | `server/src/ingestion/services/manual-connector.service.ts` | Completed | **Tier 4**: Custom payload endpoint with field mapping config (`POST /api/v1/ingestion/manual`) (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.5`). |
 | **Ingestion Controller** | `server/src/ingestion/ingestion.controller.ts` | Completed | Endpoints: `/api/v1/ingestion/webhooks/:platform`, `/api/v1/ingestion/feed`, `/api/v1/ingestion/passive`, `/api/v1/ingestion/manual`. |
 | **KnowledgeBase & Chunk Schemas** | `server/src/knowledge/schemas/knowledge-base.schema.ts`, `server/src/knowledge/schemas/knowledge-chunk.schema.ts` | Completed | Merchant policies, brand rules, FAQs, sales playbooks, product manuals, and ~500-char text chunking snippets. |
-| **Knowledge Service & Controller** | `server/src/knowledge/knowledge.service.ts`, `server/src/knowledge/knowledge.controller.ts` | Completed | Context document CRUD, text chunking engine, chunk retrieval, and cascade deletion. Endpoints: `/api/v1/knowledge` (POST, GET), `/api/v1/knowledge/:id` (GET, PATCH, DELETE), `/api/v1/knowledge/:id/chunks` (GET). |
+| **Knowledge Service & Controller** | `server/src/knowledge/knowledge.service.ts`, `server/src/knowledge/knowledge.controller.ts` | Completed | Context document CRUD, text chunking engine, chunk retrieval, and cascade deletion. |
 
 ---
 
@@ -62,14 +62,14 @@ Implementation of tenant-isolated vector search, embedding generation, RAG promp
 | **VectorIndex Schema** | `server/src/rag/schemas/vector-index.schema.ts` | Completed | Persistent vector storage carrying `businessId`, `entityType` (`product` \| `knowledge_chunk`), `entityId`, vector array, and metadata. |
 | **Embedding Service** | `server/src/rag/services/embedding.service.ts` | Completed | Generates 768-dimensional text embeddings via Gemini API (`text-embedding-004`) with normalized TF-IDF vectorizer fallback. |
 | **Vector Store Service** | `server/src/rag/services/vector-store.service.ts` | Completed | Tenant-isolated vector indexing, cosine similarity scoring, entity upserts, and deletion routines. |
-| **RAG Service & Controller** | `server/src/rag/services/rag.service.ts`, `server/src/rag/rag.controller.ts` | Completed | Combined hybrid semantic search across products and store rules, candidate cap (top 5), low-confidence fallback logging to `EventsService`, self-healing embeddings, and tenant re-indexing. Endpoints: `/api/v1/rag/search-products`, `/api/v1/rag/search-knowledge`, `/api/v1/rag/search`, `/api/v1/rag/reindex-tenant`. |
+| **RAG Service & Controller** | `server/src/rag/services/rag.service.ts`, `server/src/rag/rag.controller.ts` | Completed | Combined hybrid semantic search across products and store rules, candidate cap (top 5), low-confidence fallback logging to `EventsService`, self-healing embeddings, and tenant re-indexing. |
 
 ---
 
 ## 🟢 Phase 4: Order Management & Domain Event Engine (COMPLETED)
 
 ### Overview
-Implementation of customer order creation (`Order`), sequential human-readable order numbering (`ORD-2026-000100`), status tracking, and centralized asynchronous domain event logging (`Event`).
+Implementation of customer order creation (`Order`), sequential human-readable order numbering (`ORD-2026-000100`), status tracking, agent purchase execution, and centralized asynchronous domain event logging (`Event`).
 
 ### Implemented Components
 
@@ -84,18 +84,18 @@ Implementation of customer order creation (`Order`), sequential human-readable o
 ## 🟢 Phase 5: Customer, Agent Config & Gemini Real-Time Voice Gateway (COMPLETED)
 
 ### Overview
-Implementation of end-shopper customer profiles (`Customer` with AES-256 field-level PII encryption), AI agent brand voice & sales playbooks (`AgentConfig`, `VoiceSettings`, `SalesPlaybook`), conversation logging (`Conversation`, `Message`), REST APIs, and a real-time WebSocket Gateway (`VoiceGateway` & `GeminiVoiceService`) supporting Gemini 2.0 Multimodal Live Bidi streaming audio and tool execution.
+Implementation of end-shopper customer profiles (`Customer` with AES-256 PII encryption), AI agent brand voice & sales playbooks (`AgentConfig`), REST APIs, real-time WebSocket Gateways (`VoiceGateway` & `GeminiVoiceService`) with configurable Gemini 2.5 models (`GEMINI_MODEL=models/gemini-2.5-flash`), and unified AI tool execution (`find_products`, `get_product_details`, `add_to_cart`, `place_order`, `redirect_to_checkout`, `get_store_policy`).
 
 ### Implemented Components
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
-| **Customer Service & Controller** | `server/src/customers/customers.service.ts`, `server/src/customers/customers.controller.ts` | Completed | End-shopper profile management, PII encryption/decryption (`emailEncrypted`, `phoneEncrypted`). Endpoints: `/api/v1/customers` (POST, GET), `/api/v1/customers/:id` (GET, PATCH). |
+| **Customer Service & Controller** | `server/src/customers/customers.service.ts`, `server/src/customers/customers.controller.ts` | Completed | End-shopper profile management, PII encryption/decryption (`emailEncrypted`, `phoneEncrypted`). |
 | **AgentConfig Controller** | `server/src/agent-config/agent-config.controller.ts` | Completed | Endpoints: `/api/v1/agent-config` (GET, PATCH). |
-| **Conversations Service & Controller** | `server/src/conversations/conversations.service.ts`, `server/src/conversations/conversations.controller.ts` | Completed | Session resolution, transcript querying, Redis session state, and closing conversations. Endpoints: `/api/v1/conversations` (GET), `/api/v1/conversations/:id` (GET), `/api/v1/conversations/:id/close` (POST). |
+| **Conversations Service & Controller** | `server/src/conversations/conversations.service.ts`, `server/src/conversations/conversations.controller.ts` | Completed | Session resolution, transcript querying, Redis session state, and closing conversations. |
 | **Conversation Gateway** | `server/src/gateway/conversation.gateway.ts` | Completed | Socket.io namespace `/conversations` supporting `biz_live_xxxx` key auth, text messaging, and RAG catalog lookup. |
-| **AI Tool Definitions & Executor** | `server/src/ai-voice/tools/ai-tools.definition.ts`, `server/src/ai-voice/tools/ai-tools.executor.ts` | Completed | Gemini tool declarations (`search_products`, `get_product_details`, `check_inventory`, `add_to_cart`, `get_store_policy`) and real-time execution engine querying RAG, MongoDB, and Redis cart (`cart:conv:{sessionId}`). |
-| **Gemini Voice Service** | `server/src/ai-voice/gemini-voice.service.ts` | Completed | Manages bidirectional Bidi WebSocket sessions with Gemini 2.0 Multimodal Live API (`wss://generativelanguage.googleapis.com`), handling streaming audio PCM (16kHz in -> 24kHz out), prompt instructions, and tool responses. |
+| **AI Tool Definitions & Executor** | `server/src/ai-voice/tools/ai-tools.definition.ts`, `server/src/ai-voice/tools/ai-tools.executor.ts` | Completed | Unified `find_products` (live price/stock verification), `place_order` (order creation via `OrdersService`), `redirect_to_checkout` (storefront checkout link), `add_to_cart`, `get_product_details`, `get_store_policy`. |
+| **Gemini Voice Service** | `server/src/ai-voice/gemini-voice.service.ts` | Completed | Manages bidirectional WebSocket sessions with Gemini Live API using configurable `GEMINI_MODEL` (`models/gemini-2.5-flash`), streaming PCM audio, system instructions, and tool execution. |
 | **Voice Gateway** | `server/src/gateway/voice.gateway.ts` | Completed | Socket.io namespace `/voice` enabling live widget microphone audio streaming (`start-voice-session`, `audio-chunk`, `stop-voice-session`). |
 
 ---
@@ -103,15 +103,15 @@ Implementation of end-shopper customer profiles (`Customer` with AES-256 field-l
 ## 🟢 Phase 6: Payment Billing & Invoicing Engine (COMPLETED)
 
 ### Overview
-Implementation of the provider-abstracted subscription billing engine supporting dual payment providers (**Stripe USD** & **bKash BDT Tokenized Checkout**), active bKash tokenized agreement renewal processing, plan tier seeding (`Free`, `Growth`, `Scale`), append-only financial audit trails (`PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`), sequential human-readable invoice numbering (`ORA-2026-000123`) backed by atomic Mongoose counters (`$inc`), PDF rendering engine (`PdfGeneratorService`), and usage limit enforcement (`PlanLimitGuard` & `@Metered(...)`).
+Implementation of the provider-abstracted subscription billing engine supporting dual payment providers (**Stripe USD** & **bKash BDT Tokenized Checkout**), automated interval renewal scheduler (`BillingSchedulerService`) with Redis single-instance execution locks, plan tier seeding (`Free`, `Growth`, `Scale`), append-only financial audit trails (`PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`), sequential human-readable invoice numbering (`ORA-2026-000123`), PDF rendering engine (`PdfGeneratorService`), and usage limit enforcement (`PlanLimitGuard` & `@Metered(...)`).
 
 ### Implemented Components
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
-| **Stripe Payment Provider** | `server/src/billing/providers/stripe.provider.ts` | Completed | Provider implementation for USD auto-renewing subscriptions and webhook listeners. |
+| **Stripe Payment Provider** | `server/src/billing/providers/stripe.provider.ts` | Completed | Provider implementation for USD auto-renewing subscriptions initialized via `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` with development fallback. |
 | **bKash Tokenized Provider** | `server/src/billing/providers/bkash.provider.ts` | Completed | bKash Tokenized Checkout API v1.2.0-beta integration (grant token, create/execute agreement, tokenized payment execution, cancel agreement, renewal charge). |
-| **bKash Renewal Scheduler** | `server/src/billing/billing.service.ts` | Completed | Active renewal runner (`processBkashRenewals()`) charging tokenized agreements at period end and updating status (`ACTIVE`/`PAST_DUE`). |
+| **bKash Renewal Scheduler** | `server/src/billing/services/billing-scheduler.service.ts` | Completed | Automated interval scheduler running `processBkashRenewals()` with Redis single-instance locks (`lock:bkash-renewal:{date}`). |
 | **Plan & Subscription Schemas** | `server/src/billing/schemas/plan.schema.ts`, `server/src/billing/schemas/subscription.schema.ts` | Completed | Mongoose schemas for subscription plans and merchant subscriptions. |
 | **Invoice Engine & PDF Generator** | `server/src/invoices/invoices.service.ts`, `server/src/invoices/services/pdf-generator.service.ts`, `server/src/invoices/invoices.controller.ts` | Completed | Invoice generation, sequential `ORA-2026-000123` counter, server-side HTML/PDF renderer (`PdfGeneratorService`), PDF endpoint (`/api/v1/invoices/:id/pdf`), and resending (`/api/v1/invoices/:id/resend`). |
 | **PlanLimitGuard & Decorator** | `server/src/common/guards/plan-limit.guard.ts`, `server/src/common/decorators/metered.decorator.ts` | Completed | Metered decorator and guard checking Redis usage counters (`usage:{businessId}:{period}:{metric}`). Throws `PLAN_LIMIT_EXCEEDED` on breach. |
