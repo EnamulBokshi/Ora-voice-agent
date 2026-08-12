@@ -5,9 +5,11 @@ import { ConversationItem } from '../conversation-types';
 
 interface TranscriptHeaderProps {
   conversation: ConversationItem;
+  onCloseSession?: () => void;
+  isClosing?: boolean;
 }
 
-export function TranscriptHeader({ conversation }: TranscriptHeaderProps) {
+export function TranscriptHeader({ conversation, onCloseSession, isClosing }: TranscriptHeaderProps) {
   const conv = conversation;
 
   return (
@@ -44,8 +46,8 @@ export function TranscriptHeader({ conversation }: TranscriptHeaderProps) {
             </span>
           </h2>
           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
-            <span className="flex items-center gap-1 font-medium" style={{ color: 'var(--ora-success)' }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--ora-success)' }} />
+            <span className="flex items-center gap-1 font-medium" style={{ color: conv.status === 'completed' ? 'var(--muted-foreground)' : 'var(--ora-success)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: conv.status === 'completed' ? 'var(--muted-foreground)' : 'var(--ora-success)' }} />
               {conv.status === 'active' ? 'Active' : conv.status === 'needs_attention' ? 'Needs Attention' : 'Completed'}
             </span>
             <span>•</span>
@@ -56,16 +58,33 @@ export function TranscriptHeader({ conversation }: TranscriptHeaderProps) {
         </div>
       </div>
 
-      <button
-        className="px-3.5 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 text-foreground hover:bg-[var(--surface-high)] transition-all shrink-0 ml-auto"
-        style={{
-          background: 'var(--surface-high)',
-          borderColor: 'var(--glass-border)',
-        }}
-      >
-        <FileText size={13} />
-        Generate Summary
-      </button>
+      <div className="flex items-center gap-2 shrink-0 ml-auto">
+        {conv.status !== 'completed' && onCloseSession && (
+          <button
+            onClick={onCloseSession}
+            disabled={isClosing}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all text-muted-foreground hover:text-foreground hover:bg-[var(--surface-high)] disabled:opacity-50"
+            style={{
+              background: 'var(--surface-high)',
+              borderColor: 'var(--glass-border)',
+            }}
+          >
+            {isClosing ? 'Closing...' : 'Close Session'}
+          </button>
+        )}
+
+        <button
+          className="px-3.5 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 text-foreground hover:bg-[var(--surface-high)] transition-all shrink-0"
+          style={{
+            background: 'var(--surface-high)',
+            borderColor: 'var(--glass-border)',
+          }}
+        >
+          <FileText size={13} />
+          Generate Summary
+        </button>
+      </div>
     </div>
   );
 }
+
