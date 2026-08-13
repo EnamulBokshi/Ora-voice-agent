@@ -15,13 +15,13 @@ export function proxy(request: NextRequest) {
 
   // All protected dashboard and command center routes
   const isProtectedRoute =
-    pathname === '/' ||
-    pathname.startsWith('/catalog') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/agent') ||
+    pathname.startsWith('/live-desk') ||
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
     pathname.startsWith('/billing') ||
-    pathname.startsWith('/profile') ||
-    pathname.startsWith('/orders');
+    pathname.startsWith('/profile');
 
   // 1. Unauthenticated user attempting to access dashboard -> Redirect to /auth
   if (isProtectedRoute && !isAuthenticated) {
@@ -30,12 +30,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(authUrl);
   }
 
-  // 2. Authenticated user attempting to access /auth -> Redirect to dashboard /
+  // 2. Authenticated user attempting to access /auth -> Redirect to /dashboard
   // If the request contains a 'from' query parameter (e.g. redirected from client auth failure),
-  // do not redirect back to / to avoid an infinite loop.
+  // do not redirect back to /dashboard to avoid an infinite loop.
   const hasFromParam = request.nextUrl.searchParams.has('from');
   if (isAuthRoute && isAuthenticated && !hasFromParam) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // 3. Proxy /api requests to NestJS backend on port 5000
