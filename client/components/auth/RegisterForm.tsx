@@ -36,7 +36,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     }
 
     if (!agreeTerms) {
-      setError('You must agree to all Terms & Conditions.');
+      setError('You must agree to the Terms & Conditions.');
       return;
     }
 
@@ -64,21 +64,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full">
-      {/* Error Alert */}
       {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 backdrop-blur-md animate-in fade-in">
-          <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-md border border-error/30 bg-error/10 p-3 text-xs text-error animate-in fade-in">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <div className="flex-1 font-medium">{error}</div>
         </div>
       )}
 
-      {/* Name Input */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-semibold text-[#CBD5E1]">
-          Name
-        </label>
+        <label className="block text-xs font-medium text-foreground">Name</label>
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#64748B]">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
             <User className="h-4 w-4" />
           </div>
           <input
@@ -87,18 +83,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter your name"
             required
-            className="w-full rounded-xl border border-[#2A2C3A] bg-[#1A1C29] py-3 pl-10 pr-4 text-sm text-white placeholder-[#64748B] outline-none transition-all duration-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30 hover:border-[#3A3C4E]"
+            className="w-full rounded-md border border-input bg-surface-high py-3 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30"
           />
         </div>
       </div>
 
-      {/* Email Input */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-semibold text-[#CBD5E1]">
-          Email
-        </label>
+        <label className="block text-xs font-medium text-foreground">Email</label>
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#64748B]">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
             <Mail className="h-4 w-4" />
           </div>
           <input
@@ -107,18 +100,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
             required
-            className="w-full rounded-xl border border-[#2A2C3A] bg-[#1A1C29] py-3 pl-10 pr-4 text-sm text-white placeholder-[#64748B] outline-none transition-all duration-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30 hover:border-[#3A3C4E]"
+            className="w-full rounded-md border border-input bg-surface-high py-3 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30"
           />
         </div>
       </div>
 
-      {/* Password Input */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-semibold text-[#CBD5E1]">
-          Password
-        </label>
+        <label className="block text-xs font-medium text-foreground">Password</label>
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#64748B]">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
             <Lock className="h-4 w-4" />
           </div>
           <input
@@ -127,64 +117,53 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Create password"
             required
-            className="w-full rounded-xl border border-[#2A2C3A] bg-[#1A1C29] py-3 pl-10 pr-10 text-sm text-white placeholder-[#64748B] outline-none transition-all duration-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/30 hover:border-[#3A3C4E]"
+            className="w-full rounded-md border border-input bg-surface-high py-3 pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#64748B] hover:text-[#CBD5E1] transition-colors"
+            className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        <p className="text-[11px] text-[#64748B] pt-0.5">
-          Must be at least 8 characters
-        </p>
+        <p className="text-[11px] text-muted-foreground pt-0.5">Must be at least 8 characters</p>
       </div>
 
-      {/* Terms Checkbox */}
-      <div className="flex items-center gap-2 pt-1 text-xs text-[#94A3B8]">
+      <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground cursor-pointer select-none">
         <input
           type="checkbox"
-          id="terms"
           checked={agreeTerms}
           onChange={(e) => setAgreeTerms(e.target.checked)}
-          className="h-4 w-4 rounded border-[#2A2C3A] bg-[#1A1C29] text-[#6C5CE7] focus:ring-[#6C5CE7]/40 cursor-pointer"
+          className="h-4 w-4 rounded border-input bg-surface-high accent-primary cursor-pointer"
         />
-        <label htmlFor="terms" className="cursor-pointer select-none">
-          I agree to all <span className="font-semibold text-white hover:underline">Terms & Conditions</span>
-        </label>
-      </div>
+        I agree to the Terms &amp; Conditions
+      </label>
 
-      {/* Primary CTA Button */}
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-xl bg-gradient-to-r from-[#6C5CE7] to-[#5645C7] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#6C5CE7]/25 backdrop-blur-md transition-all duration-200 hover:from-[#7B6CF6] hover:to-[#6452D8] hover:shadow-[#6C5CE7]/40 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed mt-3"
+        className="w-full rounded-md bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed mt-3"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-white" />
-            Creating Account...
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Creating account...
           </span>
         ) : (
-          'Sign Up'
+          'Sign up'
         )}
       </button>
 
-      {/* Footer Switch Link */}
-      <div className="pt-3 text-center text-xs text-[#94A3B8]">
+      <div className="pt-3 text-center text-xs text-muted-foreground">
         Already have an account?{' '}
         <button
           type="button"
           onClick={onSwitchToLogin}
-          className="font-semibold text-[#6C5CE7] hover:underline"
+          className="font-medium text-primary hover:underline"
         >
-          Sign In
+          Sign in
         </button>
       </div>
     </form>

@@ -1,37 +1,29 @@
 'use client';
 
-import { User, Save, ShieldCheck } from 'lucide-react';
+import { User } from 'lucide-react';
+import { ThemeSwitcher } from './theme-switcher';
+import { LogoutButton } from '@/components/auth/LogoutButton';
 
-interface ProfileHeaderProps {
-  onSave?: () => void;
-}
-
-export function ProfileHeader({ onSave }: ProfileHeaderProps) {
+export function ProfileHeader() {
   return (
-    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1 flex items-center gap-2.5">
-          <User size={24} style={{ color: 'var(--primary)' }} />
-          Merchant Profile & Settings
+        <h1 className="text-xl font-semibold text-foreground tracking-tight flex items-center gap-2.5">
+          <User size={18} className="text-muted-foreground" />
+          Profile
         </h1>
-        <p className="text-xs text-muted-foreground">
-          Manage your store identity, team access, API keys, and account security.
+        <p className="text-[13px] text-muted-foreground mt-0.5">
+          Your merchant account and user details.
         </p>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
-        <button
-          onClick={onSave}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-lg transition-all flex items-center gap-2 hover:opacity-90 hover:scale-[1.02]"
-          style={{
-            background: 'var(--logo-gradient)',
-            boxShadow: 'var(--logo-glow)',
-          }}
-        >
-          <Save size={15} />
-          Save profile
-        </button>
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <ThemeSwitcher />
+        <div className="h-4 w-px bg-border mx-0.5 hidden sm:block" />
+        <LogoutButton variant="button" />
       </div>
     </div>
   );
 }
+
+

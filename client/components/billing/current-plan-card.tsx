@@ -1,87 +1,138 @@
 'use client';
 
-import { CheckCircle2, ShieldCheck, Sliders, Settings } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { SubscriptionDetailsResponse } from '@/types/billing';
+import { cancelSubscriptionApi } from '@/services/billing-service';
+import { formatCurrency } from '@/lib/format';
 
-export function CurrentPlanCard() {
+interface CurrentPlanCardProps {
+  subscription: SubscriptionDetailsResponse;
+  onReload: () => void;
+}
+
+export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps) {
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancel = async () => {
+    if (!confirm('Cancel your subscription? You will lose paid features at the end of the period.')) return;
+    setCancelling(true);
+    try {
+      await cancelSubscriptionApi();
+      onReload();
+    } catch {
+      // silent
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const plan = subscription.plan;
+  const sub = subscription.subscription;
+  const usage = subscription.usage;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-      {/* Active Plan Card (8 cols) */}
-      <div
-        className="lg:col-span-8 rounded-2xl p-6 border flex flex-col justify-between relative overflow-hidden backdrop-blur-md transition-all group"
-        style={{
-          background: 'var(--glass-bg)',
-          borderColor: 'var(--glass-border)',
-        }}
-      >
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 relative z-10">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Active plan */}
+      <div className="lg:col-span-8 rounded-md border border-border bg-surface-container p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
-              <h2 className="text-xl font-bold text-foreground">PRO Plan</h2>
-              <span
-                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
-                style={{
-                  background: 'color-mix(in srgb, var(--ora-success) 12%, transparent)',
-                  borderColor: 'color-mix(in srgb, var(--ora-success) 25%, transparent)',
-                  color: 'var(--ora-success)',
-                }}
-              >
-                Active
-              </span>
+              <h2 className="text-lg font-semibold text-foreground">
+                {plan ? plan.name : 'No plan'}
+              </h2>
+              {sub && (
+                <span
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ background: 'var(--success)', color: 'var(--success-foreground)' }}
+                >
+                  {sub.status.replace('_', ' ')}
+                </span>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">Billed monthly. Auto-renews on Sep 10, 2026.</p>
+            <p className="text-xs text-muted-foreground">
+              {sub
+                ? `Billing period ${new Date(sub.currentPeriodStart).toLocaleDateString()} - ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
+                : 'No active subscription.'}
+            </p>
           </div>
 
-          <div className="text-left sm:text-right">
-            <div className="text-3xl font-bold font-mono text-foreground leading-none mb-1">
-              $199<span className="text-xs font-normal text-muted-foreground">/mo</span>
+          {plan && (
+            <div className="text-left sm:text-right">
+              <div className="text-2xl font-semibold tabular-nums text-foreground leading-none">
+                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                <span className="text-xs font-normal text-muted-foreground">/mo</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 capitalize">
+                {sub?.billingProvider ?? 'no provider'}
+              </p>
             </div>
-            <p className="text-[11px] text-muted-foreground">Billing period: Aug 10 - Sep 10</p>
+          )}
+        </div>
+
+        {/* Usage */}
+        <div className="grid grid-cols-2 gap-4 text-[13px]">
+          <div className="p-3 rounded-md border border-border bg-surface-low">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">
+              Conversation minutes
+            </p>
+            <p className="font-semibold text-foreground tabular-nums">
+              {usage.conversationMinutes.toLocaleString()}
+            </p>
+          </div>
+          <div className="p-3 rounded-md border border-border bg-surface-low">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">Orders</p>
+            <p className="font-semibold text-foreground tabular-nums">
+              {usage.ordersPerMonth.toLocaleString()}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-2 relative z-10">
+        {sub && sub.status !== 'canceled' && (
           <button
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-foreground border hover:bg-[var(--surface-high)] transition-all"
-            style={{
-              background: 'var(--surface-high)',
-              borderColor: 'var(--glass-border)',
-            }}
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="mt-5 px-3.5 py-1.5 rounded-md text-xs font-medium border border-error/40 text-error hover:bg-error/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
           >
-            Change plan
+            {cancelling && <Loader2 className="animate-spin" size={12} />}
+            Cancel subscription
           </button>
-
-          <button
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-foreground border hover:bg-[var(--surface-high)] transition-all"
-            style={{
-              background: 'var(--glass-bg)',
-              borderColor: 'var(--glass-border)',
-            }}
-          >
-            Manage subscription
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* System Health Card (4 cols) */}
-      <div
-        className="lg:col-span-4 rounded-2xl p-6 border flex flex-col items-center justify-center text-center relative overflow-hidden backdrop-blur-md"
-        style={{
-          background: 'color-mix(in srgb, var(--ora-success) 8%, var(--surface-container))',
-          borderColor: 'color-mix(in srgb, var(--ora-success) 25%, transparent)',
-        }}
-      >
-        <div
-          className="w-14 h-14 rounded-full flex items-center justify-center mb-3 border shadow-md"
-          style={{
-            background: 'color-mix(in srgb, var(--ora-success) 20%, transparent)',
-            borderColor: 'color-mix(in srgb, var(--ora-success) 35%, transparent)',
-          }}
-        >
-          <CheckCircle2 size={26} style={{ color: 'var(--ora-success)' }} />
-        </div>
-
-        <h3 className="text-sm font-bold text-foreground mb-1">System Healthy</h3>
-        <p className="text-xs text-muted-foreground">Usage is safely within your plan limits.</p>
+      {/* Plan limits summary */}
+      <div className="lg:col-span-4 rounded-md border border-border bg-surface-container p-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Plan limits</h3>
+        {plan ? (
+          <dl className="space-y-3 text-[13px]">
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Conversation minutes</dt>
+              <dd className="font-medium text-foreground tabular-nums">
+                {plan.limits.conversationMinutes.toLocaleString()}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Orders per month</dt>
+              <dd className="font-medium text-foreground tabular-nums">
+                {plan.limits.ordersPerMonth.toLocaleString()}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Connected stores</dt>
+              <dd className="font-medium text-foreground tabular-nums">
+                {plan.limits.connectedStores}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Seats</dt>
+              <dd className="font-medium text-foreground tabular-nums">{plan.limits.seats}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-[13px] text-muted-foreground">
+            Subscribe to a plan to unlock limits.
+          </p>
+        )}
       </div>
     </div>
   );

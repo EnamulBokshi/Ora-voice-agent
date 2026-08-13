@@ -1,153 +1,217 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Radio,
   MessageSquareText,
   Package,
-  TrendingUp,
-  Bot,
-  BarChart3,
   ShoppingCart,
   Users,
   Receipt,
-  Settings,
-  User,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
+import { getMeApi } from '@/services/auth-service';
+import { demoProfile } from '@/lib/demo-data';
 
 interface NavItem {
   label: string;
-  href:  string;
-  icon:  React.ReactNode;
-  id:    string;
+  href: string;
+  icon: React.ReactNode;
+  id: string;
 }
 
 const navItems: NavItem[] = [
-  { id: 'command',       label: 'Overview',       href: '/',               icon: <LayoutDashboard   size={18} /> },
-  { id: 'live-activity', label: 'Live Activity',  href: '/live-activity',  icon: <Radio             size={18} /> },
-  { id: 'conversations', label: 'Conversations',  href: '/conversations',  icon: <MessageSquareText size={18} /> },
-  { id: 'catalog',       label: 'Catalog',        href: '/catalog',        icon: <Package           size={18} /> },
-  { id: 'sales',         label: 'Sales',          href: '/sales',          icon: <TrendingUp        size={18} /> },
-  { id: 'agent',         label: 'Agent',          href: '/agent',          icon: <Bot               size={18} /> },
-  { id: 'analytics',     label: 'Analytics',      href: '/analytics',      icon: <BarChart3         size={18} /> },
-  { id: 'orders',        label: 'Orders',         href: '/orders',         icon: <ShoppingCart      size={18} /> },
-  { id: 'customers',    label: 'Customers',      href: '/customers',      icon: <Users             size={18} /> },
-  { id: 'billing',      label: 'Billing',        href: '/billing',        icon: <Receipt           size={18} /> },
-  { id: 'system',        label: 'System',         href: '/system',         icon: <Settings          size={18} /> },
+  { id: 'overview',       label: 'Overview',       href: '/',              icon: <LayoutDashboard    size={16} /> },
+  { id: 'conversations',  label: 'Conversations',  href: '/conversations', icon: <MessageSquareText  size={16} /> },
+  { id: 'catalog',        label: 'Catalog',        href: '/catalog',       icon: <Package            size={16} /> },
+  { id: 'orders',         label: 'Orders',         href: '/orders',        icon: <ShoppingCart       size={16} /> },
+  { id: 'customers',      label: 'Customers',      href: '/customers',     icon: <Users              size={16} /> },
+  { id: 'billing',        label: 'Billing',        href: '/billing',       icon: <Receipt            size={16} /> },
 ];
 
-interface SidebarProps {
-  activePage?: string;
+function navIdFromPath(pathname: string): string {
+  if (pathname === '/') return 'overview';
+  const match = navItems.find((item) => item.href !== '/' && pathname.startsWith(item.href));
+  return match?.id ?? 'overview';
 }
 
-export function Sidebar({ activePage = 'command' }: SidebarProps) {
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const pathname = usePathname();
+  const activeId = navIdFromPath(pathname);
+  const [userName, setUserName] = useState<string>('Profile');
+
+  useEffect(() => {
+    let active = true;
+    getMeApi()
+      .then((data) => {
+        if (active) setUserName(data?.user?.name ?? demoProfile.user.name);
+      })
+      .catch(() => {
+        if (active) setUserName(demoProfile.user.name);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <aside
-      className="fixed left-0 top-0 h-full w-[280px] flex flex-col py-6 z-50"
-      style={{
-        background:   'var(--sidebar)',
-        borderRight:  '1px solid var(--sidebar-border)',
-      }}
+      className={cn(
+        'fixed left-0 top-0 h-full flex flex-col z-50 border-r border-border bg-surface-lowest transition-[width] duration-200 ease-out',
+        collapsed ? 'w-16' : 'w-[232px]'
+      )}
     >
-
-      {/* ── Logo ──────────────────────────────────────────── */}
-      <div className="px-6 mb-6 flex items-center gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 relative overflow-hidden"
-          style={{
-            background: 'var(--logo-gradient)',
-            boxShadow:  'var(--logo-glow)',
-          }}
-        >
-          <span
-            className="font-bold text-lg leading-none select-none"
-            style={{ color: 'var(--logo-text)' }}
-          >
+      {/* ── Logo + collapse toggle ── */}
+      <div
+        className={cn(
+          'h-16 flex items-center border-b border-border',
+          collapsed ? 'justify-center px-0' : 'justify-between px-3.5'
+        )}
+      >
+        {collapsed ? (
+          <span className="w-8 h-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none">
             O
           </span>
-        </div>
-
-        <div>
-          <p
-            className="text-xl font-bold leading-none tracking-tight"
-            style={{ color: 'var(--foreground)' }}
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none">
+              O
+            </span>
+            <div>
+              <p className="text-sm font-semibold leading-none tracking-tight text-foreground">ORA</p>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.12em] mt-0.5">
+                Command center
+              </p>
+            </div>
+          </div>
+        )}
+        {!collapsed && (
+          <button
+            onClick={onToggle}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
           >
-            ORA
-          </p>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em] mt-0.5">
-            Intelligence
-          </p>
-        </div>
+            <PanelLeftClose size={16} />
+          </button>
+        )}
+        {collapsed && (
+          <button
+            onClick={onToggle}
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        )}
       </div>
 
-      {/* ── Nav Items ─────────────────────────────────────── */}
-      <nav className="flex-1 px-4 flex flex-col gap-1 overflow-y-auto no-scrollbar">
+      {/* ── Nav ── */}
+      <nav
+        className={cn(
+          'flex-1 py-4 flex flex-col gap-0.5 overflow-y-auto no-scrollbar',
+          collapsed ? 'px-2 items-center' : 'px-3'
+        )}
+      >
         {navItems.map((item) => {
-          const isActive = item.id === activePage;
-          return (
+          const isActive = item.id === activeId;
+          const content = (
+            <>
+              <span className="flex-shrink-0">{item.icon}</span>
+              {!collapsed && <span>{item.label}</span>}
+            </>
+          );
+          return collapsed ? (
+            <Link
+              key={item.id}
+              href={item.href}
+              aria-label={item.label}
+              title={item.label}
+              className={cn(
+                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
+              )}
+            >
+              {content}
+            </Link>
+          ) : (
             <Link
               key={item.id}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group relative border-l-4',
+                'flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors',
                 isActive
-                  ? 'text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-[var(--surface-high)]'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
               )}
-              style={
-                isActive
-                  ? {
-                      background:  'var(--nav-active-bg)',
-                      borderColor: 'var(--nav-active-border)',
-                    }
-                  : {}
-              }
             >
-              <span
-                className="transition-colors duration-200 flex-shrink-0"
-                style={{ color: isActive ? 'var(--primary)' : undefined }}
-              >
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-              {isActive && (
-                <span
-                  className="ml-auto w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: 'var(--nav-active-dot)' }}
-                />
-              )}
+              {content}
             </Link>
           );
         })}
       </nav>
 
-      {/* ── Divider ───────────────────────────────────────── */}
-      <div
-        className="mx-4 my-3 h-px"
-        style={{ background: 'var(--border)' }}
-      />
+      {/* ── Divider ── */}
+      <div className={cn('my-2 h-px bg-border', collapsed ? 'mx-2' : 'mx-3')} />
 
-      {/* ── Merchant Profile & Logout ───────────────────────── */}
-      <div className="px-4 space-y-1">
-        <Link
-          href="/profile"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-[var(--surface-high)] transition-all duration-200 text-xs font-medium group"
-        >
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{
-              background: 'var(--toggle-bg)',
-              border:     '1px solid var(--toggle-border)',
-            }}
-          >
-            <User size={13} style={{ color: 'var(--primary)' }} />
+      {/* ── Profile & Logout ── */}
+      <div className={cn('pb-4', collapsed ? 'px-2 flex flex-col items-center gap-1.5' : 'px-3')}>
+        {collapsed ? (
+          <div className="flex flex-col items-center gap-1.5">
+            <Link
+              href="/profile"
+              aria-label={userName}
+              title={userName}
+              className={cn(
+                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
+                activeId === 'profile'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
+              )}
+            >
+              <span className="w-6 h-6 rounded-md flex items-center justify-center bg-primary/10 text-primary text-[11px] font-bold select-none uppercase">
+                {userName.charAt(0)}
+              </span>
+            </Link>
+            <LogoutButton variant="icon" />
           </div>
-          <span>Merchant Profile</span>
-        </Link>
-        <LogoutButton variant="sidebar" />
+        ) : (
+          <div
+            className={cn(
+              'flex items-center justify-between rounded-md px-2 py-1.5 transition-colors',
+              activeId === 'profile'
+                ? 'bg-primary/10 text-primary'
+                : 'hover:bg-surface-high text-muted-foreground'
+            )}
+          >
+            <Link
+              href="/profile"
+              aria-label={userName}
+              title={userName}
+              className="flex items-center gap-2.5 min-w-0 flex-1 py-0.5 text-[13px] font-medium text-foreground hover:text-primary transition-colors"
+            >
+              <span className="w-6 h-6 rounded-md flex items-center justify-center bg-primary/10 text-primary text-[11px] font-bold select-none uppercase flex-shrink-0">
+                {userName.charAt(0)}
+              </span>
+              <span className="truncate">{userName}</span>
+            </Link>
+            <LogoutButton variant="icon" className="flex-shrink-0" />
+          </div>
+        )}
       </div>
     </aside>
   );
 }
-

@@ -22,7 +22,7 @@ export class GeminiVoiceService {
     private readonly configService: ConfigService,
     private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly agentConfigService: AgentConfigService,
-  ) {}
+  ) { }
 
   async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<{
     sendAudioChunk: (base64Pcm16k: string) => void;

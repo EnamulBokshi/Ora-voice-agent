@@ -79,19 +79,19 @@ export function BatchSyncModal({ isOpen, onClose, onSynced }: BatchSyncModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
       <div
-        className="w-full max-w-xl rounded-2xl border p-6 flex flex-col gap-5 shadow-2xl overflow-hidden"
+        className="w-full max-w-xl rounded-md border p-6 flex flex-col gap-5 overflow-hidden"
         style={{
           background: 'var(--surface-container)',
-          borderColor: 'var(--glass-border)',
+          borderColor: 'var(--border)',
         }}
       >
         {/* Modal Header */}
-        <div className="flex justify-between items-center border-b pb-4" style={{ borderColor: 'var(--glass-border)' }}>
+        <div className="flex justify-between items-center border-b pb-4" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-2.5">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              className="w-9 h-9 rounded-md flex items-center justify-center"
               style={{ background: 'color-mix(in srgb, var(--primary) 15%, transparent)', color: 'var(--primary)' }}
             >
               <RefreshCw size={20} />
@@ -112,13 +112,13 @@ export function BatchSyncModal({ isOpen, onClose, onSynced }: BatchSyncModalProp
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl border text-xs bg-red-500/10 border-red-500/20 text-red-400">
+          <div className="p-3 rounded-md border border-red-500/20 text-xs bg-red-500/10 text-red-400">
             {error}
           </div>
         )}
 
         {result && (
-          <div className="p-3 rounded-xl border text-xs bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
+          <div className="p-3 rounded-md border border-emerald-500/20 text-xs bg-emerald-500/10 text-emerald-400">
             {result}
           </div>
         )}
@@ -133,8 +133,8 @@ export function BatchSyncModal({ isOpen, onClose, onSynced }: BatchSyncModalProp
               rows={10}
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
-              className="w-full bg-[var(--surface-high)] border rounded-xl p-3 text-xs text-foreground font-mono focus:outline-none focus:border-[var(--primary)] transition-colors resize-none leading-relaxed"
-              style={{ borderColor: 'var(--glass-border)' }}
+              className="w-full bg-[var(--surface-high)] border rounded-md p-3 text-xs text-foreground font-mono focus:outline-none focus:border-[var(--primary)] transition-colors resize-none leading-relaxed"
+              style={{ borderColor: 'var(--border)' }}
             />
           </div>
 
@@ -143,8 +143,8 @@ export function BatchSyncModal({ isOpen, onClose, onSynced }: BatchSyncModalProp
             <select
               value={sourceTier}
               onChange={(e) => setSourceTier(e.target.value as SourceTier)}
-              className="w-full bg-[var(--surface-high)] border rounded-xl py-2 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
-              style={{ borderColor: 'var(--glass-border)' }}
+              className="w-full bg-[var(--surface-high)] border rounded-md py-2 px-3 text-xs text-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
+              style={{ borderColor: 'var(--border)' }}
             >
               <option value={SourceTier.TIER1_CONNECTOR}>Tier 1 Direct Connector (Shopify / WooCommerce)</option>
               <option value={SourceTier.TIER2_FEED}>Tier 2 Feed Webhook</option>
@@ -154,21 +154,20 @@ export function BatchSyncModal({ isOpen, onClose, onSynced }: BatchSyncModalProp
           </div>
 
           {/* Modal Footer */}
-          <div className="flex justify-end items-center gap-3 pt-3 border-t" style={{ borderColor: 'var(--glass-border)' }}>
+          <div className="flex justify-end items-center gap-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              className="px-4 py-2 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-md hover:opacity-90 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 rounded-md text-xs font-semibold text-white shadow-md hover:opacity-90 transition-all flex items-center gap-1.5 disabled:opacity-50"
               style={{
-                background: 'var(--logo-gradient)',
-                boxShadow: 'var(--logo-glow)',
+                background: 'var(--primary)',
               }}
             >
               {loading ? (

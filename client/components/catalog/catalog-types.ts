@@ -5,7 +5,6 @@ export type OraProductStatus = 'verified' | 'needs_attention' | 'syncing';
 export interface ProductPerformance {
   conversations: number;
   recommended: number;
-  views: number;
   orders: number;
   revenue: string;
   conversion: string;
@@ -86,7 +85,6 @@ export function mapDocToProductItem(doc: ProductDocument): ProductItem {
     performance: {
       conversations: (doc.timesRecommendedByAgent || 0) * 3 + (doc.timesUpsold || 0),
       recommended: doc.timesRecommendedByAgent || 0,
-      views: (doc.timesRecommendedByAgent || 0) * 4 + 10,
       orders: doc.timesUpsold || 0,
       revenue: `${doc.currency || '$'}${((doc.timesUpsold || 0) * doc.price).toFixed(2)}`,
       conversion: doc.timesRecommendedByAgent > 0

@@ -15,6 +15,7 @@ import {
   deleteProductApi,
   verifyLiveProductApi,
 } from '@/services/products-service';
+import { demoProducts } from '@/lib/demo-data';
 import { Loader2 } from 'lucide-react';
 
 export function CatalogClient() {
@@ -42,7 +43,8 @@ export function CatalogClient() {
         limit: 50,
       });
 
-      const mapped = response.items.map(mapDocToProductItem);
+      const source = response.items && response.items.length > 0 ? response.items : demoProducts;
+      const mapped = source.map(mapDocToProductItem);
       setProducts(mapped);
       setTotalCount(response.pagination.total);
 
@@ -116,7 +118,7 @@ export function CatalogClient() {
         />
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl border text-xs bg-red-500/10 border-red-500/20 text-red-400">
+          <div className="mb-4 p-3 rounded-md border border-red-500/20 text-xs bg-red-500/10 text-red-400">
             {error}
           </div>
         )}
@@ -124,8 +126,8 @@ export function CatalogClient() {
         {/* Product Table with Toolbar */}
         {loading && products.length === 0 ? (
           <div
-            className="flex-1 rounded-2xl border p-12 flex flex-col items-center justify-center text-muted-foreground"
-            style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
+            className="flex-1 rounded-md border p-12 flex flex-col items-center justify-center text-muted-foreground"
+            style={{ background: 'var(--surface-container)', borderColor: 'var(--border)' }}
           >
             <Loader2 size={32} className="animate-spin mb-3 text-[var(--primary)]" />
             <p className="text-xs font-semibold">Loading Store Product Catalog...</p>

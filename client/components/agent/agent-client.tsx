@@ -11,6 +11,7 @@ import { AgentPersonaSettings } from './agent-persona-settings';
 import { AddKnowledgeModal } from './modals/add-knowledge-modal';
 import { UploadDocModal } from './modals/upload-doc-modal';
 import { EditKnowledgeModal } from './modals/edit-knowledge-modal';
+import { VoiceTestModal } from './modals/voice-test-modal';
 import { ReindexModal } from '@/components/rag/reindex-modal';
 import { RagPlaygroundModal } from '@/components/rag/rag-playground-modal';
 import {
@@ -18,6 +19,7 @@ import {
   getKnowledgeDocChunksApi,
   deleteKnowledgeDocApi,
 } from '@/services/knowledge-service';
+import { getMeApi } from '@/services/auth-service';
 import { BookOpen, Sliders, Loader2 } from 'lucide-react';
 import { DocType } from '@/types/knowledge';
 
@@ -36,7 +38,19 @@ export function AgentClient() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isReindexModalOpen, setIsReindexModalOpen] = useState(false);
   const [isRagPlaygroundModalOpen, setIsRagPlaygroundModalOpen] = useState(false);
+  const [isVoiceTestModalOpen, setIsVoiceTestModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
+  const [publishableKey, setPublishableKey] = useState<string>('biz_live_demo');
+
+  useEffect(() => {
+    getMeApi()
+      .then((res) => {
+        if (res?.business?.publishableKey) {
+          setPublishableKey(res.business.publishableKey);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchKnowledgeDocs = useCallback(async () => {
     try {
@@ -176,6 +190,7 @@ export function AgentClient() {
         onAddKnowledge={() => setIsAddModalOpen(true)}
         onOpenRagPlayground={() => setIsRagPlaygroundModalOpen(true)}
         onOpenReindex={() => setIsReindexModalOpen(true)}
+        onOpenVoiceTest={() => setIsVoiceTestModalOpen(true)}
       />
 
       {/* Mode Navigation Bar */}
@@ -330,6 +345,12 @@ export function AgentClient() {
       <RagPlaygroundModal
         isOpen={isRagPlaygroundModalOpen}
         onClose={() => setIsRagPlaygroundModalOpen(false)}
+      />
+
+      <VoiceTestModal
+        isOpen={isVoiceTestModalOpen}
+        onClose={() => setIsVoiceTestModalOpen(false)}
+        publishableKey={publishableKey}
       />
     </div>
   );

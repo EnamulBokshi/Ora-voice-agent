@@ -10,7 +10,7 @@ import { AuthResponseData } from '@/types/auth';
 
 export const AuthCard: React.FC = () => {
   const searchParams = useSearchParams();
-  const redirectTarget = searchParams.get('from') || '/sales';
+  const redirectTarget = searchParams.get('from') || '/';
 
   const [mode, setMode] = useState<'login' | 'register' | 'otp'>('register');
   const [sessionToken, setSessionToken] = useState<string | undefined>(undefined);

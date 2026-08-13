@@ -1,79 +1,83 @@
 'use client';
 
-import { Sparkles } from 'lucide-react';
-import { CustomerRecord } from './customers-types';
-import { CustomerHeaderCard } from './subcomponents/customer-header-card';
-import { CustomerIntentCard } from './subcomponents/customer-intent-card';
-import { CustomerJourneyTimeline } from './subcomponents/customer-journey-timeline';
+import { Customer } from '@/types/customer';
+import { updateCustomerApi } from '@/services/customers-service';
 
 interface CustomerDetailPanelProps {
-  customer: CustomerRecord;
+  customer: Customer;
+  onReload: () => void;
 }
 
-export function CustomerDetailPanel({ customer }: CustomerDetailPanelProps) {
+export function CustomerDetailPanel({ customer, onReload }: CustomerDetailPanelProps) {
   const c = customer;
+  const preferences = c.extractedPreferences;
+
+  const handleSaveName = async (name: string) => {
+    if (!name.trim() || name === c.name) return;
+    try {
+      await updateCustomerApi(c._id, { name });
+      onReload();
+    } catch {
+      // silent
+    }
+  };
 
   return (
-    <div
-      className="rounded-2xl border flex flex-col overflow-hidden backdrop-blur-md h-full"
-      style={{
-        background: 'var(--glass-bg)',
-        borderColor: 'var(--glass-border)',
-      }}
-    >
-      {/* Customer Header */}
-      <CustomerHeaderCard customer={c} />
-
-      {/* Scrollable Inspector Body */}
-      <div className="p-5 space-y-5 flex-1 overflow-y-auto text-xs">
-        {/* ORA AI Summary Card */}
-        <div
-          className="rounded-2xl p-4 border space-y-2 relative overflow-hidden"
-          style={{
-            background: 'color-mix(in srgb, var(--primary) 8%, var(--surface-container))',
-            borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)',
-          }}
-        >
-          <div className="flex items-center gap-1.5 font-bold text-foreground text-xs" style={{ color: 'var(--primary)' }}>
-            <Sparkles size={14} /> ORA Customer Summary
+    <div className="rounded-md border border-border bg-surface-container overflow-hidden flex flex-col h-full">
+      {/* Header */}
+      <div className="p-5 border-b border-border">
+        <div className="flex items-center gap-3">
+          <span className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold bg-surface-high text-foreground shrink-0">
+            {c.name.charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <input
+              type="text"
+              defaultValue={c.name}
+              onBlur={(e) => handleSaveName(e.target.value)}
+              className="text-sm font-semibold text-foreground bg-transparent border border-transparent focus:border-primary rounded px-1 py-0.5 w-full outline-none focus:bg-surface-high"
+              aria-label="Customer name"
+            />
+            <p className="text-xs text-muted-foreground truncate">{c.email ?? c.phone ?? 'No contact'}</p>
           </div>
-          <p className="text-muted-foreground leading-relaxed text-xs">{c.oraSummary}</p>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-5 space-y-5 flex-1 overflow-y-auto text-[13px]">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-md border border-border bg-surface-low">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">Orders</p>
+            <p className="font-semibold text-foreground tabular-nums">{c.pastOrderIds?.length ?? 0}</p>
+          </div>
+          <div className="p-3 rounded-md border border-border bg-surface-low">
+            <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">Member since</p>
+            <p className="font-semibold text-foreground tabular-nums">
+              {new Date(c.createdAt).toLocaleDateString()}
+            </p>
+          </div>
         </div>
 
-        {/* Bento Context & Intent Row */}
-        <CustomerIntentCard
-          context={c.context}
-          purchaseIntentPct={c.purchaseIntentPct}
-        />
-
-        {/* Customer Interests */}
-        <div className="space-y-3">
-          <h4 className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider border-b pb-1.5" style={{ borderColor: 'var(--glass-border)' }}>
-            Customer Interests
-          </h4>
+        {preferences && Object.keys(preferences).length > 0 && (
           <div className="space-y-2.5">
-            {c.interests.map((int, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-[11px] font-medium mb-1">
-                  <span className="text-foreground">{int.name}</span>
-                  <span className="text-muted-foreground font-mono">{int.pct}%</span>
+            <h4 className="text-[11px] font-medium uppercase text-muted-foreground tracking-wider">
+              Extracted preferences
+            </h4>
+            <div className="space-y-1.5">
+              {Object.entries(preferences).map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex justify-between text-[12px] py-1.5 border-b border-border last:border-0"
+                >
+                  <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                  <span className="text-foreground font-medium truncate ml-4">
+                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                  </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full overflow-hidden bg-[var(--surface-high)]">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${int.pct}%`,
-                      background: i === 0 ? 'var(--primary)' : 'var(--secondary)',
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* Customer Journey Timeline */}
-        <CustomerJourneyTimeline journey={c.journey} />
+        )}
       </div>
     </div>
   );

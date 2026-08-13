@@ -12,7 +12,7 @@ export function CatalogAgentActivityTimeline({ activity }: CatalogAgentActivityT
       <h4 className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground mb-3">
         Recent Agent Activity
       </h4>
-      <div className="space-y-3 border-l-2 ml-2 pl-3" style={{ borderColor: 'var(--glass-border)' }}>
+      <div className="space-y-3 border-l-2 ml-2 pl-3" style={{ borderColor: 'var(--border)' }}>
         {activity.map((act, idx) => (
           <div key={idx} className="relative">
             <div

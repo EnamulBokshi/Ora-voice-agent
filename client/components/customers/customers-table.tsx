@@ -1,186 +1,117 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, ChevronRight, User } from 'lucide-react';
-import { CustomerRecord, CustomerSegment } from './customers-types';
+import { Search } from 'lucide-react';
+import { Customer } from '@/types/customer';
 import { CustomerDetailPanel } from './customer-detail-panel';
 
 interface CustomersTableProps {
-  customers: CustomerRecord[];
+  customers: Customer[];
+  onReload: () => void;
 }
 
-export function CustomersTable({ customers }: CustomersTableProps) {
-  const [selectedSegment, setSelectedSegment] = useState<CustomerSegment>('All');
+export function CustomersTable({ customers, onReload }: CustomersTableProps) {
   const [search, setSearch] = useState<string>('');
-  const [selectedId, setSelectedId] = useState<string>('cust-1');
+  const [selectedId, setSelectedId] = useState<string>(customers[0]?._id ?? '');
 
   const filteredCustomers = customers.filter((c) => {
-    if (selectedSegment !== 'All' && c.segment !== selectedSegment) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
         c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.segment.toLowerCase().includes(q)
+        (c.email ?? '').toLowerCase().includes(q) ||
+        (c.phone ?? '').toLowerCase().includes(q)
       );
     }
     return true;
   });
 
   const selectedCustomer =
-    customers.find((c) => c.id === selectedId) || customers[0];
+    customers.find((c) => c._id === selectedId) || customers[0] || null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0 pb-6">
-      {/* Left Column: Customer List (7 cols) */}
-      <div
-        className="lg:col-span-7 rounded-2xl border flex flex-col overflow-hidden backdrop-blur-md"
-        style={{
-          background: 'var(--glass-bg)',
-          borderColor: 'var(--glass-border)',
-        }}
-      >
-        {/* Search Toolbar */}
-        <div
-          className="p-4 border-b flex items-center justify-between gap-4"
-          style={{
-            background: 'var(--surface-container)',
-            borderColor: 'var(--glass-border)',
-          }}
-        >
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+      {/* Left: Customer list */}
+      <div className="lg:col-span-7 rounded-md border border-border bg-surface-container overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-border bg-surface-low">
           <div className="relative w-full">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search customers, conversations, orders..."
-              className="w-full bg-[var(--surface-high)] border rounded-xl py-2 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--primary)] transition-colors"
-              style={{ borderColor: 'var(--glass-border)' }}
+              placeholder="Search customers..."
+              className="w-full bg-surface-high border border-border rounded-md py-2 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
             />
           </div>
         </div>
 
-        {/* Segment Filter Pills */}
-        <div
-          className="flex items-center gap-1.5 p-3 overflow-x-auto border-b no-scrollbar"
-          style={{ borderColor: 'var(--glass-border)' }}
-        >
-          {(['All', 'New', 'Returning', 'High value', 'High intent', 'At risk'] as const).map((seg) => {
-            const isActive = selectedSegment === seg;
-
-            return (
-              <button
-                key={seg}
-                onClick={() => setSelectedSegment(seg as CustomerSegment)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
-                  isActive
-                    ? 'shadow-sm'
-                    : 'hover:text-foreground hover:bg-[var(--surface-high)]'
-                }`}
-                style={
-                  isActive
-                    ? {
-                        background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                        borderColor: 'var(--primary)',
-                        color: 'var(--primary)',
-                      }
-                    : {
-                        background: 'transparent',
-                        borderColor: 'transparent',
-                        color: 'var(--muted-foreground)',
-                      }
-                }
-              >
-                {seg}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Data Table */}
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
-            <thead>
-              <tr className="border-b bg-[var(--surface-container)]/50 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold">
-                <th className="py-3 px-4">CUSTOMER</th>
-                <th className="py-3 px-4">ACTIVITY</th>
-                <th className="py-3 px-4 text-right">ORDERS</th>
-                <th className="py-3 px-4 text-right">TOTAL SPENT</th>
-                <th className="py-3 px-4">SEGMENT</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--glass-border)] text-foreground">
-              {filteredCustomers.map((c) => {
-                const isSelected = c.id === selectedId;
-
-                return (
-                  <tr
-                    key={c.id}
-                    onClick={() => setSelectedId(c.id)}
-                    className="hover:bg-[var(--surface-high)]/60 cursor-pointer transition-colors"
-                    style={
-                      isSelected
-                        ? {
-                            background: 'color-mix(in srgb, var(--primary) 10%, var(--surface-container))',
-                          }
-                        : {}
-                    }
-                  >
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs border shrink-0"
-                          style={{
-                            background: 'var(--surface-high)',
-                            borderColor: 'var(--glass-border)',
-                            color: 'var(--primary)',
-                          }}
-                        >
-                          {c.name.charAt(0)}
+        {filteredCustomers.length === 0 ? (
+          <div className="flex-1 p-8 text-center text-[13px] text-muted-foreground">
+            {customers.length === 0
+              ? 'No customers yet. Shoppers who talk to the ORA widget will appear here.'
+              : 'No customers match your search.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-left border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground uppercase text-[11px] tracking-wider font-medium">
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Contact</th>
+                  <th className="py-3 px-4">Orders</th>
+                  <th className="py-3 px-4">Created</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border text-foreground">
+                {filteredCustomers.map((c) => {
+                  const isSelected = c._id === selectedId;
+                  return (
+                    <tr
+                      key={c._id}
+                      onClick={() => setSelectedId(c._id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected ? 'bg-primary/10' : 'hover:bg-surface-high'
+                      }`}
+                    >
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-surface-high text-foreground shrink-0">
+                            {c.name.charAt(0).toUpperCase()}
+                          </span>
+                          <p className="font-medium text-foreground">{c.name}</p>
                         </div>
-                        <div>
-                          <p className="font-bold text-foreground">{c.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{c.email}</p>
-                        </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-muted-foreground font-medium">
-                      {c.conversationsCount} conversations
-                    </td>
+                      <td className="py-3.5 px-4 text-muted-foreground text-[12px]">
+                        {c.email ?? c.phone ?? '—'}
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right font-mono font-bold">
-                      {c.ordersCount}
-                    </td>
+                      <td className="py-3.5 px-4 tabular-nums text-foreground">
+                        {c.pastOrderIds?.length ?? 0}
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right font-mono font-bold" style={{ color: 'var(--primary)' }}>
-                      ${c.totalSpent.toFixed(2)}
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <span
-                        className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border"
-                        style={{
-                          background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                          borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)',
-                          color: 'var(--primary)',
-                        }}
-                      >
-                        {c.segment}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="py-3.5 px-4 text-muted-foreground text-[12px]">
+                        {new Date(c.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Right Column: Customer Intelligence Inspector (5 cols) */}
+      {/* Right: Customer detail */}
       <div className="lg:col-span-5 flex flex-col h-full">
-        <CustomerDetailPanel customer={selectedCustomer} />
+        {selectedCustomer ? (
+          <CustomerDetailPanel customer={selectedCustomer} onReload={onReload} />
+        ) : (
+          <div className="rounded-md border border-border bg-surface-container p-8 text-center text-[13px] text-muted-foreground">
+            Select a customer to view details.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, RefreshCw, CheckCircle2, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { ShieldCheck, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { verifyOtpApi, resendOtpApi } from '@/services/auth-service';
 import { ApiClientError } from '@/lib/api-client';
 
@@ -45,7 +45,6 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
     setDigits(newDigits);
     setError(null);
 
-    // Auto-advance to next box if digit entered
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -81,7 +80,7 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
 
     try {
       const res = await verifyOtpApi(code, accessToken);
-      setSuccessMsg(res.message || 'Email successfully verified!');
+      setSuccessMsg(res.message || 'Email successfully verified.');
       setTimeout(() => {
         onSuccess();
       }, 1500);
@@ -122,22 +121,20 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Alert Banners */}
       {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-300 backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-          <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-md border border-error/30 bg-error/10 p-3.5 text-xs text-error animate-in fade-in">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <div className="flex-1 font-medium">{error}</div>
         </div>
       )}
 
       {successMsg && (
-        <div className="flex items-start gap-3 rounded-xl border border-[#2DD4C8]/30 bg-[#2DD4C8]/10 p-3.5 text-xs text-[#2DD4C8] backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 className="h-4 w-4 text-[#2DD4C8] shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-md border border-success/30 bg-success/10 p-3.5 text-xs text-success animate-in fade-in">
+          <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
           <div className="flex-1 font-medium">{successMsg}</div>
         </div>
       )}
 
-      {/* 6 Digit Input Boxes */}
       <div className="flex items-center justify-between gap-2 sm:gap-3 py-2">
         {digits.map((digit, idx) => (
           <input
@@ -152,48 +149,46 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
             onChange={(e) => handleChange(idx, e.target.value)}
             onKeyDown={(e) => handleKeyDown(idx, e)}
             onPaste={handlePaste}
-            className="h-12 w-11 sm:h-14 sm:w-12 text-center text-xl font-bold text-white bg-[#161722]/90 border border-[#2A2C3A] rounded-xl outline-none transition-all duration-200 focus:border-[#2DD4C8] focus:ring-2 focus:ring-[#2DD4C8]/30 hover:border-[#3A3C4E] selection:bg-transparent"
+            className="h-12 w-11 sm:h-14 sm:w-12 text-center text-xl font-semibold text-foreground bg-surface-high border border-input rounded-md outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30"
           />
         ))}
       </div>
 
-      {/* Submit Button */}
       <button
         type="submit"
         disabled={loading || digits.join('').length !== 6}
-        className="group relative flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2DD4C8] to-[#6C5CE7] py-3 text-sm font-semibold text-white shadow-lg shadow-[#2DD4C8]/25 backdrop-blur-md transition-all duration-200 hover:from-[#3BE4D8] hover:to-[#7B6CF6] hover:shadow-[#2DD4C8]/40 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="group relative flex w-full items-center justify-center gap-2 rounded-md bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin text-white" />
-            Verifying Code...
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Verifying code...
           </>
         ) : (
           <>
-            Confirm Verification
-            <ShieldCheck className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+            Confirm verification
+            <ShieldCheck className="h-4 w-4" />
           </>
         )}
       </button>
 
-      {/* Resend & Back Row */}
       <div className="flex items-center justify-between pt-2 text-xs">
         <button
           type="button"
           onClick={onBackToLogin}
-          className="text-[#94A3B8] hover:text-white transition-colors"
+          className="text-muted-foreground hover:text-foreground transition-colors"
         >
-          ← Back to Sign In
+          Back to sign in
         </button>
 
         <button
           type="button"
           onClick={handleResend}
           disabled={countdown > 0 || resending}
-          className="flex items-center gap-1.5 text-[#2DD4C8] hover:underline disabled:text-[#64748B] disabled:no-underline cursor-pointer disabled:cursor-not-allowed font-medium"
+          className="flex items-center gap-1.5 text-primary hover:underline disabled:text-muted-foreground disabled:no-underline cursor-pointer disabled:cursor-not-allowed font-medium"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${resending ? 'animate-spin' : ''}`} />
-          {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Code'}
+          {countdown > 0 ? `Resend in ${countdown}s` : 'Resend code'}
         </button>
       </div>
     </form>
