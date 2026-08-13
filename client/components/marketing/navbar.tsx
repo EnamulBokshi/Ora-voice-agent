@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+import { ThemeToggle } from './theme-toggle';
+
 export function MarketingNavbar() {
   const [scrolled, setScrolled] = useState(false);
 
@@ -38,10 +40,13 @@ export function MarketingNavbar() {
           </ul>
         </nav>
 
-        {/* CTA */}
-        <Link href="/auth" className="lp-btn-primary lp-nav-cta" id="nav-get-started-cta">
-          Get Started
-        </Link>
+        {/* CTA & Theme Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <ThemeToggle />
+          <Link href="/auth" className="lp-btn-primary lp-nav-cta" id="nav-get-started-cta">
+            Get Started
+          </Link>
+        </div>
       </div>
     </header>
   );

@@ -61,30 +61,32 @@ export function TrustBar() {
         background: 'var(--lp-bg-white)',
       }}
     >
-      <div className="lp-container">
+      <div className="lp-container" style={{ overflow: 'hidden' }}>
         <p
           style={{
             textAlign: 'center',
             fontSize: '0.8125rem',
             fontWeight: 500,
             color: 'var(--lp-text-tertiary)',
-            marginBottom: '2rem',
+            marginBottom: '2.5rem',
             letterSpacing: '0.02em',
           }}
         >
           Trusted by teams at
         </p>
-        <div className="lp-trust-logos">
-          {brands.map(({ name, svg }) => (
-            <div
-              key={name}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '1.125rem' }}
-              aria-label={name}
-            >
-              {svg}
-              {name}
-            </div>
-          ))}
+        <div className="lp-marquee-container">
+          <div className="lp-marquee-track">
+            {[...brands, ...brands, ...brands, ...brands].map(({ name, svg }, i) => (
+              <div
+                key={`${name}-${i}`}
+                className="lp-trust-logo-item"
+                aria-label={name}
+              >
+                {svg}
+                {name}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

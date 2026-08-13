@@ -130,7 +130,7 @@ export function AgentClient() {
               </div>
 
               {isSaved && (
-                <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 animate-fade-in">
+                <span className="flex items-center gap-1 text-xs font-medium text-primary animate-fade-in">
                   <CheckCircle2 size={14} /> Saved
                 </span>
               )}
@@ -207,15 +207,15 @@ export function AgentClient() {
               <div className="space-y-2 text-xs text-muted-foreground font-mono">
                 <div className="flex justify-between py-1 border-b border-border/50">
                   <span>Catalog Search:</span>
-                  <span className="text-emerald-400">Enabled (RAG)</span>
+                  <span className="text-primary">Enabled (RAG)</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-border/50">
                   <span>Order Creation:</span>
-                  <span className="text-emerald-400">Enabled (Function Call)</span>
+                  <span className="text-primary">Enabled (Function Call)</span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span>Policy Check:</span>
-                  <span className="text-emerald-400">Enabled</span>
+                  <span className="text-primary">Enabled</span>
                 </div>
               </div>
             </div>
@@ -226,7 +226,7 @@ export function AgentClient() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-surface-container p-6 space-y-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <ShieldCheck size={18} />
               </div>
               <div>
@@ -238,7 +238,7 @@ export function AgentClient() {
             <div className="p-4 rounded-xl bg-surface-low border border-border space-y-3 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Gateway Endpoint:</span>
-                <span className="font-mono text-emerald-400 font-medium">ws://localhost:5000/voice</span>
+                <span className="font-mono text-primary font-medium">ws://localhost:5000/voice</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Publishable Key:</span>
@@ -252,7 +252,7 @@ export function AgentClient() {
 
             <button
               onClick={() => setIsVoiceTestModalOpen(true)}
-              className="w-full py-3 rounded-xl font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl font-semibold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all flex items-center justify-center gap-2"
             >
               <Sparkles size={15} />
               <span>Test Voice Agent Now</span>

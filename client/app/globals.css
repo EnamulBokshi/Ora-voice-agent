@@ -12,9 +12,10 @@
    ============================================================================= */
 
 @theme inline {
-    /* ── Typography ─────────────────────────────────────────────────────────── */
-    --font-sans: var(--font-sans);
-    --font-heading: var(--font-sans);
+    /* ── Typography ───────────────────────────────────────────────────────── */
+    --font-sans: var(--font-sans);       /* Inter — body, UI text */
+    --font-heading: var(--font-display); /* Space Grotesk — headings */
+    --font-mono: var(--font-mono);       /* JetBrains Mono — code, badges */
 
     /* ── Radius scale (restrained) ──────────────────────────────────────────── */
     --radius-sm: calc(var(--radius) * 0.75);
@@ -144,15 +145,15 @@
     --popover:                  #FFFFFF;
     --popover-foreground:       #111111;
 
-    /* ── Surface elevation scale (light, clean grays) ───────────────────────── */
-    --surface-lowest:           #F3F4F6;
-    --surface-low:              #E5E7EB;
-    --surface-container:        #D1D5DB;
-    --surface-high:             #9CA3AF;
-    --surface-highest:          #6B7280;
-    --surface-bright:           #FAFAFA;
+    /* ── Surface elevation scale (light — matches landing page #FAFAFA / #FFFFFF) ── */
+    --surface-lowest:           #FAFAFA;
+    --surface-low:              #F7F8F7;
+    --surface-container:        #FFFFFF;
+    --surface-high:             #F3F4F6;
+    --surface-highest:          #E5E7EB;
+    --surface-bright:           #FFFFFF;
     --on-surface:               #111111;
-    --on-surface-variant:       #4B5563;
+    --on-surface-variant:       #6B7280;
     --outline-variant:          #E5E7EB;
 
     /* ── Chart series ────────────────────────────────────────────────────────── */
@@ -239,6 +240,9 @@
     --lp-radius-2xl:          2rem;
     --lp-radius-3xl:          3rem;
     --lp-radius-full:         9999px;
+
+    --lp-nav-bg:              rgba(250, 250, 250, 0.85);
+    --lp-nav-bg-scrolled:     rgba(250, 250, 250, 0.95);
 }
 
 /* =============================================================================
@@ -323,6 +327,37 @@
     --sidebar-accent-foreground:    #FAFAFA;
     --sidebar-border:               #2A2A2A;
     --sidebar-ring:                 #C8F031;
+
+    /* ── Landing Page Tokens (Dark Mode) ────────────────────────────────────── */
+    --lp-primary:             #C8F031;
+    --lp-primary-hover:       #D4F536;
+    --lp-primary-dim:         #D4F536;
+    --lp-primary-glow:        rgba(200, 240, 49, 0.2);
+
+    --lp-dark:                #0A0A0A;
+    --lp-dark-deep:           #050505;
+    --lp-dark-elevated:       #141414;
+    --lp-dark-border:         #262626;
+
+    --lp-bg:                  #000000;
+    --lp-bg-white:            #0F0F0F;
+    --lp-bg-subtle:           #050505;
+    --lp-bg-card:             #0F0F0F;
+
+    --lp-border:              #262626;
+    --lp-border-light:        #1A1A1A;
+
+    --lp-text-primary:        #FAFAFA;
+    --lp-text-secondary:      #A1A1AA;
+    --lp-text-tertiary:       #71717A;
+    --lp-text-on-dark:        #FFFFFF;
+    --lp-text-on-dark-dim:    #A1A1AA;
+
+    --lp-shadow-card:         0 2px 10px -4px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0,0,0,0.4);
+    --lp-shadow-float:        0 4px 24px -8px rgba(0, 0, 0, 0.6), 0 1px 4px rgba(0,0,0,0.4);
+    --lp-shadow-deep:         0 24px 80px -12px rgba(0, 0, 0, 0.8);
+    --lp-nav-bg:              rgba(0, 0, 0, 0.85);
+    --lp-nav-bg-scrolled:     rgba(0, 0, 0, 0.95);
 }
 
 /* =============================================================================
@@ -335,10 +370,19 @@
 
     body {
         @apply bg-background text-foreground antialiased;
+        font-family: var(--font-sans);
     }
 
     html {
         @apply font-sans;
+    }
+
+    /* Space Grotesk for all headings — tight tracking for techy SaaS feel */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-display);
+        letter-spacing: -0.025em;
+        font-weight: 700;
+        line-height: 1.15;
     }
 }
 

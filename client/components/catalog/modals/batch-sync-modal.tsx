@@ -118,7 +118,7 @@ export function BatchSyncModal({ isOpen, onClose, onSynced }: BatchSyncModalProp
         )}
 
         {result && (
-          <div className="p-3 rounded-md border border-emerald-500/20 text-xs bg-emerald-500/10 text-emerald-400">
+          <div className="p-3 rounded-md border border-primary/20 text-xs bg-primary/10 text-primary">
             {result}
           </div>
         )}

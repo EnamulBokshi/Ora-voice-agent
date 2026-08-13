@@ -164,8 +164,8 @@ export function FeaturesSection() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: l === 'A' ? '#D4F536' : l === 'B' ? '#111' : '#E5E7EB',
-                        color: l === 'B' ? '#fff' : '#111',
+                        background: l === 'A' ? '#D4F536' : l === 'B' ? 'var(--lp-text-primary)' : 'var(--lp-border)',
+                        color: l === 'B' ? 'var(--lp-bg-white)' : '#111111',
                         fontSize: '0.6875rem',
                         fontWeight: 700,
                       }}

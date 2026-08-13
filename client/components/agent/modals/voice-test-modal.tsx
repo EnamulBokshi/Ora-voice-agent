@@ -420,13 +420,13 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#273647] bg-[#0d1c2d]">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
               <Sparkles size={18} />
             </div>
             <div>
               <h3 className="font-semibold text-lg text-slate-100 flex items-center gap-2">
                 ORA Voice Agent Sandbox
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-mono">
                   {voiceMode === 'gemini-live' ? 'Gemini Live WebSocket' : 'Interactive Speech AI'}
                 </span>
               </h3>
@@ -452,7 +452,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               onClick={() => { stopSession(); setVoiceMode('gemini-live'); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 voiceMode === 'gemini-live'
-                  ? 'bg-emerald-600 text-white shadow-md'
+                  ? 'bg-primary text-primary-foreground shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -460,10 +460,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               Gemini 2.0 Live (WS Stream)
             </button>
             <button
-              onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
+              onClick={() => { stopSession(); setVoiceMode('speech-ai'); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                voiceMode === 'browser-speech'
-                  ? 'bg-purple-600 text-white shadow-md'
+                voiceMode === 'speech-ai'
+                  ? 'bg-primary text-primary-foreground shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -475,7 +475,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           {/* Main Visualizer Orb */}
           <div className="relative flex items-center justify-center my-2">
             {status === 'speaking' && (
-              <div className="absolute w-44 h-44 rounded-full bg-emerald-500/20 animate-ping" />
+              <div className="absolute w-44 h-44 rounded-full bg-primary/20 animate-ping" />
             )}
             {status === 'listening' && (
               <div
@@ -490,7 +490,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             <div
               className={`relative z-10 w-32 h-32 rounded-full flex flex-col items-center justify-center shadow-xl border-2 transition-all duration-300 ${
                 status === 'speaking'
-                  ? 'bg-emerald-950/80 border-emerald-400 text-emerald-400 shadow-emerald-500/30'
+                  ? 'bg-primary/10 border-primary text-primary shadow-primary/30'
                   : status === 'listening'
                   ? 'bg-amber-950/80 border-amber-400 text-amber-400 shadow-amber-500/30'
                   : status === 'connecting'
@@ -530,7 +530,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
                   status === 'speaking' || status === 'listening'
-                    ? 'bg-emerald-400 animate-pulse'
+                    ? 'bg-primary animate-pulse'
                     : status === 'connecting'
                     ? 'bg-amber-400 animate-ping'
                     : status === 'error'
@@ -552,7 +552,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                 <Activity size={13} />
                 <div className="w-16 h-1.5 bg-[#1c2b3c] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-400 transition-all duration-75"
+                    className="h-full bg-primary transition-all duration-75"
                     style={{ width: `${audioLevel}%` }}
                   />
                 </div>
@@ -565,7 +565,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             {status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
-                className="px-6 py-2.5 rounded-xl font-medium text-sm flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition-all"
+                className="px-6 py-2.5 rounded-xl font-medium text-sm flex items-center space-x-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-all"
               >
                 <Play size={16} fill="currentColor" />
                 <span>Start Voice Session</span>
@@ -623,7 +623,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                         <User size={11} /> User:
                       </span>
                     ) : item.sender === 'agent' ? (
-                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <span className="text-primary font-semibold flex items-center gap-1">
                         <Bot size={11} /> ORA:
                       </span>
                     ) : (

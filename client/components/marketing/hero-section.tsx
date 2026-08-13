@@ -189,7 +189,7 @@ export function HeroSection() {
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', marginBottom: '1.5rem' }}>
                   <span
                     className="lp-display"
-                    style={{ fontSize: '2.75rem', color: 'var(--lp-dark)' }}
+                    style={{ fontSize: '2.75rem', color: 'var(--lp-text-primary)' }}
                   >
                     $48,204
                   </span>

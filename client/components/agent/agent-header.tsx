@@ -46,9 +46,9 @@ export function AgentHeader({
       <div className="flex flex-wrap items-center gap-2.5 shrink-0">
         <button
           onClick={onOpenVoiceTest}
-          className="px-3.5 py-2 rounded-xl text-xs font-bold border text-emerald-300 transition-all flex items-center gap-1.5 hover:bg-emerald-500/20 shadow-md bg-emerald-950/40 border-emerald-500/30"
+          className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 shadow-md bg-primary text-primary-foreground hover:bg-primary/90 border-primary/30"
         >
-          <Sparkles size={14} className="text-emerald-400 animate-pulse" />
+          <Sparkles size={14} className="animate-pulse" />
           Test Voice Agent
         </button>
 

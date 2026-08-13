@@ -100,7 +100,7 @@ export function ReindexModal({ isOpen, onClose, onSuccess }: ReindexModalProps) 
               borderColor: 'color-mix(in srgb, var(--primary) 25%, transparent)',
             }}
           >
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+            <div className="flex items-center gap-2 text-primary text-xs font-bold">
               <CheckCircle2 size={16} /> Knowledge Base Sync Completed!
             </div>
             <p className="text-xs text-foreground/90">

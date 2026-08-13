@@ -63,7 +63,7 @@
 }
 
 .lp-text-gradient {
-  background: linear-gradient(135deg, #111111 0%, #444444 100%);
+  background: linear-gradient(135deg, var(--lp-text-primary) 0%, var(--lp-text-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -93,7 +93,7 @@
   height: 5rem;
   display: flex;
   align-items: center;
-  background-color: rgba(250, 250, 250, 0.85);
+  background-color: var(--lp-nav-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--lp-border-light);
@@ -101,7 +101,7 @@
 }
 
 .lp-navbar.scrolled {
-  background-color: rgba(250, 250, 250, 0.95);
+  background-color: var(--lp-nav-bg-scrolled);
   border-bottom-color: var(--lp-border);
   box-shadow: var(--lp-shadow-card);
 }
@@ -343,22 +343,54 @@
   background-color: var(--lp-dark-border);
 }
 
-/* ── Trust logos row ───────────────────────────────────────────────────────── */
-.lp-trust-logos {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 3rem;
-  opacity: 0.5;
-  filter: grayscale(1);
-  transition: opacity 0.3s ease, filter 0.3s ease;
+/* ── Trust logos marquee ───────────────────────────────────────────────────── */
+@keyframes lp-marquee-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
-.lp-trust-logos:hover {
-  opacity: 0.75;
-  filter: grayscale(0.4);
+.lp-marquee-container {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
 }
+
+.lp-marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  width: max-content;
+  animation: lp-marquee-left 25s linear infinite;
+}
+
+.lp-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.lp-trust-logo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--lp-text-primary);
+  opacity: 0.6;
+  filter: grayscale(1);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+  white-space: nowrap;
+}
+
+.lp-trust-logo-item:hover {
+  opacity: 1;
+  filter: grayscale(0);
+}
+
 
 /* ── Icon box ──────────────────────────────────────────────────────────────── */
 .lp-icon-box {

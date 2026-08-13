@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
+import { ThemeToggle } from '../marketing/theme-toggle';
 import { getMeApi } from '@/services/auth-service';
 import { demoProfile } from '@/lib/demo-data';
 
@@ -173,6 +174,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className={cn('pb-4', collapsed ? 'px-2 flex flex-col items-center gap-1.5' : 'px-3')}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-1.5">
+            <ThemeToggle />
             <Link
               href="/profile"
               aria-label={userName}
@@ -191,26 +193,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <LogoutButton variant="icon" />
           </div>
         ) : (
-          <div
-            className={cn(
-              'flex items-center justify-between rounded-md px-2 py-1.5 transition-colors',
-              activeId === 'profile'
-                ? 'bg-primary/10 text-primary'
-                : 'hover:bg-surface-high text-muted-foreground'
-            )}
-          >
-            <Link
-              href="/profile"
-              aria-label={userName}
-              title={userName}
-              className="flex items-center gap-2.5 min-w-0 flex-1 py-0.5 text-[13px] font-medium text-foreground hover:text-primary transition-colors"
+          <div className="flex items-center gap-1.5">
+            <div
+              className={cn(
+                'flex items-center justify-between rounded-md px-2 py-1.5 transition-colors flex-1 min-w-0',
+                activeId === 'profile'
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-surface-high text-muted-foreground'
+              )}
             >
-              <span className="w-6 h-6 rounded-md flex items-center justify-center bg-primary/10 text-primary text-[11px] font-bold select-none uppercase flex-shrink-0">
-                {userName.charAt(0)}
-              </span>
-              <span className="truncate">{userName}</span>
-            </Link>
-            <LogoutButton variant="icon" className="flex-shrink-0" />
+              <Link
+                href="/profile"
+                aria-label={userName}
+                title={userName}
+                className="flex items-center gap-2.5 min-w-0 flex-1 py-0.5 text-[13px] font-medium text-foreground hover:text-primary transition-colors"
+              >
+                <span className="w-6 h-6 rounded-md flex items-center justify-center bg-primary/10 text-primary text-[11px] font-bold select-none uppercase flex-shrink-0">
+                  {userName.charAt(0)}
+                </span>
+                <span className="truncate">{userName}</span>
+              </Link>
+              <LogoutButton variant="icon" className="flex-shrink-0" />
+            </div>
+            <ThemeToggle />
           </div>
         )}
       </div>

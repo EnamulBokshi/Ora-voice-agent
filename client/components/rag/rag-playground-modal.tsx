@@ -300,7 +300,7 @@ export function RagPlaygroundModal({ isOpen, onClose }: RagPlaygroundModalProps)
                       <AlertTriangle size={12} /> Live Catalog Backup Used
                     </span>
                   )}
-                  <span className="px-2.5 py-1 rounded-md text-[11px] font-bold border text-emerald-400 flex items-center gap-1 bg-emerald-500/10 border-emerald-500/20">
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-bold border text-primary flex items-center gap-1 bg-primary/10 border-primary/20">
                     <CheckCircle2 size={12} /> Search Completed ({productsResults.length + knowledgeResults.length} matches)
                   </span>
                 </div>
@@ -353,7 +353,7 @@ export function RagPlaygroundModal({ isOpen, onClose }: RagPlaygroundModalProps)
                             <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold tracking-wider uppercase border text-[var(--primary)] bg-[var(--primary)]/10 border-[var(--primary)]/20">
                               Product Item
                             </span>
-                            <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                            <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-primary bg-primary/10 border border-primary/20">
                               {(item.score * 100).toFixed(0)}% relevance match
                             </span>
                           </div>
