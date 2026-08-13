@@ -96,16 +96,17 @@ When vector search returns zero results or candidates below confidence threshold
 
 ---
 
-## 5. Phase 4: Order Management (`/api/v1/orders`)
+## 5. Phase 4: Order Audit & Performance Analytics (`/api/v1/orders`)
 
 ### Summary
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
-| `/api/v1/orders` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Create customer order with sequential `ORD-2026-000100` numbering and log `ORDER_PLACED` event. |
-| `/api/v1/orders` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List tenant orders with pagination & status filters. |
-| `/api/v1/orders/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch detailed order items, total, and shipping details. |
-| `/api/v1/orders/:id/status` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update order status (`pending`, `confirmed`, `shipped`, `delivered`, `canceled`). |
+| `/api/v1/orders` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | **Read-Only Dashboard Analytics**: List tenant orders placed by AI agent (`ORD-2026-000100`) with pagination & performance metrics. |
+| `/api/v1/orders/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch detailed order items, total revenue, linked conversation session, and shipping address. |
+
+#### Order Lifecycle Note
+Orders are created **internally** by `AiToolsExecutor.place_order` when an AI voice/text session closes a sale or via merchant platform webhooks. Manual order creation (`POST`) and manual status editing (`PATCH`) are removed from external REST interfaces — fulfillment and status lifecycle are managed natively within the merchant's e-commerce platform (Shopify/WooCommerce).
 
 ---
 

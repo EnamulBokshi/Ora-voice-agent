@@ -65,17 +65,17 @@ Implementation of tenant-isolated vector search, configurable embedding generati
 
 ---
 
-## 🟢 Phase 4: Order Management & Domain Event Engine (COMPLETED)
+## 🟢 Phase 4: Order Audit & Domain Event Engine (COMPLETED)
 
 ### Overview
-Implementation of customer order creation (`Order`), sequential human-readable order numbering (`ORD-2026-000100`), status tracking, agent purchase execution, and centralized asynchronous domain event logging (`Event`).
+Implementation of customer order creation (`Order`), sequential human-readable order numbering (`ORD-2026-000100`), AI agent purchase execution, merchant dashboard sales attribution, and centralized asynchronous domain event logging (`Event`).
 
 ### Implemented Components
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
 | **Order Schema** | `server/src/orders/schemas/order.schema.ts` | Completed | Multi-tenant schema indexed by `businessId`, sequential `ORD-2026-000100` numbering, item array, total amount, shipping address, and status lifecycle (`pending`, `confirmed`, `shipped`, `delivered`, `canceled`). |
-| **Orders Service & Controller** | `server/src/orders/orders.service.ts`, `server/src/orders/orders.controller.ts` | Completed | Order creation, pagination, details lookup, status update, and automatic `ORDER_PLACED` event logging. Endpoints: `/api/v1/orders` (POST, GET), `/api/v1/orders/:id` (GET), `/api/v1/orders/:id/status` (PATCH). |
+| **Orders Service & Controller** | `server/src/orders/orders.service.ts`, `server/src/orders/orders.controller.ts` | Completed | Read-only dashboard endpoints (`GET /api/v1/orders`, `GET /api/v1/orders/:id`) for ROI analytics. Internal order creation (`OrdersService.create`) driven by `AiToolsExecutor.place_order` and webhooks with automatic `ORDER_PLACED` event logging. External manual REST creation (`POST`) and manual status editing (`PATCH`) removed. |
 | **Event Audit Engine** | `server/src/events/schemas/event.schema.ts`, `server/src/events/events.service.ts` | Completed | Domain event logger tracking audit events (`rag_fallback_triggered` with `fallbackTier`, `product_recommended`, `order_placed`, `cart_updated`, `authority_escalation_flagged`). |
 
 ---
