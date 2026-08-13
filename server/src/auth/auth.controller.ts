@@ -72,16 +72,21 @@ export class AuthController {
     const refreshToken = req.cookies?.['refreshToken'];
     const sessionId = req.cookies?.['sessionId'];
 
-    const tokens = await this.authService.refresh(refreshToken, sessionId, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
+    try {
+      const tokens = await this.authService.refresh(refreshToken, sessionId, {
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+      });
 
-    this.setAuthCookies(res, tokens.refreshToken, sessionId);
+      this.setAuthCookies(res, tokens.refreshToken, sessionId);
 
-    return {
-      accessToken: tokens.accessToken,
-    };
+      return {
+        accessToken: tokens.accessToken,
+      };
+    } catch (error) {
+      this.clearAuthCookies(res);
+      throw error;
+    }
   }
 
   @Post('logout')
@@ -140,8 +145,11 @@ export class AuthController {
   }
 
   private clearAuthCookies(res: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax' as const,
       path: '/',
     };
 

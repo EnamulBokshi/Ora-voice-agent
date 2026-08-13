@@ -26,14 +26,15 @@ export function proxy(request: NextRequest) {
   // 1. Unauthenticated user attempting to access dashboard -> Redirect to /auth
   if (isProtectedRoute && !isAuthenticated) {
     const authUrl = new URL('/auth', request.url);
-    if (pathname !== '/') {
-      authUrl.searchParams.set('from', pathname);
-    }
+    authUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(authUrl);
   }
 
   // 2. Authenticated user attempting to access /auth -> Redirect to dashboard /
-  if (isAuthRoute && isAuthenticated) {
+  // If the request contains a 'from' query parameter (e.g. redirected from client auth failure),
+  // do not redirect back to / to avoid an infinite loop.
+  const hasFromParam = request.nextUrl.searchParams.has('from');
+  if (isAuthRoute && isAuthenticated && !hasFromParam) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

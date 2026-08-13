@@ -120,7 +120,7 @@ export function AgentKnowledgeList({
                   <span className="capitalize">{item.docType}</span>
                   <span>•</span>
                   <span className="flex items-center gap-1">
-                    <Layers size={11} /> {item.chunks.length} AI Sections
+                    <Layers size={11} /> {item.chunks?.length ?? 0} AI Sections
                   </span>
                 </div>
               </div>

@@ -30,8 +30,8 @@ export function EditKnowledgeModal({
   useEffect(() => {
     if (item) {
       setTitle(item.title);
-      setDocType(item.docType);
-      setContent(item.content);
+      setDocType(item.docType || DocType.POLICY);
+      setContent(item.content || '');
       setSourceUrl(item.sourceUrl || '');
     }
   }, [item]);

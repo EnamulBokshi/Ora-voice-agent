@@ -14,13 +14,13 @@ export interface KnowledgeItem {
   id: string;
   title: string;
   category: KnowledgeCategory;
-  docType: DocType;
-  content: string;
+  docType?: DocType;
+  content?: string;
   sourceUrl?: string;
   status: 'active' | 'needs_review';
   usesCount: number;
   lastEdited: string;
-  createdAt: string;
+  createdAt?: string;
   previewContent: {
     heading: string;
     description: string;
@@ -35,8 +35,13 @@ export interface KnowledgeItem {
     answer: string;
     sourceTag: string;
   };
-  chunks: KnowledgeChunk[];
+  chunks?: KnowledgeChunk[];
   rawDoc?: KnowledgeDoc;
+  usageStats?: {
+    retrievals: number;
+    trendPct: number;
+  };
+  knowledgeGaps?: string[];
 }
 
 export interface UploadedDoc {
