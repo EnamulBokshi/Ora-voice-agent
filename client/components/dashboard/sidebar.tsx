@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Users,
   Receipt,
+  Bot,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -26,7 +27,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'overview',       label: 'Overview',       href: '/',              icon: <LayoutDashboard    size={16} /> },
+  { id: 'overview',       label: 'Overview',       href: '/dashboard',     icon: <LayoutDashboard    size={16} /> },
+  { id: 'agent',          label: 'Agent Setup',    href: '/agent',         icon: <Bot                size={16} /> },
   { id: 'conversations',  label: 'Conversations',  href: '/conversations', icon: <MessageSquareText  size={16} /> },
   { id: 'catalog',        label: 'Catalog',        href: '/catalog',       icon: <Package            size={16} /> },
   { id: 'orders',         label: 'Orders',         href: '/orders',        icon: <ShoppingCart       size={16} /> },
@@ -35,7 +37,7 @@ const navItems: NavItem[] = [
 ];
 
 function navIdFromPath(pathname: string): string {
-  if (pathname === '/') return 'overview';
+  if (pathname === '/' || pathname.startsWith('/dashboard')) return 'overview';
   const match = navItems.find((item) => item.href !== '/' && pathname.startsWith(item.href));
   return match?.id ?? 'overview';
 }

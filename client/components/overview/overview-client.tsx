@@ -2,11 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Loader2, Package, ShoppingCart, MessageSquareText, CreditCard } from 'lucide-react';
-import { getProductsApi } from '@/services/products-service';
-import { getOrdersApi, Order } from '@/services/orders-service';
-import { getConversationsApi, Conversation } from '@/services/conversations-service';
-import { getSubscriptionApi } from '@/services/billing-service';
-import { Plan } from '@/types/billing';
+import { getDashboardStatsApi } from '@/services/dashboard-service';
+import { Order } from '@/services/orders-service';
+import { Conversation } from '@/services/conversations-service';
 import { demoOrders, demoConversations } from '@/lib/demo-data';
 import { formatCurrency } from '@/lib/format';
 
@@ -29,22 +27,18 @@ export function OverviewClient() {
     setLoading(true);
     setError(null);
     try {
-      const [products, orders, conversations, subscription] = await Promise.all([
-        getProductsApi({ page: 1, limit: 1 }),
-        getOrdersApi({ page: 1, limit: 5 }),
-        getConversationsApi({ page: 1, limit: 5 }),
-        getSubscriptionApi().catch(() => null),
-      ]);
-
+      const data = await getDashboardStatsApi();
       setStats({
-        productTotal: products?.pagination?.total ?? 0,
-        orderTotal: orders?.pagination?.total ?? 0,
-        conversationTotal: conversations?.pagination?.total ?? 0,
-        planName: subscription?.plan?.name ?? null,
-        planStatus: subscription?.subscription?.status ?? null,
-        recentOrders: orders?.items && orders.items.length > 0 ? orders.items : demoOrders,
+        productTotal: data.productTotal ?? 0,
+        orderTotal: data.orderTotal ?? 0,
+        conversationTotal: data.conversationTotal ?? 0,
+        planName: data.planName ?? null,
+        planStatus: data.planStatus ?? null,
+        recentOrders: data.recentOrders && data.recentOrders.length > 0 ? data.recentOrders : demoOrders,
         recentConversations:
-          conversations?.items && conversations.items.length > 0 ? conversations.items : demoConversations,
+          data.recentConversations && data.recentConversations.length > 0
+            ? data.recentConversations
+            : demoConversations,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load overview');

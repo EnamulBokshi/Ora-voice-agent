@@ -21,6 +21,8 @@ import { AiVoiceModule } from './ai-voice/ai-voice.module';
 import { RedisModule } from './common/redis/redis.module';
 import { MailModule } from './mail/mail.module';
 
+import { DashboardModule } from './dashboard/dashboard.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -53,6 +55,7 @@ import { MailModule } from './mail/mail.module';
     IngestionModule,
     OrdersModule,
     AiVoiceModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

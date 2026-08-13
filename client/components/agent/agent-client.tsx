@@ -1,46 +1,39 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { KnowledgeCategory, KnowledgeItem, UploadedDoc, mapKnowledgeDocToItem } from './agent-types';
+import { useState, useEffect } from 'react';
 import { AgentHeader } from './agent-header';
-import { AgentPersonaBar } from './agent-persona-bar';
-import { AgentCategoryTabs } from './agent-category-tabs';
-import { AgentKnowledgeList } from './agent-knowledge-list';
-import { AgentInspector } from './agent-inspector';
-import { AgentPersonaSettings } from './agent-persona-settings';
-import { AddKnowledgeModal } from './modals/add-knowledge-modal';
-import { UploadDocModal } from './modals/upload-doc-modal';
-import { EditKnowledgeModal } from './modals/edit-knowledge-modal';
 import { VoiceTestModal } from './modals/voice-test-modal';
-import { ReindexModal } from '@/components/rag/reindex-modal';
-import { RagPlaygroundModal } from '@/components/rag/rag-playground-modal';
-import {
-  getKnowledgeDocsApi,
-  getKnowledgeDocChunksApi,
-  deleteKnowledgeDocApi,
-} from '@/services/knowledge-service';
 import { getMeApi } from '@/services/auth-service';
-import { BookOpen, Sliders, Loader2 } from 'lucide-react';
-import { DocType } from '@/types/knowledge';
+import {
+  getAgentConfigApi,
+  updateAgentConfigApi,
+} from '@/services/agent-config-service';
+import {
+  Bot,
+  Sparkles,
+  Mic,
+  Sliders,
+  Volume2,
+  Zap,
+  CheckCircle2,
+  ShieldCheck,
+  Cpu,
+  MessageSquare,
+  RefreshCw,
+  Loader2,
+} from 'lucide-react';
 
 export function AgentClient() {
-  const [activeTab, setActiveTab] = useState<'knowledge' | 'persona'>('knowledge');
-  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
-  const [selectedId, setSelectedId] = useState<string>('');
-  const [activeCategory, setActiveCategory] = useState<'All' | KnowledgeCategory>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isReindexModalOpen, setIsReindexModalOpen] = useState(false);
-  const [isRagPlaygroundModalOpen, setIsRagPlaygroundModalOpen] = useState(false);
   const [isVoiceTestModalOpen, setIsVoiceTestModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
   const [publishableKey, setPublishableKey] = useState<string>('biz_live_demo');
+  const [brandVoice, setBrandVoice] = useState<string>(
+    'Friendly, articulate, and empathetic e-commerce sales assistant. Knowledgeable about products, pricing, and shipping policies.',
+  );
+  const [voiceId, setVoiceId] = useState<string>('puck');
+  const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     getMeApi()
@@ -50,303 +43,223 @@ export function AgentClient() {
         }
       })
       .catch(() => {});
+
+    getAgentConfigApi()
+      .then((data) => {
+        if (data?.config?.brandVoiceDescription) {
+          setBrandVoice(data.config.brandVoiceDescription);
+        }
+        if (data?.voice?.voiceId) {
+          setVoiceId(data.voice.voiceId);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load agent config:', err);
+      })
+      .finally(() => {
+        setIsLoadingConfig(false);
+      });
   }, []);
 
-  const fetchKnowledgeDocs = useCallback(async () => {
+  const handleSaveTuning = async () => {
+    setIsSaving(true);
+    setSaveError(null);
     try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch all store knowledge docs and filter dynamically
-      const docs = await getKnowledgeDocsApi({
-        search: searchQuery || undefined,
+      await updateAgentConfigApi({
+        brandVoiceDescription: brandVoice,
+        voiceId,
       });
-
-      // Map docs and fetch chunks for each document
-      const itemsWithChunks = await Promise.all(
-        docs.map(async (doc) => {
-          try {
-            const chunks = await getKnowledgeDocChunksApi(doc._id);
-            return mapKnowledgeDocToItem(doc, chunks);
-          } catch {
-            return mapKnowledgeDocToItem(doc, []);
-          }
-        }),
-      );
-
-      setKnowledgeItems(itemsWithChunks);
-
-      if (itemsWithChunks.length > 0 && !selectedId) {
-        setSelectedId(itemsWithChunks[0].id);
-      }
-    } catch (err: any) {
-      console.error('Failed to load knowledge base:', err);
-      setError(err.message || 'Failed to connect to backend Knowledge Base.');
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save configuration');
     } finally {
-      setLoading(false);
-    }
-  }, [searchQuery, selectedId]);
-
-  useEffect(() => {
-    fetchKnowledgeDocs();
-  }, [fetchKnowledgeDocs]);
-
-  // Derived uploaded docs list (docs with type uploaded_doc)
-  const uploadedDocs: UploadedDoc[] = knowledgeItems
-    .filter((k) => k.docType === DocType.UPLOADED_DOC)
-    .map((k) => ({
-      id: k.id,
-      name: k.title,
-      type: 'Text/Markdown Document',
-      status: 'synced',
-      rawDoc: k.rawDoc,
-    }));
-
-  // Dynamic filtering by category tab & search query
-  const filteredItems = knowledgeItems.filter((item) => {
-    if (activeCategory !== 'All') {
-      if (activeCategory === 'Store Policies') {
-        if (item.docType === DocType.UPLOADED_DOC) return false;
-      } else if (activeCategory === 'Documents') {
-        if (item.docType !== DocType.UPLOADED_DOC && item.category !== 'Documents') return false;
-      } else if (activeCategory === 'FAQs') {
-        if (item.docType !== DocType.FAQ && item.category !== 'FAQs') return false;
-      } else {
-        // Category tab filtering: Shipping & Delivery, Returns & Refunds, Payment, Warranty
-        if (item.category !== activeCategory) {
-          const matchKeywords =
-            activeCategory === 'Shipping & Delivery' ? ['ship', 'deliver', 'express', 'courier', 'dhaka'] :
-            activeCategory === 'Returns & Refunds' ? ['return', 'refund', 'exchange', 'replace'] :
-            activeCategory === 'Payment' ? ['pay', 'bkash', 'cod', 'cash', 'card', 'bank'] :
-            activeCategory === 'Warranty' ? ['warrant', 'guarant', 'claim', 'repair'] : [];
-
-          const text = `${item.title} ${item.content}`.toLowerCase();
-          const hasMatch = matchKeywords.some((kw) => text.includes(kw));
-          if (!hasMatch) return false;
-        }
-      }
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        item.content.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  // Auto-select first item when tab changes if current selection is not in filtered list
-  useEffect(() => {
-    if (filteredItems.length > 0) {
-      const exists = filteredItems.some((k) => k.id === selectedId);
-      if (!exists) {
-        setSelectedId(filteredItems[0].id);
-      }
-    }
-  }, [activeCategory, filteredItems, selectedId]);
-
-  const selectedItem =
-    filteredItems.find((k) => k.id === selectedId) || filteredItems[0] || null;
-
-  // Handlers for Knowledge Items & Docs
-  const handleAddKnowledge = (newItem: KnowledgeItem) => {
-    setKnowledgeItems((prev) => [newItem, ...prev]);
-    setSelectedId(newItem.id);
-  };
-
-  const handleSaveEdit = (updatedItem: KnowledgeItem) => {
-    setKnowledgeItems((prev) =>
-      prev.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
-    );
-  };
-
-  const handleDeleteItem = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this store policy document?')) {
-      return;
-    }
-
-    try {
-      await deleteKnowledgeDocApi(id);
-      const updated = knowledgeItems.filter((item) => item.id !== id);
-      setKnowledgeItems(updated);
-      if (selectedId === id && updated.length > 0) {
-        setSelectedId(updated[0].id);
-      }
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete knowledge document.');
+      setIsSaving(false);
     }
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-[1600px] mx-auto w-full flex flex-col h-full">
-      {/* Top Header & Quick Action Bar */}
-      <AgentHeader
-        itemsCount={knowledgeItems.length}
-        docsCount={uploadedDocs.length}
-        onUploadDoc={() => setIsUploadModalOpen(true)}
-        onAddKnowledge={() => setIsAddModalOpen(true)}
-        onOpenRagPlayground={() => setIsRagPlaygroundModalOpen(true)}
-        onOpenReindex={() => setIsReindexModalOpen(true)}
-        onOpenVoiceTest={() => setIsVoiceTestModalOpen(true)}
-      />
+    <div className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-[1400px] mx-auto w-full flex flex-col gap-6">
+      {/* Top Header */}
+      <AgentHeader onOpenVoiceTest={() => setIsVoiceTestModalOpen(true)} />
 
-      {/* Mode Navigation Bar */}
-      <div
-        className="flex items-center gap-3 mb-6 border-b pb-3 shrink-0"
-        style={{ borderColor: 'var(--glass-border)' }}
-      >
-        <button
-          onClick={() => setActiveTab('knowledge')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-            activeTab === 'knowledge' ? 'shadow-md' : 'hover:text-foreground hover:bg-[var(--surface-high)]'
-          }`}
-          style={
-            activeTab === 'knowledge'
-              ? {
-                  background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                  borderColor: 'var(--primary)',
-                  color: 'var(--primary)',
-                }
-              : {
-                  background: 'transparent',
-                  borderColor: 'transparent',
-                  color: 'var(--muted-foreground)',
-                }
-          }
-        >
-          <BookOpen size={15} /> Store Policies & Knowledge Base
-        </button>
+      {/* Hero Banner: Voice Agent Intelligence */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-surface-container p-6 lg:p-8 shadow-xl">
+        <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/15 text-primary border border-primary/25">
+              <Zap size={14} className="text-primary" />
+              <span>Gemini 2.0 Multimodal Live Voice API</span>
+            </div>
+            <h2 className="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
+              Autonomous Voice & Persona Tuning Sandbox
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              ORA connects directly to Google Gemini 2.0 Live WebSockets for ultra-low latency sub-second voice conversations, automated RAG catalog lookups, and real-time order creation.
+            </p>
+          </div>
 
-        <button
-          onClick={() => setActiveTab('persona')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-            activeTab === 'persona' ? 'shadow-md' : 'hover:text-foreground hover:bg-[var(--surface-high)]'
-          }`}
-          style={
-            activeTab === 'persona'
-              ? {
-                  background: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                  borderColor: 'var(--primary)',
-                  color: 'var(--primary)',
-                }
-              : {
-                  background: 'transparent',
-                  borderColor: 'transparent',
-                  color: 'var(--muted-foreground)',
-                }
-          }
-        >
-          <Sliders size={15} /> Voice & Persona Tuning
-        </button>
+          <button
+            onClick={() => setIsVoiceTestModalOpen(true)}
+            className="px-6 py-3 rounded-xl font-semibold text-sm text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2.5 shrink-0"
+          >
+            <Mic size={18} />
+            <span>Launch Real-Time Voice Sandbox</span>
+          </button>
+        </div>
       </div>
 
-      {activeTab === 'knowledge' ? (
-        <>
-          {/* Category Filters */}
-          <AgentCategoryTabs
-            activeCategory={activeCategory}
-            onSelectCategory={(cat) => setActiveCategory(cat)}
-          />
-
-          {error && (
-            <div className="mb-4 p-3 rounded-xl border text-xs bg-red-500/10 border-red-500/20 text-red-400">
-              {error}
-            </div>
-          )}
-
-          {/* Two Column Organized Workspace */}
-          {loading && knowledgeItems.length === 0 ? (
-            <div
-              className="flex-1 rounded-2xl border p-12 flex flex-col items-center justify-center text-muted-foreground min-h-[400px]"
-              style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
-            >
-              <Loader2 size={32} className="animate-spin mb-3 text-[var(--primary)]" />
-              <p className="text-xs font-semibold">Loading Store Policies & AI Knowledge Base...</p>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 pb-8 min-h-[550px]">
-              {/* Left Column: Search, List of Knowledge items & Uploaded Documents */}
-              <AgentKnowledgeList
-                items={filteredItems}
-                uploadedDocs={uploadedDocs}
-                selectedId={selectedId}
-                onSelect={(id) => setSelectedId(id)}
-                searchQuery={searchQuery}
-                onSearchChange={(q) => setSearchQuery(q)}
-              />
-
-              {/* Right Column: Detailed Knowledge Inspector */}
-              {selectedItem ? (
-                <AgentInspector
-                  item={selectedItem}
-                  onEdit={() => setEditingItem(selectedItem)}
-                  onDelete={() => handleDeleteItem(selectedItem.id)}
-                />
-              ) : (
-                <div
-                  className="flex-1 rounded-2xl border p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[400px]"
-                  style={{ background: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
-                >
-                  <BookOpen size={40} className="mb-3 text-[var(--primary)] opacity-60" />
-                  <h3 className="font-bold text-sm text-foreground mb-1">
-                    {filteredItems.length === 0
-                      ? `No documents found in "${activeCategory}"`
-                      : 'No Knowledge Item Selected'}
-                  </h3>
-                  <p className="text-xs max-w-sm">
-                    {filteredItems.length === 0
-                      ? `Click "Add Policy Info" or "Upload Doc" to add information under ${activeCategory}.`
-                      : 'Select a policy document from the list on the left to inspect its content.'}
-                  </p>
+      {/* Main Configuration Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Voice & Persona Settings */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Brand Voice Prompt Card */}
+          <div className="rounded-2xl border border-border bg-surface-container p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Sliders size={18} />
                 </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground">Brand Voice & Persona Instructions</h3>
+                  <p className="text-xs text-muted-foreground">Customize your AI voice agent’s tone, instructions, and sales approach.</p>
+                </div>
+              </div>
+
+              {isSaved && (
+                <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 animate-fade-in">
+                  <CheckCircle2 size={14} /> Saved
+                </span>
               )}
             </div>
-          )}
-        </>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {/* Voice & Persona Status Hero Banner */}
-          <AgentPersonaBar />
 
-          {/* Persona Tuning Form Controls */}
-          <AgentPersonaSettings />
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                System Persona Prompt
+              </label>
+              <textarea
+                value={brandVoice}
+                onChange={(e) => setBrandVoice(e.target.value)}
+                rows={4}
+                className="w-full rounded-xl border border-border bg-surface-low px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Describe how ORA should greet customers, handle sales inquiries, and suggest products..."
+              />
+            </div>
+
+            {saveError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                {saveError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-muted-foreground font-mono">
+                Model: gemini-2.0-flash-exp (Bidi Voice Gateway)
+              </span>
+              <button
+                onClick={handleSaveTuning}
+                disabled={isSaving || isLoadingConfig}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-surface-high hover:bg-surface-bright text-foreground transition-colors border border-border flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin text-primary" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Persona Tuning</span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Voice Output Specs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-border bg-surface-container p-5 space-y-3">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <Volume2 size={16} className="text-primary" />
+                <span>Audio Engine Configuration</span>
+              </div>
+              <div className="space-y-2 text-xs text-muted-foreground font-mono">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Sampling Rate:</span>
+                  <span className="text-foreground">24,000 Hz (PCM)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Prebuilt Voice:</span>
+                  <span className="text-foreground">Puck (Gemini Live)</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Input Mic Rate:</span>
+                  <span className="text-foreground">16,000 Hz (Int16)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-surface-container p-5 space-y-3">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <Cpu size={16} className="text-secondary" />
+                <span>Autonomous Tools & RAG</span>
+              </div>
+              <div className="space-y-2 text-xs text-muted-foreground font-mono">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Catalog Search:</span>
+                  <span className="text-emerald-400">Enabled (RAG)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Order Creation:</span>
+                  <span className="text-emerald-400">Enabled (Function Call)</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Policy Check:</span>
+                  <span className="text-emerald-400">Enabled</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Modals */}
-      <AddKnowledgeModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdded={handleAddKnowledge}
-      />
+        {/* Right Column: Status & Direct Sandbox Card */}
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-border bg-surface-container p-6 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base text-foreground">Voice Gateway Status</h3>
+                <p className="text-xs text-muted-foreground">Live WebSockets WebSocketGateway</p>
+              </div>
+            </div>
 
-      <UploadDocModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onUploaded={handleAddKnowledge}
-      />
+            <div className="p-4 rounded-xl bg-surface-low border border-border space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Gateway Endpoint:</span>
+                <span className="font-mono text-emerald-400 font-medium">ws://localhost:5000/voice</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Publishable Key:</span>
+                <span className="font-mono text-foreground font-medium">{publishableKey.slice(0, 14)}...</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Protocol:</span>
+                <span className="font-mono text-foreground font-medium">Socket.IO v4</span>
+              </div>
+            </div>
 
-      <EditKnowledgeModal
-        isOpen={!!editingItem}
-        item={editingItem}
-        onClose={() => setEditingItem(null)}
-        onSaved={handleSaveEdit}
-      />
+            <button
+              onClick={() => setIsVoiceTestModalOpen(true)}
+              className="w-full py-3 rounded-xl font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all flex items-center justify-center gap-2"
+            >
+              <Sparkles size={15} />
+              <span>Test Voice Agent Now</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
-      <ReindexModal
-        isOpen={isReindexModalOpen}
-        onClose={() => setIsReindexModalOpen(false)}
-        onSuccess={fetchKnowledgeDocs}
-      />
-
-      <RagPlaygroundModal
-        isOpen={isRagPlaygroundModalOpen}
-        onClose={() => setIsRagPlaygroundModalOpen(false)}
-      />
-
+      {/* Voice Test Modal */}
       <VoiceTestModal
         isOpen={isVoiceTestModalOpen}
         onClose={() => setIsVoiceTestModalOpen(false)}
