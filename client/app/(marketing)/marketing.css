@@ -1,0 +1,510 @@
+/* =============================================================================
+   ORA LANDING PAGE — STITCH "LUMINA" UTILITY STYLES
+   Color tokens (--lp-*) are defined in globals.css :root.
+   This file contains only scoped layout helpers, component classes,
+   and animations for the (marketing)/ route group.
+   ============================================================================= */
+
+/* ── Social icon hover (CSS-only, no JS handlers in RSC) ──────────────────── */
+.lp-social-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lp-text-tertiary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.lp-social-icon:hover {
+  color: var(--lp-text-primary);
+}
+
+
+/* ── Base reset (scoped to .lp-root to avoid leaking) ─────────────────────── */
+.lp-root {
+  font-family: var(--lp-font-sans);
+  background-color: var(--lp-bg);
+  color: var(--lp-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+.lp-root *,
+.lp-root *::before,
+.lp-root *::after {
+  box-sizing: border-box;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────────── */
+.lp-display {
+  font-family: var(--lp-font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.lp-headline {
+  font-family: var(--lp-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.lp-mono {
+  font-family: var(--lp-font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.lp-text-gradient {
+  background: linear-gradient(135deg, #111111 0%, #444444 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Layout utilities ──────────────────────────────────────────────────────── */
+.lp-container {
+  max-width: var(--lp-container);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--lp-gutter);
+  padding-right: var(--lp-gutter);
+}
+
+.lp-section {
+  padding-top: var(--lp-section-y);
+  padding-bottom: var(--lp-section-y);
+}
+
+/* ── Navbar ────────────────────────────────────────────────────────────────── */
+.lp-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 5rem;
+  display: flex;
+  align-items: center;
+  background-color: rgba(250, 250, 250, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--lp-border-light);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.lp-navbar.scrolled {
+  background-color: rgba(250, 250, 250, 0.95);
+  border-bottom-color: var(--lp-border);
+  box-shadow: var(--lp-shadow-card);
+}
+
+.lp-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: var(--lp-container);
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--lp-font-display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+  color: var(--lp-text-primary);
+  text-decoration: none;
+}
+
+.lp-logo-mark {
+  width: 2rem;
+  height: 2rem;
+  background-color: var(--lp-dark);
+  color: white;
+  border-radius: var(--lp-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lp-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+}
+
+.lp-nav-links a {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--lp-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.lp-nav-links a:hover {
+  color: var(--lp-text-primary);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.lp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background-color: var(--lp-dark);
+  color: #FFFFFF;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--lp-radius-full);
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lp-btn-primary:hover {
+  background-color: #2a2a2a;
+  transform: translateY(-1px);
+}
+
+.lp-btn-lime {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background-color: var(--lp-primary);
+  color: var(--lp-dark);
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--lp-radius-full);
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lp-btn-lime:hover {
+  background-color: var(--lp-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(200, 240, 49, 0.35);
+}
+
+.lp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background-color: transparent;
+  color: var(--lp-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  border-radius: var(--lp-radius-full);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  cursor: pointer;
+}
+
+.lp-btn-ghost:hover {
+  color: var(--lp-text-secondary);
+}
+
+/* ── Pill / Badge ──────────────────────────────────────────────────────────── */
+.lp-badge-lime {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  background-color: var(--lp-primary-dim);
+  color: var(--lp-dark);
+  font-family: var(--lp-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--lp-radius-full);
+}
+
+.lp-announce-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  background-color: var(--lp-bg-white);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-full);
+  box-shadow: var(--lp-shadow-card);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--lp-text-secondary);
+  margin-bottom: 2rem;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.lp-card {
+  background-color: var(--lp-bg-white);
+  border: 1px solid var(--lp-border-light);
+  border-radius: var(--lp-radius-2xl);
+  box-shadow: var(--lp-shadow-card);
+}
+
+.lp-card-padded {
+  padding: 2.5rem;
+}
+
+/* ── Section label ─────────────────────────────────────────────────────────── */
+.lp-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.lp-section-label-line {
+  height: 1px;
+  width: 2rem;
+  background-color: var(--lp-primary-dim);
+}
+
+.lp-section-label-text {
+  font-family: var(--lp-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lp-primary-dim);
+}
+
+/* ── Dark gradient sections ────────────────────────────────────────────────── */
+.lp-dark-section {
+  background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lp-radius-3xl);
+}
+
+.lp-glow-blob {
+  position: absolute;
+  border-radius: 50%;
+  background-color: var(--lp-primary-dim);
+  filter: blur(80px);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* ── Progress bar ──────────────────────────────────────────────────────────── */
+.lp-progress-track {
+  height: 0.5rem;
+  background-color: var(--lp-border-light);
+  border-radius: var(--lp-radius-full);
+  overflow: hidden;
+}
+
+.lp-progress-fill-lime {
+  height: 100%;
+  background-color: var(--lp-primary-dim);
+  border-radius: var(--lp-radius-full);
+  transition: width 0.6s ease;
+}
+
+.lp-progress-fill-dark {
+  height: 100%;
+  background-color: var(--lp-dark);
+  border-radius: var(--lp-radius-full);
+  transition: width 0.6s ease;
+}
+
+/* ── Grid dot background ───────────────────────────────────────────────────── */
+.lp-dot-grid {
+  background-image: radial-gradient(var(--lp-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ── Stat dividers ─────────────────────────────────────────────────────────── */
+.lp-stat-divider {
+  width: 1px;
+  height: 4rem;
+  background-color: var(--lp-dark-border);
+}
+
+/* ── Trust logos row ───────────────────────────────────────────────────────── */
+.lp-trust-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+  opacity: 0.5;
+  filter: grayscale(1);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.lp-trust-logos:hover {
+  opacity: 0.75;
+  filter: grayscale(0.4);
+}
+
+/* ── Icon box ──────────────────────────────────────────────────────────────── */
+.lp-icon-box {
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: var(--lp-bg-subtle);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Workflow node visuals ─────────────────────────────────────────────────── */
+.lp-node-circle {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background-color: var(--lp-bg-white);
+  box-shadow: var(--lp-shadow-float);
+  border: 1px solid var(--lp-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lp-node-center {
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--lp-radius-md);
+  background-color: var(--lp-dark);
+  color: var(--lp-primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--lp-shadow-deep);
+  transform: rotate(12deg);
+  flex-shrink: 0;
+}
+
+.lp-node-connector {
+  height: 1px;
+  width: 4rem;
+  background-color: var(--lp-border);
+  flex-shrink: 0;
+}
+
+/* ── Avatar stack ──────────────────────────────────────────────────────────── */
+.lp-avatar-stack {
+  display: flex;
+}
+
+.lp-avatar-stack > * + * {
+  margin-left: -0.5rem;
+}
+
+.lp-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--lp-bg-white);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.lp-avatar-count {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--lp-bg-white);
+  background-color: var(--lp-bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--lp-text-secondary);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.lp-footer {
+  background-color: var(--lp-bg-white);
+  border-top: 1px solid var(--lp-border-light);
+}
+
+.lp-footer-link {
+  font-size: 0.875rem;
+  color: var(--lp-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.lp-footer-link:hover {
+  color: var(--lp-text-primary);
+}
+
+/* ── Responsive helpers ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lp-nav-links,
+  .lp-nav-cta {
+    display: none;
+  }
+
+  .lp-section {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+
+  .lp-dark-section {
+    border-radius: var(--lp-radius-2xl);
+  }
+}
+
+/* ── Micro-animations ──────────────────────────────────────────────────────── */
+@keyframes lp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.lp-animate-fade-up {
+  animation: lp-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lp-animate-fade-up-delay-1 { animation-delay: 0.1s; opacity: 0; }
+.lp-animate-fade-up-delay-2 { animation-delay: 0.2s; opacity: 0; }
+.lp-animate-fade-up-delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-animate-fade-up,
+  .lp-animate-fade-up-delay-1,
+  .lp-animate-fade-up-delay-2,
+  .lp-animate-fade-up-delay-3 {
+    animation: none;
+    opacity: 1;
+  }
+}

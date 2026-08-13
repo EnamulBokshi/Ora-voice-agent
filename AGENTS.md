@@ -124,40 +124,42 @@ There are **three distinct actor types** in ORA (v5 Architecture). Do not confla
 
 The ORA Merchant Dashboard uses a **centralized design-token system** defined exclusively in `client/app/globals.css`. All color values are global CSS custom properties consumed via Tailwind's `@theme inline` block. No component, page, or module may hardcode brand hex values.
 
-### Selected Palette
+### Unified Palette — Stitch Design System
 
-Source: ORA Brand Color Palette (`#2E2910` / `#2C5745` / `#EBE3A7` / `#EB7D00`).
+Both the dashboard and the public landing page share the same foundational Stitch palette. The dashboard and landing page use the same tokens, ensuring a coherent brand experience.
 
 | Role | Light Mode | Dark Mode | Usage |
 |---|---|---|---|
-| **Primary** | `#2C5745` | `#3d7a60` | Brand identity, buttons, active nav, CTAs, key metrics |
-| **Primary Foreground** | `#EBE3A7` | `#EBE3A7` | Text on primary surfaces |
-| **Secondary** | `#EB7D00` | `#EB7D00` | Secondary CTAs, supporting actions, highlights |
-| **Secondary Foreground** | `#2E2910` | `#2E2910` | Text on secondary surfaces |
-| **Brand Accent** | `#EBE3A7` | `#EBE3A7` | Warm ivory highlight, selected state badges |
-| **Brand Deep** | `#2E2910` | `#2E2910` | Dark olive reference tone |
+| **Primary** | `#111111` | `#C8F031` (Lime) | Buttons, active nav, CTAs, key metrics |
+| **Primary Foreground** | `#FAFAFA` | `#111111` | Text on primary surfaces |
+| **Secondary** | `#6B7280` | `#1A1A1A` | Secondary surfaces, supporting actions |
+| **Secondary Foreground** | `#FFFFFF` | `#FAFAFA` | Text on secondary surfaces |
+| **Accent** | `rgba(200,240,49,0.12)` | `rgba(200,240,49,0.08)` | Subtle lime highlight tint |
+| **Background** | `#FAFAFA` | `#000000` | Global page background |
+| **Card** | `#FFFFFF` | `#111111` | Card surfaces |
+| **Border** | `#E5E7EB` | `#2A2A2A` | Ghost borders, dividers |
 
 ### Utility / Semantic Colors
 
 | Semantic | Value (light) | Value (dark) | Meaning |
 |---|---|---|---|
-| **Success** (`--ora-success`) | `#2C5745` | `#3d7a60` | ORA Online, positive trend, completed |
-| **Warning** (`--ora-warning`) | `#EB7D00` | `#EB7D00` | Needs attention, caution state |
-| **Error** (`--ora-error`) | `#c0392b` | `#e05252` | System error, critical failure |
-| **Info** (`--ora-info`) | `#009eb9` | `#4cd7f6` | Informational state, processing hint |
+| **Success** (`--ora-success`) | `#65A30D` | `#C8F031` | ORA Online, positive trend, completed |
+| **Warning** (`--ora-warning`) | `#D97706` | `#F59E0B` | Needs attention, caution state |
+| **Error** (`--ora-error`) | `#DC2626` | `#EF4444` | System error, critical failure |
+| **Info** (`--ora-info`) | `#2563EB` | `#9CA3AF` | Informational state, processing hint |
 
 ### Chart Palette
 
-Charts across all pages (Overview, Sales, Conversations, Analytics, Reports) **must** use this series in order:
+Charts across all pages **must** use this series in order:
 
 | Series | Token | Value (dark) | Role |
 |---|---|---|---|
-| 1 | `--chart-1` | `#3d7a60` | Primary metric |
-| 2 | `--chart-2` | `#EB7D00` | Secondary metric |
-| 3 | `--chart-3` | `#EBE3A7` | Tertiary / accent |
-| 4 | `--chart-4` | `#4cd7f6` | Info / comparison |
-| 5 | `--chart-5` | `#e05252` | Negative / error |
-| 6 | `--chart-6` | `#8fa99a` | Background / muted |
+| 1 | `--chart-1` | `#C8F031` | Primary metric (lime) |
+| 2 | `--chart-2` | `#D4F536` | Secondary metric (lime dim) |
+| 3 | `--chart-3` | `#FAFAFA` | Tertiary / accent (white) |
+| 4 | `--chart-4` | `#6B7280` | Info / comparison (gray) |
+| 5 | `--chart-5` | `#EF4444` | Negative / error (red) |
+| 6 | `--chart-6` | `#2A2A2A` | Background / muted (dark) |
 
 Never assign ad-hoc colors to individual charts. Use `var(--chart-N)` or the Tailwind alias `bg-chart-N` / `text-chart-N`.
 
@@ -167,27 +169,71 @@ ORA is an AI sales agent — status must be immediately understandable. Always p
 
 | State | Token | Dark Value | Meaning |
 |---|---|---|---|
-| Online | `--status-online` | `#3d7a60` | ORA active, selling |
-| Active | `--status-active` | `#52b88a` | Live conversation in progress |
-| Warning | `--status-warning` | `#EB7D00` | Needs merchant attention |
-| Offline | `--status-offline` | `#8fa99a` | Agent paused / inactive |
-| Error | `--status-error` | `#e05252` | System error |
-| Processing | `--status-processing` | `#4cd7f6` | ORA thinking / loading |
+| Online | `--status-online` | `#C8F031` | ORA active, selling |
+| Active | `--status-active` | `#D4F536` | Live conversation in progress |
+| Warning | `--status-warning` | `#F59E0B` | Needs merchant attention |
+| Offline | `--status-offline` | `#6B7280` | Agent paused / inactive |
+| Error | `--status-error` | `#EF4444` | System error |
+| Processing | `--status-processing` | `#9CA3AF` | ORA thinking / loading |
 
-### Background / Surface Foundation
+### Background / Surface Foundation (Dark Mode)
 
-The dark navy **Obsidian Intelligence** structural layer is preserved and must not be altered:
+Pure black foundation with gray elevation scale:
 
 ```
---background          #020617   Global page background
---surface-lowest      #010f1f   Sidebar, deepest surface
---surface-low         #0d1c2d   Nested panels
---surface-container   #122131   Cards, primary containers
---surface-high        #1c2b3c   Interactive surfaces
---surface-highest     #273647   Elevated elements
---surface-bright      #2c3a4c   Highlighted/focused surfaces
+--background          #000000   Global page background (pure black)
+--surface-lowest      #050505   Sidebar deep background
+--surface-low         #0A0A0A   Sidebar, deepest panels
+--surface-container   #111111   Cards, primary containers
+--surface-high        #1A1A1A   Interactive surfaces, popovers
+--surface-highest     #222222   Elevated elements
+--surface-bright      #2A2A2A   Highlighted/focused surfaces
 ```
 
 ### Rules for UI Components
-1. **Never hardcode `#2C5745`, `#EB7D00`, `#EBE3A7`, or any brand color inside a component.** Use the CSS token or its Tailwind mapping (e.g., `bg-primary`, `text-secondary`).
+1. **Never hardcode any hex color directly in a component.** Use the CSS token or its Tailwind mapping (e.g., `bg-primary`, `text-secondary`).
 2. **Never create a second theme system.** `client/app/globals.css` is the single source of truth.
+
+---
+
+## 10. Landing Page Color System — Stitch "Lumina" Palette
+
+The public marketing landing page at `/` (route group `client/app/(marketing)/`) uses a **separate, scoped design system** derived from the Stitch "Orion AI" / "Lumina SaaS" design reference. This system is **completely independent** of the dashboard's Obsidian dark theme.
+
+### Scope Rules
+- All landing page styles live in `client/app/(marketing)/marketing.css`.
+- CSS tokens are prefixed `--lp-*` and are scoped under the `.lp-root` class.
+- **Never import `marketing.css` from inside `(dashboard)/` layouts or components.**
+- **Never use `--lp-*` tokens inside dashboard components.**
+
+### Landing Page Palette
+
+| Role | Token | Value | Usage |
+|---|---|---|---|
+| **Primary (Lime)** | `--lp-primary` | `#C8F031` | CTAs, active states, focus rings |
+| **Primary Hover** | `--lp-primary-hover` | `#B8DD28` | Button hover state |
+| **Primary Dim** | `--lp-primary-dim` | `#D4F536` | Badges, chart lines, accent elements |
+| **Dark** | `--lp-dark` | `#111111` | Navbar, dark section backgrounds, primary text |
+| **Dark Deep** | `--lp-dark-deep` | `#0B0D0A` | Gradient start for stats/CTA sections |
+| **Background** | `--lp-bg` | `#FAFAFA` | Page canvas |
+| **White** | `--lp-bg-white` | `#FFFFFF` | Cards, modals |
+| **Subtle BG** | `--lp-bg-subtle` | `#F7F8F7` | Section alternation |
+| **Border** | `--lp-border` | `#E5E7EB` | Ghost borders, card edges |
+| **Text Primary** | `--lp-text-primary` | `#111111` | Body text |
+| **Text Secondary** | `--lp-text-secondary` | `#6B7280` | Muted/metadata |
+| **Text Tertiary** | `--lp-text-tertiary` | `#9CA3AF` | Placeholder, dim labels |
+
+### Landing Page Typography
+
+| Scale | Font | Weight | Notes |
+|---|---|---|---|
+| Display | Space Grotesk | 700 | Hero headline, stat numbers |
+| Headline | Space Grotesk | 700 | Section headings |
+| Body | Inter | 400–600 | Paragraphs, nav, CTA labels |
+| Mono | JetBrains Mono | 500 | Badges, status chips |
+
+### Dark Section Gradient
+```css
+background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+```
+Used for the StatsSection and CtaSection dark containers.

@@ -65,3 +65,44 @@ This document governs frontend development in the `client/` package (Next.js Das
 - **Micro-Animations:** Use smooth CSS transitions and subtle hover effects for interactive elements.
 - **No Direct Placeholders:** Use generated image assets or proper SVG icons rather than raw broken image links or generic text placeholders.
 - **Strict TypeScript:** Prohibit `any` types. Explicitly type component props, server action responses, and form state.
+
+---
+
+## 8. Marketing / Landing Page Conventions
+
+The public marketing site lives in the `(marketing)` Next.js route group. These rules govern all work in that area.
+
+### Route Structure
+```
+app/
+├── (marketing)/
+│   ├── layout.tsx         ← Imports marketing.css; wraps with .lp-root
+│   ├── marketing.css      ← Stitch "Lumina" design tokens (--lp-* prefix)
+│   └── page.tsx           ← RSC landing page, assembles section components
+└── (dashboard)/
+    ├── layout.tsx          ← Dashboard sidebar layout (unaffected)
+    └── dashboard/page.tsx  ← /dashboard — authenticated overview
+```
+
+### Component Folder
+All marketing UI components live in `components/marketing/`:
+- `navbar.tsx` — Scroll-aware fixed navbar (client component)
+- `hero-section.tsx` — Hero with announcement pill, headline, dashboard preview card
+- `trust-bar.tsx` — Brand logos row
+- `features-section.tsx` — Bento grid feature cards
+- `stats-section.tsx` — Dark gradient stats container
+- `testimonial-section.tsx` — Pull-quote with attribution
+- `cta-section.tsx` — Final CTA dark section
+- `footer.tsx` — 4-column footer
+
+### CSS Scoping Rules
+- `marketing.css` uses the `.lp-root` class scope — tokens do **not** leak into the dashboard.
+- All landing page tokens use the `--lp-*` prefix.
+- **Never import `marketing.css` from dashboard layouts.**
+- **Never use Tailwind `bg-primary` / `text-secondary` etc. inside marketing components** — use `--lp-*` CSS tokens directly.
+
+### Auth Flow
+- `/` → Public landing page (unauthenticated allowed)
+- `/auth` → Login (unauthenticated only; redirects to `/dashboard` if already authenticated)
+- `/dashboard` → Protected; redirects to `/auth?from=/dashboard` if not authenticated
+

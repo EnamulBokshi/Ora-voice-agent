@@ -14,8 +14,9 @@ export function proxy(request: NextRequest) {
   const isAuthRoute = pathname.startsWith('/auth');
 
   // All protected dashboard and command center routes
+  // NOTE: / is now the public landing page — NOT protected
   const isProtectedRoute =
-    pathname === '/' ||
+    pathname.startsWith('/dashboard') ||
     pathname.startsWith('/catalog') ||
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
@@ -35,7 +36,7 @@ export function proxy(request: NextRequest) {
   // do not redirect back to / to avoid an infinite loop.
   const hasFromParam = request.nextUrl.searchParams.has('from');
   if (isAuthRoute && isAuthenticated && !hasFromParam) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   // 3. Proxy /api requests to NestJS backend on port 5000
