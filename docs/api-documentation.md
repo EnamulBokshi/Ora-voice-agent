@@ -55,6 +55,7 @@ interface ErrorEnvelope {
 | `/api/v1/ingestion/upload` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Primary Bulk Ingestion**: Upload merchant product file (CSV, XLSX, TXT, PDF), normalize records, batch-sync to MongoDB, and auto-embed into `VectorIndex`. |
 | `/api/v1/products` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Read-only inspection & search of ingested catalog mirror with pagination & filters. |
 | `/api/v1/products/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single ingested product details by ID. |
+| `/api/v1/products/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | **Manual Override**: Correct misparsed price/stock/attribute fields on mirrored product record using `UpdateProductOverrideDto`. |
 | `/api/v1/products/batch-sync` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Programmatic bulk upsert of products with source tier tracking. |
 | `/api/v1/products/:id/verify-live` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Query-time live price & stock verification endpoint using `VerifyLiveDto`. |
 | `/api/v1/ingestion/webhooks/:platform` | `POST` | Public (HMAC Verified) | N/A | **Tier 1**: Shopify / WooCommerce platform webhook listener (HMAC signature verified, `confidenceScore: 1.0`). |

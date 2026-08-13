@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ProductsService } from '../../products/products.service';
 import { PassiveIngestDto } from '../dto/passive-ingest.dto';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
@@ -38,9 +38,91 @@ export class SitemapCrawlerService {
     this.logger.log(
       `[SitemapCrawlerService] Crawling sitemap '${sitemapUrl}' for business ${businessId}`,
     );
+
+    let xmlText = '';
+    try {
+      const response = await fetch(sitemapUrl, {
+        headers: {
+          'User-Agent': 'ORA-Sitemap-Crawler/1.0',
+          Accept: 'application/xml, text/xml, */*',
+        },
+      });
+
+      if (!response.ok) {
+        throw new BadRequestException(
+          `Failed to fetch sitemap URL '${sitemapUrl}': HTTP ${response.status}`,
+        );
+      }
+
+      xmlText = await response.text();
+    } catch (err: any) {
+      this.logger.error(
+        `[SitemapCrawlerService] Error fetching sitemap ${sitemapUrl}: ${err.message}`,
+      );
+      throw new BadRequestException(
+        `Sitemap URL fetching failed: ${err.message}`,
+      );
+    }
+
+    // Extract <loc> URLs from XML
+    const locRegex = /<loc>(.*?)<\/loc>/gi;
+    const urls: string[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = locRegex.exec(xmlText)) !== null) {
+      if (match[1]) {
+        urls.push(match[1].trim());
+      }
+    }
+
+    if (urls.length === 0) {
+      return {
+        sitemapUrl,
+        discoveredUrls: 0,
+        ingestedCount: 0,
+        message: 'No URLs found in sitemap XML.',
+      };
+    }
+
+    // Filter product-like URLs (/product/, /item/, /p/, /shop/)
+    const productUrls = urls.filter((url) =>
+      /\/(product|products|item|items|p|shop)\//i.test(url),
+    );
+    const targetUrls = productUrls.length > 0 ? productUrls : urls.slice(0, 50);
+
+    const products = targetUrls.map((url, index) => {
+      const parts = url.replace(/\/$/, '').split('/');
+      const slug = parts[parts.length - 1] || `url_${index}`;
+      const name = slug
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+      return {
+        nativeProductId: `sitemap_${slug}`,
+        name: name || `Product ${index + 1}`,
+        description: `Discovered from sitemap: ${url}`,
+        price: 0,
+        currency: 'USD',
+        stockQuantity: 1,
+        availability: ProductAvailability.IN_STOCK,
+        category: 'General',
+        attributes: { sourceUrl: url },
+        sourceTier: SourceTier.TIER3_PASSIVE,
+        confidenceScore: 0.3,
+      };
+    });
+
+    const syncResult = await this.productsService.batchSync(businessId, {
+      sourceTier: SourceTier.TIER3_PASSIVE,
+      products,
+    });
+
     return {
-      message: `Sitemap crawling initiated for ${sitemapUrl}`,
-      discoveredUrls: 12,
+      sitemapUrl,
+      discoveredUrls: urls.length,
+      productUrlsFound: targetUrls.length,
+      ingestedCount: syncResult.upsertedCount + syncResult.modifiedCount,
+      message: `Successfully crawled sitemap and processed ${targetUrls.length} product URLs.`,
     };
   }
 }

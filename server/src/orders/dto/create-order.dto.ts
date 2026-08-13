@@ -9,6 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OrderSource } from '../schemas/order.schema';
 
 export class OrderItemDto {
   @IsNotEmpty()
@@ -45,6 +46,10 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   currency?: string = 'USD';
+
+  @IsOptional()
+  @IsEnum(OrderSource)
+  source?: OrderSource;
 
   @IsOptional()
   @IsObject()

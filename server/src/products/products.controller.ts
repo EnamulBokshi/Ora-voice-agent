@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -13,6 +14,7 @@ import { ProductsService } from './products.service';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { BatchSyncProductsDto } from './dto/batch-sync-products.dto';
 import { VerifyLiveDto } from './dto/verify-live.dto';
+import { UpdateProductOverrideDto } from './dto/update-product-override.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
@@ -39,6 +41,21 @@ export class ProductsController {
     @Param('id') id: string,
   ) {
     return this.productsService.findOne(user.businessId, id);
+  }
+
+  /**
+   * Manual Product Override Endpoint (Admin Correction of Mirrored Record)
+   */
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('owner' as any, 'admin' as any)
+  @HttpCode(HttpStatus.OK)
+  async manualOverride(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateProductOverrideDto,
+  ) {
+    return this.productsService.manualOverride(user.businessId, id, dto);
   }
 
   @Post('batch-sync')

@@ -13,6 +13,11 @@ export enum OrderStatus {
   CANCELED = 'canceled',
 }
 
+export enum OrderSource {
+  ORA_AGENT = 'ora_agent',
+  MERCHANT_PLATFORM = 'merchant_platform',
+}
+
 @Schema({ _id: false })
 export class OrderItem {
   @Prop({ required: true })
@@ -67,6 +72,14 @@ export class Order {
   })
   status: OrderStatus;
 
+  @Prop({
+    type: String,
+    enum: Object.values(OrderSource),
+    default: OrderSource.ORA_AGENT,
+    index: true,
+  })
+  source: OrderSource;
+
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   shippingAddress: Record<string, any>;
 
@@ -76,3 +89,4 @@ export class Order {
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index({ businessId: 1, createdAt: -1 });
+OrderSchema.index({ businessId: 1, source: 1 });

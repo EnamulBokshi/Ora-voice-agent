@@ -1,7 +1,7 @@
 import { Injectable, HttpStatus, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
+import { Order, OrderDocument, OrderStatus, OrderSource } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { EventsService } from '../events/events.service';
 import { EventType } from '../events/schemas/event.schema';
@@ -33,6 +33,7 @@ export class OrdersService {
       totalAmount: dto.totalAmount,
       currency: dto.currency || 'USD',
       status: OrderStatus.PENDING,
+      source: dto.source || OrderSource.ORA_AGENT,
       shippingAddress: dto.shippingAddress || {},
       metadata: dto.metadata || {},
     });

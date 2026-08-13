@@ -6,6 +6,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { EventsService } from '../../events/events.service';
 import { EventType } from '../../events/schemas/event.schema';
 import { OrdersService } from '../../orders/orders.service';
+import { OrderSource } from '../../orders/schemas/order.schema';
 import { AgentConfigService } from '../../agent-config/agent-config.service';
 
 @Injectable()
@@ -255,6 +256,7 @@ export class AiToolsExecutor {
       items: cart.items,
       totalAmount,
       currency: 'USD',
+      source: OrderSource.ORA_AGENT,
       shippingAddress: args.shippingAddress
         ? { addressLine1: args.shippingAddress }
         : {},

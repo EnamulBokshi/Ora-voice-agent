@@ -14,6 +14,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import type { Request } from 'express';
 import { ShopifyConnectorService } from './services/shopify-connector.service';
 import { WooCommerceConnectorService } from './services/woocommerce-connector.service';
@@ -29,6 +31,7 @@ import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
+import { Business, BusinessDocument } from '../users/schemas/business.schema';
 
 @Controller('ingestion')
 export class IngestionController {
@@ -39,6 +42,8 @@ export class IngestionController {
     private readonly sitemapCrawlerService: SitemapCrawlerService,
     private readonly manualConnectorService: ManualConnectorService,
     private readonly fileIngestionService: FileIngestionService,
+    @InjectModel(Business.name)
+    private readonly businessModel: Model<BusinessDocument>,
   ) {}
 
   /**
@@ -60,7 +65,7 @@ export class IngestionController {
     return this.fileIngestionService.ingestFile(user.businessId, file);
   }
 
-  // Tier 1 Public Platform Webhooks (Shopify / WooCommerce) with HMAC Verification
+  // Tier 1 Public Platform Webhooks (Shopify / WooCommerce) with HMAC Verification & Domain Lookup
   @Post('webhooks/:platform')
   @HttpCode(HttpStatus.OK)
   async handlePlatformWebhook(
@@ -68,7 +73,9 @@ export class IngestionController {
     @Headers('x-shopify-topic') topic: string,
     @Headers('x-shopify-webhook-id') webhookId: string,
     @Headers('x-shopify-hmac-sha256') shopifyHmac: string,
+    @Headers('x-shopify-shop-domain') shopifyDomain: string,
     @Headers('x-wc-webhook-signature') wcSignature: string,
+    @Headers('x-wc-webhook-source') wcSourceHeader: string,
     @Headers('x-business-id') businessIdHeader: string,
     @Req() req: Request,
     @Body() payload: any,
@@ -81,9 +88,31 @@ export class IngestionController {
         throw new UnauthorizedException('Invalid Shopify webhook HMAC signature.');
       }
 
-      const businessId = businessIdHeader || payload.businessId;
+      let businessId: string | undefined;
+
+      if (shopifyDomain) {
+        const domainClean = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const business = await this.businessModel.findOne({
+          $or: [
+            { shopifyStoreUrl: shopifyDomain },
+            { shopifyStoreUrl: `https://${domainClean}` },
+            { shopifyStoreUrl: domainClean },
+          ],
+        }).exec();
+
+        if (business) {
+          businessId = business._id.toString();
+        }
+      }
+
       if (!businessId) {
-        throw new BadRequestException('Missing x-business-id header or businessId payload property.');
+        businessId = businessIdHeader || payload?.businessId;
+      }
+
+      if (!businessId) {
+        throw new BadRequestException(
+          'Merchant business not found for Shopify store domain and no fallback businessId provided.',
+        );
       }
 
       return this.shopifyService.processWebhook(
@@ -100,12 +129,34 @@ export class IngestionController {
         throw new UnauthorizedException('Invalid WooCommerce webhook signature.');
       }
 
-      const businessId = businessIdHeader || payload.businessId;
-      if (!businessId) {
-        throw new BadRequestException('Missing x-business-id header or businessId payload property.');
+      let businessId: string | undefined;
+      const storeUrl = payload?.store_url || wcSourceHeader;
+
+      if (storeUrl) {
+        const urlClean = storeUrl.replace(/\/$/, '');
+        const business = await this.businessModel.findOne({
+          $or: [
+            { woocommerceStoreUrl: storeUrl },
+            { woocommerceStoreUrl: urlClean },
+          ],
+        }).exec();
+
+        if (business) {
+          businessId = business._id.toString();
+        }
       }
 
-      const products = Array.isArray(payload) ? payload : payload.products || [payload];
+      if (!businessId) {
+        businessId = businessIdHeader || payload?.businessId;
+      }
+
+      if (!businessId) {
+        throw new BadRequestException(
+          'Merchant business not found for WooCommerce store URL and no fallback businessId provided.',
+        );
+      }
+
+      const products = Array.isArray(payload) ? payload : payload?.products || [payload];
       return this.woocommerceService.syncProducts(businessId, products);
     }
 
