@@ -13,7 +13,7 @@ import { getAgentConfigApi, updateAgentConfigApi } from '@/services/agent-config
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { cn } from '@/lib/utils';
-import { Mic, FileText, PenLine, Sliders, CheckCircle2, Loader2 } from 'lucide-react';
+import { Mic, FileText, PenLine, Sliders, CheckCircle2, Loader2, Volume2, Cpu } from 'lucide-react';
 
 const TABS: { id: FeedTabId; label: string; icon: React.ReactNode; hint: string }[] = [
   { id: 'voice', label: 'Voice', icon: <Mic size={15} />, hint: 'Speak your info — ORA transcribes it' },
@@ -51,7 +51,7 @@ export function AgentClient() {
           setPublishableKey(res.business.publishableKey);
         }
       })
-      .catch(() => { });
+      .catch(() => {});
 
     getAgentConfigApi()
       .then((data) => {
@@ -84,192 +84,156 @@ export function AgentClient() {
       <AgentHeader onOpenVoiceTest={() => setIsVoiceTestModalOpen(true)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Feed tabs */}
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-surface-container overflow-hidden">
-          {/* Tab bar */}
-          <div className="flex border-b border-border bg-surface-low">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'flex-1 flex flex-col items-center gap-1 px-4 py-3.5 border-b-2 transition-colors',
-                  activeTab === tab.id
-                    ? 'border-primary text-foreground bg-surface-container'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
-                )}
-              >
-                <span className="flex items-center gap-1.5 text-xs font-semibold">
-                  <span className={activeTab === tab.id ? 'text-primary' : ''}>{tab.icon}</span>
-                  {tab.label}
+        {/* Left Column (2 cols): Feed, Persona Tuning, Output Specs */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Feed tabs */}
+          <div className="rounded-2xl border border-border bg-surface-container overflow-hidden">
+            {/* Tab bar */}
+            <div className="flex border-b border-border bg-surface-low">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex-1 flex flex-col items-center gap-1 px-4 py-3.5 border-b-2 transition-colors',
+                    activeTab === tab.id
+                      ? 'border-primary text-foreground bg-surface-container'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-xs font-semibold">
+                    <span className={activeTab === tab.id ? 'text-primary' : ''}>{tab.icon}</span>
+                    {tab.label}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground hidden sm:block">{tab.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Tab panels */}
+            <div className="p-6">
+              {activeTab === 'voice' && <VoiceFeedTab onFed={loadDocs} />}
+              {activeTab === 'documents' && <DocumentsFeedTab onFed={loadDocs} />}
+              {activeTab === 'text' && <TextFeedTab onFed={loadDocs} />}
+            </div>
+          </div>
+
+          {/* Persona tuning */}
+          <div className="rounded-2xl border border-border bg-surface-container p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Sliders size={18} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground">Brand Voice & Persona</h3>
+                  <p className="text-xs text-muted-foreground">
+                    How ORA should greet customers, handle inquiries, and suggest products.
+                  </p>
+                </div>
+              </div>
+
+              {isSaved && (
+                <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 animate-fade-in">
+                  <CheckCircle2 size={14} /> Saved
                 </span>
-                <span className="text-[10px] text-muted-foreground hidden sm:block">{tab.hint}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Tab panels */}
-          <div className="p-6">
-            {activeTab === 'voice' && <VoiceFeedTab onFed={loadDocs} />}
-            {activeTab === 'documents' && <DocumentsFeedTab onFed={loadDocs} />}
-            {activeTab === 'text' && <TextFeedTab onFed={loadDocs} />}
-          </div>
-        </div>
-
-        {/* Right: What ORA knows */}
-        <KnowledgeFeedList
-          docs={docs}
-          loading={docsLoading}
-          onDeleted={(id) => setDocs((prev) => prev.filter((d) => d._id !== id))}
-        />
-      </div>
-
-      {/* Persona tuning */}
-      <div className="rounded-2xl border border-border bg-surface-container p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Sliders size={18} />
+              )}
             </div>
-            <div>
-              <h3 className="font-semibold text-base text-foreground">Brand Voice & Persona</h3>
-              <p className="text-xs text-muted-foreground">
-                How ORA should greet customers, handle inquiries, and suggest products.
-              </p>
-            </div>
-          </div>
 
-          {isSaved && (
-            <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 animate-fade-in">
-              <CheckCircle2 size={14} /> Saved
-            </span>
-          )}
-        </div>
+            <textarea
+              value={brandVoice}
+              onChange={(e) => setBrandVoice(e.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-border bg-surface-low px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Describe how ORA should greet customers, handle sales inquiries, and suggest products..."
+            />
 
-        <textarea
-          value={brandVoice}
-          onChange={(e) => setBrandVoice(e.target.value)}
-          rows={3}
-          className="w-full rounded-xl border border-border bg-surface-low px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          placeholder="Describe how ORA should greet customers, handle sales inquiries, and suggest products..."
-        />
-
-        {saveError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-            {saveError}
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <button
-            onClick={handleSaveTuning}
-            disabled={isSaving || isLoadingConfig}
-            className="px-4 py-2 rounded-lg text-xs font-semibold bg-surface-high hover:bg-surface-bright text-foreground transition-colors border border-border flex items-center gap-2 disabled:opacity-50"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 size={14} className="animate-spin text-primary" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <span>Save Persona</span>
+            {saveError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                {saveError}
+              </div>
             )}
-          </button>
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveTuning}
+                disabled={isSaving || isLoadingConfig}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-surface-high hover:bg-surface-bright text-foreground transition-colors border border-border flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin text-primary" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Persona</span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Voice Output Specs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-border bg-surface-container p-5 space-y-3">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <Volume2 size={16} className="text-primary" />
+                <span>Audio Engine Configuration</span>
+              </div>
+              <div className="space-y-2 text-xs text-muted-foreground font-mono">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Sampling Rate:</span>
+                  <span className="text-foreground">24,000 Hz (PCM)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Prebuilt Voice:</span>
+                  <span className="text-foreground">Puck (Gemini Live)</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Input Mic Rate:</span>
+                  <span className="text-foreground">16,000 Hz (Int16)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-surface-container p-5 space-y-3">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <Cpu size={16} className="text-secondary" />
+                <span>Autonomous Tools & RAG</span>
+              </div>
+              <div className="space-y-2 text-xs text-muted-foreground font-mono">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Catalog Search:</span>
+                  <span className="text-emerald-400">Enabled (RAG)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span>Order Creation:</span>
+                  <span className="text-emerald-400">Enabled (Function Call)</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Policy Check:</span>
+                  <span className="text-emerald-400">Enabled</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (1 col): What ORA knows */}
+        <div className="space-y-6">
+          <KnowledgeFeedList
+            docs={docs}
+            loading={docsLoading}
+            onDeleted={(id) => setDocs((prev) => prev.filter((d) => d._id !== id))}
+          />
         </div>
       </div>
 
-      {/* Voice Output Specs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-border bg-surface-container p-5 space-y-3">
-          <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-            <Volume2 size={16} className="text-primary" />
-            <span>Audio Engine Configuration</span>
-          </div>
-          <div className="space-y-2 text-xs text-muted-foreground font-mono">
-            <div className="flex justify-between py-1 border-b border-border/50">
-              <span>Sampling Rate:</span>
-              <span className="text-foreground">24,000 Hz (PCM)</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-border/50">
-              <span>Prebuilt Voice:</span>
-              <span className="text-foreground">Puck (Gemini Live)</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span>Input Mic Rate:</span>
-              <span className="text-foreground">16,000 Hz (Int16)</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-surface-container p-5 space-y-3">
-          <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-            <Cpu size={16} className="text-secondary" />
-            <span>Autonomous Tools & RAG</span>
-          </div>
-          <div className="space-y-2 text-xs text-muted-foreground font-mono">
-            <div className="flex justify-between py-1 border-b border-border/50">
-              <span>Catalog Search:</span>
-              <span className="text-emerald-400">Enabled (RAG)</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-border/50">
-              <span>Order Creation:</span>
-              <span className="text-emerald-400">Enabled (Function Call)</span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span>Policy Check:</span>
-              <span className="text-emerald-400">Enabled</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Voice Test Modal */}
+      <VoiceTestModal
+        isOpen={isVoiceTestModalOpen}
+        onClose={() => setIsVoiceTestModalOpen(false)}
+        publishableKey={publishableKey}
+      />
     </div>
-
-        {/* Right Column: Status & Direct Sandbox Card */ }
-  <div className="space-y-6">
-    <div className="rounded-2xl border border-border bg-surface-container p-6 space-y-4">
-      <div className="flex items-center gap-2.5">
-        <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-          <ShieldCheck size={18} />
-        </div>
-        <div>
-          <h3 className="font-semibold text-base text-foreground">Voice Gateway Status</h3>
-          <p className="text-xs text-muted-foreground">Live WebSockets WebSocketGateway</p>
-        </div>
-      </div>
-
-      <div className="p-4 rounded-xl bg-surface-low border border-border space-y-3 text-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Gateway Endpoint:</span>
-          <span className="font-mono text-emerald-400 font-medium">ws://localhost:5000/voice</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Publishable Key:</span>
-          <span className="font-mono text-foreground font-medium">{publishableKey.slice(0, 14)}...</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Protocol:</span>
-          <span className="font-mono text-foreground font-medium">Socket.IO v4</span>
-        </div>
-      </div>
-
-      <button
-        onClick={() => setIsVoiceTestModalOpen(true)}
-        className="w-full py-3 rounded-xl font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all flex items-center justify-center gap-2"
-      >
-        <Sparkles size={15} />
-        <span>Test Voice Agent Now</span>
-      </button>
-    </div>
-  </div>
-      </div >
-
-    {/* Voice Test Modal */ }
-    < VoiceTestModal
-  isOpen = { isVoiceTestModalOpen }
-  onClose = {() => setIsVoiceTestModalOpen(false)
-}
-publishableKey = { publishableKey }
-  />
-    </div >
   );
 }

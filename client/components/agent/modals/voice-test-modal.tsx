@@ -8,13 +8,12 @@ import {
   Play,
   Volume2,
   X,
-  Sparkles,
   Activity,
-  Bot,
   User,
   Zap,
   RefreshCw,
   SlidersHorizontal,
+  Radio,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
 
@@ -32,7 +31,7 @@ interface TranscriptEntry {
 }
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error';
-type VoiceMode = 'gemini-live' | 'browser-speech';
+type VoiceMode = 'gemini-live' | 'speech-ai';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_demo' }: VoiceTestModalProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
@@ -182,7 +181,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           // Auto switch hint if live model tier restricted
           if (msg.includes('code: 1008') || msg.includes('not supported for bidiGenerateContent')) {
             addTranscript('system', '⚡ Tip: Switched to Browser Interactive Voice Mode. Click "Start Voice Session" again to talk!');
-            setVoiceMode('browser-speech');
+            setVoiceMode('speech-ai');
           }
         } else if (eventName === 'voice-session-ended') {
           setStatus('idle');
@@ -415,22 +414,22 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in p-4">
-      <div className="relative w-full max-w-2xl bg-[#122131] border border-[#273647] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-4">
+      <div className="relative w-full max-w-2xl bg-surface-container border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#273647] bg-[#0d1c2d]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-lowest">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
-              <Sparkles size={18} />
+              <Radio size={18} className="animate-pulse" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg text-slate-100 flex items-center gap-2">
+              <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
                 ORA Voice Agent Sandbox
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-mono">
-                  {voiceMode === 'gemini-live' ? 'Gemini Live WebSocket' : 'Interactive Speech AI'}
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-mono border border-primary/25">
+                  {voiceMode === 'gemini-live' ? 'Gemini Live WS' : 'Interactive Speech AI'}
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 Real-time Bidirectional Microphone & Voice Testing
               </p>
             </div>
@@ -438,7 +437,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#1c2b3c] transition-colors"
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+            aria-label="Close modal"
           >
             <X size={18} />
           </button>
@@ -447,13 +447,13 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
         {/* Modal Body */}
         <div className="p-6 flex flex-col items-center justify-center space-y-6 flex-1 overflow-y-auto">
           {/* Voice Mode Selector */}
-          <div className="flex items-center space-x-2 bg-[#0d1c2d] p-1.5 rounded-xl border border-[#273647]">
+          <div className="flex items-center space-x-2 bg-surface-low p-1.5 rounded-xl border border-border">
             <button
               onClick={() => { stopSession(); setVoiceMode('gemini-live'); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 voiceMode === 'gemini-live'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
               }`}
             >
               <Zap size={13} />
@@ -463,8 +463,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               onClick={() => { stopSession(); setVoiceMode('speech-ai'); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 voiceMode === 'speech-ai'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
               }`}
             >
               <SlidersHorizontal size={13} />
@@ -494,23 +494,23 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                   : status === 'listening'
                   ? 'bg-amber-950/80 border-amber-400 text-amber-400 shadow-amber-500/30'
                   : status === 'connecting'
-                  ? 'bg-blue-950/80 border-blue-400 text-blue-400 animate-pulse'
+                  ? 'bg-surface-high border-primary/50 text-primary animate-pulse'
                   : status === 'error'
-                  ? 'bg-red-950/80 border-red-400 text-red-400'
-                  : 'bg-[#1c2b3c] border-[#273647] text-slate-400'
+                  ? 'bg-red-950/80 border-red-500 text-red-400'
+                  : 'bg-surface-low border-border text-primary'
               }`}
             >
               {status === 'connecting' ? (
-                <RefreshCw size={36} className="animate-spin" />
+                <RefreshCw size={36} className="animate-spin text-primary" />
               ) : status === 'speaking' ? (
-                <Volume2 size={38} className="animate-bounce" />
+                <Volume2 size={36} className="animate-bounce text-primary" />
               ) : status === 'listening' ? (
-                <Mic size={38} />
+                <Mic size={36} className="text-amber-400 animate-pulse" />
               ) : (
-                <Bot size={38} />
+                <Radio size={36} className="text-primary" />
               )}
 
-              <span className="text-[11px] font-semibold tracking-wider uppercase mt-2">
+              <span className="text-[10px] font-bold tracking-wider uppercase mt-2 text-foreground">
                 {status === 'connecting'
                   ? 'Connecting'
                   : status === 'speaking'
@@ -525,7 +525,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           </div>
 
           {/* Status Bar */}
-          <div className="w-full flex items-center justify-between text-xs px-4 py-2 rounded-lg bg-[#0d1c2d] border border-[#273647]">
+          <div className="w-full flex items-center justify-between text-xs px-4 py-2.5 rounded-xl bg-surface-low border border-border">
             <div className="flex items-center space-x-2">
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -534,11 +534,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                     : status === 'connecting'
                     ? 'bg-amber-400 animate-ping'
                     : status === 'error'
-                    ? 'bg-red-400'
-                    : 'bg-slate-500'
+                    ? 'bg-red-500'
+                    : 'bg-muted-foreground'
                 }`}
               />
-              <span className="text-slate-300 font-medium">
+              <span className="text-foreground font-medium text-xs">
                 {status === 'idle' && 'Click Start Session to talk with ORA Voice Agent'}
                 {status === 'connecting' && 'Establishing WebSocket connection...'}
                 {status === 'listening' && 'ORA is listening... Speak clearly into microphone'}
@@ -548,9 +548,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             </div>
 
             {status !== 'idle' && (
-              <div className="flex items-center space-x-1.5 text-slate-400">
+              <div className="flex items-center space-x-1.5 text-muted-foreground">
                 <Activity size={13} />
-                <div className="w-16 h-1.5 bg-[#1c2b3c] rounded-full overflow-hidden">
+                <div className="w-16 h-1.5 bg-surface-high rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary transition-all duration-75"
                     style={{ width: `${audioLevel}%` }}
@@ -565,9 +565,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             {status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
-                className="px-6 py-2.5 rounded-xl font-medium text-sm flex items-center space-x-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-all"
+                className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
               >
-                <Play size={16} fill="currentColor" />
+                <Play size={15} fill="currentColor" />
                 <span>Start Voice Session</span>
               </button>
             ) : (
@@ -577,7 +577,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                   className={`p-3 rounded-xl border transition-colors ${
                     isMuted
                       ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                      : 'bg-[#1c2b3c] border-[#273647] text-slate-200 hover:bg-[#273647]'
+                      : 'bg-surface-high border-border text-foreground hover:bg-surface-bright'
                   }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
@@ -586,9 +586,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
                 <button
                   onClick={stopSession}
-                  className="px-6 py-2.5 rounded-xl font-medium text-sm flex items-center space-x-2 bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30 transition-all"
+                  className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-all"
                 >
-                  <Square size={16} fill="currentColor" />
+                  <Square size={15} fill="currentColor" />
                   <span>End Session</span>
                 </button>
               </>
@@ -596,46 +596,46 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           </div>
 
           {/* Live Transcript Log Box */}
-          <div className="w-full bg-[#0d1c2d] border border-[#273647] rounded-xl p-4 h-48 flex flex-col space-y-3">
-            <div className="flex items-center justify-between border-b border-[#273647] pb-2">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Zap size={13} className="text-amber-400" />
+          <div className="w-full bg-surface-low border border-border rounded-xl p-4 h-48 flex flex-col space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Zap size={13} className="text-primary" />
                 Live Conversation Log
               </span>
-              <span className="text-[11px] text-slate-500 font-mono">
+              <span className="text-[11px] text-muted-foreground font-mono">
                 Session ID: {sessionId}
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
               {transcripts.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-slate-500 italic">
+                <div className="h-full flex items-center justify-center text-muted-foreground italic">
                   Transcripts and tool executions will appear here in real-time...
                 </div>
               ) : (
                 transcripts.map((item) => (
                   <div key={item.id} className="flex items-start space-x-2">
-                    <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                    <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
                       [{item.timestamp}]
                     </span>
                     {item.sender === 'user' ? (
-                      <span className="text-amber-300 font-semibold flex items-center gap-1">
+                      <span className="text-amber-400 font-semibold flex items-center gap-1">
                         <User size={11} /> User:
                       </span>
                     ) : item.sender === 'agent' ? (
                       <span className="text-primary font-semibold flex items-center gap-1">
-                        <Bot size={11} /> ORA:
+                        <Radio size={11} /> ORA:
                       </span>
                     ) : (
-                      <span className="text-slate-400 font-mono text-[11px]">⚡</span>
+                      <span className="text-muted-foreground font-mono text-[11px]">⚡</span>
                     )}
                     <span
                       className={
                         item.sender === 'agent'
-                          ? 'text-slate-200'
+                          ? 'text-foreground font-medium'
                           : item.sender === 'user'
-                          ? 'text-amber-100'
-                          : 'text-slate-400 italic'
+                          ? 'text-amber-200'
+                          : 'text-muted-foreground italic'
                       }
                     >
                       {item.text}
