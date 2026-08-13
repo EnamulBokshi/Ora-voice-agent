@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Socket } from 'socket.io-client';
-
+import { io, type Socket } from 'socket.io-client';
 
 /**
- * Voice session states — matches the flow in test-voice-client.html
+ * Voice session states — matches the flow in VoiceGateway & GeminiVoiceService
  */
 type VoiceState = 'idle' | 'connecting' | 'active' | 'ora-speaking' | 'error';
 
-// ─── Audio helpers (ported directly from test-voice-client.html) ─────────────
+// ─── Audio helpers ────────────────────────────────────────────────────────────
 
 function floatTo16BitPCM(input: Float32Array): Uint8Array {
   const buffer = new ArrayBuffer(input.length * 2);
@@ -21,7 +20,19 @@ function floatTo16BitPCM(input: Float32Array): Uint8Array {
   return new Uint8Array(buffer);
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+function downsampleTo16k(input: Float32Array, sampleRate: number): Float32Array {
+  if (sampleRate === 16000) return input;
+  const ratio = sampleRate / 16000;
+  const newLength = Math.round(input.length / ratio);
+  const result = new Float32Array(newLength);
+  for (let i = 0; i < newLength; i++) {
+    const originIdx = Math.round(i * ratio);
+    result[i] = input[originIdx];
+  }
+  return result;
+}
+
+function arrayBufferToBase64(buffer: ArrayBufferLike): string {
   let binary = '';
   const bytes = new Uint8Array(buffer);
   for (let i = 0; i < bytes.byteLength; i++) {
@@ -39,19 +50,31 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Backend Connection Configuration ───────────────────────────────────────
 
-const SOCKET_URL = 'http://localhost:5000';
+const getSocketUrl = (): string => {
+  if (typeof window === 'undefined') return 'http://localhost:5000';
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl) {
+    try {
+      const url = new URL(envUrl.replace(/^ws/, 'http'), window.location.origin);
+      return `${url.protocol}//${url.host}`;
+    } catch {
+      // fallback to localhost
+    }
+  }
+  return 'http://localhost:5000';
+};
+
 const PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
-const SESSION_ID = `sess_widget_${Math.random().toString(36).slice(2, 9)}`;
 
 /**
  * FloatingOrbWidget — Siri-style floating ORA AI orb on the marketing landing page.
  * Clicking the orb starts a real voice session via the NestJS voice gateway.
- * Matches the exact ora_widget_design spec. Position: bottom-center. No dismiss.
+ * Matches the exact ora_widget_design spec. Position: bottom-center.
  */
 export function FloatingOrbWidget() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState<string[]>([]);
   const [micLevel, setMicLevel] = useState(0);
@@ -59,19 +82,21 @@ export function FloatingOrbWidget() {
 
   // Refs — hold mutable session objects without re-rendering
   const socketRef = useRef<Socket | null>(null);
-
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
   const audioQueueTimeRef = useRef(0);
   const isConnectedRef = useRef(false);
+  const currentSessionIdRef = useRef<string>('');
 
   // ── Scroll visibility ──────────────────────────────────────────────────────
   useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 50);
+    const handleScroll = () => {
+      // Keep visible by default, but check scroll threshold if page is scrolled
+      setVisible(true);
+    };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -85,10 +110,12 @@ export function FloatingOrbWidget() {
   const playIncomingAudioPcm = useCallback((base64Pcm: string) => {
     try {
       if (!playbackContextRef.current) {
-        playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        playbackContextRef.current = new AudioCtx({ sampleRate: 24000 });
       }
       const ctx = playbackContextRef.current;
-      if (ctx.state === 'suspended') ctx.resume();
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      if (!ctx) return;
 
       const bytes = base64ToUint8Array(base64Pcm);
       const int16 = new Int16Array(bytes.buffer);
@@ -105,6 +132,13 @@ export function FloatingOrbWidget() {
       if (audioQueueTimeRef.current < now) audioQueueTimeRef.current = now;
       source.start(audioQueueTimeRef.current);
       audioQueueTimeRef.current += buffer.duration;
+
+      setVoiceState('ora-speaking');
+      source.onended = () => {
+        if (ctx.currentTime >= audioQueueTimeRef.current - 0.1 && isConnectedRef.current) {
+          setVoiceState('active');
+        }
+      };
     } catch (e) {
       console.error('[OrbWidget] Audio playback error:', e);
     }
@@ -113,39 +147,53 @@ export function FloatingOrbWidget() {
   // ── Microphone capture → base64 PCM16 → socket ────────────────────────────
   const startMicrophoneCapture = useCallback(async () => {
     try {
-      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtx({ sampleRate: 16000 });
+      audioContextRef.current = audioCtx;
+
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
       }
 
-      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const source = audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
-      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+      mediaStreamRef.current = stream;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
       source.connect(processor);
-      processor.connect(audioContextRef.current.destination);
+      processor.connect(audioCtx.destination);
 
       processor.onaudioprocess = (e) => {
         if (!isConnectedRef.current || !socketRef.current) return;
 
-        const inputData = e.inputBuffer.getChannelData(0);
+        const rawInput = e.inputBuffer.getChannelData(0);
+        const inputData = downsampleTo16k(rawInput, audioCtx.sampleRate);
 
-        // Volume meter
+        // Volume meter calculation
         let sum = 0;
-        for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
-        const rms = Math.sqrt(sum / inputData.length);
+        for (let i = 0; i < rawInput.length; i++) sum += rawInput[i] * rawInput[i];
+        const rms = Math.sqrt(sum / rawInput.length);
         setMicLevel(Math.min(100, Math.floor(rms * 400)));
 
-        // Noise gate — skip completely silent frames
-        if (rms < 0.01) return;
+        // Noise gate — skip silent frames
+        if (rms < 0.005) return;
 
         const pcm16 = floatTo16BitPCM(inputData);
         const base64Audio = arrayBufferToBase64(pcm16.buffer);
         socketRef.current.emit('audio-chunk', { audio: base64Audio });
       };
     } catch (err: any) {
-      setErrorMsg(`Mic error: ${err.message}`);
+      console.error('[OrbWidget] Microphone error:', err);
+      setErrorMsg(`Mic error: ${err.message || 'Permission denied'}`);
       setVoiceState('error');
     }
   }, []);
@@ -163,7 +211,7 @@ export function FloatingOrbWidget() {
       mediaStreamRef.current = null;
     }
     if (audioContextRef.current) {
-      audioContextRef.current.close();
+      audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
     if (socketRef.current) {
@@ -183,16 +231,17 @@ export function FloatingOrbWidget() {
     setErrorMsg('');
     setTranscript([]);
 
-    // Dynamically import socket.io-client to avoid SSR issues
-    const { io } = await import('socket.io-client');
+    const newSessionId = `sess_orb_${Math.random().toString(36).slice(2, 9)}`;
+    currentSessionIdRef.current = newSessionId;
 
-    const socket = io(`${SOCKET_URL}/voice`, { transports: ['websocket'] });
+    const socketUrl = getSocketUrl();
+    const socket = io(`${socketUrl}/voice`, { transports: ['websocket'] });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       socket.emit('start-voice-session', {
         publishableKey: PUBLISHABLE_KEY,
-        sessionId: SESSION_ID,
+        sessionId: currentSessionIdRef.current,
       });
     });
 
@@ -203,20 +252,16 @@ export function FloatingOrbWidget() {
     });
 
     socket.on('audio-stream', (data: { audio: string }) => {
-      setVoiceState('ora-speaking');
       playIncomingAudioPcm(data.audio);
-      // Return to active state shortly after audio chunk (ORA may still be speaking)
-      setTimeout(() => {
-        if (isConnectedRef.current) setVoiceState('active');
-      }, 1500);
     });
 
     socket.on('text-stream', (data: { text: string }) => {
-      setTranscript((prev) => [...prev.slice(-4), data.text]); // keep last 5 lines
+      setTranscript((prev) => [...prev.slice(-4), data.text]);
     });
 
     socket.on('voice-error', (err: { message: string }) => {
-      setErrorMsg(err.message || 'Voice session error');
+      const msg = err.message || 'Voice session error';
+      setErrorMsg(msg);
       setVoiceState('error');
       stopSession();
     });
