@@ -14,15 +14,14 @@ export function proxy(request: NextRequest) {
   const isAuthRoute = pathname.startsWith('/auth');
 
   // All protected dashboard and command center routes
-  // NOTE: / is now the public landing page — NOT protected
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/catalog') ||
+    pathname.startsWith('/agent') ||
+    pathname.startsWith('/live-desk') ||
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
     pathname.startsWith('/billing') ||
-    pathname.startsWith('/profile') ||
-    pathname.startsWith('/orders');
+    pathname.startsWith('/profile');
 
   // 1. Unauthenticated user attempting to access dashboard -> Redirect to /auth
   if (isProtectedRoute && !isAuthenticated) {
@@ -31,9 +30,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(authUrl);
   }
 
-  // 2. Authenticated user attempting to access /auth -> Redirect to dashboard /
+  // 2. Authenticated user attempting to access /auth -> Redirect to /dashboard
   // If the request contains a 'from' query parameter (e.g. redirected from client auth failure),
-  // do not redirect back to / to avoid an infinite loop.
+  // do not redirect back to /dashboard to avoid an infinite loop.
   const hasFromParam = request.nextUrl.searchParams.has('from');
   if (isAuthRoute && isAuthenticated && !hasFromParam) {
     return NextResponse.redirect(new URL('/dashboard', request.url));

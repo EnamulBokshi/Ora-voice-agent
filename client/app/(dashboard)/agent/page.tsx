@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { AgentClient } from '@/components/agent/agent-client';
 
 export const metadata: Metadata = {
-  title: 'Agent Setup — ORA Command Center',
+  title: 'ORA Agent — Feed Your Agent',
   description:
-    'Configure ORA voice & persona settings, tune prompt instructions, and test live real-time voice streaming.',
+    'Feed ORA your business info, product details, and documents by voice, file upload, or text — and tune its persona.',
 };
 
 export default function AgentPage() {
