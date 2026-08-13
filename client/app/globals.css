@@ -12,9 +12,10 @@
    ============================================================================= */
 
 @theme inline {
-    /* ── Typography ─────────────────────────────────────────────────────────── */
-    --font-sans: var(--font-sans);
-    --font-heading: var(--font-sans);
+    /* ── Typography ───────────────────────────────────────────────────────── */
+    --font-sans: var(--font-sans);       /* Inter — body, UI text */
+    --font-heading: var(--font-display); /* Space Grotesk — headings */
+    --font-mono: var(--font-mono);       /* JetBrains Mono — code, badges */
 
     /* ── Radius scale (restrained) ──────────────────────────────────────────── */
     --radius-sm: calc(var(--radius) * 0.75);
@@ -97,167 +98,266 @@
 }
 
 /* =============================================================================
-   LIGHT MODE TOKENS
+   LIGHT MODE TOKENS — Stitch "Lumina" palette (AGENTS.md §9 updated)
+   Unified with landing page: Lime primary · FAFAFA canvas · gray neutrals
    ============================================================================= */
 :root {
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* ── Core palette (AGENTS.md §9) ───────────────────────────────────────── */
-    --primary:              #2C5745;
-    --primary-hover:        #25493A;
-    --primary-active:       #1E3B2F;
-    --primary-foreground:   #EBE3A7;
+    /* ── Core palette ───────────────────────────────────────────────────────── */
+    --primary:              #C8F031;
+    --primary-hover:        #B8DD28;
+    --primary-active:       #A6C822;
+    --primary-foreground:   #111111;
 
-    --secondary:            #EB7D00;
-    --secondary-hover:      #D06F00;
-    --secondary-active:     #B56100;
-    --secondary-foreground: #2E2910;
+    --secondary:            #6B7280;
+    --secondary-hover:      #4B5563;
+    --secondary-active:     #374151;
+    --secondary-foreground: #FFFFFF;
+
+    /* ── Lime accent (matches landing page CTA) ─────────────────────────────── */
+    --accent:               rgba(200, 240, 49, 0.12);
+    --accent-foreground:    #111111;
 
     /* ── Utility / Semantic colors ──────────────────────────────────────────── */
-    --ora-success:              #2C5745;
-    --ora-success-foreground:   #EBE3A7;
-    --ora-warning:              #EB7D00;
-    --ora-warning-foreground:   #2E2910;
-    --ora-error:                #c0392b;
-    --ora-error-foreground:     #FFF5F2;
-    --ora-info:                 #009eb9;
+    --ora-success:              #65A30D;
+    --ora-success-foreground:   #FFFFFF;
+    --ora-warning:              #D97706;
+    --ora-warning-foreground:   #FFFFFF;
+    --ora-error:                #DC2626;
+    --ora-error-foreground:     #FFFFFF;
+    --ora-info:                 #2563EB;
     --ora-info-foreground:      #FFFFFF;
 
     /* ── Shadcn bridge tokens ───────────────────────────────────────────────── */
-    --accent:                   #E8ECE4;
-    --accent-foreground:        #2C5745;
-    --muted:                    #EEF1EB;
-    --muted-foreground:         #5B6657;
-    --destructive:              #c0392b;
-    --ring:                     #2C5745;
-    --input:                    #D8DED4;
-    --border:                   #D8DED4;
+    --muted:                    #F7F8F7;
+    --muted-foreground:         #6B7280;
+    --destructive:              #DC2626;
+    --ring:                     #C8F031;
+    --input:                    #E5E7EB;
+    --border:                   #E5E7EB;
 
-    /* ── Background & Surface (light) ───────────────────────────────────────── */
-    --background:               #F6F8F4;
-    --foreground:               #1A1F1A;
+    /* ── Background & Surface (light — Stitch canvas) ───────────────────────── */
+    --background:               #FAFAFA;
+    --foreground:               #111111;
     --card:                     #FFFFFF;
-    --card-foreground:          #1A1F1A;
+    --card-foreground:          #111111;
     --popover:                  #FFFFFF;
-    --popover-foreground:       #1A1F1A;
+    --popover-foreground:       #111111;
 
-    /* ── Surface elevation scale (light, green-tinted neutrals) ─────────────── */
-    --surface-lowest:           #EDF1EA;
-    --surface-low:              #E3E8DF;
-    --surface-container:        #DCE2D8;
-    --surface-high:             #D0D8CC;
-    --surface-highest:          #C4CDC0;
-    --surface-bright:           #F6F8F4;
-    --on-surface:               #1A1F1A;
-    --on-surface-variant:       #4C5748;
-    --outline-variant:          #D0D8CC;
+    /* ── Surface elevation scale (light — matches landing page #FAFAFA / #FFFFFF) ── */
+    --surface-lowest:           #FAFAFA;
+    --surface-low:              #F7F8F7;
+    --surface-container:        #FFFFFF;
+    --surface-high:             #F3F4F6;
+    --surface-highest:          #E5E7EB;
+    --surface-bright:           #FFFFFF;
+    --on-surface:               #111111;
+    --on-surface-variant:       #6B7280;
+    --outline-variant:          #E5E7EB;
 
-    /* ── Chart series (AGENTS.md §9 order) ──────────────────────────────────── */
-    --chart-1:  #2C5745;
-    --chart-2:  #EB7D00;
-    --chart-3:  #8A7A3D;
-    --chart-4:  #009eb9;
-    --chart-5:  #c0392b;
-    --chart-6:  #6B7F73;
+    /* ── Chart series ────────────────────────────────────────────────────────── */
+    --chart-1:  #C8F031;
+    --chart-2:  #111111;
+    --chart-3:  #6B7280;
+    --chart-4:  #D1D5DB;
+    --chart-5:  #DC2626;
+    --chart-6:  #9CA3AF;
 
     /* ── Agent Status colors ────────────────────────────────────────────────── */
-    --status-online:        #2C5745;
-    --status-active:        #3E8A68;
-    --status-warning:       #EB7D00;
-    --status-offline:       #8A958D;
-    --status-error:         #c0392b;
-    --status-processing:    #009eb9;
+    --status-online:        #65A30D;
+    --status-active:        #84CC16;
+    --status-warning:       #D97706;
+    --status-offline:       #9CA3AF;
+    --status-error:         #DC2626;
+    --status-processing:    #6B7280;
 
     /* ── Sidebar ────────────────────────────────────────────────────────────── */
-    --sidebar:                      #EDF1EA;
-    --sidebar-foreground:           #1A1F1A;
-    --sidebar-primary:              #2C5745;
-    --sidebar-primary-foreground:   #EBE3A7;
-    --sidebar-accent:               #DCE2D8;
-    --sidebar-accent-foreground:    #1A1F1A;
-    --sidebar-border:               #D8DED4;
-    --sidebar-ring:                 #2C5745;
+    --sidebar:                      #FFFFFF;
+    --sidebar-foreground:           #111111;
+    --sidebar-primary:              #111111;
+    --sidebar-primary-foreground:   #FAFAFA;
+    --sidebar-accent:               #F7F8F7;
+    --sidebar-accent-foreground:    #111111;
+    --sidebar-border:               #E5E7EB;
+    --sidebar-ring:                 #C8F031;
+
+
+    /* ── Landing Page — Stitch "Lumina" Palette (AGENTS.md §10) ─────────────
+       Scoped to (marketing)/ route group. Prefixed --lp-* to avoid collisions.
+       Source: stitch_orion_ai_landing_page/DESIGN.md
+       ──────────────────────────────────────────────────────────────────────── */
+
+    /* Primary — Lime */
+    --lp-primary:             #C8F031;
+    --lp-primary-hover:       #B8DD28;
+    --lp-primary-dim:         #D4F536;
+    --lp-primary-glow:        rgba(200, 240, 49, 0.15);
+
+    /* Dark surfaces */
+    --lp-dark:                #111111;
+    --lp-dark-deep:           #0B0D0A;
+    --lp-dark-elevated:       #1a1a1a;
+    --lp-dark-border:         #2a2a2a;
+
+    /* Light surfaces */
+    --lp-bg:                  #FAFAFA;
+    --lp-bg-white:            #FFFFFF;
+    --lp-bg-subtle:           #F7F8F7;
+    --lp-bg-card:             #FFFFFF;
+
+    /* Borders */
+    --lp-border:              #E5E7EB;
+    --lp-border-light:        #F3F4F6;
+
+    /* Text */
+    --lp-text-primary:        #111111;
+    --lp-text-secondary:      #6B7280;
+    --lp-text-tertiary:       #9CA3AF;
+    --lp-text-on-dark:        #FFFFFF;
+    --lp-text-on-dark-dim:    #9CA3AF;
+
+    /* Typography */
+    --lp-font-sans:           'Inter', system-ui, sans-serif;
+    --lp-font-display:        'Space Grotesk', system-ui, sans-serif;
+    --lp-font-mono:           'JetBrains Mono', monospace;
+
+    /* Spacing */
+    --lp-section-y:           7rem;
+    --lp-container:           80rem;
+    --lp-gutter:              1.5rem;
+
+    /* Shadows */
+    --lp-shadow-card:         0 2px 10px -4px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0,0,0,0.04);
+    --lp-shadow-float:        0 4px 24px -8px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0,0,0,0.06);
+    --lp-shadow-deep:         0 24px 80px -12px rgba(0, 0, 0, 0.18);
+
+    /* Radii */
+    --lp-radius-sm:           0.5rem;
+    --lp-radius-md:           0.75rem;
+    --lp-radius-lg:           1rem;
+    --lp-radius-xl:           1.5rem;
+    --lp-radius-2xl:          2rem;
+    --lp-radius-3xl:          3rem;
+    --lp-radius-full:         9999px;
+
+    --lp-nav-bg:              rgba(250, 250, 250, 0.85);
+    --lp-nav-bg-scrolled:     rgba(250, 250, 250, 0.95);
 }
 
 /* =============================================================================
-   DARK MODE TOKENS — Obsidian Intelligence surfaces (AGENTS.md §9)
+   DARK MODE TOKENS — Stitch palette, black bg (AGENTS.md §9 updated)
+   Primary: Lime #C8F031 · Background: #000000 · Surfaces: gray scale
    ============================================================================= */
 .dark {
     /* ── Core palette ───────────────────────────────────────────────────────── */
-    --primary:              #3d7a60;
-    --primary-hover:        #4C8C71;
-    --primary-active:       #32674F;
-    --primary-foreground:   #EBE3A7;
+    --primary:              #C8F031;
+    --primary-hover:        #D4F536;
+    --primary-active:       #B8DD28;
+    --primary-foreground:   #111111;
 
-    --secondary:            #EB7D00;
-    --secondary-hover:      #F08C1F;
-    --secondary-active:     #D06F00;
-    --secondary-foreground: #2E2910;
+    --secondary:            #1A1A1A;
+    --secondary-hover:      #222222;
+    --secondary-active:     #2A2A2A;
+    --secondary-foreground: #FAFAFA;
 
-    /* ── Utility / Semantic colors (dark) ───────────────────────────────────── */
-    --ora-success:              #3d7a60;
-    --ora-success-foreground:   #EBE3A7;
-    --ora-warning:              #EB7D00;
-    --ora-warning-foreground:   #2E2910;
-    --ora-error:                #e05252;
-    --ora-error-foreground:     #1F0A0A;
-    --ora-info:                 #4cd7f6;
-    --ora-info-foreground:      #062A33;
+    /* ── Lime accent (subtle) ───────────────────────────────────────────────── */
+    --accent:               rgba(200, 240, 49, 0.08);
+    --accent-foreground:    #C8F031;
 
-    /* ── Shadcn bridge tokens (dark) ────────────────────────────────────────── */
-    --accent:                   #1A2B22;
-    --accent-foreground:        #EBE3A7;
-    --muted:                    #14202B;
-    --muted-foreground:         #94A3A0;
-    --destructive:              #e05252;
-    --ring:                     #3d7a60;
-    --input:                    #26374A;
-    --border:                   #26374A;
+    /* ── Utility / Semantic colors ──────────────────────────────────────────── */
+    --ora-success:              #C8F031;
+    --ora-success-foreground:   #111111;
+    --ora-warning:              #F59E0B;
+    --ora-warning-foreground:   #111111;
+    --ora-error:                #EF4444;
+    --ora-error-foreground:     #FFFFFF;
+    --ora-info:                 #9CA3AF;
+    --ora-info-foreground:      #111111;
 
-    /* ── Background & Surface (dark, Obsidian) ──────────────────────────────── */
-    --background:               #020617;
-    --foreground:               #E7EBE2;
-    --card:                     #122131;
-    --card-foreground:          #E7EBE2;
-    --popover:                  #122131;
-    --popover-foreground:       #E7EBE2;
+    /* ── Shadcn bridge tokens ───────────────────────────────────────────────── */
+    --muted:                    #111111;
+    --muted-foreground:         #6B7280;
+    --destructive:              #EF4444;
+    --ring:                     #C8F031;
+    --input:                    #1A1A1A;
+    --border:                   #2A2A2A;
 
-    /* ── Surface elevation scale (dark, Obsidian) ───────────────────────────── */
-    --surface-lowest:           #010f1f;
-    --surface-low:              #0d1c2d;
-    --surface-container:        #122131;
-    --surface-high:             #1c2b3c;
-    --surface-highest:          #273647;
-    --surface-bright:           #2c3a4c;
-    --on-surface:               #E7EBE2;
-    --on-surface-variant:       #9AA8A3;
-    --outline-variant:          #1c2b3c;
+    /* ── Background & Surface (pure black + gray scale) ─────────────────────── */
+    --background:               #000000;
+    --foreground:               #FAFAFA;
+    --card:                     #111111;
+    --card-foreground:          #FAFAFA;
+    --popover:                  #1A1A1A;
+    --popover-foreground:       #FAFAFA;
 
-    /* ── Chart series (dark, AGENTS.md §9) ──────────────────────────────────── */
-    --chart-1:  #3d7a60;
-    --chart-2:  #EB7D00;
-    --chart-3:  #EBE3A7;
-    --chart-4:  #4cd7f6;
-    --chart-5:  #e05252;
-    --chart-6:  #8fa99a;
+    /* ── Surface elevation scale (black → dark gray) ────────────────────────── */
+    --surface-lowest:           #050505;
+    --surface-low:              #0A0A0A;
+    --surface-container:        #111111;
+    --surface-high:             #1A1A1A;
+    --surface-highest:          #222222;
+    --surface-bright:           #2A2A2A;
+    --on-surface:               #FAFAFA;
+    --on-surface-variant:       #9CA3AF;
+    --outline-variant:          #2A2A2A;
 
-    /* ── Agent Status colors (dark) ─────────────────────────────────────────── */
-    --status-online:        #3d7a60;
-    --status-active:        #52b88a;
-    --status-warning:       #EB7D00;
-    --status-offline:       #8fa99a;
-    --status-error:         #e05252;
-    --status-processing:    #4cd7f6;
+    /* ── Chart series (lime-led) ─────────────────────────────────────────────── */
+    --chart-1:  #C8F031;
+    --chart-2:  #D4F536;
+    --chart-3:  #FAFAFA;
+    --chart-4:  #6B7280;
+    --chart-5:  #EF4444;
+    --chart-6:  #2A2A2A;
 
-    /* ── Sidebar (dark) ─────────────────────────────────────────────────────── */
-    --sidebar:                      #010f1f;
-    --sidebar-foreground:           #E7EBE2;
-    --sidebar-primary:              #3d7a60;
-    --sidebar-primary-foreground:   #EBE3A7;
-    --sidebar-accent:               #122131;
-    --sidebar-accent-foreground:    #E7EBE2;
-    --sidebar-border:               #26374A;
-    --sidebar-ring:                 #3d7a60;
+    /* ── Agent Status colors ─────────────────────────────────────────────────── */
+    --status-online:        #C8F031;
+    --status-active:        #D4F536;
+    --status-warning:       #F59E0B;
+    --status-offline:       #6B7280;
+    --status-error:         #EF4444;
+    --status-processing:    #9CA3AF;
+
+    /* ── Sidebar (near-black, matches landing page dark nav) ────────────────── */
+    --sidebar:                      #0A0A0A;
+    --sidebar-foreground:           #FAFAFA;
+    --sidebar-primary:              #C8F031;
+    --sidebar-primary-foreground:   #111111;
+    --sidebar-accent:               #1A1A1A;
+    --sidebar-accent-foreground:    #FAFAFA;
+    --sidebar-border:               #2A2A2A;
+    --sidebar-ring:                 #C8F031;
+
+    /* ── Landing Page Tokens (Dark Mode) ────────────────────────────────────── */
+    --lp-primary:             #C8F031;
+    --lp-primary-hover:       #D4F536;
+    --lp-primary-dim:         #D4F536;
+    --lp-primary-glow:        rgba(200, 240, 49, 0.2);
+
+    --lp-dark:                #0A0A0A;
+    --lp-dark-deep:           #050505;
+    --lp-dark-elevated:       #141414;
+    --lp-dark-border:         #262626;
+
+    --lp-bg:                  #000000;
+    --lp-bg-white:            #0F0F0F;
+    --lp-bg-subtle:           #050505;
+    --lp-bg-card:             #0F0F0F;
+
+    --lp-border:              #262626;
+    --lp-border-light:        #1A1A1A;
+
+    --lp-text-primary:        #FAFAFA;
+    --lp-text-secondary:      #A1A1AA;
+    --lp-text-tertiary:       #71717A;
+    --lp-text-on-dark:        #FFFFFF;
+    --lp-text-on-dark-dim:    #A1A1AA;
+
+    --lp-shadow-card:         0 2px 10px -4px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0,0,0,0.4);
+    --lp-shadow-float:        0 4px 24px -8px rgba(0, 0, 0, 0.6), 0 1px 4px rgba(0,0,0,0.4);
+    --lp-shadow-deep:         0 24px 80px -12px rgba(0, 0, 0, 0.8);
+    --lp-nav-bg:              rgba(0, 0, 0, 0.85);
+    --lp-nav-bg-scrolled:     rgba(0, 0, 0, 0.95);
 }
 
 /* =============================================================================
@@ -270,10 +370,19 @@
 
     body {
         @apply bg-background text-foreground antialiased;
+        font-family: var(--font-sans);
     }
 
     html {
         @apply font-sans;
+    }
+
+    /* Space Grotesk for all headings — tight tracking for techy SaaS feel */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-display);
+        letter-spacing: -0.025em;
+        font-weight: 700;
+        line-height: 1.15;
     }
 }
 

@@ -22,6 +22,8 @@ import { RedisModule } from './common/redis/redis.module';
 import { MailModule } from './mail/mail.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 
+import { DashboardModule } from './dashboard/dashboard.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -54,6 +56,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     IngestionModule,
     OrdersModule,
     AiVoiceModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

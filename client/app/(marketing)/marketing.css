@@ -1,0 +1,949 @@
+/* =============================================================================
+   ORA LANDING PAGE — STITCH "LUMINA" UTILITY STYLES
+   Color tokens (--lp-*) are defined in globals.css :root.
+   This file contains only scoped layout helpers, component classes,
+   and animations for the (marketing)/ route group.
+   ============================================================================= */
+
+/* ── Social icon hover (CSS-only, no JS handlers in RSC) ──────────────────── */
+.lp-social-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lp-text-tertiary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.lp-social-icon:hover {
+  color: var(--lp-text-primary);
+}
+
+
+/* ── Base reset (scoped to .lp-root to avoid leaking) ─────────────────────── */
+.lp-root {
+  font-family: var(--lp-font-sans);
+  background-color: var(--lp-bg);
+  color: var(--lp-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+.lp-root *,
+.lp-root *::before,
+.lp-root *::after {
+  box-sizing: border-box;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────────── */
+.lp-display {
+  font-family: var(--lp-font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.lp-headline {
+  font-family: var(--lp-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.lp-mono {
+  font-family: var(--lp-font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.lp-text-gradient {
+  background: linear-gradient(135deg, var(--lp-text-primary) 0%, var(--lp-text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Layout utilities ──────────────────────────────────────────────────────── */
+.lp-container {
+  max-width: var(--lp-container);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--lp-gutter);
+  padding-right: var(--lp-gutter);
+}
+
+.lp-section {
+  padding-top: var(--lp-section-y);
+  padding-bottom: var(--lp-section-y);
+}
+
+/* ── Navbar ────────────────────────────────────────────────────────────────── */
+.lp-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 5rem;
+  display: flex;
+  align-items: center;
+  background-color: var(--lp-nav-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--lp-border-light);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.lp-navbar.scrolled {
+  background-color: var(--lp-nav-bg-scrolled);
+  border-bottom-color: var(--lp-border);
+  box-shadow: var(--lp-shadow-card);
+}
+
+.lp-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: var(--lp-container);
+  margin: 0 auto;
+  padding: 0 var(--lp-gutter);
+}
+
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--lp-font-display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+  color: var(--lp-text-primary);
+  text-decoration: none;
+}
+
+.lp-logo-mark {
+  width: 2rem;
+  height: 2rem;
+  background-color: var(--lp-dark);
+  color: white;
+  border-radius: var(--lp-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lp-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+}
+
+.lp-nav-links a {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--lp-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.lp-nav-links a:hover {
+  color: var(--lp-text-primary);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.lp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background-color: var(--lp-primary);
+  color: var(--lp-dark);
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: var(--lp-radius-full);
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lp-btn-primary:hover {
+  background-color: var(--lp-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(200, 240, 49, 0.35);
+}
+
+.lp-btn-lime {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background-color: var(--lp-primary);
+  color: var(--lp-dark);
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--lp-radius-full);
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lp-btn-lime:hover {
+  background-color: var(--lp-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(200, 240, 49, 0.35);
+}
+
+.lp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background-color: transparent;
+  color: var(--lp-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  border-radius: var(--lp-radius-full);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  cursor: pointer;
+}
+
+.lp-btn-ghost:hover {
+  color: var(--lp-text-secondary);
+}
+
+/* ── Pill / Badge ──────────────────────────────────────────────────────────── */
+.lp-badge-lime {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  background-color: var(--lp-primary-dim);
+  color: var(--lp-dark);
+  font-family: var(--lp-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--lp-radius-full);
+}
+
+.lp-announce-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  background-color: var(--lp-bg-white);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-full);
+  box-shadow: var(--lp-shadow-card);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--lp-text-secondary);
+  margin-bottom: 2rem;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.lp-card {
+  background-color: var(--lp-bg-white);
+  border: 1px solid var(--lp-border-light);
+  border-radius: var(--lp-radius-2xl);
+  box-shadow: var(--lp-shadow-card);
+}
+
+.lp-card-padded {
+  padding: 2.5rem;
+}
+
+/* ── Section label ─────────────────────────────────────────────────────────── */
+.lp-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.lp-section-label-line {
+  height: 1px;
+  width: 2rem;
+  background-color: var(--lp-primary-dim);
+}
+
+.lp-section-label-text {
+  font-family: var(--lp-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lp-primary-dim);
+}
+
+/* ── Dark gradient sections ────────────────────────────────────────────────── */
+.lp-dark-section {
+  background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lp-radius-3xl);
+}
+
+.lp-glow-blob {
+  position: absolute;
+  border-radius: 50%;
+  background-color: var(--lp-primary-dim);
+  filter: blur(80px);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* ── Progress bar ──────────────────────────────────────────────────────────── */
+.lp-progress-track {
+  height: 0.5rem;
+  background-color: var(--lp-border-light);
+  border-radius: var(--lp-radius-full);
+  overflow: hidden;
+}
+
+.lp-progress-fill-lime {
+  height: 100%;
+  background-color: var(--lp-primary-dim);
+  border-radius: var(--lp-radius-full);
+  transition: width 0.6s ease;
+}
+
+.lp-progress-fill-dark {
+  height: 100%;
+  background-color: var(--lp-dark);
+  border-radius: var(--lp-radius-full);
+  transition: width 0.6s ease;
+}
+
+/* ── Grid dot background ───────────────────────────────────────────────────── */
+.lp-dot-grid {
+  background-image: radial-gradient(var(--lp-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ── Stat dividers ─────────────────────────────────────────────────────────── */
+.lp-stat-divider {
+  width: 1px;
+  height: 4rem;
+  background-color: var(--lp-dark-border);
+}
+
+/* ── Trust logos marquee ───────────────────────────────────────────────────── */
+@keyframes lp-marquee-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.lp-marquee-container {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
+
+.lp-marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  width: max-content;
+  animation: lp-marquee-left 25s linear infinite;
+}
+
+.lp-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.lp-trust-logo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--lp-text-primary);
+  opacity: 0.6;
+  filter: grayscale(1);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+  white-space: nowrap;
+}
+
+.lp-trust-logo-item:hover {
+  opacity: 1;
+  filter: grayscale(0);
+}
+
+
+/* ── Icon box ──────────────────────────────────────────────────────────────── */
+.lp-icon-box {
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: var(--lp-bg-subtle);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Workflow node visuals ─────────────────────────────────────────────────── */
+.lp-node-circle {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background-color: var(--lp-bg-white);
+  box-shadow: var(--lp-shadow-float);
+  border: 1px solid var(--lp-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lp-node-center {
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--lp-radius-md);
+  background-color: var(--lp-dark);
+  color: var(--lp-primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--lp-shadow-deep);
+  transform: rotate(12deg);
+  flex-shrink: 0;
+}
+
+.lp-node-connector {
+  height: 1px;
+  width: 4rem;
+  background-color: var(--lp-border);
+  flex-shrink: 0;
+}
+
+/* ── Avatar stack ──────────────────────────────────────────────────────────── */
+.lp-avatar-stack {
+  display: flex;
+}
+
+.lp-avatar-stack > * + * {
+  margin-left: -0.5rem;
+}
+
+.lp-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--lp-bg-white);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.lp-avatar-count {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--lp-bg-white);
+  background-color: var(--lp-bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--lp-text-secondary);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.lp-footer {
+  background-color: var(--lp-bg-white);
+  border-top: 1px solid var(--lp-border-light);
+}
+
+.lp-footer-link {
+  font-size: 0.875rem;
+  color: var(--lp-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.lp-footer-link:hover {
+  color: var(--lp-text-primary);
+}
+
+/* ── Responsive helpers ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lp-nav-links,
+  .lp-nav-cta {
+    display: none;
+  }
+
+  .lp-section {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+
+  .lp-dark-section {
+    border-radius: var(--lp-radius-2xl);
+  }
+}
+
+/* ── Micro-animations ──────────────────────────────────────────────────────── */
+@keyframes lp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.lp-animate-fade-up {
+  animation: lp-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lp-animate-fade-up-delay-1 { animation-delay: 0.1s; opacity: 0; }
+.lp-animate-fade-up-delay-2 { animation-delay: 0.2s; opacity: 0; }
+.lp-animate-fade-up-delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-animate-fade-up,
+  .lp-animate-fade-up-delay-1,
+  .lp-animate-fade-up-delay-2,
+  .lp-animate-fade-up-delay-3 {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLOATING ORB WIDGET — Scroll-triggered Siri-like ORA AI orb
+   Faithfully matches ora_widget_design reference. Bottom-center. No dismiss.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Keyframes ─────────────────────────────────────────────────────────────── */
+
+/* Spring fly-in from below */
+@keyframes lp-orb-fly-in {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(120%) scale(0.7); }
+  60%  { opacity: 1; transform: translateX(-50%) translateY(-6%) scale(1.03); }
+  80%  { transform: translateX(-50%) translateY(3%) scale(0.98); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* Gentle vertical float */
+@keyframes lp-orb-bob {
+  0%,  100% { transform: translateY(0px); }
+  50%        { transform: translateY(-8px); }
+}
+
+/* Organic irregular rotation for the inner wave energy — pure rotate, no scale
+   Scale is intentionally removed: scale variations made the whole sphere appear
+   to pulse/rotate. Pure rotation makes only the wave image churn inside. */
+@keyframes lp-orb-wave-spin {
+  0%   { transform: rotate(0deg);   }
+  18%  { transform: rotate(72deg);  }
+  31%  { transform: rotate(117deg); }
+  49%  { transform: rotate(195deg); }
+  63%  { transform: rotate(247deg); }
+  78%  { transform: rotate(308deg); }
+  91%  { transform: rotate(348deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Outer purple soft glow pulse */
+@keyframes lp-orb-glow-pulse {
+  0%,  100% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.5),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+      0 0 50px rgba(150, 100, 255, 0.3);
+  }
+  50% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.65),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+      0 0 80px rgba(150, 100, 255, 0.55);
+  }
+}
+
+/* ── Root: fixed bottom-center ─────────────────────────────────────────────── */
+.lp-orb-root {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  animation: lp-orb-fly-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Orb container: Siri-compact size — no animation here ──────────────────── */
+.lp-orb-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  /* Bob lives on the glass sphere below so float & spin are independent */
+}
+
+/* ── Outer glass sphere — floats + glows; wave spin inside is independent ───── */
+.lp-orb-glass-sphere {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(150, 100, 255, 0.1) 40%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  box-shadow:
+    inset -10px -10px 40px rgba(150, 100, 255, 0.5),
+    inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+    0 0 50px rgba(150, 100, 255, 0.3);
+  border: 1px solid rgba(200, 150, 255, 0.3);
+  overflow: hidden;
+  z-index: 10;
+  /* Float the entire glass shell gently; glow pulse is separate */
+  animation: lp-orb-bob 4s ease-in-out 0.8s infinite, lp-orb-glow-pulse 3s ease-in-out infinite;
+}
+
+/* ── Ambient inner aura — exact from ora_widget_design ─────────────────────── */
+.lp-orb-ambient-aura {
+  position: absolute;
+  top: 5%;
+  left: 5%;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(150, 100, 255, 0.2) 0%, transparent 70%);
+  z-index: 1;
+}
+
+/* ── Wave image wrapper — static, just positions and clips ───────────────────── */
+.lp-orb-wave-img-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95%;
+  height: 95%;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ── Wave image — screen blend + organic spin on the image itself ────────────── */
+.lp-orb-wave-img {
+  width: 250%;
+  height: 250%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  filter: contrast(1.2) brightness(1.1);
+  /* Only the image spins — wrapper stays clipped/static */
+  animation: lp-orb-wave-spin 18s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  transform-origin: center center;
+}
+
+/* ── Top glass highlight — exact from ora_widget_design ────────────────────── */
+.lp-orb-top-highlight {
+  position: absolute;
+  top: 5%;
+  left: 15%;
+  width: 70%;
+  height: 30%;
+  border-radius: 50% 50% 10% 10% / 100% 100% 10% 10%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+  transform: rotate(-15deg);
+  z-index: 20;
+}
+
+/* ── Inner rim lighting — exact from ora_widget_design ─────────────────────── */
+.lp-orb-inner-rim-light {
+  position: absolute;
+  top: 2%;
+  left: 2%;
+  width: 96%;
+  height: 96%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(150, 100, 255, 0.4);
+  border-right-color: rgba(100, 200, 255, 0.3);
+  transform: rotate(45deg);
+  z-index: 15;
+}
+
+/* ── Floor reflection — scaled to 80px orb ───────────────────────────────── */
+.lp-orb-floor-reflection {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(120, 80, 200, 0.4) 0%, transparent 70%);
+  filter: blur(6px);
+  z-index: 0;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lp-orb-root {
+    animation: none;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .lp-orb-glass-sphere {
+    animation: none;
+  }
+  .lp-orb-wave-img {
+    animation: none;
+  }
+}
+
+/* ── Mobile sizing ────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lp-orb-container {
+    width: 64px;
+    height: 64px;
+  }
+  .lp-orb-floor-reflection {
+    width: 42px;
+    height: 8px;
+    bottom: -12px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VOICE INTERACTION — Orb click-to-talk UI additions
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Orb button reset ────────────────────────────────────────────────────────── */
+.lp-orb-btn {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.lp-orb-btn:focus-visible {
+  outline: 2px solid rgba(200, 150, 255, 0.7);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+/* ── Status label ────────────────────────────────────────────────────────────── */
+.lp-orb-status-label {
+  font-family: var(--lp-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(200, 150, 255, 0.6);
+  margin-top: 0.5rem;
+  text-align: center;
+  transition: color 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.lp-orb-status-label.lp-orb-status-active {
+  color: rgba(200, 240, 49, 0.85);
+}
+.lp-orb-status-label.lp-orb-status-connecting {
+  color: rgba(150, 180, 255, 0.7);
+  animation: lp-orb-blink 1s ease-in-out infinite;
+}
+
+@keyframes lp-orb-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Mic level ring ──────────────────────────────────────────────────────────── */
+.lp-orb-mic-ring {
+  position: absolute;
+  width: calc(80px + 14px);
+  height: calc(80px + 14px);
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid rgba(200, 240, 49, 0.6);
+  pointer-events: none;
+  z-index: 50;
+  transition: opacity 0.08s ease;
+}
+
+/* ── Active glow ─────────────────────────────────────────────────────────────── */
+.lp-orb-container--active .lp-orb-glass-sphere {
+  box-shadow:
+    inset -10px -10px 40px rgba(150, 100, 255, 0.7),
+    inset 10px 10px 20px rgba(255, 255, 255, 0.35),
+    0 0 60px rgba(150, 100, 255, 0.5),
+    0 0 30px rgba(200, 240, 49, 0.15);
+}
+
+/* ── ORA speaking pulse ──────────────────────────────────────────────────────── */
+.lp-orb-speaking {
+  animation:
+    lp-orb-bob 4s ease-in-out 0.8s infinite,
+    lp-orb-speaking-pulse 0.6s ease-in-out infinite !important;
+}
+@keyframes lp-orb-speaking-pulse {
+  0%,  100% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.7),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.35),
+      0 0 70px rgba(150, 100, 255, 0.6),
+      0 0 40px rgba(200, 240, 49, 0.25);
+  }
+  50% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.9),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.4),
+      0 0 100px rgba(150, 100, 255, 0.8),
+      0 0 60px rgba(200, 240, 49, 0.4);
+  }
+}
+
+/* ── Wave image — only spins when session active ─────────────────────────────── */
+.lp-orb-wave-img {
+  animation: none; /* off by default */
+}
+.lp-orb-wave-img-wrapper--spinning .lp-orb-wave-img {
+  animation: lp-orb-wave-spin 18s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+/* ── Connecting spinner overlay ──────────────────────────────────────────────── */
+.lp-orb-connecting-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 30;
+}
+.lp-orb-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(200, 150, 255, 0.3);
+  border-top-color: rgba(200, 150, 255, 0.9);
+  border-radius: 50%;
+  animation: lp-orb-spin 0.8s linear infinite;
+}
+@keyframes lp-orb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Transcript bubble ───────────────────────────────────────────────────────── */
+.lp-orb-transcript {
+  position: absolute;
+  bottom: calc(80px + 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 17, 17, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(200, 150, 255, 0.2);
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  padding: 0.625rem 0.875rem;
+  max-width: 240px;
+  min-width: 120px;
+  text-align: left;
+  pointer-events: none;
+  animation: lp-fade-up 0.3s ease forwards;
+  z-index: 200;
+}
+.lp-orb-transcript-line {
+  font-family: var(--lp-font-sans, 'Inter', sans-serif);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  margin: 0;
+}
+.lp-orb-transcript-line + .lp-orb-transcript-line {
+  margin-top: 0.25rem;
+  opacity: 0.7;
+}
+
+/* ── Error bubble ────────────────────────────────────────────────────────────── */
+.lp-orb-error-bubble {
+  position: absolute;
+  bottom: calc(80px + 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  color: #fca5a5;
+  max-width: 200px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 200;
+}
+.lp-orb-error-hint {
+  font-size: 0.6rem;
+  opacity: 0.6;
+  font-family: var(--lp-font-mono, monospace);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lp-orb-transcript,
+  .lp-orb-error-bubble {
+    max-width: 180px;
+    font-size: 0.7rem;
+    bottom: calc(64px + 1.25rem);
+  }
+  .lp-orb-mic-ring {
+    width: calc(64px + 14px);
+    height: calc(64px + 14px);
+    bottom: 22px;
+  }
+}

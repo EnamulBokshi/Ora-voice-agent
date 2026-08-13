@@ -36,7 +36,7 @@ importers:
         specifier: ^4.16.2
         version: 4.16.2(typescript@5.9.3)
       socket.io-client:
-        specifier: ^4.8.1
+        specifier: ^4.8.3
         version: 4.8.3
       tailwind-merge:
         specifier: ^3.6.0

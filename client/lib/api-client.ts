@@ -93,11 +93,20 @@ export async function apiClient<T>(
         console.error('Failed to auto-refresh session token:', refreshErr);
       }
 
-      // If token refresh fails, clear stale token and redirect to login if in browser
+      // If token refresh fails, clear stale token and redirect to login if on a protected route
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
-        if (!window.location.pathname.startsWith('/auth')) {
-          const currentPath = window.location.pathname;
+        const currentPath = window.location.pathname;
+        const isProtectedRoute =
+          currentPath.startsWith('/dashboard') ||
+          currentPath.startsWith('/agent') ||
+          currentPath.startsWith('/live-desk') ||
+          currentPath.startsWith('/customers') ||
+          currentPath.startsWith('/conversations') ||
+          currentPath.startsWith('/billing') ||
+          currentPath.startsWith('/profile');
+
+        if (isProtectedRoute && !currentPath.startsWith('/auth')) {
           window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
         }
       }
@@ -109,11 +118,20 @@ export async function apiClient<T>(
         message: 'An unexpected error occurred.',
       };
 
-      // If persistent 401 occurs, clear stale token and handle redirect
+      // If persistent 401 occurs, clear stale token and handle redirect only for protected routes
       if (isUnauthorized && typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
-        if (!window.location.pathname.startsWith('/auth')) {
-          const currentPath = window.location.pathname;
+        const currentPath = window.location.pathname;
+        const isProtectedRoute =
+          currentPath.startsWith('/dashboard') ||
+          currentPath.startsWith('/agent') ||
+          currentPath.startsWith('/live-desk') ||
+          currentPath.startsWith('/customers') ||
+          currentPath.startsWith('/conversations') ||
+          currentPath.startsWith('/billing') ||
+          currentPath.startsWith('/profile');
+
+        if (isProtectedRoute && !currentPath.startsWith('/auth')) {
           window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
         }
       }
