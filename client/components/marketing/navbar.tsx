@@ -2,15 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-
 import { ThemeToggle } from './theme-toggle';
+import { getMeApi } from '@/services/auth-service';
 
 export function MarketingNavbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
+
+    if (typeof window !== 'undefined' && localStorage.getItem('accessToken')) {
+      getMeApi()
+        .then((data) => {
+          if (data?.user) setIsLoggedIn(true);
+        })
+        .catch(() => setIsLoggedIn(false));
+    }
+
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -43,8 +53,12 @@ export function MarketingNavbar() {
         {/* CTA & Theme Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ThemeToggle />
-          <Link href="/auth" className="lp-btn-primary lp-nav-cta" id="nav-get-started-cta">
-            Get Started
+          <Link
+            href={isLoggedIn ? '/dashboard' : '/auth'}
+            className="lp-btn-primary lp-nav-cta"
+            id="nav-get-started-cta"
+          >
+            {isLoggedIn ? 'Dashboard' : 'Get Started'}
           </Link>
         </div>
       </div>

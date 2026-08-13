@@ -105,10 +105,10 @@
     --radius: 0.625rem;
 
     /* ── Core palette ───────────────────────────────────────────────────────── */
-    --primary:              #111111;
-    --primary-hover:        #2a2a2a;
-    --primary-active:       #000000;
-    --primary-foreground:   #FAFAFA;
+    --primary:              #C8F031;
+    --primary-hover:        #B8DD28;
+    --primary-active:       #A6C822;
+    --primary-foreground:   #111111;
 
     --secondary:            #6B7280;
     --secondary-hover:      #4B5563;

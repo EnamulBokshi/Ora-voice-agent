@@ -133,11 +133,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       >
         {collapsed ? (
-          <span className="w-8 h-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none">
+          <Link href="/" title="ORA Landing Page" aria-label="ORA Landing Page" className="w-8 h-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none hover:opacity-90 transition-opacity">
             O
-          </span>
+          </Link>
         ) : (
-          <div className="flex items-center gap-2.5 min-w-0">
+          <Link href="/" title="ORA Landing Page" aria-label="ORA Landing Page" className="flex items-center gap-2.5 min-w-0 hover:opacity-90 transition-opacity">
             <span className="w-7 h-7 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none flex-shrink-0">
               O
             </span>
@@ -147,7 +147,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 Command center
               </p>
             </div>
-          </div>
+          </Link>
         )}
         <button
           onClick={onToggle}

@@ -166,20 +166,21 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.75rem;
-  background-color: var(--lp-dark);
-  color: #FFFFFF;
+  background-color: var(--lp-primary);
+  color: var(--lp-dark);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 700;
   border-radius: var(--lp-radius-full);
   text-decoration: none;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .lp-btn-primary:hover {
-  background-color: #2a2a2a;
+  background-color: var(--lp-primary-hover);
   transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(200, 240, 49, 0.35);
 }
 
 .lp-btn-lime {
@@ -538,5 +539,411 @@
   .lp-animate-fade-up-delay-3 {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLOATING ORB WIDGET — Scroll-triggered Siri-like ORA AI orb
+   Faithfully matches ora_widget_design reference. Bottom-center. No dismiss.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Keyframes ─────────────────────────────────────────────────────────────── */
+
+/* Spring fly-in from below */
+@keyframes lp-orb-fly-in {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(120%) scale(0.7); }
+  60%  { opacity: 1; transform: translateX(-50%) translateY(-6%) scale(1.03); }
+  80%  { transform: translateX(-50%) translateY(3%) scale(0.98); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* Gentle vertical float */
+@keyframes lp-orb-bob {
+  0%,  100% { transform: translateY(0px); }
+  50%        { transform: translateY(-8px); }
+}
+
+/* Organic irregular rotation for the inner wave energy — pure rotate, no scale
+   Scale is intentionally removed: scale variations made the whole sphere appear
+   to pulse/rotate. Pure rotation makes only the wave image churn inside. */
+@keyframes lp-orb-wave-spin {
+  0%   { transform: rotate(0deg);   }
+  18%  { transform: rotate(72deg);  }
+  31%  { transform: rotate(117deg); }
+  49%  { transform: rotate(195deg); }
+  63%  { transform: rotate(247deg); }
+  78%  { transform: rotate(308deg); }
+  91%  { transform: rotate(348deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Outer purple soft glow pulse */
+@keyframes lp-orb-glow-pulse {
+  0%,  100% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.5),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+      0 0 50px rgba(150, 100, 255, 0.3);
+  }
+  50% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.65),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+      0 0 80px rgba(150, 100, 255, 0.55);
+  }
+}
+
+/* ── Root: fixed bottom-center ─────────────────────────────────────────────── */
+.lp-orb-root {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  animation: lp-orb-fly-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Orb container: Siri-compact size — no animation here ──────────────────── */
+.lp-orb-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  /* Bob lives on the glass sphere below so float & spin are independent */
+}
+
+/* ── Outer glass sphere — floats + glows; wave spin inside is independent ───── */
+.lp-orb-glass-sphere {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(150, 100, 255, 0.1) 40%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  box-shadow:
+    inset -10px -10px 40px rgba(150, 100, 255, 0.5),
+    inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+    0 0 50px rgba(150, 100, 255, 0.3);
+  border: 1px solid rgba(200, 150, 255, 0.3);
+  overflow: hidden;
+  z-index: 10;
+  /* Float the entire glass shell gently; glow pulse is separate */
+  animation: lp-orb-bob 4s ease-in-out 0.8s infinite, lp-orb-glow-pulse 3s ease-in-out infinite;
+}
+
+/* ── Ambient inner aura — exact from ora_widget_design ─────────────────────── */
+.lp-orb-ambient-aura {
+  position: absolute;
+  top: 5%;
+  left: 5%;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(150, 100, 255, 0.2) 0%, transparent 70%);
+  z-index: 1;
+}
+
+/* ── Wave image wrapper — static, just positions and clips ───────────────────── */
+.lp-orb-wave-img-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95%;
+  height: 95%;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ── Wave image — screen blend + organic spin on the image itself ────────────── */
+.lp-orb-wave-img {
+  width: 250%;
+  height: 250%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  filter: contrast(1.2) brightness(1.1);
+  /* Only the image spins — wrapper stays clipped/static */
+  animation: lp-orb-wave-spin 18s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  transform-origin: center center;
+}
+
+/* ── Top glass highlight — exact from ora_widget_design ────────────────────── */
+.lp-orb-top-highlight {
+  position: absolute;
+  top: 5%;
+  left: 15%;
+  width: 70%;
+  height: 30%;
+  border-radius: 50% 50% 10% 10% / 100% 100% 10% 10%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+  transform: rotate(-15deg);
+  z-index: 20;
+}
+
+/* ── Inner rim lighting — exact from ora_widget_design ─────────────────────── */
+.lp-orb-inner-rim-light {
+  position: absolute;
+  top: 2%;
+  left: 2%;
+  width: 96%;
+  height: 96%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(150, 100, 255, 0.4);
+  border-right-color: rgba(100, 200, 255, 0.3);
+  transform: rotate(45deg);
+  z-index: 15;
+}
+
+/* ── Floor reflection — scaled to 80px orb ───────────────────────────────── */
+.lp-orb-floor-reflection {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(120, 80, 200, 0.4) 0%, transparent 70%);
+  filter: blur(6px);
+  z-index: 0;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lp-orb-root {
+    animation: none;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .lp-orb-glass-sphere {
+    animation: none;
+  }
+  .lp-orb-wave-img {
+    animation: none;
+  }
+}
+
+/* ── Mobile sizing ────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lp-orb-container {
+    width: 64px;
+    height: 64px;
+  }
+  .lp-orb-floor-reflection {
+    width: 42px;
+    height: 8px;
+    bottom: -12px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VOICE INTERACTION — Orb click-to-talk UI additions
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Orb button reset ────────────────────────────────────────────────────────── */
+.lp-orb-btn {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.lp-orb-btn:focus-visible {
+  outline: 2px solid rgba(200, 150, 255, 0.7);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+/* ── Status label ────────────────────────────────────────────────────────────── */
+.lp-orb-status-label {
+  font-family: var(--lp-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(200, 150, 255, 0.6);
+  margin-top: 0.5rem;
+  text-align: center;
+  transition: color 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.lp-orb-status-label.lp-orb-status-active {
+  color: rgba(200, 240, 49, 0.85);
+}
+.lp-orb-status-label.lp-orb-status-connecting {
+  color: rgba(150, 180, 255, 0.7);
+  animation: lp-orb-blink 1s ease-in-out infinite;
+}
+
+@keyframes lp-orb-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Mic level ring ──────────────────────────────────────────────────────────── */
+.lp-orb-mic-ring {
+  position: absolute;
+  width: calc(80px + 14px);
+  height: calc(80px + 14px);
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid rgba(200, 240, 49, 0.6);
+  pointer-events: none;
+  z-index: 50;
+  transition: opacity 0.08s ease;
+}
+
+/* ── Active glow ─────────────────────────────────────────────────────────────── */
+.lp-orb-container--active .lp-orb-glass-sphere {
+  box-shadow:
+    inset -10px -10px 40px rgba(150, 100, 255, 0.7),
+    inset 10px 10px 20px rgba(255, 255, 255, 0.35),
+    0 0 60px rgba(150, 100, 255, 0.5),
+    0 0 30px rgba(200, 240, 49, 0.15);
+}
+
+/* ── ORA speaking pulse ──────────────────────────────────────────────────────── */
+.lp-orb-speaking {
+  animation:
+    lp-orb-bob 4s ease-in-out 0.8s infinite,
+    lp-orb-speaking-pulse 0.6s ease-in-out infinite !important;
+}
+@keyframes lp-orb-speaking-pulse {
+  0%,  100% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.7),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.35),
+      0 0 70px rgba(150, 100, 255, 0.6),
+      0 0 40px rgba(200, 240, 49, 0.25);
+  }
+  50% {
+    box-shadow:
+      inset -10px -10px 40px rgba(150, 100, 255, 0.9),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.4),
+      0 0 100px rgba(150, 100, 255, 0.8),
+      0 0 60px rgba(200, 240, 49, 0.4);
+  }
+}
+
+/* ── Wave image — only spins when session active ─────────────────────────────── */
+.lp-orb-wave-img {
+  animation: none; /* off by default */
+}
+.lp-orb-wave-img-wrapper--spinning .lp-orb-wave-img {
+  animation: lp-orb-wave-spin 18s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+/* ── Connecting spinner overlay ──────────────────────────────────────────────── */
+.lp-orb-connecting-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 30;
+}
+.lp-orb-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(200, 150, 255, 0.3);
+  border-top-color: rgba(200, 150, 255, 0.9);
+  border-radius: 50%;
+  animation: lp-orb-spin 0.8s linear infinite;
+}
+@keyframes lp-orb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Transcript bubble ───────────────────────────────────────────────────────── */
+.lp-orb-transcript {
+  position: absolute;
+  bottom: calc(80px + 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 17, 17, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(200, 150, 255, 0.2);
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  padding: 0.625rem 0.875rem;
+  max-width: 240px;
+  min-width: 120px;
+  text-align: left;
+  pointer-events: none;
+  animation: lp-fade-up 0.3s ease forwards;
+  z-index: 200;
+}
+.lp-orb-transcript-line {
+  font-family: var(--lp-font-sans, 'Inter', sans-serif);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  margin: 0;
+}
+.lp-orb-transcript-line + .lp-orb-transcript-line {
+  margin-top: 0.25rem;
+  opacity: 0.7;
+}
+
+/* ── Error bubble ────────────────────────────────────────────────────────────── */
+.lp-orb-error-bubble {
+  position: absolute;
+  bottom: calc(80px + 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  color: #fca5a5;
+  max-width: 200px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 200;
+}
+.lp-orb-error-hint {
+  font-size: 0.6rem;
+  opacity: 0.6;
+  font-family: var(--lp-font-mono, monospace);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lp-orb-transcript,
+  .lp-orb-error-bubble {
+    max-width: 180px;
+    font-size: 0.7rem;
+    bottom: calc(64px + 1.25rem);
+  }
+  .lp-orb-mic-ring {
+    width: calc(64px + 14px);
+    height: calc(64px + 14px);
+    bottom: 22px;
   }
 }

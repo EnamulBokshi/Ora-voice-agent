@@ -6,6 +6,7 @@ import { StatsSection } from '@/components/marketing/stats-section';
 import { TestimonialSection } from '@/components/marketing/testimonial-section';
 import { CtaSection } from '@/components/marketing/cta-section';
 import { MarketingFooter } from '@/components/marketing/footer';
+import { FloatingOrbWidget } from '@/components/marketing/floating-orb-widget';
 
 /**
  * ORA public marketing landing page — accessible at /
@@ -22,6 +23,8 @@ export default function LandingPage() {
       <TestimonialSection />
       <CtaSection />
       <MarketingFooter />
+      <FloatingOrbWidget />
     </>
   );
 }
+
