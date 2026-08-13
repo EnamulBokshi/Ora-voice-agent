@@ -42,7 +42,7 @@ export function AgentClient() {
           setPublishableKey(res.business.publishableKey);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     getAgentConfigApi()
       .then((data) => {
@@ -74,7 +74,100 @@ export function AgentClient() {
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save configuration');
     } finally {
-      setIsSaving(false);
+      setLoading(false);
+    }
+  }, [searchQuery, selectedId]);
+
+  useEffect(() => {
+    fetchKnowledgeDocs();
+  }, [fetchKnowledgeDocs]);
+
+  // Derived uploaded docs list (docs with type uploaded_doc)
+  const uploadedDocs: UploadedDoc[] = knowledgeItems
+    .filter((k) => k.docType === DocType.UPLOADED_DOC)
+    .map((k) => ({
+      id: k.id,
+      name: k.title,
+      type: 'Text/Markdown Document',
+      status: 'synced',
+      rawDoc: k.rawDoc,
+    }));
+
+  // Dynamic filtering by category tab & search query
+  const filteredItems = knowledgeItems.filter((item) => {
+    if (activeCategory !== 'All') {
+      if (activeCategory === 'Store Policies') {
+        if (item.docType === DocType.UPLOADED_DOC) return false;
+      } else if (activeCategory === 'Documents') {
+        if (item.docType !== DocType.UPLOADED_DOC && item.category !== 'Documents') return false;
+      } else if (activeCategory === 'FAQs') {
+        if (item.docType !== DocType.FAQ && item.category !== 'FAQs') return false;
+      } else {
+        // Category tab filtering: Shipping & Delivery, Returns & Refunds, Payment, Warranty
+        if (item.category !== activeCategory) {
+          const matchKeywords =
+            activeCategory === 'Shipping & Delivery' ? ['ship', 'deliver', 'express', 'courier', 'dhaka'] :
+              activeCategory === 'Returns & Refunds' ? ['return', 'refund', 'exchange', 'replace'] :
+                activeCategory === 'Payment' ? ['pay', 'bkash', 'cod', 'cash', 'card', 'bank'] :
+                  activeCategory === 'Warranty' ? ['warrant', 'guarant', 'claim', 'repair'] : [];
+
+          const text = `${item.title} ${item.content}`.toLowerCase();
+          const hasMatch = matchKeywords.some((kw) => text.includes(kw));
+          if (!hasMatch) return false;
+        }
+      }
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q) ||
+        (item.content?.toLowerCase() || '').includes(q)
+      );
+    }
+    return true;
+  });
+
+  // Auto-select first item when tab changes if current selection is not in filtered list
+  useEffect(() => {
+    if (filteredItems.length > 0) {
+      const exists = filteredItems.some((k) => k.id === selectedId);
+      if (!exists) {
+        setSelectedId(filteredItems[0].id);
+      }
+    }
+  }, [activeCategory, filteredItems, selectedId]);
+
+  const selectedItem =
+    filteredItems.find((k) => k.id === selectedId) || filteredItems[0] || null;
+
+  // Handlers for Knowledge Items & Docs
+  const handleAddKnowledge = (newItem: KnowledgeItem) => {
+    setKnowledgeItems((prev) => [newItem, ...prev]);
+    setSelectedId(newItem.id);
+  };
+
+  const handleSaveEdit = (updatedItem: KnowledgeItem) => {
+    setKnowledgeItems((prev) =>
+      prev.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
+    );
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this store policy document?')) {
+      return;
+    }
+
+    try {
+      await deleteKnowledgeDocApi(id);
+      const updated = knowledgeItems.filter((item) => item.id !== id);
+      setKnowledgeItems(updated);
+      if (selectedId === id && updated.length > 0) {
+        setSelectedId(updated[0].id);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete knowledge document.');
     }
   };
 
