@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { Sidebar } from '@/components/dashboard/sidebar';
 
@@ -14,7 +14,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
+      <Suspense fallback={null}>
+        <Sidebar collapsed={collapsed} onToggle={toggle} />
+      </Suspense>
 
       <div
         className="flex-1 h-full flex flex-col overflow-hidden transition-[margin] duration-200 ease-out"

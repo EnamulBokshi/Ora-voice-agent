@@ -109,15 +109,15 @@ export function TextFeedTab({ onFed }: TextFeedTabProps) {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
+          className="px-5 py-2.5 rounded-xl text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? (
             <>
-              <Loader2 size={14} className="animate-spin" /> Feeding ORA...
+              <Loader2 size={14} className="animate-spin" /> Saving...
             </>
           ) : (
             <>
-              <PenLine size={14} /> Feed to ORA
+              <PenLine size={14} /> Save Knowledge
             </>
           )}
         </button>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { AgentClient } from '@/components/agent/agent-client';
 
 export const metadata: Metadata = {
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function AgentPage() {
-  return <AgentClient />;
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading ORA Agent...</div>}>
+      <AgentClient />
+    </Suspense>
+  );
 }
