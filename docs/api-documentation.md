@@ -46,28 +46,27 @@ interface ErrorEnvelope {
 
 ---
 
-## 3. Phase 2: Product Catalog & Merchant Data Ingestion (`/api/v1/products`, `/api/v1/knowledge`, `/api/v1/ingestion`)
+## 3. Phase 2: Product Ingestion Engine & Knowledge Base (`/api/v1/products`, `/api/v1/knowledge`, `/api/v1/ingestion`)
 
 ### Summary
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
-| `/api/v1/products` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Create a new product record in merchant catalog. |
-| `/api/v1/products` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List & search catalog products with pagination & filters. |
-| `/api/v1/products/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single product details by ID. |
-| `/api/v1/products/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update product details (price, stock, availability, tags). |
-| `/api/v1/products/:id` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Delete a product from tenant catalog. |
-| `/api/v1/products/batch-sync` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Bulk upsert products with source tier tracking. |
-| `/api/v1/ingestion/webhooks/:platform` | `POST` | Public (HMAC Header) | N/A | **Tier 1**: Shopify / WooCommerce platform webhook listener (HMAC signature verified & Redis idempotency, `confidenceScore: 1.0`). |
-| `/api/v1/ingestion/feed` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 2**: Parse Google Merchant / Meta XML catalog feed URL (`SourceTier.TIER2_FEED`, `confidenceScore: 0.7`). |
+| `/api/v1/ingestion/upload` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Primary Bulk Ingestion**: Upload merchant product file (CSV, XLSX, TXT, PDF), normalize records, batch-sync to MongoDB, and auto-embed into `VectorIndex`. |
+| `/api/v1/products` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Read-only inspection & search of ingested catalog mirror with pagination & filters. |
+| `/api/v1/products/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single ingested product details by ID. |
+| `/api/v1/products/batch-sync` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Programmatic bulk upsert of products with source tier tracking. |
+| `/api/v1/products/:id/verify-live` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Query-time live price & stock verification endpoint using `VerifyLiveDto`. |
+| `/api/v1/ingestion/webhooks/:platform` | `POST` | Public (HMAC Verified) | N/A | **Tier 1**: Shopify / WooCommerce platform webhook listener (HMAC signature verified, `confidenceScore: 1.0`). |
+| `/api/v1/ingestion/feed` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 2**: Parse Google Merchant XML (RSS/Atom) or CSV catalog feed URL (`SourceTier.TIER2_FEED`, `confidenceScore: 0.7`). |
 | `/api/v1/ingestion/passive` | `POST` | `ApiKeyGuard` | N/A | **Tier 3**: Storefront passive capture & sitemap crawler (`SourceTier.TIER3_PASSIVE`, `confidenceScore: 0.3`). |
-| `/api/v1/ingestion/manual` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 4**: Custom payload endpoint with field mapping config (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.5`). |
-| `/api/v1/knowledge` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Create store context document & auto-chunk text. |
-| `/api/v1/knowledge` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List store knowledge base documents for tenant. |
+| `/api/v1/ingestion/manual` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | **Tier 4**: Custom payload endpoint with field mapping config and property validation (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.5`). |
+| `/api/v1/knowledge` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Create store context document, auto-chunk text, and auto-embed snippets into `VectorIndex`. |
+| `/api/v1/knowledge` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List store knowledge base documents with pagination (`page`, `limit`). |
 | `/api/v1/knowledge/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single knowledge base document. |
 | `/api/v1/knowledge/:id/chunks` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Retrieve chunked text snippets for document. |
-| `/api/v1/knowledge/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update document title/content & re-chunk. |
-| `/api/v1/knowledge/:id` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Delete document and cascade delete its chunks. |
+| `/api/v1/knowledge/:id` | `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Update document title/content, re-chunk, and auto-embed into `VectorIndex`. |
+| `/api/v1/knowledge/:id` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Delete document, cascade delete chunks, and delete embeddings from `VectorIndex`. |
 
 ---
 

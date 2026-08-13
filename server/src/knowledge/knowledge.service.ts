@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpStatus, Logger, Inject, forwardRef, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { KnowledgeBase, KnowledgeBaseDocument } from './schemas/knowledge-base.schema';
@@ -6,6 +6,8 @@ import { KnowledgeChunk, KnowledgeChunkDocument } from './schemas/knowledge-chun
 import { CreateKnowledgeDocDto } from './dto/create-knowledge-doc.dto';
 import { UpdateKnowledgeDocDto } from './dto/update-knowledge-doc.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
+import { VectorStoreService } from '../vector/vector-store.service';
+import { EntityType } from '../vector/interfaces/vector-entry.interface';
 
 @Injectable()
 export class KnowledgeService {
@@ -16,6 +18,9 @@ export class KnowledgeService {
     private readonly knowledgeBaseModel: Model<KnowledgeBaseDocument>,
     @InjectModel(KnowledgeChunk.name)
     private readonly knowledgeChunkModel: Model<KnowledgeChunkDocument>,
+    @Optional()
+    @Inject(forwardRef(() => VectorStoreService))
+    private readonly vectorStoreService?: VectorStoreService,
   ) {}
 
   async create(
@@ -45,7 +50,29 @@ export class KnowledgeService {
     }));
 
     if (chunkDocs.length > 0) {
-      await this.knowledgeChunkModel.insertMany(chunkDocs as any[]);
+      const createdChunks = await this.knowledgeChunkModel.insertMany(chunkDocs as any[]);
+
+      // Auto-embed knowledge chunks into VectorIndex for instant RAG search capability
+      if (this.vectorStoreService) {
+        for (const chunk of createdChunks) {
+          try {
+            await this.vectorStoreService.upsertVector(businessId, {
+              entityType: EntityType.KNOWLEDGE_CHUNK,
+              entityId: chunk._id.toString(),
+              text: chunk.text,
+              metadata: {
+                knowledgeBaseId: savedDoc._id.toString(),
+                docTitle: savedDoc.title,
+                docType: savedDoc.docType,
+              },
+            });
+          } catch (err: any) {
+            this.logger.error(
+              `[KnowledgeService] Auto-embedding failed for chunk ${chunk._id}: ${err.message}`,
+            );
+          }
+        }
+      }
     }
 
     return {
@@ -54,7 +81,12 @@ export class KnowledgeService {
     };
   }
 
-  async findAll(businessId: string, docType?: string, search?: string) {
+  async findAll(
+    businessId: string,
+    docType?: string,
+    search?: string,
+    options: { page?: number; limit?: number } = {},
+  ) {
     const filter: Record<string, any> = {
       businessId: businessId as any,
       isActive: true,
@@ -71,12 +103,27 @@ export class KnowledgeService {
       ];
     }
 
-    const items = await this.knowledgeBaseModel
-      .find(filter)
-      .sort({ updatedAt: -1 })
-      .exec();
+    const page = Math.max(options.page || 1, 1);
+    const limit = Math.max(options.limit || 20, 1);
+    const skip = (page - 1) * limit;
 
-    return items;
+    const [items, total] = await Promise.all([
+      this.knowledgeBaseModel
+        .find(filter)
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.knowledgeBaseModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(businessId: string, id: string): Promise<KnowledgeBaseDocument> {
@@ -126,6 +173,16 @@ export class KnowledgeService {
     let chunksCount: number | undefined;
 
     if (isContentUpdated) {
+      // Find old chunks to clean up vector store index
+      const oldChunks = await this.findChunksForDoc(businessId, updatedDoc._id.toString());
+      if (this.vectorStoreService) {
+        for (const oldChunk of oldChunks) {
+          await this.vectorStoreService
+            .deleteVectorByEntityId(businessId, oldChunk._id.toString())
+            .catch(() => {});
+        }
+      }
+
       // Delete existing chunks and re-chunk
       await this.knowledgeChunkModel.deleteMany({
         knowledgeBaseId: updatedDoc._id as any,
@@ -144,9 +201,31 @@ export class KnowledgeService {
       }));
 
       if (chunkDocs.length > 0) {
-        await this.knowledgeChunkModel.insertMany(chunkDocs as any[]);
+        const createdChunks = await this.knowledgeChunkModel.insertMany(chunkDocs as any[]);
+        chunksCount = createdChunks.length;
+
+        // Auto-embed updated knowledge chunks
+        if (this.vectorStoreService) {
+          for (const chunk of createdChunks) {
+            try {
+              await this.vectorStoreService.upsertVector(businessId, {
+                entityType: EntityType.KNOWLEDGE_CHUNK,
+                entityId: chunk._id.toString(),
+                text: chunk.text,
+                metadata: {
+                  knowledgeBaseId: updatedDoc._id.toString(),
+                  docTitle: updatedDoc.title,
+                  docType: updatedDoc.docType,
+                },
+              });
+            } catch (err: any) {
+              this.logger.error(
+                `[KnowledgeService] Auto-embedding failed for updated chunk ${chunk._id}: ${err.message}`,
+              );
+            }
+          }
+        }
       }
-      chunksCount = chunkDocs.length;
     }
 
     return {
@@ -156,6 +235,18 @@ export class KnowledgeService {
   }
 
   async remove(businessId: string, id: string): Promise<{ message: string }> {
+    const doc = await this.findOne(businessId, id);
+
+    // Delete associated vector embeddings
+    const chunks = await this.findChunksForDoc(businessId, doc._id.toString());
+    if (this.vectorStoreService) {
+      for (const chunk of chunks) {
+        await this.vectorStoreService
+          .deleteVectorByEntityId(businessId, chunk._id.toString())
+          .catch(() => {});
+      }
+    }
+
     const result = await this.knowledgeBaseModel
       .deleteOne({ _id: id as any, businessId: businessId as any })
       .exec();

@@ -72,12 +72,6 @@ export class Product {
   @Prop({ type: Number, default: 1.0, min: 0.0, max: 1.0 })
   confidenceScore: number;
 
-  @Prop({ default: false })
-  isEmbedded: boolean;
-
-  @Prop()
-  embeddingRef?: string;
-
   @Prop({ default: Date.now })
   lastVerifiedAt: Date;
 

@@ -46,6 +46,7 @@ export class RagController {
     return this.ragService.searchCombined(user.businessId, dto.query, {
       limit: dto.limit,
       confidenceThreshold: dto.confidenceThreshold,
+      entityType: dto.entityType,
     });
   }
 

@@ -52,9 +52,6 @@ export class VoiceSettings {
 
   @Prop({ default: 'en' })
   language: string;
-
-  @Prop({ default: 'default' })
-  connectedPlatform: string;
 }
 
 export const VoiceSettingsSchema = SchemaFactory.createForClass(VoiceSettings);

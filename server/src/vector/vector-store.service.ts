@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { VectorIndex, VectorIndexDocument } from '../schemas/vector-index.schema';
+import { VectorIndex, VectorIndexDocument } from './schemas/vector-index.schema';
 import { EmbeddingService } from './embedding.service';
-import { EntityType, SearchResultItem } from '../interfaces/vector-entry.interface';
+import { EntityType, SearchResultItem } from './interfaces/vector-entry.interface';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
 
 @Injectable()
 export class VectorStoreService {
@@ -13,6 +14,7 @@ export class VectorStoreService {
     @InjectModel(VectorIndex.name)
     private readonly vectorIndexModel: Model<VectorIndexDocument>,
     private readonly embeddingService: EmbeddingService,
+    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
   ) {}
 
   async upsertVector(
@@ -44,9 +46,19 @@ export class VectorStoreService {
       { upsert: true, new: true },
     ).exec();
 
+    // Mark the source product as embedded so the dashboard can distinguish
+    // embedded vs pending products.
+    if (entry.entityType === EntityType.PRODUCT) {
+      this.productModel
+        .findByIdAndUpdate(entry.entityId, { $set: { isEmbedded: true } })
+        .exec()
+        .catch((err) =>
+          this.logger.warn(`Failed to mark product ${entry.entityId} as embedded: ${err.message}`),
+        );
+    }
+
     return doc;
   }
-
 
   async searchVectors(
     businessId: string,

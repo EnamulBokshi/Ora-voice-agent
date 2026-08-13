@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ProductsService } from '../../products/products.service';
@@ -23,14 +23,30 @@ export class ManualConnectorService {
       `[ManualConnectorService] Processing custom field mapping for business ${businessId}`,
     );
 
-    const nativeProductId = String(rawPayload[fieldMapping.idField] || `custom_${Date.now()}`);
-    const name = String(rawPayload[fieldMapping.nameField] || 'Untitled Product');
+    if (!Object.prototype.hasOwnProperty.call(rawPayload, fieldMapping.idField)) {
+      throw new BadRequestException(
+        `Field '${fieldMapping.idField}' specified in fieldMapping.idField does not exist in rawPayload.`,
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(rawPayload, fieldMapping.nameField)) {
+      throw new BadRequestException(
+        `Field '${fieldMapping.nameField}' specified in fieldMapping.nameField does not exist in rawPayload.`,
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(rawPayload, fieldMapping.priceField)) {
+      throw new BadRequestException(
+        `Field '${fieldMapping.priceField}' specified in fieldMapping.priceField does not exist in rawPayload.`,
+      );
+    }
+
+    const nativeProductId = String(rawPayload[fieldMapping.idField]);
+    const name = String(rawPayload[fieldMapping.nameField]);
     const price = parseFloat(rawPayload[fieldMapping.priceField] || '0');
-    const description = fieldMapping.descriptionField
-      ? String(rawPayload[fieldMapping.descriptionField] || '')
+    const description = fieldMapping.descriptionField && rawPayload[fieldMapping.descriptionField]
+      ? String(rawPayload[fieldMapping.descriptionField])
       : '';
-    const category = fieldMapping.categoryField
-      ? String(rawPayload[fieldMapping.categoryField] || 'General')
+    const category = fieldMapping.categoryField && rawPayload[fieldMapping.categoryField]
+      ? String(rawPayload[fieldMapping.categoryField])
       : 'General';
 
     return this.productsService.batchSync(businessId, {

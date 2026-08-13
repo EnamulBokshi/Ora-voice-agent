@@ -41,7 +41,11 @@ export class ApiKeyGuard implements CanActivate {
       .findOne({ publishableKey })
       .exec();
 
-    if (!business && publishableKey === 'biz_live_mock_key_12345') {
+    if (
+      !business &&
+      publishableKey === 'biz_live_mock_key_12345' &&
+      process.env.NODE_ENV !== 'production'
+    ) {
       business = await this.businessModel
         .findOneAndUpdate(
           { publishableKey: 'biz_live_mock_key_12345' },

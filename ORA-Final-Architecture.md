@@ -1,10 +1,10 @@
-# ORA — Final Architecture (v5)
+# ORA — Final Architecture (v6)
 
 ## 1. Overview
 
 ORA is a multi-tenant, voice-first sales agent delivered as a single `<script>` embed. It behaves like a human salesperson: it knows the merchant's catalog, knows store policy, remembers what the customer already said, and can act — search, compare, add to cart, place an order — not just answer questions.
 
-This version consolidates everything added since v2: dual payment providers and billing (Section 10), invoicing/verification/delivery (Section 10.9–10.13), and the widget delivery/injection mechanism (Section 11) that formalizes what earlier versions only summarized. Sections 1–9 are functionally unchanged from v2.
+This version corrects issues found during implementation review of v5: a guard-stack example that authenticated the wrong actor, several "open decisions" that implementation had already resolved without the doc catching up, a missing formal schema for the vector store, and an under-specified fallback flow. No architectural direction changes — this is a correctness pass on v5, not a redesign.
 
 ---
 
@@ -45,6 +45,7 @@ Loaded via a loader snippet in the merchant's index file — see Section 11 for 
 - Tool-calling loop: search, compare, cart, inventory, recommend/upsell, coupon lookup, place order, email, save customer data, support ticket, authority escalation
 - **Conditional tool registration:** `place_order` is only exposed to the model when the tenant has a Tier 1 connector. Tier 2/3/4 tenants receive `redirect_to_checkout` instead.
 - **Plan-gated tools:** any metered action (starting a conversation, placing an order) also passes through `PlanLimitGuard` (Section 10.6) before execution.
+- **Channel-agnostic:** this service, and the query-time resolution flow it depends on (Section 3), is the single path for both text and voice conversations. Neither channel bypasses it or calls a separate, unverified retrieval path — a product's price/stock must resolve identically regardless of which channel asked.
 
 **RAG Service**
 - Embeds and retrieves product corpus + knowledge base
@@ -61,7 +62,7 @@ Loaded via a loader snippet in the merchant's index file — see Section 11 for 
 ### 2.4 Data Layer
 
 **MongoDB — shared collections, tenant-scoped, not per-tenant databases.**
-Every collection (`Product`, `Order`, `Conversation`, `Event`, `KnowledgeBase`, `Subscription`, `Invoice`, etc.) carries an indexed `businessId` field. Physically separate databases per tenant were considered and rejected: it doesn't improve tenant isolation over an indexed, application-enforced `businessId` filter, and it actively works against the "handle millions of users" requirement.
+Every collection (`Product`, `Order`, `Conversation`, `Event`, `KnowledgeBase`, `Subscription`, `Invoice`, `VectorIndex`, etc.) carries an indexed `businessId` field. Physically separate databases per tenant were considered and rejected: it doesn't improve tenant isolation over an indexed, application-enforced `businessId` filter, and it actively works against the "handle millions of users" requirement.
 
 **Redis**
 - Session state and idle timers
@@ -71,8 +72,9 @@ Every collection (`Product`, `Order`, `Conversation`, `Event`, `KnowledgeBase`, 
 - Cart state during active conversation
 
 **Vector Store**
-- Product + knowledge embeddings, `businessId` namespaced, filter enforced pre-query
-- Choice between MongoDB Atlas vector index and a dedicated store (Pinecone/Weaviate) remains an open decision — see Section 12
+- Implemented as a MongoDB `VectorIndex` collection with application-level cosine similarity (see Section 6 for schema) — this is the working default, not a placeholder.
+- Product + knowledge embeddings, `businessId` namespaced, filter enforced pre-query.
+- **Revisit before scale:** app-level cosine similarity over a hand-rolled collection does not scale the way a native vector index (MongoDB Atlas `$vectorSearch`) or a dedicated store (Pinecone/Weaviate) would. This was left open in earlier versions pending benchmarks; it has since become the de facto implementation by default rather than by deliberate choice. Treat it as accepted-for-now, revisit-before-"millions of users" — see Section 12.
 
 ---
 
@@ -99,9 +101,14 @@ Every collection (`Product`, `Order`, `Conversation`, `Event`, `KnowledgeBase`, 
 
 ## 3. Query-Time Product Resolution Flow
 
+This flow is the single path for resolving a product query, used identically by text chat and voice — see Section 2.3's channel-agnostic note. Neither channel has its own shortcut version.
+
 1. **Customer query** — e.g. *"iPhone under $500"*
 2. **Vector search** — semantic shortlist of candidate product IDs, filtered by `businessId`. No price/stock filtering yet.
-   - **2a. Zero/low-confidence fallback:** if no candidates clear the similarity threshold, skip straight to a **live keyword search** against the merchant's configured endpoint using the customer's raw query terms. If this returns a result, present it normally, then queue it for asynchronous embedding. Emit `RAG_FALLBACK_TRIGGERED` either way.
+   - **2a. Zero/low-confidence fallback — two steps, not one:**
+     1. **Local re-check first:** search the existing `Product` collection directly (not vector search) for a keyword/text match — this catches products that exist in Mongo but simply haven't been embedded yet (an ingestion-to-embedding lag, not a missing-product problem). If found, present it and queue it for embedding so the fast path serves it next time.
+     2. **Live merchant fallback if step 1 also finds nothing:** the product may not exist in Mongo at all yet — ingestion hasn't caught up (webhook pending, feed poll not yet run, crawler not yet reached it). Issue a **live keyword search directly against the merchant's connected tier** (Tier 1 connector API, or Tier 4's configured endpoint) using the customer's raw query terms. If this returns a result, present it, then asynchronously ingest and embed it so the fast path serves it next time. Tier 2/3-only tenants have no live-query capability by design — for these, if step 1 also misses, there is nothing further to fall back to.
+   - Emit `RAG_FALLBACK_TRIGGERED` on any fallback hit, tagged with which step resolved it — this distinction is what tells you whether Tier 3 cadence needs tightening (step 1 hits) versus whether ingestion latency itself is the problem (step 2 hits).
 3. **Candidate cap** — take top 5 candidates from vector search. Never verify more than 5 in parallel.
 4. **Batch live verify** — parallel calls per candidate (Mode A: ID lookup, Mode B: keyword search + match).
 5. **Filter and rank** — price, stock, and availability filters applied strictly on live-verified data.
@@ -138,14 +145,25 @@ Every collection (`Product`, `Order`, `Conversation`, `Event`, `KnowledgeBase`, 
 ## 5. Context Feeding (The "Knows the Store" Layer)
 
 - Admin-entered policy/brand/sales rules, uploaded docs, sales signals, session-scoped preferences, live inventory urgency cues, admin sales playbook — all feeding the same knowledge base as products.
+- **Low-stock urgency** is computed live from `stockQuantity` against a configurable threshold at response time — never stored as a discrete state on the product record — so it can never drift from actual inventory. `AgentConfig.salesPlaybook.mentionLowStockUrgency` gates whether the agent voices this signal to the customer.
 
 ---
 
 ## 6. Data Shapes
 
-Core collections (unchanged from v2): `Business`, `AdminUser`, `AgentConfig`, `Product`, `Customer`, `Conversation`, `Order`, `SalesCount`, `Event`, `KnowledgeBase`. Billing collections (new, Section 10.7): `Plan`, `Subscription`, `PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`. All shared, tenant-scoped via indexed `businessId`.
+Core collections (unchanged from v2): `Business`, `AdminUser`, `AgentConfig`, `Product`, `Customer`, `Conversation`, `Order`, `SalesCount`, `Event`, `KnowledgeBase`. Billing collections (Section 10.7): `Plan`, `Subscription`, `PaymentTransaction`, `Invoice`, `InvoiceDeliveryLog`. All shared, tenant-scoped via indexed `businessId`.
 
-`Event.eventType` includes `rag_fallback_triggered` — leading indicator of whether Tier 3 cadence needs tightening.
+**VectorIndex (new — formalized from implementation, was previously only implied under "Vector Store" in 2.4):**
+- `businessId` — tenant isolation index
+- `entityType` — `product` | `knowledge_chunk`
+- `entityId` — references `Product._id` or a `KnowledgeChunk` identifier
+- `text` — the source text that was embedded
+- `vector` — float array
+- `embeddingModel` — e.g. `text-embedding-004`, distinguishes real embeddings from the local fallback vectorizer
+- `embeddingVersion` — bumped on any change to embedding text-formatting or model, so stale vectors can be identified for re-embedding
+- `metadata` — e.g. price, category, `nativeProductId`
+
+`Event.eventType` includes `rag_fallback_triggered` — leading indicator of whether Tier 3 cadence needs tightening (see Section 3's step-tagging note).
 
 ---
 
@@ -180,7 +198,7 @@ RTK on the client mirrors cart/session/UI state. Conversation truth lives in Red
 - Stateless core services behind Gateway; Redis-backed socket adapter; per-tenant BullMQ queues; adaptive per-tenant rate limiting; shared indexed collections over per-tenant databases.
 
 ### 8.4 Tech Stack
-Backend: NestJS · Frontend: Next.js (dashboard) · Database: MongoDB + Redis · Protocol: WebSocket + Google AI SDK · Client state: RTK · Jobs: BullMQ · Payments: Stripe + bKash (Section 10) · Delivery: CDN-hosted widget (Section 11)
+Backend: NestJS · Frontend: Next.js (dashboard) · Database: MongoDB + Redis · Protocol: WebSocket, direct connection to the Gemini Live API (bidirectional audio streaming) · Client state: RTK · Jobs: BullMQ · Payments: Stripe + bKash (Section 10) · Delivery: CDN-hosted widget (Section 11)
 
 ---
 
@@ -239,15 +257,15 @@ Provider-agnostic — one `Plan` record priced in both currencies:
 | Growth | $49 | ৳5,500 | 2,000 | 500 | 3 | 5 |
 | Scale | $199 | ৳22,000 | Unlimited | Unlimited | Unlimited | Unlimited |
 
-*Illustrative only — see Section 12 open decisions.*
+*These are the seeded values in the current implementation. Confirm with the business side whether they were deliberately finalized at these numbers or are still the original placeholders that shipped by default — see Section 12.*
 
 - Downgrades take effect next billing cycle; upgrades take effect immediately with proration where the provider supports it. bKash has no native proration — an upgrade there is: cancel current agreement, create a new one, credit manually via internal ledger.
 
 ### 10.4 Renewal scheduling (bKash-specific)
 
-- BullMQ job (`billing:bkash-renewal`) scheduled per-subscription for `currentPeriodEnd`, calls `chargeRenewal`.
-- Idempotency guard on `billingPeriod` + `subscriptionId` — a job retry must never double-charge.
-- On success: extend `currentPeriodEnd`, log `PaymentTransaction`, reschedule next job. On failure: enter dunning (10.5) rather than retrying in the same job — bKash failures need a cooldown, not a tight loop.
+- A BullMQ-backed scheduler runs on an interval, guarded by a Redis lock so it never runs concurrently with itself, and processes all subscriptions due for renewal on that run.
+- Idempotency must hold at two levels: the run-level lock prevents the whole job from double-firing, and each individual subscription's renewal state must be checked/updated before moving to the next one in the batch — so a mid-batch crash-and-retry can't double-charge a subscription that was already renewed just before the crash.
+- On success: extend `currentPeriodEnd`, log `PaymentTransaction`. On failure: enter dunning (10.5) rather than retrying immediately — bKash failures need a cooldown, not a tight loop.
 - Stripe needs no equivalent scheduler — its webhook handler is sufficient.
 
 ### 10.5 Dunning / payment failure
@@ -259,13 +277,23 @@ Provider-agnostic — one `Plan` record priced in both currencies:
 
 ### 10.6 Enforcement — `PlanLimitGuard`
 
+Metered actions are gated by tenant plan, not by admin identity. The guard stack differs by which actor is making the call:
+
 ```typescript
-@UseGuards(JwtAuthGuard, TenantScopeGuard, PlanLimitGuard)
+// Customer-facing action (widget) — Business/tenant identified by publishable API key
+@UseGuards(ApiKeyGuard, PlanLimitGuard)
 @Metered('conversationMinutes')
 @Post('conversations/start')
 startConversation(...) { ... }
+
+// AdminUser-facing action (dashboard) — e.g. manually placing a test order
+@UseGuards(JwtAuthGuard, TenantScopeGuard, PlanLimitGuard)
+@Metered('ordersPerMonth')
+@Post('orders')
+createOrder(...) { ... }
 ```
 
+- `PlanLimitGuard` resolves `businessId` from whichever upstream guard authenticated the request (`ApiKeyGuard` for widget/customer actions, `JwtAuthGuard`+`TenantScopeGuard` for AdminUser actions) — never assume the JWT-based guard stack applies to customer-facing endpoints.
 - Usage counters in Redis (`usage:{businessId}:{period}:{metric}`), checked against resolved `Plan.limits` before allowing the action.
 - On breach: `PlanLimitExceededException` (`code: 'PLAN_LIMIT_EXCEEDED'`), surfaced to the merchant's dashboard — never to the end-shopper mid-conversation.
 
@@ -291,35 +319,30 @@ startConversation(...) { ... }
 
 ### 10.9 Invoice Generation
 
-- **Trigger:** any successful payment event — Stripe's `invoice.payment_succeeded` webhook, or a successful `chargeRenewal()` return for bKash — both funnel into one internal `payment.succeeded` event, keeping invoice logic provider-agnostic.
+- **Trigger:** any successful payment event — Stripe's `invoice.payment_succeeded` webhook, or a successful renewal charge for bKash — both funnel into one internal `payment.succeeded` event, keeping invoice logic provider-agnostic.
 - `Invoice` created synchronously on `payment.succeeded`, independent of email delivery (10.11) — invoice history must never depend on an email provider being up.
 - **Numbering:** sequential, human-readable (`ORA-2026-000123`), backed by an atomic Mongo counter (`findOneAndUpdate` with `$inc`) — not timestamp- or `_id`-derived, avoiding collisions.
 - **PDF rendering:** server-side only, matching the backend-mediation rule (2.1). Includes business name/address, plan, billing period, line items, tax, total, provider reference.
 - **Tax/VAT:** flagged, not decided — see Section 12.
 - **Storage:** PDF in object storage (S3-compatible); `Invoice.pdfUrl` is a reference, not the blob.
 
-### 10.10 OTP Verification — scoping
+### 10.10 OTP Verification — recipient-verification email OTP
 
-Two different things could be meant by "OTP verification" — only one is ORA's to build:
+Confirmed as recipient-verification OTP (confirming an `AdminUser`'s email before it becomes the billing/notification address) — this was previously flagged as needing confirmation; implementation has since resolved it in this direction.
 
-|  | Owner | ORA builds it? |
-|---|---|---|
-| Payment-time OTP (bKash charge authorization) | bKash's hosted Tokenized Checkout | No — ORA only receives the callback with success/failure + agreement ID |
-| Recipient-verification OTP (confirming an `AdminUser`'s email before it becomes the billing address) | ORA | Yes |
-
-**Recipient-verification OTP design:**
 - Triggered on signup or billing/notification email change.
 - 6-digit, single-use, 10-minute expiry, stored **hashed**.
 - Rate-limited: 5 generations/hour, 5 verification attempts per code before lockout + cooldown (mirrors the dunning cooldown pattern, 10.5).
 - Until verified, `AdminUser.emailVerified = false` — product access is unaffected, but invoices/billing emails queue and hold until verified, with a dashboard banner.
 - Lives on `AdminUser`, not inside the `PaymentProvider` abstraction — keeps that interface payment-only.
+- Payment-time OTP (bKash charge authorization) remains entirely bKash's own hosted flow — ORA never sees it, only the callback with success/failure + agreement ID.
 
 ### 10.11 Invoice Delivery
 
 - Async `billing:send-invoice` (BullMQ) job, enqueued right after `Invoice` creation, decoupled from payment confirmation — subscription is already `active` before this job runs.
 - Idempotent on `invoiceId` — a retry must not double-send. Retry: 3x exponential backoff, then DLQ (same shape as 4.3 and 10.4).
 - PDF delivered as a **secure link**, not a raw attachment — avoids size limits and spam-filter false positives.
-- Email provider: open decision (Section 12) — needs to serve both an international (Stripe) and Bangladesh (bKash) audience well.
+- Email provider: implementation uses a primary transactional API with SMTP fallback — confirm this was a deliberate choice for serving both the international and Bangladesh-based audience adequately (see Section 12).
 - Delivery failure surfaces as its own dashboard banner, distinct from the payment-failure banner (10.5) — a bounced invoice email is a different problem than `past_due` and shouldn't send the merchant down the wrong troubleshooting path.
 
 ### 10.12 Resend & Audit
@@ -374,7 +397,7 @@ cdn.ora.ai/widget/
 ### 11.4 Isolation — Shadow DOM Mounting
 
 - The widget mounts into a **Shadow DOM** root, not the page's DOM tree directly — merchant CSS can't leak in, widget CSS can't leak out. Hard requirement for a script running on arbitrary third-party sites.
-- Passive DOM/JSON-LD reads (11.6) are read-only with respect to the host page — the widget observes, never mutates anything outside its own shadow root.
+- Passive DOM/JSON-LD reads (11.7) are read-only with respect to the host page — the widget observes, never mutates anything outside its own shadow root.
 - Iframe isolation was considered and rejected as default (cross-frame messaging overhead, complicates the passive context read) — Shadow DOM is default, iframe is revisitable for merchants with strict CSP requirements.
 
 ### 11.5 Authentication Model — Publishable Key
@@ -411,7 +434,7 @@ The widget doesn't decide what it's allowed to show. On WebSocket connect, Gatew
 - Checkout automation not attempted below Tier 1 — redirect only.
 - Tenant data isolation via indexed `businessId` filtering on shared collections, not physically separate databases.
 - Two payment providers (Stripe + bKash), selected by merchant country at signup, behind one `PaymentProvider` interface.
-- bKash renewals are actively scheduled by ORA (BullMQ), not received passively.
+- bKash renewals are actively scheduled by ORA (BullMQ + Redis lock), not received passively.
 - Invoice generation is synchronous with payment confirmation; delivery is async and decoupled — an email outage cannot block subscription activation.
 - Invoice numbering is a Mongo atomic counter, not timestamp-derived.
 - PDFs are stored as objects and linked, never emailed as raw attachments.
@@ -419,17 +442,20 @@ The widget doesn't decide what it's allowed to show. On WebSocket connect, Gatew
 - Widget auth uses a publishable-key model, distinct from secret merchant credentials — intentionally safe to expose in page source.
 - Widget isolation uses Shadow DOM by default; iframe is a fallback for stricter-CSP merchants.
 - Tier/capability logic is resolved server-side per connection and pushed to the widget.
+- OTP verification is recipient-email verification, owned by ORA; bKash's payment-time OTP is entirely bKash's own flow.
+- Low-stock urgency is a derived, live value from `stockQuantity` — never a stored enum state.
 
-**Still open:**
-- Vector store choice: MongoDB Atlas vector index vs. dedicated store — deferred until catalog volume/query-latency benchmarks exist.
+**Still open — genuinely undecided:**
 - "Inform authorities" trigger definitions — needs legal/compliance review.
-- Exact plan tiers/pricing/limits (Section 10.3) are illustrative — need real numbers from the business side.
 - bKash upgrade proration: manual ledger credit vs. simply disallowing mid-cycle upgrades (matching downgrade behavior) — different UX, needs a decision before the upgrade flow is built.
-- **Confirm OTP intent** was recipient-verification, as assumed in 10.10 — flag if payment-time OTP was actually meant (in which case there's nothing further to build, bKash already owns that flow).
 - Tax/VAT computation rules (Bangladesh VAT on bKash invoices; international tax obligations on Stripe invoices) — legal/accounting review required, not an engineering decision.
-- Email delivery provider — single provider vs. two-provider split by region, pending deliverability data.
 - Percentage-based staged rollout mechanics for `latest.json` (edge-function-based vs. loader-side bucketing) — needed before the CDN pipeline is built.
 - Whether iframe isolation should be a formal opt-in for security-sensitive merchants, or handled case-by-case — no demand signal yet.
+
+**Needs a deliberate sign-off — currently decided by implementation default, not by choice:**
+- **Vector store**: custom MongoDB `VectorIndex` collection with app-level cosine similarity is what's actually running. Fine for now; formally accept it or replace it with a native vector index before catalog size/query volume make app-level similarity a bottleneck — don't let this stay accidentally-decided indefinitely.
+- **Plan pricing**: `Free`/`Growth`/`Scale` numbers in Section 10.3 are live in the seeded database. Confirm these are the real intended prices, not the original placeholders that shipped by default.
+- **Email delivery provider**: a primary transactional API + SMTP fallback is implemented. Confirm this was chosen with Bangladesh-region deliverability specifically considered, not just picked as a reasonable general-purpose default.
 
 ---
 
@@ -442,3 +468,4 @@ The widget doesn't decide what it's allowed to show. On WebSocket connect, Gatew
 | v3 | Added billing: dual payment provider (Stripe + bKash) architecture, provider abstraction, plan/limit enforcement, bKash-specific active renewal scheduling, dunning flow, billing data shapes |
 | v4 | Added invoice generation (numbering, PDF, tax placeholder), scoped OTP verification (clarified bKash owns payment-time OTP; specified recipient-email-verification OTP as the new ORA-owned flow), async decoupled invoice delivery with DLQ/idempotency, resend + audit logging, new data shapes (`Invoice`, `InvoiceDeliveryLog`, `AdminUser` additions) |
 | v5 | Added widget delivery and injection architecture: two-stage loader pattern, CDN structure/versioning with staged-rollout requirement, Shadow DOM isolation rationale, publishable-key authentication model (with domain allowlisting/rotation caveats), server-driven capability gating, formalized passive page-context capture. Consolidated v2–v4 addenda into one document. |
+| v6 | Corrected Section 10.6's example guard stack (was authenticating the widget/customer entry point as if it were an AdminUser dashboard action — split into two correct examples). Split Section 3's fallback into its actual two steps (local Mongo re-check, then live merchant fallback) and marked the flow explicitly channel-agnostic. Added `VectorIndex` to Section 6's formal data shapes, including `embeddingModel`/`embeddingVersion` fields. Corrected Section 8.4's voice protocol description (direct Gemini Live API connection, not a generic SDK wrapper). Added derived, live low-stock urgency to Section 5. Updated Section 12: moved OTP scoping to resolved; separated "genuinely open" decisions from ones that implementation has silently defaulted on (vector store, plan pricing, email provider) and flagged the latter for deliberate sign-off rather than leaving them looking undecided in the doc while already live in code. |

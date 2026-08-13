@@ -1,6 +1,6 @@
 import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { EntityType } from '../interfaces/vector-entry.interface';
+import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 
 export class SearchRagDto {
   @IsNotEmpty()

@@ -2,13 +2,13 @@ import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import { VectorStoreService } from './vector-store.service';
-import { EmbeddingService } from './embedding.service';
+import { VectorStoreService } from '../../vector/vector-store.service';
+import { EmbeddingService } from '../../vector/embedding.service';
 import { ProductsService } from '../../products/products.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { EventsService } from '../../events/events.service';
 import { EventType } from '../../events/schemas/event.schema';
-import { EntityType, SearchResultItem } from '../interfaces/vector-entry.interface';
+import { EntityType, SearchResultItem } from '../../vector/interfaces/vector-entry.interface';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { ShopifyConnectorService } from '../../ingestion/services/shopify-connector.service';
 import { WooCommerceConnectorService } from '../../ingestion/services/woocommerce-connector.service';
@@ -222,11 +222,18 @@ export class RagService {
   async searchCombined(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number } = {},
+    options: { limit?: number; confidenceThreshold?: number; entityType?: EntityType } = {},
   ) {
+    const fetchProducts = !options.entityType || options.entityType === EntityType.PRODUCT;
+    const fetchKnowledge = !options.entityType || options.entityType === EntityType.KNOWLEDGE_CHUNK;
+
     const [productsRes, knowledgeRes] = await Promise.all([
-      this.searchProducts(businessId, queryText, options),
-      this.searchKnowledge(businessId, queryText, options),
+      fetchProducts
+        ? this.searchProducts(businessId, queryText, options)
+        : Promise.resolve({ fallbackTriggered: false, fallbackTier: 'none' as const, results: [] }),
+      fetchKnowledge
+        ? this.searchKnowledge(businessId, queryText, options)
+        : Promise.resolve({ results: [] }),
     ]);
 
     return {
@@ -261,8 +268,8 @@ export class RagService {
     }
 
     // 2. Index all knowledge chunks
-    const knowledgeDocs = await this.knowledgeService.findAll(businessId);
-    for (const doc of knowledgeDocs) {
+    const knowledgeRes = await this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 1000 });
+    for (const doc of knowledgeRes.items) {
       const chunks = await this.knowledgeService.findChunksForDoc(
         businessId,
         doc._id.toString(),

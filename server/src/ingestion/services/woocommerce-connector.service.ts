@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../../products/products.service';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
@@ -10,10 +12,30 @@ export class WooCommerceConnectorService {
   private readonly logger = new Logger(WooCommerceConnectorService.name);
 
   constructor(
+    private readonly configService: ConfigService,
     private readonly productsService: ProductsService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
   ) {}
+
+  verifyWebhookHmac(rawBody: Buffer, signatureHeader: string): boolean {
+    const secret =
+      this.configService.get<string>('WOOCOMMERCE_WEBHOOK_SECRET') ||
+      'ora_woocommerce_secret_dev_key';
+
+    if (!signatureHeader) return false;
+
+    const calculatedHmac = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('base64');
+
+    return crypto.timingSafeEqual(
+      Buffer.from(calculatedHmac),
+      Buffer.from(signatureHeader),
+    );
+  }
+
 
   async syncProducts(businessId: string, woocommerceProducts: any[]) {
     this.logger.log(

@@ -26,27 +26,26 @@ Complete multi-tenant AdminUser authentication, merchant tenant provisioning (`B
 | **Mail & OTP Engine** | `server/src/mail/mail.service.ts`, `server/src/mail/email-templates.ts` | Completed | Resend API integration with fallback SMTP, rendering EJS template emails (`verify-email.ejs`, `otp-code.ejs`). |
 | **Redis Session Layer** | `server/src/common/redis/redis.service.ts` | Completed | Manages `session:{sessionId}` in Redis with 7-day TTL and instant session revocation. |
 
----
-
-## 🟢 Phase 2: Product Catalog & Tiered Data Ingestion Engine (COMPLETED)
+---## 🟢 Phase 2: Product Catalog & Tiered Data Ingestion Engine (COMPLETED)
 
 ### Overview
-Implementation of the multi-tenant e-commerce product catalog (`Product`), context feeding knowledge base (`KnowledgeBase` & `KnowledgeChunk`), and 4-tier merchant data ingestion strategy matching Master Architecture Section 4.2 confidence score ladder (Connector `1.0`, Feed `0.7`, Manual `0.5`, Passive `0.3`, Stale `0.1`).
+Implementation of the multi-tenant e-commerce product catalog mirror (`Product`), context feeding knowledge base (`KnowledgeBase` & `KnowledgeChunk`), multi-format file parser (`FileIngestionService` for CSV, XLSX, TXT, PDF uploads), and 4-tier merchant data ingestion strategy matching Master Architecture Section 4.2 confidence score ladder (Connector `1.0`, Feed `0.7`, Manual `0.5`, Passive `0.3`, Stale `0.1`).
 
-### Implemented Components
+### Implemented Components & Security Hardening
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
-| **Product Schema** | `server/src/products/schemas/product.schema.ts` | Completed | Multi-tenant schema with `nativeProductId`, price, currency, availability status, stockQuantity, images, attributes, source tier (`TIER1_CONNECTOR`, `TIER2_FEED`, `TIER3_PASSIVE`, `TIER4_MANUAL`), confidence score ladder (Section 4.2 aligned), and recommendation metrics. |
-| **Products Service & Controller** | `server/src/products/products.service.ts`, `server/src/products/products.controller.ts` | Completed | Catalog CRUD, pagination, search, category filter, batch sync (`BatchSyncProductsDto`), live-verification update (`verifyLive`), and recommendation metrics. |
+| **Product Schema** | `server/src/products/schemas/product.schema.ts` | Completed | Multi-tenant schema with `nativeProductId`, price, currency, availability status, stockQuantity, images, attributes, source tier (`TIER1_CONNECTOR`, `TIER2_FEED`, `TIER3_PASSIVE`, `TIER4_MANUAL`), confidence score ladder (Section 4.2 aligned), and recommendation metrics. Dead fields (`isEmbedded`, `embeddingRef`) removed. |
+| **Products Service & Controller** | `server/src/products/products.service.ts`, `server/src/products/products.controller.ts` | Completed | Read-only catalog inspection (`GET /products`), batch sync (`BatchSyncProductsDto`), live-verification update with `VerifyLiveDto` (`verifyLive`). 1-by-1 manual product CRUD (`POST`, `PATCH`, `DELETE`) removed in favor of bulk ingestion. |
+| **File Ingestion Engine** | `server/src/ingestion/services/file-ingestion.service.ts` | Completed | **Tier 4 Upload**: `POST /api/v1/ingestion/upload` accepting CSV, XLSX, TXT, and PDF merchant product files with field-alias auto-detection (`FIELD_ALIASES`), Mongo batch sync, and instant auto-embedding into `VectorIndex`. |
 | **Shopify Connector** | `server/src/ingestion/services/shopify-connector.service.ts` | Completed | **Tier 1**: OAuth webhook handler (`POST /api/v1/ingestion/webhooks/shopify`) with HMAC verification (`X-Shopify-Hmac-SHA256`) and Redis idempotency (`confidenceScore: 1.0`). |
-| **WooCommerce Connector** | `server/src/ingestion/services/woocommerce-connector.service.ts` | Completed | **Tier 1**: REST catalog ingestion (`SourceTier.TIER1_CONNECTOR`, `confidenceScore: 1.0`). |
-| **Feed Parser** | `server/src/ingestion/services/feed-parser.service.ts` | Completed | **Tier 2**: Google Merchant / Meta XML catalog feed parser (`SourceTier.TIER2_FEED`, `confidenceScore: 0.7`). |
+| **WooCommerce Connector** | `server/src/ingestion/services/woocommerce-connector.service.ts` | Completed | **Tier 1**: Webhook handler with HMAC signature verification (`X-WC-Webhook-Signature`) and REST catalog ingestion (`SourceTier.TIER1_CONNECTOR`, `confidenceScore: 1.0`). |
+| **Feed Parser** | `server/src/ingestion/services/feed-parser.service.ts` | Completed | **Tier 2**: Google Merchant XML (RSS/Atom) and CSV catalog feed parser with HTTP download (`SourceTier.TIER2_FEED`, `confidenceScore: 0.7`). |
 | **Sitemap Crawler & Passive Capture** | `server/src/ingestion/services/sitemap-crawler.service.ts` | Completed | **Tier 3**: Sitemap XML diff-check crawler and storefront passive capture (`POST /api/v1/ingestion/passive`) (`SourceTier.TIER3_PASSIVE`, `confidenceScore: 0.3`). |
-| **Manual Connector** | `server/src/ingestion/services/manual-connector.service.ts` | Completed | **Tier 4**: Custom payload endpoint with field mapping config (`POST /api/v1/ingestion/manual`) (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.5`). |
-| **Ingestion Controller** | `server/src/ingestion/ingestion.controller.ts` | Completed | Endpoints: `/api/v1/ingestion/webhooks/:platform`, `/api/v1/ingestion/feed`, `/api/v1/ingestion/passive`, `/api/v1/ingestion/manual`. |
+| **Manual Connector** | `server/src/ingestion/services/manual-connector.service.ts` | Completed | **Tier 4**: Custom payload endpoint with field mapping config and property-existence validation (`POST /api/v1/ingestion/manual`) (`SourceTier.TIER4_MANUAL`, `confidenceScore: 0.5`). |
+| **Ingestion Controller** | `server/src/ingestion/ingestion.controller.ts` | Completed | Endpoints: `/api/v1/ingestion/upload`, `/api/v1/ingestion/webhooks/:platform`, `/api/v1/ingestion/feed`, `/api/v1/ingestion/passive`, `/api/v1/ingestion/manual`. Includes strict HMAC signature verification and business context validation. |
 | **KnowledgeBase & Chunk Schemas** | `server/src/knowledge/schemas/knowledge-base.schema.ts`, `server/src/knowledge/schemas/knowledge-chunk.schema.ts` | Completed | Merchant policies, brand rules, FAQs, sales playbooks, product manuals, and ~500-char text chunking snippets. |
-| **Knowledge Service & Controller** | `server/src/knowledge/knowledge.service.ts`, `server/src/knowledge/knowledge.controller.ts` | Completed | Context document CRUD, text chunking engine, chunk retrieval, and cascade deletion. |
+| **Knowledge Service & Controller** | `server/src/knowledge/knowledge.service.ts`, `server/src/knowledge/knowledge.controller.ts` | Completed | Context document CRUD, text chunking engine, chunk retrieval, pagination (`page`, `limit`), and automatic instant `VectorIndex` auto-embedding on document create/update/delete. |
 
 ---
 
@@ -121,7 +120,7 @@ Implementation of the provider-abstracted subscription billing engine supporting
 
 ### Verification Summary
 - **Build Status**: Passed (`pnpm --filter server build`)
-- **Unit & Integration Test Suites**: **18 passed (24 tests total)**:
+- **Unit & Integration Test Suites**: **18 passed (25 tests total)**:
   - `auth.service.spec.ts`, `auth.controller.spec.ts`, `security-integration.spec.ts`
   - `users.service.spec.ts`, `users.controller.spec.ts`
   - `products.service.spec.ts`
@@ -134,3 +133,4 @@ Implementation of the provider-abstracted subscription billing engine supporting
   - `ai-tools.executor.spec.ts`
   - `bkash.provider.spec.ts`, `billing.service.spec.ts`, `invoices.service.spec.ts`
   - `app.controller.spec.ts`
+ntroller.spec.ts`

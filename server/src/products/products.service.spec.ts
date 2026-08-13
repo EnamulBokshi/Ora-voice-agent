@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 import { ProductsService } from './products.service';
 import { Product } from './schemas/product.schema';
 
@@ -10,6 +11,12 @@ describe('ProductsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductsService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue('5'),
+          },
+        },
         {
           provide: getModelToken(Product.name),
           useValue: {

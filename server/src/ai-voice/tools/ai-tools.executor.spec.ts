@@ -6,6 +6,7 @@ import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { EventsService } from '../../events/events.service';
 import { OrdersService } from '../../orders/orders.service';
+import { AgentConfigService } from '../../agent-config/agent-config.service';
 
 describe('AiToolsExecutor', () => {
   let executor: AiToolsExecutor;
@@ -68,6 +69,15 @@ describe('AiToolsExecutor', () => {
               orderNumber: 'ORD-2026-000001',
               totalAmount: 150,
               status: 'pending',
+            }),
+          },
+        },
+        {
+          provide: AgentConfigService,
+          useValue: {
+            getConfig: jest.fn().mockResolvedValue({
+              config: { brandVoiceDescription: 'Test assistant' },
+              playbook: { mentionLowStockUrgency: true },
             }),
           },
         },

@@ -6,15 +6,21 @@ import {
   Headers,
   Req,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   HttpCode,
   HttpStatus,
+  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { ShopifyConnectorService } from './services/shopify-connector.service';
 import { WooCommerceConnectorService } from './services/woocommerce-connector.service';
 import { FeedParserService } from './services/feed-parser.service';
 import { SitemapCrawlerService } from './services/sitemap-crawler.service';
 import { ManualConnectorService } from './services/manual-connector.service';
+import { FileIngestionService } from './services/file-ingestion.service';
 import { FeedIngestDto } from './dto/feed-ingest.dto';
 import { PassiveIngestDto } from './dto/passive-ingest.dto';
 import { ManualIngestDto } from './dto/manual-ingest.dto';
@@ -32,22 +38,54 @@ export class IngestionController {
     private readonly feedParserService: FeedParserService,
     private readonly sitemapCrawlerService: SitemapCrawlerService,
     private readonly manualConnectorService: ManualConnectorService,
+    private readonly fileIngestionService: FileIngestionService,
   ) {}
 
-  // Tier 1 Public Platform Webhooks (Shopify / WooCommerce)
+  /**
+   * Primary Product File Ingestion Endpoint (CSV, XLSX, TXT, PDF)
+   * Uploads merchant product file, normalizes items, batch-syncs to MongoDB,
+   * and auto-embeds into the VectorIndex RAG store in a single flow.
+   */
+  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
+  async uploadProductFile(
+    @CurrentUser() user: JwtPayloadUser,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('A product file (CSV, XLSX, TXT, or PDF) is required.');
+    }
+    return this.fileIngestionService.ingestFile(user.businessId, file);
+  }
+
+  // Tier 1 Public Platform Webhooks (Shopify / WooCommerce) with HMAC Verification
   @Post('webhooks/:platform')
   @HttpCode(HttpStatus.OK)
   async handlePlatformWebhook(
     @Param('platform') platform: string,
     @Headers('x-shopify-topic') topic: string,
     @Headers('x-shopify-webhook-id') webhookId: string,
-    @Headers('x-shopify-hmac-sha256') hmacHeader: string,
+    @Headers('x-shopify-hmac-sha256') shopifyHmac: string,
+    @Headers('x-wc-webhook-signature') wcSignature: string,
     @Headers('x-business-id') businessIdHeader: string,
     @Req() req: Request,
     @Body() payload: any,
   ) {
+    const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(payload || {}));
+
     if (platform === 'shopify') {
-      const businessId = businessIdHeader || payload.businessId || 'default_tenant';
+      const isVerified = this.shopifyService.verifyWebhookHmac(rawBody, shopifyHmac);
+      if (!isVerified && process.env.NODE_ENV === 'production') {
+        throw new UnauthorizedException('Invalid Shopify webhook HMAC signature.');
+      }
+
+      const businessId = businessIdHeader || payload.businessId;
+      if (!businessId) {
+        throw new BadRequestException('Missing x-business-id header or businessId payload property.');
+      }
+
       return this.shopifyService.processWebhook(
         businessId,
         topic || 'products/update',
@@ -57,8 +95,17 @@ export class IngestionController {
     }
 
     if (platform === 'woocommerce') {
-      const businessId = businessIdHeader || payload.businessId || 'default_tenant';
-      const products = Array.isArray(payload) ? payload : (payload.products || [payload]);
+      const isVerified = this.woocommerceService.verifyWebhookHmac(rawBody, wcSignature);
+      if (!isVerified && process.env.NODE_ENV === 'production') {
+        throw new UnauthorizedException('Invalid WooCommerce webhook signature.');
+      }
+
+      const businessId = businessIdHeader || payload.businessId;
+      if (!businessId) {
+        throw new BadRequestException('Missing x-business-id header or businessId payload property.');
+      }
+
+      const products = Array.isArray(payload) ? payload : payload.products || [payload];
       return this.woocommerceService.syncProducts(businessId, products);
     }
 
