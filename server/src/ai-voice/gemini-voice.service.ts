@@ -39,13 +39,10 @@ export class GeminiVoiceService {
       );
     }
 
-    // Validate key format early to give clear errors
-    if (!apiKey.startsWith('AIzaSy')) {
-      this.logger.error(
-        `[GeminiVoiceService] GEMINI_API_KEY has invalid format. Got prefix '${apiKey.substring(0, 6)}...' — expected 'AIzaSy...' (Google AI Studio key). OAuth tokens (AQ.xxx) and other formats are NOT supported for the Live API WebSocket.`,
-      );
-      throw new Error(
-        `Invalid GEMINI_API_KEY format. The Live API requires a Google AI Studio API key starting with 'AIzaSy...'. Current key starts with '${apiKey.substring(0, 6)}...'. Get a free key at https://aistudio.google.com/apikey`,
+    // Support both legacy AIza... keys and new AQ.Ab... Auth keys from Google AI Studio
+    if (!apiKey.startsWith('AIza') && !apiKey.startsWith('AQ.Ab')) {
+      this.logger.warn(
+        `[GeminiVoiceService] GEMINI_API_KEY has an unusual prefix: '${apiKey.substring(0, 6)}...'. Proceeding with WebSocket connection attempt.`,
       );
     }
 
@@ -65,18 +62,38 @@ export class GeminiVoiceService {
     const ws = new WebSocket(uri);
 
     // Fetch merchant agent prompt configuration
-    let systemInstructionText =
-      'You are ORA, an intelligent AI sales agent for an e-commerce merchant. Be concise, polite, helpful, and naturally conversational. Help customers find products, check stock, and manage their cart.';
+    let merchantBrandVoice = '';
     try {
       const agentConfig = await this.agentConfigService.getConfig(
         options.businessId,
       );
-      if (agentConfig && agentConfig.config && agentConfig.config.brandVoiceDescription) {
-        systemInstructionText = `You are ORA, an intelligent AI sales agent for an e-commerce merchant. Merchant Brand Voice: ${agentConfig.config.brandVoiceDescription}. Be concise, polite, helpful, and naturally conversational. Help customers find products, check stock, and manage their cart.`;
+      if (agentConfig?.config?.brandVoiceDescription) {
+        merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
       }
     } catch {
-      // Fallback system instruction
+      // Fallback — no custom brand voice
     }
+
+    const systemInstructionText = [
+      'You are ORA, a friendly and professional AI voice sales assistant for an e-commerce store.',
+      merchantBrandVoice,
+      '',
+      'CRITICAL RULES FOR YOUR BEHAVIOR:',
+      '1. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
+      '2. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
+      '3. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
+      '4. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
+      '5. When asked for a random product or general browse, search once with a broad term. If nothing comes back, say "The catalog appears to be empty right now."',
+      '6. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
+      '7. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
+      '8. If the customer speaks a language other than English, try to respond in their language.',
+      '',
+      'TOOLS:',
+      '- Use find_products to search the product catalog. Always use it when a customer asks about products.',
+      '- Use add_to_cart to add items to the shopping cart.',
+      '- Use place_order to complete a purchase from the cart.',
+      '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
+    ].join('\n');
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
@@ -106,6 +123,9 @@ export class GeminiVoiceService {
             model: geminiModel,
             generationConfig: {
               responseModalities: ['AUDIO'],
+              thinkingConfig: {
+                thinkingBudget: 0,
+              },
               speechConfig: {
                 voiceConfig: {
                   prebuiltVoiceConfig: {
@@ -156,7 +176,16 @@ export class GeminiVoiceService {
                 options.onAudioData(part.inlineData.data);
               }
               if (part.text && options.onTextData) {
-                options.onTextData(part.text);
+                // Filter out thinking/reasoning text (bold headers, internal analysis)
+                const text = part.text.trim();
+                if (
+                  text &&
+                  !text.startsWith('**') &&
+                  !text.startsWith('##') &&
+                  !text.startsWith('# ')
+                ) {
+                  options.onTextData(text);
+                }
               }
             }
           }

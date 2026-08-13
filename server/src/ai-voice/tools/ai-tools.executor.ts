@@ -89,10 +89,24 @@ export class AiToolsExecutor {
       }
     }
 
+    if (liveVerifiedProducts.length === 0) {
+      return {
+        success: true,
+        query: args.query,
+        products: [],
+        totalFound: 0,
+        message:
+          'No products found matching this query. The merchant catalog may be empty or does not contain items matching these search terms. Do NOT retry the same search. Tell the customer you could not find matching products.',
+        fallbackTriggered: ragRes.fallbackTriggered,
+      };
+    }
+
     return {
       success: true,
       query: args.query,
       products: liveVerifiedProducts,
+      totalFound: liveVerifiedProducts.length,
+      message: `Found ${liveVerifiedProducts.length} product(s) matching "${args.query}".`,
       fallbackTriggered: ragRes.fallbackTriggered,
     };
   }
