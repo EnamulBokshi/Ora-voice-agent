@@ -24,7 +24,7 @@ export class VectorStoreService {
       metadata?: Record<string, any>;
     },
   ): Promise<VectorIndexDocument> {
-    const vector = await this.embeddingService.generateEmbedding(entry.text);
+    const embeddingResult = await this.embeddingService.generateEmbedding(entry.text);
 
     const doc = await this.vectorIndexModel.findOneAndUpdate(
       {
@@ -35,8 +35,10 @@ export class VectorStoreService {
       {
         $set: {
           text: entry.text,
-          vector,
+          vector: embeddingResult.vector,
           metadata: entry.metadata || {},
+          embeddingModel: embeddingResult.embeddingModel,
+          embeddingVersion: embeddingResult.embeddingVersion,
         },
       },
       { upsert: true, new: true },
@@ -44,6 +46,7 @@ export class VectorStoreService {
 
     return doc;
   }
+
 
   async searchVectors(
     businessId: string,

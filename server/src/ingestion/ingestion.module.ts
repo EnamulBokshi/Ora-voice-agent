@@ -8,16 +8,19 @@ import { FeedParserService } from './services/feed-parser.service';
 import { SitemapCrawlerService } from './services/sitemap-crawler.service';
 import { ManualConnectorService } from './services/manual-connector.service';
 import { ProductsModule } from '../products/products.module';
+import { RedisModule } from '../common/redis/redis.module';
 import { Business, BusinessSchema } from '../users/schemas/business.schema';
 
 @Module({
   imports: [
     ConfigModule,
     ProductsModule,
+    RedisModule,
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
     ]),
   ],
+
   controllers: [IngestionController],
   providers: [
     ShopifyConnectorService,

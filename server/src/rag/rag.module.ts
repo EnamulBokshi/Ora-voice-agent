@@ -9,6 +9,8 @@ import { VectorIndex, VectorIndexSchema } from './schemas/vector-index.schema';
 import { ProductsModule } from '../products/products.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { EventsModule } from '../events/events.module';
+import { IngestionModule } from '../ingestion/ingestion.module';
+import { Business, BusinessSchema } from '../users/schemas/business.schema';
 
 @Module({
   imports: [
@@ -16,8 +18,10 @@ import { EventsModule } from '../events/events.module';
     ProductsModule,
     KnowledgeModule,
     EventsModule,
+    IngestionModule,
     MongooseModule.forFeature([
       { name: VectorIndex.name, schema: VectorIndexSchema },
+      { name: Business.name, schema: BusinessSchema },
     ]),
   ],
   controllers: [RagController],
@@ -25,3 +29,4 @@ import { EventsModule } from '../events/events.module';
   exports: [RagService, EmbeddingService, VectorStoreService],
 })
 export class RagModule {}
+

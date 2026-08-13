@@ -1,9 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../../products/products.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
+import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -13,6 +16,8 @@ export class ShopifyConnectorService {
     private readonly configService: ConfigService,
     private readonly productsService: ProductsService,
     private readonly redisService: RedisService,
+    @InjectModel(Business.name)
+    private readonly businessModel: Model<BusinessDocument>,
   ) {}
 
   verifyWebhookHmac(rawBody: Buffer, hmacHeader: string): boolean {
@@ -124,4 +129,71 @@ export class ShopifyConnectorService {
       });
     }
   }
+
+  /**
+   * Gap B live fallback: query the merchant's Shopify store directly for products
+   * matching the given search terms. Used when products don't yet exist in MongoDB
+   * (ingestion lag). Returns [] if credentials are missing or the API call fails.
+   */
+  async searchProductsLive(businessId: string, query: string): Promise<any[]> {
+    const business = await this.businessModel.findById(businessId as any).exec();
+    if (!business?.shopifyStoreUrl || !business?.shopifyAccessToken) {
+      this.logger.warn(
+        `[ShopifyConnector] No Shopify credentials configured for business ${businessId} — Gap B live search skipped.`,
+      );
+      return [];
+    }
+
+    const storeUrl = business.shopifyStoreUrl.replace(/\/$/, '');
+    const url = `${storeUrl}/admin/api/2024-01/products.json?title=${encodeURIComponent(query)}&limit=5&status=active`;
+
+    try {
+      this.logger.log(
+        `[ShopifyConnector] Gap B live search: GET ${storeUrl}/admin/api/2024-01/products.json?title=${query}`,
+      );
+
+      const response = await fetch(url, {
+        headers: {
+          'X-Shopify-Access-Token': business.shopifyAccessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `[ShopifyConnector] Shopify live search returned HTTP ${response.status} for business ${businessId}.`,
+        );
+        return [];
+      }
+
+      const data: any = await response.json();
+      const products: any[] = data.products || [];
+
+      return products.map((p: any) => {
+        const variant = p.variants?.[0] || {};
+        return {
+          nativeProductId: String(p.id),
+          name: p.title || 'Untitled Product',
+          description: p.body_html || '',
+          price: parseFloat(variant.price || '0'),
+          currency: 'USD',
+          stockQuantity: variant.inventory_quantity || 0,
+          availability:
+            (variant.inventory_quantity || 0) > 0
+              ? ProductAvailability.IN_STOCK
+              : ProductAvailability.OUT_OF_STOCK,
+          category: p.product_type || 'General',
+          sourceTier: SourceTier.TIER1_CONNECTOR,
+          confidenceScore: 1.0,
+          images: p.images ? p.images.map((img: any) => img.src) : [],
+        };
+      });
+    } catch (err: any) {
+      this.logger.error(
+        `[ShopifyConnector] Gap B live search failed for business ${businessId}: ${err.message}`,
+      );
+      return [];
+    }
+  }
 }
+

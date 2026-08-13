@@ -14,9 +14,19 @@ import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { ConversationsService } from '../conversations/conversations.service';
 import { MessageRole } from '../conversations/schemas/message.schema';
-import { RagService } from '../rag/services/rag.service';
+import { AiToolsExecutor } from '../ai-voice/tools/ai-tools.executor';
 import { RedisService } from '../common/redis/redis.service';
 
+/**
+ * Fix 2 — Verification Parity:
+ * ConversationGateway (text chat) now routes product lookups through the same
+ * AiToolsExecutor.handleFindProducts path used by VoiceGateway, ensuring that
+ * every price/stock value surfaced to a customer is live-verified via
+ * ProductsService.verifyLive() — never stale RAG data.
+ *
+ * The RagService is no longer called directly from here; it is invoked
+ * internally by AiToolsExecutor → RagService → ProductsService.verifyLive().
+ */
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: 'conversations',
@@ -33,7 +43,7 @@ export class ConversationGateway
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     private readonly conversationsService: ConversationsService,
-    private readonly ragService: RagService,
+    private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly redisService: RedisService,
   ) {}
 
@@ -115,23 +125,31 @@ export class ConversationGateway
       content,
     );
 
-    // 2. Perform RAG semantic lookup for catalog products and store policies
-    const ragResult = await this.ragService.searchCombined(businessId, content, {
-      limit: 3,
-    });
+    // 2. Fix 2: Route through AiToolsExecutor.find_products — same live-verified
+    //    code path used by VoiceGateway. This guarantees price/stock data returned
+    //    to text-chat customers is verified via ProductsService.verifyLive().
+    const findResult = await this.aiToolsExecutor.executeTool(
+      businessId,
+      sessionId,
+      'find_products',
+      { query: content },
+    );
 
-    // 3. Construct assistant response with RAG context
-    let assistantReply = `Thank you for reaching out! I searched our store catalog. `;
-    if (ragResult.products.length > 0) {
-      const topProd = ragResult.products[0].data || ragResult.products[0];
-      assistantReply += `I recommend checking out **${topProd.name || topProd.text}** ($${topProd.price || ''}). `;
-    }
-    if (ragResult.knowledge.length > 0) {
-      assistantReply += `Regarding store policies: ${ragResult.knowledge[0].text.substring(0, 150)}...`;
-    }
+    const foundProducts: any[] = findResult.products || [];
+    const fallbackTriggered: boolean = findResult.fallbackTriggered || false;
 
-    if (ragResult.products.length === 0 && ragResult.knowledge.length === 0) {
-      assistantReply = `I am here to help you browse ${business.name}! Let me know what products or store details you are looking for.`;
+    // 3. Construct assistant response using live-verified product data
+    let assistantReply: string;
+    if (foundProducts.length > 0) {
+      const topProd = foundProducts[0];
+      const urgency = topProd.urgencyHint ? ` ${topProd.urgencyHint}` : '';
+      assistantReply =
+        `Thank you for reaching out! I found some products for you. ` +
+        `I recommend **${topProd.name}** at $${topProd.price}${urgency}. ` +
+        `Let me know if you'd like more details or to add it to your cart!`;
+    } else {
+      assistantReply = `I'm here to help you browse ${business.name}! ` +
+        `I couldn't find any matching products right now — let me know what you're looking for and I'll do my best.`;
     }
 
     // 4. Save assistant response
@@ -139,7 +157,7 @@ export class ConversationGateway
       conversation._id.toString(),
       MessageRole.ASSISTANT,
       assistantReply,
-      { ragProducts: ragResult.products, ragKnowledge: ragResult.knowledge },
+      { ragProducts: foundProducts },
     );
 
     // 5. Emit assistant response back to client socket room
@@ -149,9 +167,9 @@ export class ConversationGateway
       role: MessageRole.ASSISTANT,
       content: assistantReply,
       ragContext: {
-        products: ragResult.products,
-        knowledge: ragResult.knowledge,
-        fallbackTriggered: ragResult.fallbackTriggered,
+        products: foundProducts,
+        fallbackTriggered,
+        fallbackTier: findResult.fallbackTier,
       },
       timestamp: assistantMsg.timestamp,
     });

@@ -25,12 +25,14 @@ describe('EmbeddingService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should generate normalized 768-dimensional fallback vector', async () => {
-    const vec = await service.generateEmbedding('iPhone 15 Pro Max');
-    expect(vec).toHaveLength(768);
+  it('should return EmbeddingResult with 768-dimensional fallback vector', async () => {
+    const result = await service.generateEmbedding('iPhone 15 Pro Max');
+    expect(result.vector).toHaveLength(768);
+    expect(result.embeddingModel).toBe('fallback-term-hash');
+    expect(result.embeddingVersion).toBe('deterministic-v1');
 
-    // Compute magnitude
-    const magnitude = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+    // Vector must be normalized (unit length)
+    const magnitude = Math.sqrt(result.vector.reduce((sum, v) => sum + v * v, 0));
     expect(magnitude).toBeCloseTo(1.0, 4);
   });
 
@@ -41,5 +43,47 @@ describe('EmbeddingService', () => {
 
     expect(service.cosineSimilarity(vecA, vecB)).toBeCloseTo(1.0, 5);
     expect(service.cosineSimilarity(vecA, vecC)).toBeCloseTo(0.0, 5);
+  });
+
+  it('should use GEMINI_EMBEDDING_MODEL from config and return gemini model metadata', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        embedding: { values: new Array(768).fill(0.1) },
+      }),
+    });
+    global.fetch = fetchMock;
+
+    const mockConfig = {
+      get: jest.fn((key: string) => {
+        if (key === 'GEMINI_API_KEY') return 'test_api_key';
+        if (key === 'GEMINI_EMBEDDING_MODEL') return 'custom-embedding-model';
+        return undefined;
+      }),
+    };
+
+    const testModule = await Test.createTestingModule({
+      providers: [
+        EmbeddingService,
+        { provide: ConfigService, useValue: mockConfig },
+      ],
+    }).compile();
+
+    const customService = testModule.get<EmbeddingService>(EmbeddingService);
+    const result = await customService.generateEmbedding('test text');
+
+    expect(result.embeddingModel).toBe('custom-embedding-model');
+    expect(result.embeddingVersion).toBe('gemini-v1');
+    expect(result.vector).toHaveLength(768);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://generativelanguage.googleapis.com/v1beta/models/custom-embedding-model:embedContent?key=test_api_key',
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: 'models/custom-embedding-model',
+          content: { parts: [{ text: 'test text' }] },
+        }),
+      }),
+    );
   });
 });

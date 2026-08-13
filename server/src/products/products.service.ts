@@ -1,6 +1,7 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Product, ProductDocument, ProductAvailability } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -13,6 +14,7 @@ export class ProductsService {
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(businessId: string, dto: CreateProductDto): Promise<ProductDocument> {
@@ -205,7 +207,18 @@ export class ProductsService {
     product.lastVerifiedAt = new Date();
     product.confidenceScore = 1.0;
 
-    return product.save();
+    const saved = await product.save();
+
+    // Fix 5: compute isLowStock at response time from live stockQuantity — never stored
+    const lowStockThreshold = parseInt(
+      this.configService.get<string>('LOW_STOCK_THRESHOLD') ?? '5',
+      10,
+    );
+    const isLowStock =
+      saved.availability === ProductAvailability.IN_STOCK &&
+      saved.stockQuantity <= lowStockThreshold;
+
+    return Object.assign(saved, { isLowStock });
   }
 
   async incrementAgentMetrics(

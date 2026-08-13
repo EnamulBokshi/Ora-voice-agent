@@ -53,16 +53,16 @@ Implementation of the multi-tenant e-commerce product catalog (`Product`), conte
 ## 🟢 Phase 3: RAG & Vector Store Pipeline (COMPLETED)
 
 ### Overview
-Implementation of tenant-isolated vector search, embedding generation, RAG prompt augmentation, candidate capping (top 5), zero/low-confidence fallback logging (`RAG_FALLBACK_TRIGGERED`), self-healing embedding enqueueing, and bulk re-indexing for merchant catalogs.
+Implementation of tenant-isolated vector search, configurable embedding generation, candidate capping (top 5), multi-tier fallback logging (`RAG_FALLBACK_TRIGGERED` with `fallbackTier`), Gap B live platform fallback, verification parity across channels, embedding model tagging, and self-healing index routines.
 
-### Implemented Components
+### Implemented Components & RAG Engine Fixes
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
-| **VectorIndex Schema** | `server/src/rag/schemas/vector-index.schema.ts` | Completed | Persistent vector storage carrying `businessId`, `entityType` (`product` \| `knowledge_chunk`), `entityId`, vector array, and metadata. |
-| **Embedding Service** | `server/src/rag/services/embedding.service.ts` | Completed | Generates 768-dimensional text embeddings via Gemini API (`text-embedding-004`) with normalized TF-IDF vectorizer fallback. |
-| **Vector Store Service** | `server/src/rag/services/vector-store.service.ts` | Completed | Tenant-isolated vector indexing, cosine similarity scoring, entity upserts, and deletion routines. |
-| **RAG Service & Controller** | `server/src/rag/services/rag.service.ts`, `server/src/rag/rag.controller.ts` | Completed | Combined hybrid semantic search across products and store rules, candidate cap (top 5), low-confidence fallback logging to `EventsService`, self-healing embeddings, and tenant re-indexing. |
+| **VectorIndex Schema** | `server/src/rag/schemas/vector-index.schema.ts` | Completed | Persistent vector storage carrying `businessId`, `entityType` (`product` \| `knowledge_chunk`), `entityId`, vector array, metadata, and model tagging fields (`embeddingModel`, `embeddingVersion`). |
+| **Embedding Service** | `server/src/rag/services/embedding.service.ts` | Completed | Generates 768-dimensional text embeddings via configurable Gemini API (`GEMINI_EMBEDDING_MODEL`, default `models/text-embedding-004`) returning `EmbeddingResult` (`vector`, `embeddingModel`, `embeddingVersion`) with deterministic term-hashing fallback. |
+| **Vector Store Service** | `server/src/rag/services/vector-store.service.ts` | Completed | Tenant-isolated vector indexing, cosine similarity scoring, entity upserts with model/version tagging, and deletion routines. |
+| **RAG Service & Controller** | `server/src/rag/services/rag.service.ts`, `server/src/rag/rag.controller.ts` | Completed | Hybrid search engine supporting **Gap A** (Mongo regex fallback) and **Gap B** (live platform fallback to Shopify, WooCommerce, or Manual APIs per `connectedPlatform`), event logging (`RAG_FALLBACK_TRIGGERED` with `fallbackTier`), self-healing auto-indexing, and configurable similarity thresholds (`RAG_PRODUCT_CONFIDENCE_THRESHOLD=0.65`, `RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD=0.60`). |
 
 ---
 
@@ -77,25 +77,25 @@ Implementation of customer order creation (`Order`), sequential human-readable o
 |---|---|---|---|
 | **Order Schema** | `server/src/orders/schemas/order.schema.ts` | Completed | Multi-tenant schema indexed by `businessId`, sequential `ORD-2026-000100` numbering, item array, total amount, shipping address, and status lifecycle (`pending`, `confirmed`, `shipped`, `delivered`, `canceled`). |
 | **Orders Service & Controller** | `server/src/orders/orders.service.ts`, `server/src/orders/orders.controller.ts` | Completed | Order creation, pagination, details lookup, status update, and automatic `ORDER_PLACED` event logging. Endpoints: `/api/v1/orders` (POST, GET), `/api/v1/orders/:id` (GET), `/api/v1/orders/:id/status` (PATCH). |
-| **Event Audit Engine** | `server/src/events/schemas/event.schema.ts`, `server/src/events/events.service.ts` | Completed | Domain event logger tracking audit events (`rag_fallback_triggered`, `product_recommended`, `order_placed`, `cart_updated`, `authority_escalation_flagged`). |
+| **Event Audit Engine** | `server/src/events/schemas/event.schema.ts`, `server/src/events/events.service.ts` | Completed | Domain event logger tracking audit events (`rag_fallback_triggered` with `fallbackTier`, `product_recommended`, `order_placed`, `cart_updated`, `authority_escalation_flagged`). |
 
 ---
 
 ## 🟢 Phase 5: Customer, Agent Config & Gemini Real-Time Voice Gateway (COMPLETED)
 
 ### Overview
-Implementation of end-shopper customer profiles (`Customer` with AES-256 PII encryption), AI agent brand voice & sales playbooks (`AgentConfig`), REST APIs, real-time WebSocket Gateways (`VoiceGateway` & `GeminiVoiceService`) with configurable Gemini 2.5 models (`GEMINI_MODEL=models/gemini-2.5-flash`), and unified AI tool execution (`find_products`, `get_product_details`, `add_to_cart`, `place_order`, `redirect_to_checkout`, `get_store_policy`).
+Implementation of end-shopper customer profiles (`Customer` with AES-256 PII encryption), AI agent brand voice & sales playbooks (`AgentConfig`), REST APIs, real-time WebSocket Gateways (`VoiceGateway` & `GeminiVoiceService`) with configurable Gemini 2.5 models (`GEMINI_MODEL=models/gemini-2.5-flash`), verification parity across text and voice gateways, and unified AI tool execution (`find_products`, `get_product_details`, `add_to_cart`, `place_order`, `redirect_to_checkout`, `get_store_policy`).
 
 ### Implemented Components
 
 | Component / Layer | Location | Status | Details |
 |---|---|---|---|
 | **Customer Service & Controller** | `server/src/customers/customers.service.ts`, `server/src/customers/customers.controller.ts` | Completed | End-shopper profile management, PII encryption/decryption (`emailEncrypted`, `phoneEncrypted`). |
-| **AgentConfig Controller** | `server/src/agent-config/agent-config.controller.ts` | Completed | Endpoints: `/api/v1/agent-config` (GET, PATCH). |
+| **AgentConfig Controller** | `server/src/agent-config/agent-config.controller.ts` | Completed | Endpoints: `/api/v1/agent-config` (GET, PATCH). Configures brand voice and `SalesPlaybook.mentionLowStockUrgency`. |
 | **Conversations Service & Controller** | `server/src/conversations/conversations.service.ts`, `server/src/conversations/conversations.controller.ts` | Completed | Session resolution, transcript querying, Redis session state, and closing conversations. |
-| **Conversation Gateway** | `server/src/gateway/conversation.gateway.ts` | Completed | Socket.io namespace `/conversations` supporting `biz_live_xxxx` key auth, text messaging, and RAG catalog lookup. |
-| **AI Tool Definitions & Executor** | `server/src/ai-voice/tools/ai-tools.definition.ts`, `server/src/ai-voice/tools/ai-tools.executor.ts` | Completed | Unified `find_products` (live price/stock verification), `place_order` (order creation via `OrdersService`), `redirect_to_checkout` (storefront checkout link), `add_to_cart`, `get_product_details`, `get_store_policy`. |
-| **Gemini Voice Service** | `server/src/ai-voice/gemini-voice.service.ts` | Completed | Manages bidirectional WebSocket sessions with Gemini Live API using configurable `GEMINI_MODEL` (`models/gemini-2.5-flash`), streaming PCM audio, system instructions, and tool execution. |
+| **Conversation Gateway** | `server/src/gateway/conversation.gateway.ts` | Completed | Socket.io namespace `/conversations` supporting `biz_live_xxxx` key auth, text messaging, and verified product lookup parity via `AiToolsExecutor.find_products`. |
+| **AI Tool Definitions & Executor** | `server/src/ai-voice/tools/ai-tools.definition.ts`, `server/src/ai-voice/tools/ai-tools.executor.ts` | Completed | Unified `find_products` (live price/stock verification via `ProductsService.verifyLive()`), low-stock urgency detection (`isLowStock`, `urgencyHint` based on `LOW_STOCK_THRESHOLD=5`), `place_order`, `redirect_to_checkout`, `add_to_cart`, `get_product_details`, `get_store_policy`. |
+| **Gemini Voice Service** | `server/src/ai-voice/gemini-voice.service.ts` | Completed | Manages bidirectional WebSocket sessions with Gemini Live API using configurable `GEMINI_MODEL`, streaming PCM audio, dynamic system instructions with low-stock urgency guidance, and tool execution. |
 | **Voice Gateway** | `server/src/gateway/voice.gateway.ts` | Completed | Socket.io namespace `/voice` enabling live widget microphone audio streaming (`start-voice-session`, `audio-chunk`, `stop-voice-session`). |
 
 ---

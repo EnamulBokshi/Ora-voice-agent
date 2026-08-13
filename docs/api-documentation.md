@@ -77,10 +77,23 @@ interface ErrorEnvelope {
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
-| `/api/v1/rag/search-products` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Semantic vector product search with candidate cap (top 5) & low-confidence fallback (logs `RAG_FALLBACK_TRIGGERED` event). |
+| `/api/v1/rag/search-products` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Semantic vector product search with candidate cap (top 5), multi-tier fallback (**Gap A** `mongo_regex` & **Gap B** `live_shopify`/`live_woocommerce`/`live_manual`), event logging (`RAG_FALLBACK_TRIGGERED` with `fallbackTier`), and self-healing auto-indexing. |
 | `/api/v1/rag/search-knowledge` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Semantic vector search on store policies, FAQs & sales playbooks. |
 | `/api/v1/rag/search` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Combined hybrid semantic search across products and store rules. |
 | `/api/v1/rag/reindex-tenant` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Trigger bulk vector re-indexing for tenant catalog and knowledge base. |
+
+### 4.1 RAG Engine Configuration & Fallback Taxonomy
+
+#### Configurable Similarity Thresholds (Environment Variables)
+- `RAG_PRODUCT_CONFIDENCE_THRESHOLD` (default `0.65`): Minimum cosine similarity score for candidate product vectors.
+- `RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD` (default `0.60`): Minimum cosine similarity score for knowledge chunk vectors.
+- `GEMINI_EMBEDDING_MODEL` (default `models/text-embedding-004`): Google Gemini embedding model identifier.
+
+#### Self-Healing Fallback Taxonomy (`fallbackTier`)
+When vector search returns zero results or candidates below confidence thresholds:
+1. **`mongo_regex` (Gap A)**: Product exists in tenant MongoDB catalog but has not been embedded yet. Discovered via regex search, returned immediately, and asynchronously embedded into `VectorIndex`.
+2. **`live_shopify` / `live_woocommerce` / `live_manual` (Gap B)**: Product does not exist in MongoDB at all (ingestion lag). RAG queries the merchant's live platform API directly using stored connector credentials (`connectedPlatform`), returns the live product payload, asynchronously batch-syncs it to MongoDB, and embeds it into `VectorIndex`.
+3. **`none`**: Vector search hit directly on fast RAG path, or query unresolvable across all fallback tiers.
 
 ---
 
@@ -105,33 +118,30 @@ interface ErrorEnvelope {
 |---|---|---|---|
 | `/api/v1/customers` | `POST` / `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Manage end-shopper profiles with AES-256 field-level PII encryption. |
 | `/api/v1/customers/:id` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Fetch or update customer PII & preferences. |
-| `/api/v1/agent-config` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve or update brand voice, voice IDs, and sales playbook settings. |
+| `/api/v1/agent-config` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve or update brand voice, voice IDs, and sales playbook settings (`mentionLowStockUrgency`). |
 | `/api/v1/conversations` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | List merchant customer conversation sessions with pagination. |
 | `/api/v1/conversations/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve transcript with full message history and tool calls. |
 | `/api/v1/conversations/:id/close` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Mark conversation session closed. |
-| `ws://<host>/conversations` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Text chat conversation gateway with RAG lookup. |
+| `ws://<host>/conversations` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Text chat conversation gateway with verified product lookup parity (`AiToolsExecutor.find_products` + `ProductsService.verifyLive`). |
 | `ws://<host>/voice` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Real-time bidirectional audio streaming & tool execution powered by Gemini 2.5 (`GEMINI_MODEL=models/gemini-2.5-flash`). |
 
-### 6.1 Gemini Real-Time Voice Gateway Protocol (`ws://<host>/voice`)
+### 6.1 Gemini Real-Time Voice & Text Chat AI Agent Tools
 
-#### Client Socket Events
-- `start-voice-session`: `{ publishableKey: string, sessionId: string }` — Initiates Bidi session with Gemini Live API.
-- `audio-chunk`: `{ audio: string }` — Base64 encoded PCM 16kHz microphone audio chunk.
-- `stop-voice-session`: Closes active voice session.
-
-#### Server Socket Events
-- `voice-session-started`: `{ success: true, sessionId: string, businessId: string }`
-- `audio-stream`: `{ sessionId: string, audio: string, mimeType: 'audio/pcm;rate=24000' }` — Streaming model speech output.
-- `text-stream`: `{ sessionId: string, text: string }` — Transcription text.
-- `voice-error`: `{ message: string }`
+#### Channel Verification Parity
+Both the **Voice Gateway** (`ws://<host>/voice`) and the **Text Chat Gateway** (`ws://<host>/conversations`) route product discovery requests through the unified `AiToolsExecutor.find_products` path. Every price and stock value returned to a shopper is verified in real-time via `ProductsService.verifyLive()`.
 
 #### Executable AI Agent Tools
-- `find_products`: Unified search and live verification tool returning pre-verified product price and stock quantity.
-- `get_product_details`: Fetches full product metadata.
+- `find_products`: Unified search and live verification tool returning pre-verified price, stock quantity, `isLowStock` boolean, and optional `urgencyHint` string.
+- `get_product_details`: Fetches full product metadata including real-time stock verification.
 - `add_to_cart`: Adds item to Redis session cart (`cart:conv:{sessionId}`).
 - `place_order`: Places customer order directly from Redis cart (Tier 1 integrated merchants).
 - `redirect_to_checkout`: Generates storefront checkout URL (Tier 2-4 merchants).
 - `get_store_policy`: Searches knowledge base for FAQs and policies.
+
+#### Low-Stock Urgency Signal (`isLowStock` & `urgencyHint`)
+- Threshold: Configured via `LOW_STOCK_THRESHOLD` (default `5` units).
+- Derived State: `isLowStock = (availability === 'in_stock' && stockQuantity <= LOW_STOCK_THRESHOLD)`. Computed dynamically at response time; never stored statically.
+- Sales Playbook Wiring: When `SalesPlaybook.mentionLowStockUrgency` is enabled for the business, `find_products` attaches an `urgencyHint` ("Only X left in stock!") and the Gemini system prompt instructs the AI voice agent to naturally communicate limited availability.
 
 ---
 

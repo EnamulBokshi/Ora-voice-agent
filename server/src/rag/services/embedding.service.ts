@@ -1,6 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+export interface EmbeddingResult {
+  vector: number[];
+  /** e.g. "text-embedding-004" or "fallback-term-hash" */
+  embeddingModel: string;
+  /** e.g. "gemini-v1" or "deterministic-v1" */
+  embeddingVersion: string;
+}
+
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
@@ -9,21 +17,30 @@ export class EmbeddingService {
 
   /**
    * Generates 768-dimensional normalized text vector embeddings.
+   * Returns the vector alongside the model name and version that produced it.
    * Fallbacks to deterministic term-hashing vectorizer if API key is unconfigured.
    */
-  async generateEmbedding(text: string): Promise<number[]> {
+  async generateEmbedding(text: string): Promise<EmbeddingResult> {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
 
     if (apiKey) {
       try {
-        // Production Gemini Embedding API integration point (text-embedding-004)
+        const rawModel =
+          this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
+          'models/text-embedding-004';
+        const fullModel = rawModel.startsWith('models/')
+          ? rawModel
+          : `models/${rawModel}`;
+        const modelPath = fullModel.replace('models/', '');
+
+        // Production Gemini Embedding API integration point
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelPath}:embedContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'models/text-embedding-004',
+              model: fullModel,
               content: { parts: [{ text }] },
             }),
           },
@@ -32,7 +49,11 @@ export class EmbeddingService {
         if (response.ok) {
           const data: any = await response.json();
           if (data.embedding?.values) {
-            return this.normalizeVector(data.embedding.values);
+            return {
+              vector: this.normalizeVector(data.embedding.values),
+              embeddingModel: modelPath,
+              embeddingVersion: 'gemini-v1',
+            };
           }
         }
       } catch (err: any) {
@@ -41,7 +62,11 @@ export class EmbeddingService {
     }
 
     // Fallback deterministic vector generator for local testing
-    return this.generateFallbackVector(text);
+    return {
+      vector: this.generateFallbackVector(text),
+      embeddingModel: 'fallback-term-hash',
+      embeddingVersion: 'deterministic-v1',
+    };
   }
 
   /**

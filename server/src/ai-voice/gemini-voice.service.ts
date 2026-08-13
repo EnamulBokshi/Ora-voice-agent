@@ -63,6 +63,7 @@ export class GeminiVoiceService {
 
     // Fetch merchant agent prompt configuration
     let merchantBrandVoice = '';
+    let mentionLowStockUrgency = false;
     try {
       const agentConfig = await this.agentConfigService.getConfig(
         options.businessId,
@@ -70,8 +71,9 @@ export class GeminiVoiceService {
       if (agentConfig?.config?.brandVoiceDescription) {
         merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
       }
+      mentionLowStockUrgency = agentConfig?.playbook?.mentionLowStockUrgency ?? false;
     } catch {
-      // Fallback — no custom brand voice
+      // Fallback — no custom brand voice or playbook
     }
 
     const systemInstructionText = [
@@ -87,13 +89,16 @@ export class GeminiVoiceService {
       '6. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
       '7. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
       '8. If the customer speaks a language other than English, try to respond in their language.',
+      mentionLowStockUrgency
+        ? '9. When a product in the tool response has an urgencyHint field, naturally work that urgency into your reply (e.g., "Just 2 left — grab it while you can!"). Keep it brief and genuine, not pushy.'
+        : '',
       '',
       'TOOLS:',
       '- Use find_products to search the product catalog. Always use it when a customer asks about products.',
       '- Use add_to_cart to add items to the shopping cart.',
       '- Use place_order to complete a purchase from the cart.',
       '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;

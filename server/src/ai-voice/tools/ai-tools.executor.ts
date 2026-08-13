@@ -6,6 +6,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { EventsService } from '../../events/events.service';
 import { EventType } from '../../events/schemas/event.schema';
 import { OrdersService } from '../../orders/orders.service';
+import { AgentConfigService } from '../../agent-config/agent-config.service';
 
 @Injectable()
 export class AiToolsExecutor {
@@ -18,6 +19,7 @@ export class AiToolsExecutor {
     private readonly redisService: RedisService,
     private readonly eventsService: EventsService,
     private readonly ordersService: OrdersService,
+    private readonly agentConfigService: AgentConfigService,
   ) {}
 
   async executeTool(
@@ -59,12 +61,21 @@ export class AiToolsExecutor {
   }
 
   private async handleFindProducts(businessId: string, args: Record<string, any>) {
-    // 1. Semantic RAG search for shortlist of candidate product IDs
+    // 1. Semantic RAG search for shortlist of candidate product IDs (Gap A+B aware)
     const ragRes = await this.ragService.searchCombined(businessId, args.query, {
       limit: 5,
     });
 
-    // 2. Batch live verify price and stock availability for candidates
+    // 2. Fetch sales playbook for this tenant — needed for mentionLowStockUrgency (Fix 5)
+    let mentionLowStockUrgency = false;
+    try {
+      const agentCfg = await this.agentConfigService.getConfig(businessId);
+      mentionLowStockUrgency = agentCfg?.playbook?.mentionLowStockUrgency ?? false;
+    } catch {
+      // Non-fatal: proceed without urgency hints
+    }
+
+    // 3. Batch live-verify price and stock for each candidate
     const liveVerifiedProducts: any[] = [];
     for (const prod of ragRes.products) {
       const targetId =
@@ -73,19 +84,55 @@ export class AiToolsExecutor {
         (prod as any)._id ||
         ((prod as any).data && (prod as any).data._id);
       if (!targetId) continue;
-      const live = await this.productsService.verifyLive(businessId, targetId.toString());
-      if (live) {
-        liveVerifiedProducts.push({
-          id: live._id.toString(),
-          name: live.name,
-          price: live.price,
-          currency: live.currency,
-          availability: live.availability,
-          stockQuantity: live.stockQuantity,
-          category: live.category,
-          sourceTier: live.sourceTier,
-          confidenceScore: live.confidenceScore,
-        });
+
+      try {
+        const live = await this.productsService.verifyLive(businessId, targetId.toString());
+        if (live) {
+          const entry: Record<string, any> = {
+            id: live._id.toString(),
+            name: live.name,
+            price: live.price,
+            currency: live.currency,
+            availability: live.availability,
+            stockQuantity: live.stockQuantity,
+            category: live.category,
+            sourceTier: live.sourceTier,
+            confidenceScore: live.confidenceScore,
+            // Fix 5: expose isLowStock computed by verifyLive
+            isLowStock: (live as any).isLowStock ?? false,
+          };
+
+          // Wire mentionLowStockUrgency: add urgencyHint when merchant has it enabled
+          if (mentionLowStockUrgency && (live as any).isLowStock) {
+            entry.urgencyHint = `Only ${live.stockQuantity} left in stock — selling fast!`;
+          }
+
+          liveVerifiedProducts.push(entry);
+        }
+      } catch {
+        // Product may have been live-found via Gap B but not yet in Mongo — skip
+      }
+    }
+
+    // 4. If RAG returned Gap B live results (not in Mongo yet), surface them directly
+    //    They're already live-verified (sourced fresh from the platform)
+    if (liveVerifiedProducts.length === 0 && ragRes.products.length > 0) {
+      for (const prod of ragRes.products) {
+        const raw = (prod as any).data || prod;
+        if (!raw || !raw.name) continue;
+        const entry: Record<string, any> = {
+          id: raw.nativeProductId || raw.entityId || 'live',
+          name: raw.name,
+          price: raw.price || 0,
+          currency: raw.currency || 'USD',
+          availability: raw.availability,
+          stockQuantity: raw.stockQuantity || 0,
+          category: raw.category,
+          sourceTier: raw.sourceTier,
+          confidenceScore: raw.confidenceScore || 0.7,
+          isLowStock: false,
+        };
+        liveVerifiedProducts.push(entry);
       }
     }
 
@@ -98,6 +145,7 @@ export class AiToolsExecutor {
         message:
           'No products found matching this query. The merchant catalog may be empty or does not contain items matching these search terms. Do NOT retry the same search. Tell the customer you could not find matching products.',
         fallbackTriggered: ragRes.fallbackTriggered,
+        fallbackTier: ragRes.fallbackTier,
       };
     }
 
@@ -108,14 +156,27 @@ export class AiToolsExecutor {
       totalFound: liveVerifiedProducts.length,
       message: `Found ${liveVerifiedProducts.length} product(s) matching "${args.query}".`,
       fallbackTriggered: ragRes.fallbackTriggered,
+      fallbackTier: ragRes.fallbackTier,
     };
   }
 
   private async handleGetProductDetails(businessId: string, args: Record<string, any>) {
-    const product = await this.productsService.findOne(businessId, args.productId);
+    // Use verifyLive so isLowStock is always included
+    const product = await this.productsService.verifyLive(businessId, args.productId);
     return {
       success: true,
-      product,
+      product: {
+        id: product._id.toString(),
+        name: product.name,
+        description: (product as any).description,
+        price: product.price,
+        currency: product.currency,
+        availability: product.availability,
+        stockQuantity: product.stockQuantity,
+        category: product.category,
+        images: product.images,
+        isLowStock: (product as any).isLowStock ?? false,
+      },
     };
   }
 
@@ -128,6 +189,7 @@ export class AiToolsExecutor {
       stockQuantity: product.stockQuantity || 0,
       availability: product.availability,
       price: product.price,
+      isLowStock: (product as any).isLowStock ?? false,
     };
   }
 
