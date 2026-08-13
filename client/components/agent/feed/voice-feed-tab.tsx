@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Loader2, CheckCircle2, Trash2 } from 'lucide-react';
 import { createKnowledgeDocApi } from '@/services/knowledge-service';
-import { KNOWLEDGE_CATEGORIES } from './feed-types';
+import { DocType } from '@/types/knowledge';
 import { cn } from '@/lib/utils';
 
 interface VoiceFeedTabProps {
@@ -50,20 +50,14 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 }
 
 export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
-  const [categoryId, setCategoryId] = useState(KNOWLEDGE_CATEGORIES[0].id);
-  const [title, setTitle] = useState('');
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechSupported] = useState(() => getSpeechRecognitionCtor() !== null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isListeningRef = useRef(false);
-
-  useEffect(() => {
-    setSpeechSupported(getSpeechRecognitionCtor() !== null);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -135,23 +129,21 @@ export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
   };
 
   const handleSave = async () => {
-    if (!title.trim() || !transcript.trim()) {
-      setError('Add a title and record or type some content first.');
+    if (!transcript.trim()) {
+      setError('Record or type some content first.');
       return;
     }
 
-    const category = KNOWLEDGE_CATEGORIES.find((c) => c.id === categoryId)!;
     setIsSaving(true);
     setError(null);
     try {
       await createKnowledgeDocApi({
-        title: title.trim(),
-        docType: category.docType,
+        title: 'Voice input',
+        docType: DocType.BRAND_RULE,
         content: transcript.trim(),
         metadata: { source: 'voice_feed' },
       });
       setTranscript('');
-      setTitle('');
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       onFed();
@@ -164,42 +156,6 @@ export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
 
   return (
     <div className="space-y-5">
-      {/* Category picker */}
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          What are you telling ORA about?
-        </label>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {KNOWLEDGE_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCategoryId(cat.id)}
-              className={cn(
-                'rounded-xl border p-3 text-left transition-colors',
-                categoryId === cat.id
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-surface-low hover:bg-surface-high',
-              )}
-            >
-              <p className="text-xs font-semibold text-foreground">{cat.label}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{cat.description}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Title */}
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Title</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. About our store, Summer collection pricing, Return policy..."
-          className="w-full rounded-xl border border-border bg-surface-low px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-
       {/* Recorder */}
       <div className="rounded-2xl border border-border bg-surface-low p-5 flex flex-col items-center gap-4">
         <button
@@ -265,14 +221,14 @@ export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
         <button
           onClick={handleSave}
           disabled={isSaving || isListening}
-          className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
+          className="px-5 py-2.5 rounded-xl text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? (
             <>
-              <Loader2 size={14} className="animate-spin" /> Feeding ORA...
+              <Loader2 size={14} className="animate-spin" /> Saving...
             </>
           ) : (
-            'Feed to ORA'
+            'Save Knowledge'
           )}
         </button>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Radio } from 'lucide-react';
 
 interface AgentHeaderProps {
   onOpenVoiceTest?: () => void;
@@ -19,13 +19,15 @@ export function AgentHeader({ onOpenVoiceTest }: AgentHeaderProps) {
         </p>
       </div>
 
-      <button
-        onClick={onOpenVoiceTest}
-        className="px-3.5 py-2 rounded-xl text-xs font-bold border text-emerald-300 transition-all flex items-center gap-1.5 hover:bg-emerald-500/20 shadow-md bg-emerald-950/40 border-emerald-500/30 shrink-0"
-      >
-        <Sparkles size={14} className="text-emerald-400 animate-pulse" />
-        Test Voice Agent
-      </button>
+      {onOpenVoiceTest && (
+        <button
+          onClick={onOpenVoiceTest}
+          className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 transition-all flex items-center gap-2 shrink-0"
+        >
+          <Radio size={15} className="animate-pulse" />
+          <span>Test ORA Voice</span>
+        </button>
+      )}
     </div>
   );
 }
