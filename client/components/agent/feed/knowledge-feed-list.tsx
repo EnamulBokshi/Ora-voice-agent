@@ -20,9 +20,11 @@ const DOCTYPE_ICONS: Record<string, React.ReactNode> = {
   [DocType.UPLOADED_DOC]: <FileText size={15} />,
 };
 
-export function KnowledgeFeedList({ docs, loading, onDeleted }: KnowledgeFeedListProps) {
+export function KnowledgeFeedList({ docs = [], loading, onDeleted }: KnowledgeFeedListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const safeDocs = Array.isArray(docs) ? docs : [];
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -42,7 +44,7 @@ export function KnowledgeFeedList({ docs, loading, onDeleted }: KnowledgeFeedLis
       <div className="px-5 py-3.5 border-b border-border bg-surface-low flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Database size={15} className="text-primary" />
-          What ORA knows ({docs.length})
+          Indexed Knowledge & Documents ({safeDocs.length})
         </h3>
       </div>
 
@@ -57,12 +59,12 @@ export function KnowledgeFeedList({ docs, loading, onDeleted }: KnowledgeFeedLis
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 size={18} className="animate-spin" />
           </div>
-        ) : docs.length === 0 ? (
+        ) : safeDocs.length === 0 ? (
           <p className="py-8 text-center text-xs text-muted-foreground">
             Nothing yet. Use the tabs above to feed ORA your business info, products, and documents.
           </p>
         ) : (
-          docs.map((doc) => {
+          safeDocs.map((doc) => {
             const meta = FEED_CATEGORY_META[doc.docType] ?? { label: 'Document' };
             const icon = DOCTYPE_ICONS[doc.docType] ?? <FileText size={15} />;
             const source = doc.metadata?.source as string | undefined;

@@ -50,6 +50,7 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: 'My Store',
     items: [
+      { id: 'dashboard', label: 'Overview', href: '/dashboard', icon: <LayoutDashboard size={16} /> },
       { id: 'live-desk', label: 'Live Desk', href: '/live-desk', icon: <Radio size={16} /> },
       {
         id: 'agent',
@@ -90,12 +91,13 @@ const navGroups: NavGroup[] = [
 const allNavItems = navGroups.flatMap((g) => g.items);
 
 function navIdFromPath(pathname: string): string {
+  if (pathname === '/' || pathname.startsWith('/dashboard')) return 'dashboard';
   const match = allNavItems.find(
     (item) =>
       !item.href.includes('?') &&
       pathname.startsWith(item.href),
   );
-  return match?.id ?? 'live-desk';
+  return match?.id ?? 'dashboard';
 }
 
 interface SidebarProps {

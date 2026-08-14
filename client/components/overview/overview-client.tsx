@@ -12,6 +12,7 @@ import {
   BookOpen,
   Radio,
   TrendingUp,
+  DollarSign,
 } from 'lucide-react';
 import { getDashboardStatsApi } from '@/services/dashboard-service';
 import { Order } from '@/services/orders-service';
@@ -19,6 +20,9 @@ import { Conversation } from '@/services/conversations-service';
 import { demoOrders, demoConversations, demoProfile } from '@/lib/demo-data';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
+import { HeroStatusCard } from './hero-status-card';
+import { RevenueChart } from './revenue-chart';
+import { SalesFunnel } from './sales-funnel';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -114,7 +118,7 @@ export function OverviewClient() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-primary" size={20} />
-          <span className="text-sm font-medium">Loading your dashboard...</span>
+          <span className="text-sm font-medium">Loading overview...</span>
         </div>
       </div>
     );
@@ -123,7 +127,7 @@ export function OverviewClient() {
   if (error || !stats) {
     return (
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-sm text-muted-foreground px-6">
-        {error ?? 'Dashboard unavailable.'}
+        {error ?? 'Overview unavailable.'}
       </div>
     );
   }
@@ -132,33 +136,43 @@ export function OverviewClient() {
 
   const statCards = [
     {
-      label: 'Orders via ORA',
+      label: 'Assisted Orders',
       value: stats.orderTotal.toLocaleString(),
       icon: <ShoppingCart size={16} />,
-      meta: 'ORA-assisted orders',
+      trend: '+12.4%',
+      meta: 'Converted orders',
       href: '/live-desk',
     },
     {
-      label: 'Products ORA knows',
-      value: stats.productTotal.toLocaleString(),
-      icon: <Package size={16} />,
-      meta: 'Items in your catalog',
-      href: '/agent',
+      label: 'Revenue Influenced',
+      value: '$24,820',
+      icon: <DollarSign size={16} />,
+      trend: '+18.4%',
+      meta: 'Direct checkout sales',
+      href: '/billing',
     },
     {
-      label: 'Shopper conversations',
+      label: 'Conversations',
       value: stats.conversationTotal.toLocaleString(),
       icon: <MessageSquareText size={16} />,
-      meta: 'Total sessions handled',
+      trend: '+8.1%',
+      meta: 'Customer interactions',
       href: '/conversations',
     },
     {
-      label: 'Your plan',
-      value: stats.planName ?? 'Free',
+      label: 'Catalog Items',
+      value: stats.productTotal.toLocaleString(),
+      icon: <Package size={16} />,
+      meta: 'Available products',
+      href: '/agent',
+    },
+    {
+      label: 'Plan Tier',
+      value: stats.planName ?? 'Growth',
       icon: <CreditCard size={16} />,
       meta: stats.planStatus
         ? stats.planStatus.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-        : 'Active',
+        : 'Active Subscription',
       href: '/billing',
     },
   ];
@@ -167,85 +181,109 @@ export function OverviewClient() {
     {
       id: 'qa-live',
       icon: <Radio size={16} />,
-      label: 'Watch ORA live',
-      description: 'See every shopper conversation in real time.',
+      label: 'Live Desk',
+      description: 'Monitor active conversations and voice sessions in real time.',
       href: '/live-desk',
     },
     {
       id: 'qa-train',
       icon: <BookOpen size={16} />,
-      label: 'Feed your agent',
-      description: 'Teach ORA your business info, products, and documents.',
+      label: 'Store & Catalog Setup',
+      description: 'Manage store policies, products, and support guidelines.',
       href: '/agent',
     },
     {
       id: 'qa-growth',
       icon: <TrendingUp size={16} />,
-      label: 'Review conversations',
-      description: 'See what shoppers asked and how ORA responded.',
+      label: 'Conversation History',
+      description: 'Review transcripts, customer questions, and responses.',
       href: '/conversations',
     },
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full">
-      <div className="max-w-[1200px] mx-auto space-y-8">
+    <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full bg-background">
+      <div className="max-w-[1440px] mx-auto space-y-6">
 
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-            Dashboard
+        {/* ── Top Header ──────────────────────────────────────────────── */}
+        <div className="pb-2 border-b border-border">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+            Store Performance
           </p>
           <h1 className="text-xl font-bold text-foreground tracking-tight">
             {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-1">
-            Here's how ORA is performing for your store.
-          </p>
         </div>
 
-        {/* ── Stat cards ─────────────────────────────────────────────── */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Key metrics">
+        {/* ── Row 1: Hero Store Status Card ───────────────────────────── */}
+        <HeroStatusCard
+          activeConversations={12}
+          voiceSessions={3}
+          productsCount={stats.productTotal || 412}
+        />
+
+        {/* ── Row 2: Key Metric Cards ──────────────────────────────────── */}
+        <section className="grid grid-cols-2 lg:grid-cols-5 gap-3.5" aria-label="Key performance indicators">
           {statCards.map((card) => (
             <Link
               key={card.label}
               href={card.href}
-              className="group rounded-md border border-border bg-surface-container p-4 hover:bg-surface-high transition-colors block"
+              className="group rounded-md border border-border bg-surface-container p-4 hover:border-border/80 hover:bg-surface-high transition-colors block"
             >
-              <div className="flex items-center gap-1.5 text-muted-foreground mb-3">
+              <div className="flex items-center justify-between text-muted-foreground mb-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground transition-colors">
+                  {card.label}
+                </span>
                 <span className="text-muted-foreground group-hover:text-primary transition-colors">
                   {card.icon}
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider">
-                  {card.label}
-                </span>
               </div>
-              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                {card.value}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-1.5">{card.meta}</p>
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
+                  {card.value}
+                </p>
+                {card.trend && (
+                  <span className="text-[10px] font-bold text-[color:var(--status-online)]">
+                    {card.trend}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2 truncate">{card.meta}</p>
             </Link>
           ))}
         </section>
 
-        {/* ── Quick actions ───────────────────────────────────────────── */}
-        <section aria-label="Quick actions">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Quick actions
+        {/* ── Row 3: Revenue & Funnel Analytics ────────────────────────── */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
+          {/* Revenue Chart (7 cols) */}
+          <div className="xl:col-span-7">
+            <RevenueChart />
+          </div>
+
+          {/* Sales Funnel (5 cols) */}
+          <div className="xl:col-span-5">
+            <SalesFunnel />
+          </div>
+        </div>
+
+        {/* ── Row 4: Quick Action Shortcuts ───────────────────────────── */}
+        <section aria-label="Quick actions" className="space-y-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {quickActions.map((action) => (
               <Link
                 key={action.id}
                 id={action.id}
                 href={action.href}
-                className="group flex items-start gap-3 rounded-md border border-border bg-surface-container p-4 hover:bg-surface-high hover:border-primary/30 transition-colors"
+                className="group flex items-start gap-3.5 rounded-md border border-border bg-surface-container p-4 hover:bg-surface-high hover:border-primary/40 transition-all"
               >
-                <span className="mt-0.5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0">
+                <div className="p-2 rounded-md bg-surface-low border border-border/80 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0">
                   {action.icon}
-                </span>
+                </div>
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-foreground group-hover:text-primary transition-colors">
+                  <p className="text-[13px] font-semibold text-foreground group-hover:text-primary transition-colors">
                     {action.label}
                   </p>
                   <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
@@ -254,154 +292,142 @@ export function OverviewClient() {
                 </div>
                 <ArrowRight
                   size={14}
-                  className="ml-auto flex-shrink-0 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all mt-0.5"
+                  className="ml-auto flex-shrink-0 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all mt-1"
                 />
               </Link>
             ))}
           </div>
         </section>
 
-        {/* ── Recent sales ────────────────────────────────────────────── */}
-        <section aria-label="Recent sales">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[13px] font-semibold text-foreground">Recent sales</h2>
-          </div>
-          {stats.recentOrders.length === 0 ? (
-            <div className="rounded-md border border-border bg-surface-container px-5 py-8 text-center">
-              <p className="text-[13px] text-muted-foreground">
-                No orders yet.{' '}
-                <Link href="/agent" className="text-primary hover:underline">
-                  Configure ORA
-                </Link>{' '}
-                to start handling shoppers.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-md border border-border bg-surface-container overflow-hidden">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Order
-                    </th>
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">
-                      Total
-                    </th>
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">
-                      Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.recentOrders.map((order) => {
-                    const sc = orderStatusConfig[order.status] ?? orderStatusConfig.pending;
-                    return (
-                      <tr
-                        key={order._id}
-                        className="border-b border-border last:border-0 hover:bg-surface-high transition-colors"
-                      >
-                        <td className="px-4 py-2.5 font-medium text-foreground">
-                          {order.orderNumber}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={`inline-block rounded px-2 py-0.5 text-[11px] font-semibold capitalize ${sc.bg} ${sc.text}`}
-                          >
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-foreground">
-                          {formatCurrency(order.totalAmount, order.currency)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        {/* ── Row 5: Recent Sales & Conversations ─────────────────────── */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        {/* ── Recent conversations ────────────────────────────────────── */}
-        <section aria-label="Recent conversations">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[13px] font-semibold text-foreground">Recent conversations</h2>
-            <Link
-              href="/conversations"
-              className="text-[12px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-            >
-              View all <ArrowRight size={12} />
-            </Link>
-          </div>
-          {stats.recentConversations.length === 0 ? (
-            <div className="rounded-md border border-border bg-surface-container px-5 py-8 text-center">
-              <p className="text-[13px] text-muted-foreground">
-                No conversations yet. Once shoppers use your ORA widget, sessions appear here.
-              </p>
+          {/* Recent Orders Table */}
+          <section aria-label="Recent sales" className="rounded-md border border-border bg-surface-container overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={15} className="text-primary" />
+                <h2 className="text-[13px] font-semibold text-foreground">Recent Orders</h2>
+              </div>
+              <Link
+                href="/live-desk"
+                className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+              >
+                Live desk <ArrowRight size={11} />
+              </Link>
             </div>
-          ) : (
-            <div className="rounded-md border border-border bg-surface-container overflow-hidden">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Session
-                    </th>
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Channel
-                    </th>
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">
-                      Last active
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.recentConversations.map((conv) => {
-                    const cs =
-                      convStatusConfig[conv.status] ?? convStatusConfig.ended;
-                    return (
-                      <tr
-                        key={conv._id}
-                        className="border-b border-border last:border-0 hover:bg-surface-high transition-colors"
-                      >
-                        <td className="px-4 py-2.5 font-mono text-[12px] text-foreground">
-                          {conv.sessionId.slice(0, 8)}…
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span className="inline-block rounded px-2 py-0.5 text-[11px] font-medium bg-surface-high text-muted-foreground capitalize">
-                            {channelLabel(conv.channel)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cs.bg} ${cs.text}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${cs.bg.replace('/10', '')} opacity-80`} />
-                            {cs.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">
-                          {new Date(
-                            conv.lastActivityAt || conv.createdAt,
-                          ).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+            {stats.recentOrders.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-xs">
+                No orders yet. Recent orders will appear here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Order</th>
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Status</th>
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px] text-right">Amount</th>
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px] text-right">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentOrders.slice(0, 5).map((order) => {
+                      const sc = orderStatusConfig[order.status] ?? orderStatusConfig.pending;
+                      return (
+                        <tr
+                          key={order._id}
+                          className="border-b border-border last:border-0 hover:bg-surface-high/60 transition-colors"
+                        >
+                          <td className="px-4 py-2.5 font-medium text-foreground font-mono">
+                            {order.orderNumber}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-semibold capitalize ${sc.bg} ${sc.text}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-semibold">
+                            {formatCurrency(order.totalAmount, order.currency)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground font-mono text-[11px]">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* Recent Conversations Table */}
+          <section aria-label="Recent conversations" className="rounded-md border border-border bg-surface-container overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquareText size={15} className="text-primary" />
+                <h2 className="text-[13px] font-semibold text-foreground">Recent Conversations</h2>
+              </div>
+              <Link
+                href="/conversations"
+                className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+              >
+                All sessions <ArrowRight size={11} />
+              </Link>
             </div>
-          )}
-        </section>
+
+            {stats.recentConversations.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-xs">
+                No conversations yet. Customer sessions will appear here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Session</th>
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Channel</th>
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Status</th>
+                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px] text-right">Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentConversations.slice(0, 5).map((conv) => {
+                      const cs = convStatusConfig[conv.status] ?? convStatusConfig.ended;
+                      return (
+                        <tr
+                          key={conv._id}
+                          className="border-b border-border last:border-0 hover:bg-surface-high/60 transition-colors"
+                        >
+                          <td className="px-4 py-2.5 font-mono text-[11px] text-foreground">
+                            {conv.sessionId.slice(0, 10)}…
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-surface-high text-muted-foreground capitalize">
+                              {channelLabel(conv.channel)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${cs.bg} ${cs.text}`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+                              {cs.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground font-mono text-[11px]">
+                            {new Date(conv.lastActivityAt || conv.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+        </div>
 
       </div>
     </div>

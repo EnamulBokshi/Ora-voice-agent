@@ -10,7 +10,7 @@ export function CustomersHeader() {
         Customers
       </h1>
       <p className="text-[13px] text-muted-foreground mt-1">
-        End shoppers who have interacted with the ORA widget.
+        Shoppers who have browsed products, placed orders, or engaged in store conversations.
       </p>
     </div>
   );

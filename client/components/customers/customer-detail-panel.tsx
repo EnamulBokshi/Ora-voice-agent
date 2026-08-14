@@ -61,7 +61,7 @@ export function CustomerDetailPanel({ customer, onReload }: CustomerDetailPanelP
         {preferences && Object.keys(preferences).length > 0 && (
           <div className="space-y-2.5">
             <h4 className="text-[11px] font-medium uppercase text-muted-foreground tracking-wider">
-              Extracted preferences
+              Customer preferences
             </h4>
             <div className="space-y-1.5">
               {Object.entries(preferences).map(([key, value]) => (

@@ -46,6 +46,11 @@ export function ConversationsClient() {
   useEffect(() => {
     if (!selectedId) return;
 
+    // Demo conversation transcripts are already bundled locally
+    if (selectedId.startsWith('demo-')) {
+      return;
+    }
+
     let active = true;
     async function fetchTranscript() {
       setIsLoadingTranscript(true);
@@ -84,7 +89,9 @@ export function ConversationsClient() {
     if (!selectedId || isClosing) return;
     setIsClosing(true);
     try {
-      await closeConversationApi(selectedId);
+      if (!selectedId.startsWith('demo-')) {
+        await closeConversationApi(selectedId);
+      }
       setConversations((prev) =>
         prev.map((item) => (item.id === selectedId ? { ...item, status: 'completed' } : item)),
       );

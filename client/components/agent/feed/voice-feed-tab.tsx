@@ -148,7 +148,7 @@ export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
       setTimeout(() => setSaved(false), 2500);
       onFed();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to feed knowledge to ORA.');
+      setError(err instanceof Error ? err.message : 'Failed to save voice note.');
     } finally {
       setIsSaving(false);
     }
@@ -157,38 +157,38 @@ export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
   return (
     <div className="space-y-5">
       {/* Recorder */}
-      <div className="rounded-2xl border border-border bg-surface-low p-5 flex flex-col items-center gap-4">
+      <div className="rounded-lg border border-border bg-surface-low p-6 flex flex-col items-center gap-4">
         <button
           onClick={isListening ? stopListening : startListening}
           disabled={!speechSupported}
           className={cn(
-            'w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg disabled:opacity-40',
+            'w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-md disabled:opacity-40',
             isListening
               ? 'bg-red-500 hover:bg-red-400 shadow-red-500/30 animate-pulse'
-              : 'bg-primary hover:bg-primary/90 shadow-primary/25',
+              : 'bg-primary hover:bg-primary-hover text-primary-foreground shadow-primary/25',
           )}
           aria-label={isListening ? 'Stop recording' : 'Start recording'}
         >
           {isListening ? (
-            <Square size={22} className="text-white" />
+            <Square size={20} className="text-white" />
           ) : (
-            <Mic size={24} className="text-primary-foreground" />
+            <Mic size={22} className="text-primary-foreground" />
           )}
         </button>
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-xs text-muted-foreground text-center max-w-md">
           {!speechSupported
-            ? 'Voice input requires Chrome or Edge. You can still type below.'
+            ? 'Voice input requires Chrome or Edge. You can also type notes directly below.'
             : isListening
-              ? 'Listening... speak naturally about your business or products. Tap to stop.'
-              : 'Tap the mic and speak — ORA will turn it into knowledge.'}
+              ? 'Recording... speak naturally about your store policies, products, or FAQs. Tap to stop.'
+              : 'Click the mic and speak store guidelines, product specifics, or common customer answers.'}
         </p>
       </div>
 
       {/* Transcript */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Transcript {isListening && <span className="text-red-400 normal-case">(recording...)</span>}
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Voice Note Transcript {isListening && <span className="text-red-400 normal-case">(recording...)</span>}
           </label>
           {transcript && (
             <button
@@ -203,32 +203,32 @@ export function VoiceFeedTab({ onFed }: VoiceFeedTabProps) {
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
           rows={6}
-          placeholder="Your spoken words appear here. You can also type or edit directly..."
-          className="w-full rounded-xl border border-border bg-surface-low px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary leading-relaxed"
+          placeholder="Your spoken transcript appears here. You can edit or type directly..."
+          className="w-full rounded-md border border-border bg-surface-low px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary leading-relaxed"
         />
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">{error}</div>
+        <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">{error}</div>
       )}
 
       <div className="flex items-center justify-end gap-3">
         {saved && (
-          <span className="flex items-center gap-1 text-xs font-medium text-emerald-400">
-            <CheckCircle2 size={14} /> Fed to ORA
+          <span className="flex items-center gap-1 text-xs font-medium text-[color:var(--status-online)]">
+            <CheckCircle2 size={14} /> Saved to knowledge base
           </span>
         )}
         <button
           onClick={handleSave}
           disabled={isSaving || isListening}
-          className="px-5 py-2.5 rounded-xl text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
+          className="px-5 py-2 rounded-md text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary-hover transition-colors flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? (
             <>
               <Loader2 size={14} className="animate-spin" /> Saving...
             </>
           ) : (
-            'Save Knowledge'
+            'Save Note'
           )}
         </button>
       </div>

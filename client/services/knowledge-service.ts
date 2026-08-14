@@ -7,6 +7,14 @@ import {
   UpdateKnowledgeDocResponseData,
 } from '@/types/knowledge';
 
+export interface KnowledgeDocsPaginatedResponse {
+  items: KnowledgeDoc[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export async function getKnowledgeDocsApi(params?: {
   docType?: string;
   search?: string;
@@ -18,9 +26,17 @@ export async function getKnowledgeDocsApi(params?: {
   const queryString = query.toString();
   const url = `/knowledge${queryString ? `?${queryString}` : ''}`;
 
-  return apiClient<KnowledgeDoc[]>(url, {
+  const res = await apiClient<KnowledgeDoc[] | KnowledgeDocsPaginatedResponse>(url, {
     method: 'GET',
   });
+
+  if (Array.isArray(res)) {
+    return res;
+  }
+  if (res && Array.isArray((res as KnowledgeDocsPaginatedResponse).items)) {
+    return (res as KnowledgeDocsPaginatedResponse).items;
+  }
+  return [];
 }
 
 export async function getKnowledgeDocByIdApi(id: string): Promise<KnowledgeDoc> {

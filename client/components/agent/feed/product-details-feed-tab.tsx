@@ -57,14 +57,14 @@ export function ProductDetailsFeedTab({ onFed }: ProductDetailsFeedTabProps) {
       setTimeout(() => setSaved(false), 2500);
       onFed();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send product details to ORA.');
+      setError(err instanceof Error ? err.message : 'Failed to save product details.');
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <select
         aria-label="Product details input method"
         value={mode}
@@ -72,26 +72,26 @@ export function ProductDetailsFeedTab({ onFed }: ProductDetailsFeedTabProps) {
           setMode(event.target.value as ProductInputMode);
           clearFile();
         }}
-        className="w-full rounded-xl border border-border bg-surface-low px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        className="w-full rounded-md border border-border bg-surface-low px-3.5 py-2.5 text-xs font-medium text-foreground focus:outline-none focus:border-primary"
       >
-        <option value="text">Type product details</option>
-        <option value="file">Upload JSON, PDF, or TXT</option>
+        <option value="text">Type or paste product details</option>
+        <option value="file">Upload JSON, PDF, or TXT file</option>
       </select>
 
       {mode === 'text' ? (
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          rows={13}
-          placeholder="Paste product names, descriptions, prices, variants, stock, sizing, specifications, and other details..."
-          className="w-full rounded-2xl border border-border bg-surface-low px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary"
+          rows={11}
+          placeholder="Enter product names, descriptions, prices, variants, stock, sizing, specifications, and SKU details..."
+          className="w-full rounded-md border border-border bg-surface-low px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none focus:border-primary"
         />
       ) : (
         <>
-          <label className="flex min-h-52 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface-low px-6 text-center transition-colors hover:bg-surface-high cursor-pointer">
-            {fileName.endsWith('.json') ? <FileJson size={34} className="mb-3 text-primary" /> : <FileText size={34} className="mb-3 text-primary" />}
-            <span className="text-sm font-medium text-foreground">{fileName || 'Choose a product file'}</span>
-            <span className="mt-2 text-xs text-muted-foreground">JSON, PDF, or TXT</span>
+          <label className="flex min-h-44 flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-surface-low px-6 py-8 text-center transition-colors hover:bg-surface-high cursor-pointer">
+            {fileName.endsWith('.json') ? <FileJson size={30} className="mb-2.5 text-primary" /> : <FileText size={30} className="mb-2.5 text-primary" />}
+            <span className="text-sm font-medium text-foreground">{fileName || 'Choose a product catalog or manual file'}</span>
+            <span className="mt-1 text-xs text-muted-foreground">JSON, PDF, or TXT</span>
             <input
               ref={fileInputRef}
               type="file"
@@ -101,23 +101,27 @@ export function ProductDetailsFeedTab({ onFed }: ProductDetailsFeedTabProps) {
             />
           </label>
           {content && (
-            <div className="rounded-xl border border-border bg-surface-low p-3">
+            <div className="rounded-md border border-border bg-surface-low p-3.5">
               <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Product details preview</span>
-                <button onClick={clearFile} aria-label="Remove product file" className="hover:text-foreground"><X size={14} /></button>
+                <span className="font-semibold uppercase tracking-wider text-[10px]">Product details preview</span>
+                <button onClick={clearFile} aria-label="Remove product file" className="hover:text-foreground"><X size={13} /></button>
               </div>
-              <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={7} className="w-full resize-none bg-transparent text-xs leading-relaxed text-foreground outline-none" />
+              <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={6} className="w-full resize-none bg-transparent text-xs leading-relaxed text-foreground outline-none font-mono" />
             </div>
           )}
         </>
       )}
 
-      {error && <p className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">{error}</p>}
+      {error && <p className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">{error}</p>}
 
       <div className="flex items-center justify-end gap-3">
-        {saved && <span className="text-xs text-emerald-400">Product details sent to ORA</span>}
-        <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50">
-          {isSaving ? <Loader2 size={14} className="animate-spin" /> : mode === 'text' ? <PenLine size={14} /> : <UploadCloud size={14} />}
+        {saved && (
+          <span className="text-xs font-medium text-[color:var(--status-online)]">
+            Product details saved to catalog index
+          </span>
+        )}
+        <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50">
+          {isSaving ? <Loader2 size={13} className="animate-spin" /> : mode === 'text' ? <PenLine size={13} /> : <UploadCloud size={13} />}
           {isSaving ? 'Processing' : 'Save Product Details'}
         </button>
       </div>

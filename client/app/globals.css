@@ -183,6 +183,15 @@
     --sidebar-ring:                 #C8F031;
 
 
+    /* ── Component-level tokens (light) ────────────────────────────────────── */
+    --logo-gradient:          linear-gradient(135deg, #111111 0%, #2A2A2A 60%, #C8F031 130%);
+    --logo-glow:              0 0 18px rgba(200, 240, 49, 0.35), 0 0 36px rgba(200, 240, 49, 0.15);
+    --logo-text:              #111111;
+    --topnav-bg:              rgba(250, 250, 250, 0.85);
+    --topnav-border:          #E5E7EB;
+    --glass-bg:               rgba(255, 255, 255, 0.7);
+    --glass-border:           rgba(0, 0, 0, 0.08);
+
     /* ── Landing Page — Stitch "Lumina" Palette (AGENTS.md §10) ─────────────
        Scoped to (marketing)/ route group. Prefixed --lp-* to avoid collisions.
        Source: stitch_orion_ai_landing_page/DESIGN.md
@@ -328,6 +337,15 @@
     --sidebar-border:               #2A2A2A;
     --sidebar-ring:                 #C8F031;
 
+    /* ── Component-level tokens (dark) ──────────────────────────────────────── */
+    --logo-gradient:          linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 60%, #C8F031 130%);
+    --logo-glow:              0 0 18px rgba(200, 240, 49, 0.4), 0 0 36px rgba(200, 240, 49, 0.15);
+    --logo-text:              #FAFAFA;
+    --topnav-bg:              rgba(5, 5, 5, 0.85);
+    --topnav-border:          #2A2A2A;
+    --glass-bg:               rgba(255, 255, 255, 0.03);
+    --glass-border:           rgba(255, 255, 255, 0.08);
+
     /* ── Landing Page Tokens (Dark Mode) ────────────────────────────────────── */
     --lp-primary:             #C8F031;
     --lp-primary-hover:       #D4F536;
@@ -384,6 +402,50 @@
         font-weight: 700;
         line-height: 1.15;
     }
+}
+
+/* =============================================================================
+   ANIMATION UTILITIES — waveform bars + LIVE badge pulse
+   ============================================================================= */
+
+/* Waveform — 7-bar animated equalizer (used in Voice Sessions panel) */
+@keyframes wave {
+    0%, 100% { height: 4px;  }
+    50%       { height: 16px; }
+}
+
+.waveform {
+    display:     flex;
+    align-items: center;
+    gap:         2px;
+    height:      16px;
+}
+.waveform span {
+    display:          block;
+    width:            3px;
+    background-color: var(--primary);
+    border-radius:    9999px;
+    animation:        wave 1.2s ease-in-out infinite;
+}
+.waveform-secondary span { background-color: var(--secondary);   }
+.waveform-success   span { background-color: var(--ora-success);  }
+
+.waveform span:nth-child(1) { animation-delay: 0.0s; height: 4px;  }
+.waveform span:nth-child(2) { animation-delay: 0.1s; height: 8px;  }
+.waveform span:nth-child(3) { animation-delay: 0.2s; height: 12px; }
+.waveform span:nth-child(4) { animation-delay: 0.3s; height: 16px; }
+.waveform span:nth-child(5) { animation-delay: 0.4s; height: 12px; }
+.waveform span:nth-child(6) { animation-delay: 0.5s; height: 8px;  }
+.waveform span:nth-child(7) { animation-delay: 0.6s; height: 4px;  }
+
+/* Pulse-ring — used on LIVE badge dot and status indicator dots */
+@keyframes pulse-ring {
+    0%   { transform: scale(0.85); opacity: 1;   }
+    70%  { transform: scale(1.1);  opacity: 0.3; }
+    100% { transform: scale(0.85); opacity: 1;   }
+}
+.animate-pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
 /* =============================================================================

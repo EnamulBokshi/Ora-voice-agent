@@ -127,6 +127,14 @@ export class KnowledgeService {
   }
 
   async findOne(businessId: string, id: string): Promise<KnowledgeBaseDocument> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new DomainException(
+        'KNOWLEDGE_DOC_NOT_FOUND',
+        `Knowledge document with ID '${id}' not found.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     const doc = await this.knowledgeBaseModel
       .findOne({
         _id: id as any,
@@ -149,6 +157,10 @@ export class KnowledgeService {
     businessId: string,
     knowledgeBaseId: string,
   ): Promise<KnowledgeChunkDocument[]> {
+    if (!Types.ObjectId.isValid(knowledgeBaseId)) {
+      return [];
+    }
+
     return this.knowledgeChunkModel
       .find({
         businessId: businessId as any,

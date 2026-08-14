@@ -17,18 +17,18 @@ type AgentSection = 'voice' | 'documents' | 'products';
 
 const SECTION_TITLE: Record<AgentSection, { title: string; desc: string; icon: React.ReactNode }> = {
   voice: {
-    title: 'Talk to ORA',
-    desc: 'Speak directly into your mic — ORA transcribes and converts your voice into AI knowledge.',
+    title: 'Voice Notes & Guidelines',
+    desc: 'Speak directly into your mic to record store guidelines, answers, and context.',
     icon: <Mic size={18} className="text-primary" />,
   },
   documents: {
-    title: 'Business Documents Feed',
-    desc: 'Upload store policies, FAQs, manuals, or PDF/text files to train ORA.',
+    title: 'Store & Policy Documents',
+    desc: 'Upload store policies, FAQs, product manuals, or PDF/text reference files.',
     icon: <FileText size={18} className="text-primary" />,
   },
   products: {
-    title: 'Product Details Feed',
-    desc: 'Feed product specifications, pricing details, and inventory rules to ORA.',
+    title: 'Product Information',
+    desc: 'Add product specifications, pricing details, sizing notes, and inventory rules.',
     icon: <Package size={18} className="text-primary" />,
   },
 };

@@ -424,13 +424,13 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             </div>
             <div>
               <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
-                ORA Voice Agent Sandbox
+                Voice Call Testing
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-mono border border-primary/25">
-                  {voiceMode === 'gemini-live' ? 'Gemini Live WS' : 'Interactive Speech AI'}
+                  {voiceMode === 'gemini-live' ? 'Live Stream' : 'Interactive Call'}
                 </span>
               </h3>
               <p className="text-xs text-muted-foreground">
-                Real-time Bidirectional Microphone & Voice Testing
+                Test microphone audio and real-time voice responses
               </p>
             </div>
           </div>
@@ -457,7 +457,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               }`}
             >
               <Zap size={13} />
-              Gemini 2.0 Live (WS Stream)
+              Real-time Voice Stream
             </button>
             <button
               onClick={() => { stopSession(); setVoiceMode('speech-ai'); }}
@@ -468,7 +468,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               }`}
             >
               <SlidersHorizontal size={13} />
-              Interactive Voice AI (TTS/STT)
+              Interactive Voice Call
             </button>
           </div>
 

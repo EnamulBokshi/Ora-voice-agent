@@ -89,6 +89,14 @@ export class ConversationsService {
   }
 
   async getTranscript(businessId: string, conversationId: string) {
+    if (!Types.ObjectId.isValid(conversationId)) {
+      throw new DomainException(
+        'CONVERSATION_NOT_FOUND',
+        `Conversation with ID '${conversationId}' not found.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     const conversation = await this.conversationModel
       .findOne({
         _id: conversationId as any,
@@ -120,6 +128,14 @@ export class ConversationsService {
     conversationId: string,
     status: ConversationStatus,
   ) {
+    if (!Types.ObjectId.isValid(conversationId)) {
+      throw new DomainException(
+        'CONVERSATION_NOT_FOUND',
+        `Conversation with ID '${conversationId}' not found.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     const conversation = await this.conversationModel
       .findOneAndUpdate(
         {
