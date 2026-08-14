@@ -19,7 +19,7 @@ export class ProductsService {
     private readonly configService: ConfigService,
     @Optional()
     private readonly redisService?: RedisService,
-  ) {}
+  ) { }
 
   async create(businessId: string, dto: CreateProductDto): Promise<ProductDocument> {
     const existing = await this.productModel
@@ -66,18 +66,30 @@ export class ProductsService {
 
     if (query.search) {
       const trimmed = query.search.trim();
-      const terms = trimmed.split(/\s+/).filter((t) => t.length >= 2);
 
-      if (terms.length <= 1) {
+      // Conversational stop words to filter out of voice search queries
+      const STOP_WORDS = new Set([
+        'do', 'you', 'have', 'show', 'me', 'any', 'what', 'is', 'the', 'price', 'of',
+        'can', 'i', 'get', 'for', 'in', 'store', 'stock', 'tell', 'about', 'looking',
+        'need', 'want', 'please', 'give', 'check', 'available', 'product', 'products',
+        'item', 'items', 'much', 'cost', 'buy', 'purchase', 'order', 'a', 'an', 'and', 'or',
+      ]);
+
+      const rawTerms = trimmed.split(/\s+/).map((t) => t.replace(/[^a-zA-Z0-9]/g, '').toLowerCase());
+      const meaningfulTerms = rawTerms.filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
+      const searchTerms = meaningfulTerms.length > 0 ? meaningfulTerms : rawTerms.filter((t) => t.length >= 2);
+
+      if (searchTerms.length <= 1) {
+        const term = searchTerms[0] || trimmed;
         filter.$or = [
-          { name: { $regex: trimmed, $options: 'i' } },
-          { description: { $regex: trimmed, $options: 'i' } },
-          { category: { $regex: trimmed, $options: 'i' } },
-          { nativeProductId: { $regex: trimmed, $options: 'i' } },
+          { name: { $regex: term, $options: 'i' } },
+          { description: { $regex: term, $options: 'i' } },
+          { category: { $regex: term, $options: 'i' } },
+          { nativeProductId: { $regex: term, $options: 'i' } },
         ];
       } else {
-        // Match any of the distinct query terms across all text fields
-        filter.$or = terms.flatMap((term) => [
+        // Match meaningful product keywords across fields
+        filter.$or = searchTerms.flatMap((term) => [
           { name: { $regex: term, $options: 'i' } },
           { description: { $regex: term, $options: 'i' } },
           { category: { $regex: term, $options: 'i' } },
@@ -183,7 +195,7 @@ export class ProductsService {
     // Invalidate Redis stock cache
     if (this.redisService) {
       const cacheKey = `live_stock:${businessId}:${id}`;
-      this.redisService.getClient().del(cacheKey).catch(() => {});
+      this.redisService.getClient().del(cacheKey).catch(() => { });
     }
 
     return saved;
@@ -294,7 +306,7 @@ export class ProductsService {
         availability: saved.availability,
         isLowStock,
       });
-      this.redisService.getClient().set(cacheKey, cacheValue, 'EX', 900).catch(() => {});
+      this.redisService.getClient().set(cacheKey, cacheValue, 'EX', 900).catch(() => { });
     }
 
     return Object.assign(saved, { isLowStock });

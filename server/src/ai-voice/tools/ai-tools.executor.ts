@@ -138,6 +138,22 @@ export class AiToolsExecutor {
       }
     }
 
+    // 5. If no catalog products matched but knowledge docs matched (e.g. uploaded price list / spec doc),
+    // supply the knowledge context so Gemini can answer accurately
+    if (liveVerifiedProducts.length === 0 && ragRes.knowledge && ragRes.knowledge.length > 0) {
+      const knowledgeContext = ragRes.knowledge.map((k) => k.text).join('\n\n');
+      return {
+        success: true,
+        query: args.query,
+        products: [],
+        totalFound: 0,
+        knowledgeContext,
+        message: `Found matching information in store knowledge base:\n${knowledgeContext}`,
+        fallbackTriggered: true,
+        fallbackTier: 'knowledge_doc',
+      };
+    }
+
     if (liveVerifiedProducts.length === 0) {
       return {
         success: true,

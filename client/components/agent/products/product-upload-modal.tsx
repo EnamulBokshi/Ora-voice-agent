@@ -243,7 +243,7 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
                 {selectedFile ? selectedFile.name : 'Click to select or drag & drop product catalog file'}
               </span>
               <span className="mt-1 text-[11px] text-muted-foreground">
-                Supports CSV, XLSX, TSV, TXT, or PDF tables (up to 10,000 SKUs)
+                Supports CSV, XLSX, TSV, JSON, TXT, or PDF tables (up to 10,000 SKUs)
               </span>
               {selectedFile && (
                 <span className="mt-2 text-[10px] font-mono text-primary font-bold">
@@ -253,7 +253,7 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.xlsx,.xls,.tsv,.txt,.pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/pdf"
+                accept=".csv,.xlsx,.xls,.tsv,.json,.txt,.pdf,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/pdf"
                 onChange={handleFileSelect}
                 className="hidden"
               />

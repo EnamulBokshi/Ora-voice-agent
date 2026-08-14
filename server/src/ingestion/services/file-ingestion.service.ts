@@ -19,13 +19,13 @@ export interface IngestionSummary {
 }
 
 const FIELD_ALIASES: Record<string, string[]> = {
-  nativeProductId: ['sku', 'id', 'product id', 'productid', 'item code', 'itemcode', 'code', 'product sku', 'product_id', 'item_id'],
-  name: ['name', 'title', 'product name', 'productname', 'product', 'product title', 'item name', 'itemname'],
-  price: ['price', 'cost', 'amount', 'mrp', 'selling price', 'sale price', 'unit price', 'unitprice'],
-  description: ['description', 'desc', 'details', 'specs', 'specifications', 'product description', 'productdescription', 'summary'],
-  category: ['category', 'type', 'department', 'product type', 'producttype', 'product category', 'productcategory'],
-  stockQuantity: ['stock', 'quantity', 'inventory', 'qty', 'stock quantity', 'stockquantity', 'available', 'in stock', 'count'],
-  images: ['image', 'image url', 'imageurl', 'img', 'photo', 'images', 'image link', 'imagelink', 'picture', 'picture url'],
+  nativeProductId: ['sku', 'id', 'product id', 'productid', 'item code', 'itemcode', 'code', 'product sku', 'product_id', 'item_id', 'barcode', 'upc'],
+  name: ['name', 'title', 'product name', 'productname', 'product', 'product title', 'item name', 'itemname', 'item', 'product_title', 'product_name', 'model', 'article'],
+  price: ['price', 'cost', 'amount', 'mrp', 'selling price', 'sale price', 'unit price', 'unitprice', 'tk', 'bdt', 'taka', 'rate', 'price_bdt', 'price_usd', 'retail price'],
+  description: ['description', 'desc', 'details', 'specs', 'specifications', 'product description', 'productdescription', 'summary', 'about', 'features'],
+  category: ['category', 'type', 'department', 'product type', 'producttype', 'product category', 'productcategory', 'genre', 'group', 'collection'],
+  stockQuantity: ['stock', 'quantity', 'inventory', 'qty', 'stock quantity', 'stockquantity', 'available', 'in stock', 'count', 'amount in stock', 'pieces', 'pcs'],
+  images: ['image', 'image url', 'imageurl', 'img', 'photo', 'images', 'image link', 'imagelink', 'picture', 'picture url', 'thumbnail', 'photo url'],
   availability: ['availability', 'status', 'availability status', 'stock status', 'availabilitystatus'],
   currency: ['currency', 'curr', 'currency code', 'currencycode'],
 };
@@ -116,7 +116,7 @@ export class FileIngestionService {
 
     // Fetch synced products to get their _ids for embedding
     const syncedProducts = await this.productsService.findAll(businessId, {
-      limit: 500,
+      limit: 1000,
       search: undefined,
     });
 
@@ -125,34 +125,45 @@ export class FileIngestionService {
       embeddedNativeIds.has(p.nativeProductId),
     );
 
-    // Fire-and-forget embedding for each product
+    // Embed products into Gemini Vector Index with batch concurrency
     let embeddedCount = 0;
-    for (const prod of toEmbed) {
-      this.vectorStoreService
-        .upsertVector(businessId, {
-          entityType: EntityType.PRODUCT,
-          entityId: prod._id.toString(),
-          text: `${prod.name} ${prod.description || ''} ${prod.category || ''}`.trim(),
-          metadata: {
-            nativeProductId: prod.nativeProductId,
-            price: prod.price,
-            category: prod.category,
-          },
-        })
-        .then(() => {
-          embeddedCount++;
-        })
-        .catch((err) => {
-          this.logger.error(
-            `[FileIngestion] Failed to embed product ${prod._id}: ${err.message}`,
-          );
-        });
+    const batchSize = 5;
+    for (let i = 0; i < toEmbed.length; i += batchSize) {
+      const chunk = toEmbed.slice(i, i + batchSize);
+      await Promise.allSettled(
+        chunk.map(async (prod) => {
+          try {
+            await this.vectorStoreService.upsertVector(businessId, {
+              entityType: EntityType.PRODUCT,
+              entityId: prod._id.toString(),
+              text: `${prod.name}. Price: ${prod.price} ${prod.currency}. Category: ${prod.category || 'General'}. ${prod.description || ''}`.trim(),
+              metadata: {
+                nativeProductId: prod.nativeProductId,
+                name: prod.name,
+                price: prod.price,
+                currency: prod.currency,
+                category: prod.category,
+                stockQuantity: prod.stockQuantity,
+              },
+            });
+            embeddedCount++;
+          } catch (err: any) {
+            this.logger.error(
+              `[FileIngestion] Failed to embed product '${prod.name}' (${prod._id}): ${err.message}`,
+            );
+          }
+        }),
+      );
     }
+
+    this.logger.log(
+      `[FileIngestion] Ingestion complete: ${syncResult.upsertedCount + syncResult.modifiedCount} saved, ${embeddedCount} vector embedded.`,
+    );
 
     return {
       totalParsed: rows.length,
       ingested: syncResult.upsertedCount + syncResult.modifiedCount,
-      embedded: toEmbed.length,
+      embedded: embeddedCount,
       errors,
       detectedMapping: mapping,
     };
@@ -176,6 +187,10 @@ export class FileIngestionService {
       return this.parseXlsx(buffer);
     }
 
+    if (ext === 'json' || mimeType === 'application/json') {
+      return this.parseJson(buffer);
+    }
+
     if (ext === 'txt' || mimeType === 'text/plain') {
       return this.parseTxt(buffer);
     }
@@ -187,6 +202,16 @@ export class FileIngestionService {
     // Fallback: try CSV parsing
     this.logger.warn(`[FileIngestion] Unknown file type (${ext}/${mimeType}), attempting CSV parse`);
     return this.parseDelimited(buffer);
+  }
+
+  private parseJson(buffer: Buffer): Record<string, any>[] {
+    const content = buffer.toString('utf-8');
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.products)) return parsed.products;
+    if (parsed && Array.isArray(parsed.items)) return parsed.items;
+    if (parsed && Array.isArray(parsed.data)) return parsed.data;
+    return [parsed];
   }
 
   private parseDelimited(buffer: Buffer, delimiter?: string): Record<string, any>[] {
@@ -449,7 +474,7 @@ export class FileIngestionService {
       }
     }
 
-    // 2. Price and Currency extraction (supports ৳, $, Tk, commas, decimals)
+    // 2. Price and Currency extraction (supports ৳, $, Tk, BDT, commas, decimals, trailing /-)
     const rawPrice = getValue('price');
     const rawPriceStr = rawPrice !== undefined ? String(rawPrice).trim() : '';
 
@@ -466,13 +491,17 @@ export class FileIngestionService {
       }
     }
 
-    const cleanedPriceStr = rawPriceStr.replace(/,/g, '').replace(/[^0-9.]/g, '');
+    const cleanedPriceStr = rawPriceStr
+      .replace(/\/-\s*$/, '')
+      .replace(/,/g, '')
+      .replace(/[^0-9.]/g, '');
     const parsedPrice = cleanedPriceStr ? parseFloat(cleanedPriceStr) : 0;
 
-    // 3. SKU / Native Product ID extraction
+    // 3. SKU / Native Product ID extraction with deterministic fallback
     let nativeProductId = getValue('nativeProductId');
     if (!nativeProductId || String(nativeProductId).trim() === '') {
-      nativeProductId = `sku_${businessId.substring(0, 6)}_${rowIndex + 1}_${Date.now().toString(36)}`;
+      const sanitizedName = String(name).toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10);
+      nativeProductId = `sku_${sanitizedName || 'item'}_${rowIndex + 1}`;
     }
 
     // 4. Stock Quantity extraction
