@@ -18,10 +18,14 @@ export interface KnowledgeDocsPaginatedResponse {
 export async function getKnowledgeDocsApi(params?: {
   docType?: string;
   search?: string;
+  page?: number;
+  limit?: number;
 }): Promise<KnowledgeDoc[]> {
   const query = new URLSearchParams();
   if (params?.docType) query.set('docType', params.docType);
   if (params?.search) query.set('search', params.search);
+  if (params?.page) query.set('page', params.page.toString());
+  if (params?.limit) query.set('limit', params.limit.toString());
 
   const queryString = query.toString();
   const url = `/knowledge${queryString ? `?${queryString}` : ''}`;

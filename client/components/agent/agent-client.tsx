@@ -92,26 +92,20 @@ function AgentClientContent() {
           </div>
         )}
 
-        {/* ── View 3: Product Details Feed + Knowledge Index ── */}
+        {/* ── View 3: Product Catalog Mirror & Ingestion Hub ── */}
         {activeSection === 'products' && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-            <div className="xl:col-span-7 rounded-md border border-border bg-surface-container p-5 lg:p-6">
-              <div className="mb-5 pb-3 border-b border-border">
-                <h2 className="text-sm font-semibold text-foreground">Add Product Specifications</h2>
+          <div className="rounded-2xl border border-border bg-surface-container p-5 lg:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+              <div>
+                <h2 className="text-base font-bold text-foreground tracking-tight">
+                  Product Catalog Mirror & Ingestion Hub
+                </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Enter detailed descriptions, variants, pricing rules, stock, and sizing specs.
+                  Synchronize and inspect your live catalog. Mirrored SKUs are auto-vectorized in Gemini for real-time AI voice & text discovery.
                 </p>
               </div>
-              <ProductDetailsFeedTab onFed={loadDocs} />
             </div>
-
-            <div className="xl:col-span-5">
-              <KnowledgeFeedList
-                docs={docs}
-                loading={docsLoading}
-                onDeleted={(id) => setDocs((current) => current.filter((doc) => doc._id !== id))}
-              />
-            </div>
+            <ProductDetailsFeedTab onFed={loadDocs} />
           </div>
         )}
 

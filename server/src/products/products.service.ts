@@ -65,12 +65,25 @@ export class ProductsService {
     }
 
     if (query.search) {
-      filter.$or = [
-        { name: { $regex: query.search, $options: 'i' } },
-        { description: { $regex: query.search, $options: 'i' } },
-        { category: { $regex: query.search, $options: 'i' } },
-        { nativeProductId: { $regex: query.search, $options: 'i' } },
-      ];
+      const trimmed = query.search.trim();
+      const terms = trimmed.split(/\s+/).filter((t) => t.length >= 2);
+
+      if (terms.length <= 1) {
+        filter.$or = [
+          { name: { $regex: trimmed, $options: 'i' } },
+          { description: { $regex: trimmed, $options: 'i' } },
+          { category: { $regex: trimmed, $options: 'i' } },
+          { nativeProductId: { $regex: trimmed, $options: 'i' } },
+        ];
+      } else {
+        // Match any of the distinct query terms across all text fields
+        filter.$or = terms.flatMap((term) => [
+          { name: { $regex: term, $options: 'i' } },
+          { description: { $regex: term, $options: 'i' } },
+          { category: { $regex: term, $options: 'i' } },
+          { nativeProductId: { $regex: term, $options: 'i' } },
+        ]);
+      }
     }
 
     const [items, total] = await Promise.all([

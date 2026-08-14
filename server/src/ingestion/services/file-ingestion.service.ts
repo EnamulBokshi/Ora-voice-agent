@@ -56,7 +56,7 @@ export class FileIngestionService {
     let rows: Record<string, any>[] = [];
 
     try {
-      rows = this.parseFile(file.buffer, ext, mimeType);
+      rows = await this.parseFile(file.buffer, ext, mimeType);
     } catch (err: any) {
       this.logger.error(`[FileIngestion] Failed to parse file: ${err.message}`);
       return {
@@ -80,6 +80,7 @@ export class FileIngestionService {
 
     const headers = Object.keys(rows[0]).map((h) => h.trim());
     const mapping = fieldMapping || this.autoDetectMapping(headers);
+    this.logger.log(`[FileIngestion] Headers detected from file: ${JSON.stringify(headers)}`);
     this.logger.log(`[FileIngestion] Using field mapping: ${JSON.stringify(mapping)}`);
 
     const products = rows
@@ -162,11 +163,11 @@ export class FileIngestionService {
     return parts.length > 1 ? parts[parts.length - 1] : '';
   }
 
-  private parseFile(
+  private async parseFile(
     buffer: Buffer,
     ext: string,
     mimeType: string,
-  ): Record<string, any>[] {
+  ): Promise<Record<string, any>[]> {
     if (ext === 'csv' || ext === 'tsv' || mimeType === 'text/csv' || mimeType === 'text/tab-separated-values') {
       return this.parseDelimited(buffer, ext === 'tsv' ? '\t' : undefined);
     }
@@ -228,34 +229,119 @@ export class FileIngestionService {
     return this.parseDelimited(buffer);
   }
 
-  private parsePdf(buffer: Buffer): Record<string, any>[] {
-    // pdf-parse is loaded dynamically to avoid import issues during build
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require('pdf-parse');
-    const data = pdfParse(buffer);
-    const text = data.text || '';
+  private async parsePdf(buffer: Buffer): Promise<Record<string, any>[]> {
+    const rows: Record<string, any>[] = [];
+
+    // Strategy 1: Grid table extraction using PDFParse.getTable()
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfModule = require('pdf-parse');
+      if (pdfModule?.PDFParse) {
+        const parser = new pdfModule.PDFParse({ data: buffer });
+        const tableResult = await parser.getTable();
+        if (tableResult?.pages) {
+          for (const page of tableResult.pages) {
+            if (page.tables && page.tables.length > 0) {
+              for (const tbl of page.tables) {
+                if (Array.isArray(tbl) && tbl.length >= 2) {
+                  const rawHeaders = tbl[0].map((h: any) => String(h || '').trim());
+                  const headers = rawHeaders.map((h: string, idx: number) => h || `column_${idx}`);
+
+                  for (let r = 1; r < tbl.length; r++) {
+                    const rowCells = tbl[r];
+                    if (
+                      Array.isArray(rowCells) &&
+                      rowCells.some((c: any) => String(c || '').trim() !== '')
+                    ) {
+                      const rowObj: Record<string, any> = {};
+                      headers.forEach((h: string, idx: number) => {
+                        rowObj[h] = String(rowCells[idx] || '').trim();
+                      });
+                      rows.push(rowObj);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (typeof parser.destroy === 'function') {
+          await parser.destroy();
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`[FileIngestion] PDF table extraction fallback: ${err.message}`);
+    }
+
+    if (rows.length > 0) {
+      this.logger.log(`[FileIngestion] Extracted ${rows.length} rows from PDF table structure.`);
+      return rows;
+    }
+
+    // Strategy 2: Text stream extraction fallback
+    let text = '';
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfModule = require('pdf-parse');
+      if (typeof pdfModule === 'function') {
+        const data = await pdfModule(buffer);
+        text = data?.text || '';
+      } else if (pdfModule?.PDFParse) {
+        const parser = new pdfModule.PDFParse({ data: buffer });
+        const data = await parser.getText();
+        text = data?.text || '';
+        if (typeof parser.destroy === 'function') {
+          await parser.destroy();
+        }
+      } else if (typeof pdfModule?.default === 'function') {
+        const data = await pdfModule.default(buffer);
+        text = data?.text || '';
+      }
+    } catch (err: any) {
+      this.logger.error(`[FileIngestion] PDF text fallback failed: ${err.message}`);
+      throw new Error(`PDF text extraction failed: ${err.message}`);
+    }
 
     if (!text.trim()) {
       return [];
     }
 
-    // Try to detect table-like structure in PDF text
-    const lines = text.split('\n').filter((l: string) => l.trim());
-    const rows: Record<string, any>[] = [];
+    const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      return [];
+    }
 
-    // Check if lines look like delimited data
+    // Strategy 2A: Delimited line detection (\t, |, ,, ;)
     const delimiter = this.detectDelimiter(lines.slice(0, 5));
     if (delimiter) {
-      for (const line of lines) {
-        const values = line.split(delimiter).map((v: string) => v.trim());
+      const headers = lines[0].split(delimiter).map((h: string) => h.trim());
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(delimiter).map((v: string) => v.trim());
         if (values.length >= 2) {
           const row: Record<string, any> = {};
-          values.forEach((v: string, i: number) => {
-            row[`column_${i}`] = v;
+          headers.forEach((header, idx) => {
+            row[header || `column_${idx}`] = values[idx] || '';
           });
           rows.push(row);
         }
       }
+      if (rows.length > 0) return rows;
+    }
+
+    // Strategy 2B: Multi-space column splitting
+    const headerTokens = lines[0].split(/\s{2,}|\t/).map((t: string) => t.trim()).filter(Boolean);
+    if (headerTokens.length >= 2) {
+      for (let i = 1; i < lines.length; i++) {
+        const tokens = lines[i].split(/\s{2,}|\t/).map((t: string) => t.trim()).filter(Boolean);
+        if (tokens.length >= 2) {
+          const row: Record<string, any> = {};
+          headerTokens.forEach((h: string, idx: number) => {
+            row[h || `column_${idx}`] = tokens[idx] || '';
+          });
+          rows.push(row);
+        }
+      }
+      if (rows.length > 0) return rows;
     }
 
     return rows;
@@ -273,15 +359,62 @@ export class FileIngestionService {
 
   private autoDetectMapping(headers: string[]): Record<string, string> {
     const mapping: Record<string, string> = {};
+    const usedHeaders = new Set<string>();
 
+    const clean = (h: string) =>
+      h.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // Priority 1: Exact matches
     for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
-      const match = headers.find((h) => {
-        const normalized = h.toLowerCase().trim();
-        return aliases.some((alias) => normalized === alias || normalized.includes(alias));
-      });
-      if (match) {
-        mapping[field] = match;
+      if (mapping[field]) continue;
+      for (const h of headers) {
+        if (usedHeaders.has(h)) continue;
+        const normalized = clean(h);
+        if (aliases.some((alias) => normalized === alias.toLowerCase().trim())) {
+          mapping[field] = h;
+          usedHeaders.add(h);
+          break;
+        }
       }
+    }
+
+    // Priority 2: Safe substring matches (safe aliases with length >= 3)
+    for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
+      if (mapping[field]) continue;
+      for (const h of headers) {
+        if (usedHeaders.has(h)) continue;
+        const normalized = clean(h);
+        const safeAliases = aliases.filter((a) => a.length >= 3);
+        const match = safeAliases.some((alias) => {
+          const a = alias.toLowerCase().trim();
+          return normalized === a || normalized.includes(a) || a.includes(normalized);
+        });
+        if (match) {
+          mapping[field] = h;
+          usedHeaders.add(h);
+          break;
+        }
+      }
+    }
+
+    // Priority 3: Fallback for 'name' if still missing
+    if (!mapping['name']) {
+      for (const h of headers) {
+        if (usedHeaders.has(h)) continue;
+        const norm = clean(h);
+        if (norm.includes('prod') || norm.includes('item') || norm.includes('title') || norm.includes('name')) {
+          mapping['name'] = h;
+          usedHeaders.add(h);
+          break;
+        }
+      }
+    }
+
+    // If still no name matched, use the first non-ID, non-price column
+    if (!mapping['name'] && headers.length > 0) {
+      const candidate = headers.find((h) => h !== mapping['nativeProductId'] && h !== mapping['price']) || headers[0];
+      mapping['name'] = candidate;
+      usedHeaders.add(candidate);
     }
 
     return mapping;
@@ -299,27 +432,86 @@ export class FileIngestionService {
       return row[columnName];
     };
 
-    const name = getValue('name');
-    const price = getValue('price');
-
+    // 1. Product Name extraction with robust fallback
+    let name = getValue('name');
     if (!name || String(name).trim() === '') {
-      throw new Error('Product name is required');
+      const textCandidate = Object.entries(row).find(
+        ([k, v]) =>
+          k !== mapping['nativeProductId'] &&
+          k !== mapping['price'] &&
+          typeof v === 'string' &&
+          v.trim().length >= 3,
+      );
+      if (textCandidate) {
+        name = textCandidate[1];
+      } else {
+        name = `Product ${rowIndex + 1}`;
+      }
     }
 
-    const parsedPrice = price !== undefined ? parseFloat(String(price).replace(/[^0-9.]/g, '')) : 0;
-    if (isNaN(parsedPrice) || parsedPrice < 0) {
-      throw new Error(`Invalid price value: ${price}`);
+    // 2. Price and Currency extraction (supports ৳, $, Tk, commas, decimals)
+    const rawPrice = getValue('price');
+    const rawPriceStr = rawPrice !== undefined ? String(rawPrice).trim() : '';
+
+    let currency = getValue('currency');
+    if (!currency) {
+      if (rawPriceStr.includes('৳') || rawPriceStr.includes('BDT') || rawPriceStr.toLowerCase().includes('tk')) {
+        currency = 'BDT';
+      } else if (rawPriceStr.includes('€') || rawPriceStr.includes('EUR')) {
+        currency = 'EUR';
+      } else if (rawPriceStr.includes('£') || rawPriceStr.includes('GBP')) {
+        currency = 'GBP';
+      } else {
+        currency = 'USD';
+      }
     }
 
-    const nativeProductId =
-      getValue('nativeProductId') ||
-      `file_${businessId.substring(0, 8)}_${Date.now()}_${rowIndex}`;
+    const cleanedPriceStr = rawPriceStr.replace(/,/g, '').replace(/[^0-9.]/g, '');
+    const parsedPrice = cleanedPriceStr ? parseFloat(cleanedPriceStr) : 0;
 
-    const stockQty = getValue('stockQuantity');
-    const parsedStock = stockQty !== undefined ? parseInt(String(stockQty).replace(/[^0-9-]/g, ''), 10) : 0;
+    // 3. SKU / Native Product ID extraction
+    let nativeProductId = getValue('nativeProductId');
+    if (!nativeProductId || String(nativeProductId).trim() === '') {
+      nativeProductId = `sku_${businessId.substring(0, 6)}_${rowIndex + 1}_${Date.now().toString(36)}`;
+    }
 
+    // 4. Stock Quantity extraction
+    const rawStock = getValue('stockQuantity');
+    const parsedStock =
+      rawStock !== undefined ? parseInt(String(rawStock).replace(/[^0-9-]/g, ''), 10) : 10;
+    const finalStock = isNaN(parsedStock) ? 10 : parsedStock;
+
+    // 5. Availability determination
     const availabilityRaw = getValue('availability');
-    const availability = this.parseAvailability(String(availabilityRaw || ''));
+    let availability = this.parseAvailability(String(availabilityRaw || ''));
+    if (finalStock <= 0) {
+      availability = ProductAvailability.OUT_OF_STOCK;
+    }
+
+    // 6. Custom extra columns into attributes
+    const mappedColumnNames = new Set(Object.values(mapping));
+    const attributes: Record<string, any> = {};
+    for (const [col, val] of Object.entries(row)) {
+      if (!mappedColumnNames.has(col) && val !== undefined && String(val).trim() !== '') {
+        attributes[col] = String(val).trim();
+      }
+    }
+
+    // 7. Description composition
+    let description = getValue('description') ? String(getValue('description')).trim() : '';
+    if (!description) {
+      const descParts: string[] = [];
+      const cat = getValue('category');
+      if (cat) descParts.push(`Category: ${cat}`);
+      if (Object.keys(attributes).length > 0) {
+        descParts.push(
+          Object.entries(attributes)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', '),
+        );
+      }
+      description = descParts.join(' | ') || String(name);
+    }
 
     const imagesRaw = getValue('images');
     const images = imagesRaw
@@ -329,18 +521,17 @@ export class FileIngestionService {
           .filter(Boolean)
       : [];
 
-    const currency = getValue('currency') || 'USD';
-
     return {
       nativeProductId: String(nativeProductId).trim(),
       name: String(name).trim(),
-      description: getValue('description') ? String(getValue('description')).trim() : '',
-      price: parsedPrice,
+      description,
+      price: isNaN(parsedPrice) ? 0 : parsedPrice,
       currency: String(currency).trim(),
-      stockQuantity: isNaN(parsedStock) ? 0 : parsedStock,
+      stockQuantity: finalStock,
       availability,
       category: getValue('category') ? String(getValue('category')).trim() : 'General',
       images,
+      attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       sourceTier: SourceTier.TIER4_MANUAL,
       confidenceScore: 0.5,
     };

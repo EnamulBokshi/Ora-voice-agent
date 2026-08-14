@@ -27,12 +27,14 @@ export interface ProductDocument {
   attributes?: Record<string, any>;
   sourceTier: SourceTier;
   confidenceScore: number;
-  isEmbedded: boolean;
+  isEmbedded?: boolean;
   embeddingRef?: string;
   lastVerifiedAt: string;
   isActive: boolean;
   timesRecommendedByAgent: number;
   timesUpsold: number;
+  isLowStock?: boolean;
+  urgencyHint?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +72,17 @@ export interface CreateProductPayload {
   confidenceScore?: number;
 }
 
+export interface UpdateProductOverridePayload {
+  name?: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  availability?: ProductAvailability;
+  stockQuantity?: number;
+  category?: string;
+  attributes?: Record<string, any>;
+}
+
 export interface BatchSyncProductsPayload {
   products: CreateProductPayload[];
   sourceTier?: SourceTier;
@@ -79,4 +92,14 @@ export interface BatchSyncResponseData {
   upsertedCount: number;
   modifiedCount: number;
   matchedCount: number;
+}
+
+export interface VerifyLivePayload {
+  price?: number;
+  stockQuantity?: number;
+  availability?: ProductAvailability;
+}
+
+export interface VerifyLiveResponse extends ProductDocument {
+  isLowStock: boolean;
 }

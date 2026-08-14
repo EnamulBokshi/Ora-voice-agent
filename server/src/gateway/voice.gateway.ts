@@ -69,14 +69,29 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .findOne({ publishableKey })
       .exec();
 
-    if (!business && publishableKey === 'biz_live_mock_key_12345') {
-      business = await this.businessModel
-        .findOneAndUpdate(
-          { publishableKey: 'biz_live_mock_key_12345' },
-          { name: 'Dev Playground Store', publishableKey: 'biz_live_mock_key_12345', status: 'active' },
-          { upsert: true, new: true },
-        )
+    // In dev / demo mode: if publishableKey is a mock key, demo key, or if the mock business has 0 products,
+    // fallback to the active merchant business in MongoDB that actually contains products.
+    if (
+      !business ||
+      publishableKey === 'biz_live_mock_key_12345' ||
+      publishableKey === 'biz_live_demo'
+    ) {
+      const activeWithProducts = await this.businessModel
+        .findOne({ publishableKey: { $ne: 'biz_live_mock_key_12345' }, status: 'active' })
+        .sort({ updatedAt: -1 })
         .exec();
+
+      if (activeWithProducts) {
+        business = activeWithProducts;
+      } else if (!business) {
+        business = await this.businessModel
+          .findOneAndUpdate(
+            { publishableKey: 'biz_live_mock_key_12345' },
+            { name: 'Dev Playground Store', publishableKey: 'biz_live_mock_key_12345', status: 'active' },
+            { upsert: true, new: true },
+          )
+          .exec();
+      }
     }
 
     if (!business) {
@@ -99,6 +114,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
         onTextData: (text: string) => {
           client.emit('text-stream', { sessionId, text });
+        },
+        onInterrupted: () => {
+          client.emit('voice-interrupted', { sessionId });
         },
         onError: (err) => {
           client.emit('voice-error', { message: err.message || 'Gemini error' });
