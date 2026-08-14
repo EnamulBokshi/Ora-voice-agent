@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HeroVoiceCta } from './hero-voice-cta';
 
 export function HeroSection() {
   return (
@@ -78,23 +79,7 @@ export function HeroSection() {
             <Link href="/auth" className="lp-btn-primary" id="hero-cta-start" style={{ padding: '0.875rem 2rem' }}>
               Start for free
             </Link>
-            <Link href="#demo" className="lp-btn-ghost" id="hero-cta-demo">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
-              </svg>
-              Watch demo
-            </Link>
+            <HeroVoiceCta />
           </div>
         </div>
 

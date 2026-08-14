@@ -752,7 +752,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   VOICE INTERACTION — Orb click-to-talk UI additions
+   VOICE INTERACTION — Siri/Gemini Live Voice Widget
    ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── Orb button reset ────────────────────────────────────────────────────────── */
@@ -767,96 +767,316 @@
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: 50%;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.lp-orb-btn:hover {
+  transform: scale(1.05);
+}
+.lp-orb-btn:active {
+  transform: scale(0.96);
 }
 .lp-orb-btn:focus-visible {
-  outline: 2px solid rgba(200, 150, 255, 0.7);
+  outline: 2px solid rgba(200, 240, 49, 0.8);
   outline-offset: 4px;
-  border-radius: 50%;
 }
 
-/* ── Status label ────────────────────────────────────────────────────────────── */
-.lp-orb-status-label {
-  font-family: var(--lp-font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(200, 150, 255, 0.6);
-  margin-top: 0.5rem;
-  text-align: center;
-  transition: color 0.3s ease;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.lp-orb-status-label.lp-orb-status-active {
-  color: rgba(200, 240, 49, 0.85);
-}
-.lp-orb-status-label.lp-orb-status-connecting {
-  color: rgba(150, 180, 255, 0.7);
-  animation: lp-orb-blink 1s ease-in-out infinite;
-}
-
-@keyframes lp-orb-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-
-/* ── Mic level ring ──────────────────────────────────────────────────────────── */
-.lp-orb-mic-ring {
+/* ── Siri/Gemini Live Fluid Reactive Aura ──────────────────────────────────── */
+.lp-orb-reactive-aura {
   position: absolute;
-  width: calc(80px + 14px);
-  height: calc(80px + 14px);
-  bottom: 28px;
+  bottom: 24px;
   left: 50%;
-  transform: translateX(-50%);
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
-  border: 2px solid rgba(200, 240, 49, 0.6);
   pointer-events: none;
-  z-index: 50;
-  transition: opacity 0.08s ease;
+  z-index: 5;
+  filter: blur(14px);
+  transition: transform 0.1s ease-out, opacity 0.15s ease-out;
+}
+.lp-orb-reactive-aura.listening {
+  background: radial-gradient(
+    circle,
+    rgba(200, 240, 49, 0.6) 0%,
+    rgba(99, 102, 241, 0.4) 50%,
+    transparent 75%
+  );
+}
+.lp-orb-reactive-aura.speaking {
+  background: radial-gradient(
+    circle,
+    rgba(168, 85, 247, 0.7) 0%,
+    rgba(200, 240, 49, 0.5) 45%,
+    rgba(56, 189, 248, 0.3) 70%,
+    transparent 85%
+  );
+  animation: lp-gemini-aura-spin 4s linear infinite;
+}
+@keyframes lp-gemini-aura-spin {
+  0%   { filter: blur(14px) hue-rotate(0deg); }
+  100% { filter: blur(14px) hue-rotate(360deg); }
 }
 
-/* ── Active glow ─────────────────────────────────────────────────────────────── */
-.lp-orb-container--active .lp-orb-glass-sphere {
+/* ── Glass Sphere Active & Speaking State ───────────────────────────────────── */
+.lp-orb-container.active .lp-orb-glass-sphere {
   box-shadow:
     inset -10px -10px 40px rgba(150, 100, 255, 0.7),
-    inset 10px 10px 20px rgba(255, 255, 255, 0.35),
-    0 0 60px rgba(150, 100, 255, 0.5),
-    0 0 30px rgba(200, 240, 49, 0.15);
+    inset 10px 10px 20px rgba(255, 255, 255, 0.4),
+    0 0 50px rgba(200, 240, 49, 0.45),
+    0 0 25px rgba(150, 100, 255, 0.35);
+  border-color: rgba(200, 240, 49, 0.6);
 }
 
-/* ── ORA speaking pulse ──────────────────────────────────────────────────────── */
-.lp-orb-speaking {
+.lp-orb-glass-sphere.speaking-active {
   animation:
     lp-orb-bob 4s ease-in-out 0.8s infinite,
-    lp-orb-speaking-pulse 0.6s ease-in-out infinite !important;
+    lp-orb-speaking-pulse 0.8s ease-in-out infinite !important;
 }
+
 @keyframes lp-orb-speaking-pulse {
-  0%,  100% {
+  0%, 100% {
     box-shadow:
-      inset -10px -10px 40px rgba(150, 100, 255, 0.7),
-      inset 10px 10px 20px rgba(255, 255, 255, 0.35),
-      0 0 70px rgba(150, 100, 255, 0.6),
-      0 0 40px rgba(200, 240, 49, 0.25);
+      inset -10px -10px 40px rgba(150, 100, 255, 0.8),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.45),
+      0 0 60px rgba(200, 240, 49, 0.6),
+      0 0 35px rgba(168, 85, 247, 0.5);
   }
   50% {
     box-shadow:
-      inset -10px -10px 40px rgba(150, 100, 255, 0.9),
-      inset 10px 10px 20px rgba(255, 255, 255, 0.4),
-      0 0 100px rgba(150, 100, 255, 0.8),
-      0 0 60px rgba(200, 240, 49, 0.4);
+      inset -10px -10px 40px rgba(150, 100, 255, 1),
+      inset 10px 10px 20px rgba(255, 255, 255, 0.6),
+      0 0 90px rgba(200, 240, 49, 0.85),
+      0 0 55px rgba(168, 85, 247, 0.75);
   }
 }
 
-/* ── Wave image — only spins when session active ─────────────────────────────── */
-.lp-orb-wave-img {
-  animation: none; /* off by default */
-}
-.lp-orb-wave-img-wrapper--spinning .lp-orb-wave-img {
-  animation: lp-orb-wave-spin 18s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+/* ── Wave Image Spinning Inside ─────────────────────────────────────────────── */
+.lp-orb-wave-img-wrapper.spinning .lp-orb-wave-img {
+  animation: lp-orb-wave-spin 12s cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
-/* ── Connecting spinner overlay ──────────────────────────────────────────────── */
+/* ── Status Pill / Chip ─────────────────────────────────────────────────────── */
+.lp-orb-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  background: rgba(17, 17, 17, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-family: var(--lp-font-sans, 'Inter', sans-serif);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  margin-top: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.lp-orb-status-chip.active {
+  border-color: rgba(200, 240, 49, 0.4);
+  color: #ffffff;
+}
+.lp-orb-status-chip.speaking {
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.lp-orb-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.lp-orb-status-dot.idle {
+  background: #94a3b8;
+}
+.lp-orb-status-dot.connecting {
+  background: #38bdf8;
+  animation: lp-orb-dot-pulse 0.8s ease-in-out infinite;
+}
+.lp-orb-status-dot.listening {
+  background: #c8f031;
+  box-shadow: 0 0 8px #c8f031;
+  animation: lp-orb-dot-pulse 1s ease-in-out infinite;
+}
+.lp-orb-status-dot.speaking {
+  background: #d4f536;
+  box-shadow: 0 0 10px #d4f536;
+  animation: lp-orb-dot-pulse 0.5s ease-in-out infinite;
+}
+.lp-orb-status-dot.muted {
+  background: #f59e0b;
+}
+.lp-orb-status-dot.error {
+  background: #ef4444;
+}
+
+@keyframes lp-orb-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.35); opacity: 0.6; }
+}
+
+/* ── Floating Controls Bar (Mute & Stop) ───────────────────────────────────── */
+.lp-orb-controls {
+  position: absolute;
+  bottom: calc(80px + 12px);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 120;
+  pointer-events: auto;
+  animation: lp-fade-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.lp-orb-control-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(26, 26, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.lp-orb-control-btn:hover {
+  background: rgba(45, 45, 45, 1);
+  transform: scale(1.08);
+}
+.lp-orb-control-btn.muted {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+}
+.lp-orb-stop-btn {
+  background: rgba(220, 38, 38, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+.lp-orb-stop-btn:hover {
+  background: rgba(220, 38, 38, 0.5);
+  color: #ffffff;
+}
+
+/* ── Live Transcript Card (Siri/Gemini response pill) ───────────────────────── */
+.lp-orb-transcript-card {
+  position: absolute;
+  bottom: calc(80px + 3.8rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, 90vw);
+  background: rgba(14, 18, 27, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(200, 240, 49, 0.25);
+  border-radius: 1.25rem;
+  padding: 0.875rem 1rem;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    0 0 20px rgba(200, 240, 49, 0.08);
+  pointer-events: auto;
+  z-index: 150;
+  animation: lp-fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lp-orb-transcript-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lp-orb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--lp-font-mono, monospace);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #c8f031;
+}
+
+.lp-orb-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c8f031;
+  box-shadow: 0 0 6px #c8f031;
+  animation: lp-orb-dot-pulse 1s ease-in-out infinite;
+}
+
+.lp-orb-close-btn {
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+.lp-orb-close-btn:hover {
+  color: #ffffff;
+}
+
+.lp-orb-transcript-body {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lp-orb-transcript-text {
+  font-family: var(--lp-font-sans, 'Inter', sans-serif);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #f1f5f9;
+  margin: 0;
+}
+.lp-orb-transcript-text:not(:last-child) {
+  opacity: 0.65;
+}
+
+/* ── Error Card ────────────────────────────────────────────────────────────── */
+.lp-orb-error-card {
+  position: absolute;
+  bottom: calc(80px + 2.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(290px, 85vw);
+  background: rgba(35, 12, 12, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  color: #fca5a5;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 150;
+  animation: lp-fade-up 0.25s ease forwards;
+}
+.lp-orb-error-hint {
+  font-size: 0.6875rem;
+  color: #e2e8f0;
+  opacity: 0.75;
+  margin-top: 0.35rem;
+  font-family: var(--lp-font-mono, monospace);
+}
+
+/* ── Connecting Spinner Overlay ─────────────────────────────────────────────── */
 .lp-orb-connecting-overlay {
   position: absolute;
   inset: 0;
@@ -864,86 +1084,41 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.4);
   z-index: 30;
 }
 .lp-orb-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(200, 150, 255, 0.3);
-  border-top-color: rgba(200, 150, 255, 0.9);
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid rgba(200, 240, 49, 0.25);
+  border-top-color: #c8f031;
   border-radius: 50%;
-  animation: lp-orb-spin 0.8s linear infinite;
+  animation: lp-orb-spin 0.7s linear infinite;
 }
 @keyframes lp-orb-spin {
   to { transform: rotate(360deg); }
 }
 
-/* ── Transcript bubble ───────────────────────────────────────────────────────── */
-.lp-orb-transcript {
-  position: absolute;
-  bottom: calc(80px + 1.5rem);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(17, 17, 17, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(200, 150, 255, 0.2);
-  border-radius: 1rem 1rem 0.25rem 1rem;
-  padding: 0.625rem 0.875rem;
-  max-width: 240px;
-  min-width: 120px;
-  text-align: left;
-  pointer-events: none;
-  animation: lp-fade-up 0.3s ease forwards;
-  z-index: 200;
-}
-.lp-orb-transcript-line {
-  font-family: var(--lp-font-sans, 'Inter', sans-serif);
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: #e2e8f0;
-  margin: 0;
-}
-.lp-orb-transcript-line + .lp-orb-transcript-line {
-  margin-top: 0.25rem;
-  opacity: 0.7;
-}
-
-/* ── Error bubble ────────────────────────────────────────────────────────────── */
-.lp-orb-error-bubble {
-  position: absolute;
-  bottom: calc(80px + 1.5rem);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(220, 38, 38, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.7rem;
-  color: #fca5a5;
-  max-width: 200px;
-  text-align: center;
-  pointer-events: none;
-  z-index: 200;
-}
-.lp-orb-error-hint {
-  font-size: 0.6rem;
-  opacity: 0.6;
-  font-family: var(--lp-font-mono, monospace);
-}
-
-/* ── Mobile ──────────────────────────────────────────────────────────────────── */
+/* ── Mobile Layout Adjustments ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .lp-orb-transcript,
-  .lp-orb-error-bubble {
-    max-width: 180px;
-    font-size: 0.7rem;
-    bottom: calc(64px + 1.25rem);
+  .lp-orb-container {
+    width: 68px;
+    height: 68px;
   }
-  .lp-orb-mic-ring {
-    width: calc(64px + 14px);
-    height: calc(64px + 14px);
-    bottom: 22px;
+  .lp-orb-floor-reflection {
+    width: 46px;
+    height: 9px;
+    bottom: -13px;
+  }
+  .lp-orb-controls {
+    bottom: calc(68px + 10px);
+  }
+  .lp-orb-transcript-card {
+    bottom: calc(68px + 3.4rem);
+    width: min(300px, 92vw);
+  }
+  .lp-orb-error-card {
+    bottom: calc(68px + 2rem);
   }
 }
+
