@@ -130,6 +130,9 @@ export class GeminiVoiceService {
             model: geminiModel,
             generationConfig: {
               responseModalities: ['AUDIO'],
+              thinkingConfig: {
+                thinkingBudget: 0,
+              },
               speechConfig: {
                 voiceConfig: {
                   prebuiltVoiceConfig: {

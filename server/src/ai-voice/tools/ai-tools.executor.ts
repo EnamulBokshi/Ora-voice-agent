@@ -76,15 +76,14 @@ export class AiToolsExecutor {
       // Non-fatal: proceed without urgency hints
     }
 
-    // 3. Batch live-verify price and stock for each candidate
-    const liveVerifiedProducts: any[] = [];
-    for (const prod of ragRes.products) {
+    // 3. Batch live-verify price and stock for each candidate in parallel
+    const verifyPromises = ragRes.products.map(async (prod) => {
       const targetId =
         (prod as any).entityId ||
         (prod as any).id ||
         (prod as any)._id ||
         ((prod as any).data && (prod as any).data._id);
-      if (!targetId) continue;
+      if (!targetId) return null;
 
       try {
         const live = await this.productsService.verifyLive(businessId, targetId.toString());
@@ -99,21 +98,23 @@ export class AiToolsExecutor {
             category: live.category,
             sourceTier: live.sourceTier,
             confidenceScore: live.confidenceScore,
-            // Fix 5: expose isLowStock computed by verifyLive
             isLowStock: (live as any).isLowStock ?? false,
           };
 
-          // Wire mentionLowStockUrgency: add urgencyHint when merchant has it enabled
           if (mentionLowStockUrgency && (live as any).isLowStock) {
             entry.urgencyHint = `Only ${live.stockQuantity} left in stock — selling fast!`;
           }
 
-          liveVerifiedProducts.push(entry);
+          return entry;
         }
       } catch {
         // Product may have been live-found via Gap B but not yet in Mongo — skip
       }
-    }
+      return null;
+    });
+
+    const verifiedResults = await Promise.all(verifyPromises);
+    const liveVerifiedProducts = verifiedResults.filter(Boolean) as Record<string, any>[];
 
     // 4. If RAG returned Gap B live results (not in Mongo yet), surface them directly
     //    They're already live-verified (sourced fresh from the platform)

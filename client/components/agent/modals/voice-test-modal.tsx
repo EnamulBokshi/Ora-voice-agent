@@ -358,7 +358,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
       };
       updateVolume();
 
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const processor = audioCtx.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
       processor.onaudioprocess = (e) => {

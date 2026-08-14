@@ -267,7 +267,7 @@ export function FloatingOrbWidget() {
       mediaStreamRef.current = stream;
 
       const source = audioCtx.createMediaStreamSource(stream);
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const processor = audioCtx.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
       // Connect through a zero-gain node to destination (avoids feedback while keeping Web Audio node active)
@@ -294,9 +294,7 @@ export function FloatingOrbWidget() {
         const level = Math.min(100, Math.floor(rms * 400));
         setUserMicLevel(level);
 
-        // Noise gate — skip silent frames (< 0.008)
-        if (rms < 0.008) return;
-
+        // Send continuous 16kHz PCM stream to allow Gemini VAD real-time endpointing
         const pcm16 = floatTo16BitPCM(inputData);
         const base64Audio = arrayBufferToBase64(pcm16.buffer);
         socketRef.current.emit('audio-chunk', { audio: base64Audio });
