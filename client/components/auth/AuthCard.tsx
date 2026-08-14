@@ -42,7 +42,7 @@ export const AuthCard: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col justify-center w-full min-h-full p-6 sm:p-8 lg:p-10 bg-[#12121A] text-white max-w-xl mx-auto">
+    <div className="flex flex-col justify-center w-full min-h-full p-6 sm:p-8 lg:p-10 bg-transparent text-foreground max-w-xl mx-auto">
       {/* Header */}
       <AuthHeader mode={mode} emailForOtp={registeredEmail} />
 

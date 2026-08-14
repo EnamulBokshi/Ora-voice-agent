@@ -489,7 +489,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             )}
             {status === 'listening' && (
               <div
-                className="absolute rounded-full bg-amber-500/20 transition-all duration-75"
+                className="absolute rounded-full bg-[color:var(--status-warning)]/20 transition-all duration-75"
                 style={{
                   width: `${120 + audioLevel * 0.8}px`,
                   height: `${120 + audioLevel * 0.8}px`,
@@ -502,11 +502,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                 status === 'speaking'
                   ? 'bg-primary/10 border-primary text-primary shadow-primary/30'
                   : status === 'listening'
-                  ? 'bg-amber-950/80 border-amber-400 text-amber-400 shadow-amber-500/30'
+                  ? 'bg-[color:var(--status-warning)]/15 border-[color:var(--status-warning)] text-[color:var(--status-warning)] shadow-[color:var(--status-warning)]/30'
                   : status === 'connecting'
                   ? 'bg-surface-high border-primary/50 text-primary animate-pulse'
                   : status === 'error'
-                  ? 'bg-red-950/80 border-red-500 text-red-400'
+                  ? 'bg-error/15 border-error text-error'
                   : 'bg-surface-low border-border text-primary'
               }`}
             >
@@ -515,7 +515,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               ) : status === 'speaking' ? (
                 <Volume2 size={36} className="animate-bounce text-primary" />
               ) : status === 'listening' ? (
-                <Mic size={36} className="text-amber-400 animate-pulse" />
+                <Mic size={36} className="text-[color:var(--status-warning)] animate-pulse" />
               ) : (
                 <Radio size={36} className="text-primary" />
               )}
@@ -542,9 +542,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                   status === 'speaking' || status === 'listening'
                     ? 'bg-primary animate-pulse'
                     : status === 'connecting'
-                    ? 'bg-amber-400 animate-ping'
+                    ? 'bg-[color:var(--status-warning)] animate-ping'
                     : status === 'error'
-                    ? 'bg-red-500'
+                    ? 'bg-error'
                     : 'bg-muted-foreground'
                 }`}
               />
@@ -575,7 +575,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             {status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
-                className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
+                className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg shadow-primary/20 transition-all"
               >
                 <Play size={15} fill="currentColor" />
                 <span>Start Voice Session</span>
@@ -586,7 +586,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                   onClick={() => setIsMuted(!isMuted)}
                   className={`p-3 rounded-xl border transition-colors ${
                     isMuted
-                      ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                      ? 'bg-error/10 border-error/30 text-error'
                       : 'bg-surface-high border-border text-foreground hover:bg-surface-bright'
                   }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
@@ -596,7 +596,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
                 <button
                   onClick={stopSession}
-                  className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-all"
+                  className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-error/10 border border-error/30 text-error hover:bg-error/20 transition-all"
                 >
                   <Square size={15} fill="currentColor" />
                   <span>End Session</span>
@@ -629,7 +629,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                       [{item.timestamp}]
                     </span>
                     {item.sender === 'user' ? (
-                      <span className="text-amber-400 font-semibold flex items-center gap-1">
+                      <span className="text-[color:var(--status-warning)] font-semibold flex items-center gap-1">
                         <User size={11} /> User:
                       </span>
                     ) : item.sender === 'agent' ? (
@@ -644,7 +644,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                         item.sender === 'agent'
                           ? 'text-foreground font-medium'
                           : item.sender === 'user'
-                          ? 'text-amber-200'
+                          ? 'text-foreground/90'
                           : 'text-muted-foreground italic'
                       }
                     >

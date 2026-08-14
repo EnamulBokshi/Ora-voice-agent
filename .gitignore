@@ -3,3 +3,6 @@
 *.tsbuildinfo
 
 gemini-live-test
+
+# CommandCode
+.commandcode/

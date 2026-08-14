@@ -464,7 +464,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
               status === 'speaking'
                 ? 'radial-gradient(circle at center, var(--primary) 0%, transparent 70%)'
                 : status === 'listening'
-                ? 'radial-gradient(circle at center, #F59E0B 0%, transparent 70%)'
+                ? 'radial-gradient(circle at center, var(--status-warning) 0%, transparent 70%)'
                 : 'radial-gradient(circle at center, var(--primary) 0%, transparent 60%)',
           }}
         />
@@ -479,7 +479,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
           {/* Listening audio volume reaction halo */}
           {status === 'listening' && (
             <div
-              className="absolute rounded-full bg-amber-500/20 transition-all duration-75 pointer-events-none"
+              className="absolute rounded-full bg-[color:var(--status-warning)]/20 transition-all duration-75 pointer-events-none"
               style={{
                 width: `${128 + audioLevel * 0.9}px`,
                 height: `${128 + audioLevel * 0.9}px`,
@@ -495,11 +495,11 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
               status === 'speaking'
                 ? 'bg-primary/10 border-primary text-primary shadow-primary/30'
                 : status === 'listening'
-                ? 'bg-amber-950/40 border-amber-400 text-amber-400 shadow-amber-500/30'
+                ? 'bg-[color:var(--status-warning)]/15 border-[color:var(--status-warning)] text-[color:var(--status-warning)] shadow-[color:var(--status-warning)]/30'
                 : status === 'connecting'
                 ? 'bg-surface-high border-primary/50 text-primary animate-pulse'
                 : status === 'error'
-                ? 'bg-red-950/40 border-red-500 text-red-400'
+                ? 'bg-error/15 border-error text-error'
                 : 'bg-surface-low border-border text-foreground hover:border-primary/60 hover:scale-[1.03]',
             )}
             aria-label={isActive ? 'Stop ORA Voice Assistant' : 'Start ORA Voice Assistant'}
@@ -509,9 +509,9 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
             ) : status === 'speaking' ? (
               <Volume2 size={32} className="text-primary animate-bounce" />
             ) : status === 'listening' ? (
-              <Mic size={32} className="text-amber-400 animate-pulse" />
+              <Mic size={32} className="text-[color:var(--status-warning)] animate-pulse" />
             ) : status === 'error' ? (
-              <Square size={28} className="text-red-400" />
+              <Square size={28} className="text-error" />
             ) : (
               <Mic size={32} className="text-primary" />
             )}
@@ -554,7 +554,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5',
                 isMuted
-                  ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                  ? 'bg-error/10 border-error/30 text-error'
                   : 'bg-surface-low border-border text-foreground hover:bg-surface-high',
               )}
             >
@@ -564,7 +564,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
 
             <button
               onClick={stopSession}
-              className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-red-500/10 hover:text-red-400 border border-border transition-colors flex items-center gap-1.5 text-muted-foreground"
+              className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-error/10 hover:text-error border border-border transition-colors flex items-center gap-1.5 text-muted-foreground"
             >
               <Square size={12} />
               Stop Call
@@ -573,7 +573,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
         )}
 
         {errorMessage && (
-          <div className="relative z-10 mt-4 p-2.5 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-400 max-w-md">
+          <div className="relative z-10 mt-4 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md">
             {errorMessage}
           </div>
         )}

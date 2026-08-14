@@ -90,8 +90,21 @@ const navGroups: NavGroup[] = [
 // All nav items flattened for active-state matching
 const allNavItems = navGroups.flatMap((g) => g.items);
 
-function navIdFromPath(pathname: string): string {
+function getActiveNavId(
+  pathname: string,
+  searchParams: { get: (name: string) => string | null },
+): string {
   if (pathname === '/' || pathname.startsWith('/dashboard')) return 'dashboard';
+  if (pathname.startsWith('/live-desk')) return 'live-desk';
+  if (pathname.startsWith('/agent')) return 'agent';
+  if (pathname.startsWith('/conversations')) return 'conversations';
+  if (pathname.startsWith('/billing')) {
+    return searchParams.get('tab') === 'usage' ? 'usage' : 'billing';
+  }
+  if (pathname.startsWith('/profile')) {
+    return searchParams.get('tab') === 'notifications' ? 'notifications' : 'settings';
+  }
+
   const match = allNavItems.find(
     (item) =>
       !item.href.includes('?') &&
@@ -109,7 +122,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get('tab') || 'voice';
-  const activeId = navIdFromPath(pathname);
+  const activeId = getActiveNavId(pathname, searchParams);
   const [userName, setUserName] = useState<string>('Profile');
   const [userRole, setUserRole] = useState<string>('Owner');
 
@@ -213,7 +226,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             )}
 
             {group.items.map((item) => {
-              const isParentActive = item.id === activeId || pathname.startsWith(item.href);
+              const isParentActive = item.id === activeId;
 
               if (collapsed) {
                 return (

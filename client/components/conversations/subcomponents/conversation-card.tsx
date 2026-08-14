@@ -67,7 +67,7 @@ export function ConversationCard({ item, isSelected, onSelect }: ConversationCar
                   isActive
                     ? 'text-primary'
                     : isNeedsAttention
-                    ? 'text-amber-400'
+                    ? 'text-[color:var(--status-warning)]'
                     : 'text-muted-foreground',
                 )}
               >

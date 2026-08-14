@@ -137,11 +137,10 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
             <button
               type="button"
               onClick={() => setInputMode('upload')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                inputMode === 'upload'
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${inputMode === 'upload'
                   ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
-              }`}
+                }`}
             >
               <UploadCloud size={13} />
               <span>File Upload</span>
@@ -149,11 +148,10 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
             <button
               type="button"
               onClick={() => setInputMode('text')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                inputMode === 'text'
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${inputMode === 'text'
                   ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
-              }`}
+                }`}
             >
               <PenTool size={13} />
               <span>Type / Paste</span>

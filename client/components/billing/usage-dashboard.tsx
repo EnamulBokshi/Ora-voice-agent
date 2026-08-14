@@ -8,9 +8,7 @@ import {
   Database,
   Users,
   ArrowUpRight,
-  Sparkles,
   Calendar,
-  AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
@@ -68,14 +66,14 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
 
   return (
     <div className="space-y-6">
-      {/* ── Header & Active Plan Banner ── */}
-      <div className="rounded-md border border-border bg-surface-container p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* ── Top Header ──────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-primary flex items-center gap-1.5">
-              <BarChart2 size={13} />
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <BarChart2 size={13} className="text-primary" />
               Billing & Quotas
-            </span>
+            </p>
             <span className="text-[10px] text-muted-foreground font-mono">· Monthly Cycle</span>
           </div>
           <h1 className="text-xl font-bold text-foreground tracking-tight">
@@ -87,13 +85,13 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="p-3 rounded-md bg-surface-low border border-border flex items-center gap-3">
+          <div className="p-2.5 px-3 rounded-md bg-surface-container border border-border flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <div>
               <p className="text-xs font-semibold text-foreground">
                 {plan?.name ?? 'Pro Plan'}
               </p>
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 font-mono">
                 <Calendar size={10} />
                 <span>Renews {periodEndFormatted}</span>
               </p>
@@ -110,31 +108,35 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
       </div>
 
-      {/* ── 4 Quota Utilization Meters ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── 4 Quota Utilization Metric Cards ─────────────────────────── */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Quota Utilization">
         {/* Metric 1: Voice Minutes */}
-        <div className="rounded-md border border-border bg-surface-container p-5 flex flex-col justify-between">
+        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-8 h-8 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <Mic size={15} />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Voice Minutes
+              </span>
+              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
+                <Mic size={14} />
               </div>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
+                {minutesUsed}
+                <span className="text-xs font-normal text-muted-foreground ml-1">/ {minutesLimit} min</span>
+              </p>
               <span
                 className={cn(
                   'px-2 py-0.5 rounded text-[10px] font-bold font-mono',
                   minutesPct > 80
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    ? 'bg-[color:var(--status-warning)]/10 text-[color:var(--status-warning)] border border-[color:var(--status-warning)]/20'
                     : 'bg-surface-low text-foreground border border-border',
                 )}
               >
                 {minutesPct}%
               </span>
             </div>
-            <p className="text-xs font-medium text-muted-foreground">Voice Minutes</p>
-            <h3 className="text-xl font-bold text-foreground mt-0.5 tabular-nums">
-              {minutesUsed}{' '}
-              <span className="text-xs font-normal text-muted-foreground">/ {minutesLimit} min</span>
-            </h3>
           </div>
 
           <div className="mt-4 space-y-1.5">
@@ -151,21 +153,25 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
 
         {/* Metric 2: Assisted Orders */}
-        <div className="rounded-md border border-border bg-surface-container p-5 flex flex-col justify-between">
+        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-8 h-8 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <ShoppingCart size={15} />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Assisted Orders
+              </span>
+              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
+                <ShoppingCart size={14} />
               </div>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
+                {ordersUsed}
+                <span className="text-xs font-normal text-muted-foreground ml-1">/ {ordersLimit} orders</span>
+              </p>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-surface-low text-foreground border border-border">
                 {ordersPct}%
               </span>
             </div>
-            <p className="text-xs font-medium text-muted-foreground">Assisted Orders</p>
-            <h3 className="text-xl font-bold text-foreground mt-0.5 tabular-nums">
-              {ordersUsed}{' '}
-              <span className="text-xs font-normal text-muted-foreground">/ {ordersLimit} orders</span>
-            </h3>
           </div>
 
           <div className="mt-4 space-y-1.5">
@@ -182,21 +188,25 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
 
         {/* Metric 3: RAG Knowledge Queries */}
-        <div className="rounded-md border border-border bg-surface-container p-5 flex flex-col justify-between">
+        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-8 h-8 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <Database size={15} />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Store Queries
+              </span>
+              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
+                <Database size={14} />
               </div>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
+                {ragUsed.toLocaleString()}
+                <span className="text-xs font-normal text-muted-foreground ml-1">/ {ragLimit.toLocaleString()}</span>
+              </p>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-surface-low text-foreground border border-border">
                 {ragPct}%
               </span>
             </div>
-            <p className="text-xs font-medium text-muted-foreground">Store Context Queries</p>
-            <h3 className="text-xl font-bold text-foreground mt-0.5 tabular-nums">
-              {ragUsed.toLocaleString()}{' '}
-              <span className="text-xs font-normal text-muted-foreground">/ {ragLimit.toLocaleString()}</span>
-            </h3>
           </div>
 
           <div className="mt-4 space-y-1.5">
@@ -213,21 +223,25 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
 
         {/* Metric 4: Team Seats */}
-        <div className="rounded-md border border-border bg-surface-container p-5 flex flex-col justify-between">
+        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-8 h-8 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <Users size={15} />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Team Seats
+              </span>
+              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
+                <Users size={14} />
               </div>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
+                {seatsUsed}
+                <span className="text-xs font-normal text-muted-foreground ml-1">/ {seatsLimit} seats</span>
+              </p>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-surface-low text-foreground border border-border">
                 {seatsPct}%
               </span>
             </div>
-            <p className="text-xs font-medium text-muted-foreground">Team Member Seats</p>
-            <h3 className="text-xl font-bold text-foreground mt-0.5 tabular-nums">
-              {seatsUsed}{' '}
-              <span className="text-xs font-normal text-muted-foreground">/ {seatsLimit} seats</span>
-            </h3>
           </div>
 
           <div className="mt-4 space-y-1.5">
@@ -242,43 +256,45 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── Daily Activity Breakdown Table ── */}
+      {/* ── Daily Activity Breakdown Table ──────────────────────────── */}
       <div className="rounded-md border border-border bg-surface-container overflow-hidden">
-        <div className="p-5 border-b border-border bg-surface-low/50 flex items-center justify-between">
+        <div className="p-4 px-5 border-b border-border bg-surface-low/50 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Recent Voice & Sales Activity</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Daily breakdown of customer voice interactions and assisted conversions.
+            <h3 className="text-[13px] font-semibold text-foreground">Recent Voice & Sales Activity</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Daily breakdown of customer voice interactions and assisted conversions
             </p>
           </div>
-          <span className="text-[11px] font-mono text-muted-foreground">Last 7 Days</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-surface-high px-2 py-0.5 rounded border border-border font-mono">
+            Last 7 Days
+          </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="border-b border-border bg-surface-low text-muted-foreground">
-              <tr>
-                <th className="px-5 py-3 font-medium">Timeline</th>
-                <th className="px-5 py-3 font-medium">Live Sessions</th>
-                <th className="px-5 py-3 font-medium">Minutes Consumed</th>
-                <th className="px-5 py-3 font-medium">Orders Assisted</th>
-                <th className="px-5 py-3 font-medium text-right">Quota Impact</th>
+          <table className="w-full text-left border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground uppercase text-[11px] tracking-wider font-medium bg-surface-low/30">
+                <th className="py-3 px-5">Timeline</th>
+                <th className="py-3 px-5">Live Sessions</th>
+                <th className="py-3 px-5">Minutes Consumed</th>
+                <th className="py-3 px-5">Orders Assisted</th>
+                <th className="py-3 px-5 text-right">Quota Impact</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border text-foreground">
               {dailyBreakdown.map((row, i) => (
                 <tr key={i} className="hover:bg-surface-high/50 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-foreground">{row.day}</td>
-                  <td className="px-5 py-3.5 font-mono text-foreground">{row.sessions} sessions</td>
-                  <td className="px-5 py-3.5 font-mono text-foreground">{row.minutes} min</td>
-                  <td className="px-5 py-3.5 text-foreground">
-                    <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-mono font-medium">
+                  <td className="py-3.5 px-5 font-medium text-foreground text-xs">{row.day}</td>
+                  <td className="py-3.5 px-5 font-mono text-foreground text-xs">{row.sessions} sessions</td>
+                  <td className="py-3.5 px-5 font-mono text-foreground text-xs">{row.minutes} min</td>
+                  <td className="py-3.5 px-5 text-foreground text-xs">
+                    <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-mono text-[11px] font-medium">
                       {row.orders} orders
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-right font-mono text-muted-foreground">
+                  <td className="py-3.5 px-5 text-right font-mono text-muted-foreground text-xs">
                     +{Math.round((row.minutes / minutesLimit) * 100)}%
                   </td>
                 </tr>
@@ -288,12 +304,12 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
       </div>
 
-      {/* ── Fair Usage & Quotas Notice ── */}
-      <div className="rounded-md border border-border bg-surface-low p-4 flex items-start gap-3">
+      {/* ── Fair Usage & Quotas Notice ──────────────────────────────── */}
+      <div className="rounded-md border border-border bg-surface-container p-4 flex items-start gap-3">
         <CheckCircle2 size={16} className="text-primary shrink-0 mt-0.5" />
-        <div className="text-xs space-y-0.5">
-          <p className="font-medium text-foreground">Fair Usage & Uninterrupted Customer Experience</p>
-          <p className="text-muted-foreground leading-relaxed">
+        <div className="space-y-0.5">
+          <p className="text-[13px] font-semibold text-foreground">Fair Usage & Uninterrupted Customer Experience</p>
+          <p className="text-[12px] text-muted-foreground leading-relaxed">
             ORA never shuts off unexpectedly during customer sessions. When approaching 80% and 95% of your quota, we'll notify you in-app and via email with 1-click tier expansion options.
           </p>
         </div>

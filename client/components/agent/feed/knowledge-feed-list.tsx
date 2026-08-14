@@ -131,20 +131,18 @@ export function KnowledgeFeedList({
                 <button
                   key={tab.id}
                   onClick={() => setSelectedCategory(tab.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                    selectedCategory === tab.id
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${selectedCategory === tab.id
                       ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                       : 'bg-surface-high text-muted-foreground hover:text-foreground hover:bg-surface-bright'
-                  }`}
+                    }`}
                 >
                   <span>{tab.label}</span>
                   {count > 0 && (
                     <span
-                      className={`text-[10px] font-mono px-1 rounded ${
-                        selectedCategory === tab.id
+                      className={`text-[10px] font-mono px-1 rounded ${selectedCategory === tab.id
                           ? 'bg-primary-foreground/20 text-primary-foreground'
                           : 'bg-surface-lowest text-muted-foreground'
-                      }`}
+                        }`}
                     >
                       {count}
                     </span>
@@ -211,10 +209,10 @@ export function KnowledgeFeedList({
                         {source === 'text_feed' && 'Manual Entry · '}
                         {doc.updatedAt
                           ? new Date(doc.updatedAt).toLocaleDateString(undefined, {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
                           : 'Recently'}
                       </p>
                     </div>
