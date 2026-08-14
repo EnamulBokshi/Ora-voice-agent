@@ -26,4 +26,20 @@ export class QueryProductsDto {
   @IsOptional()
   @IsEnum(ProductAvailability)
   availability?: ProductAvailability;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  maxPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  minPrice?: number;
 }

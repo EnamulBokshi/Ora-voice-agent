@@ -63,7 +63,14 @@ export class RagService {
   async searchProducts(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number } = {},
+    options: {
+      limit?: number;
+      confidenceThreshold?: number;
+      category?: string;
+      brand?: string;
+      maxPrice?: number;
+      minPrice?: number;
+    } = {},
   ) {
     const limit = Math.min(options.limit || 5, 5); // candidate cap: max 5
     const threshold =
@@ -71,14 +78,18 @@ export class RagService {
         ? options.confidenceThreshold
         : this.productThreshold;
 
-    // 1. Embed the query (Fix 3: use .vector field)
-    const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
-
-    const vectorResults = await this.vectorStoreService.searchVectors(
-      businessId,
-      embeddingResult.vector,
-      { entityType: EntityType.PRODUCT, limit, confidenceThreshold: threshold },
-    );
+    // 1. Embed the query
+    let vectorResults: SearchResultItem[] = [];
+    try {
+      const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+      vectorResults = await this.vectorStoreService.searchVectors(
+        businessId,
+        embeddingResult.vector,
+        { entityType: EntityType.PRODUCT, limit, confidenceThreshold: threshold },
+      );
+    } catch (err: any) {
+      this.logger.warn(`[RAG Engine] Vector search error for "${queryText}": ${err.message}`);
+    }
 
     let fallbackTriggered = false;
     let fallbackTier: FallbackTier = 'none';
@@ -98,11 +109,15 @@ export class RagService {
       );
     } else {
       // -----------------------------------------------------------------------
-      // Gap A fallback: product exists in Mongo but isn't embedded yet.
+      // Gap A fallback: product exists in Mongo or search needs keyword precision
       // -----------------------------------------------------------------------
       fallbackTriggered = true;
       const mongoResults = await this.productsService.findAll(businessId, {
         search: queryText,
+        category: options.category,
+        brand: options.brand,
+        maxPrice: options.maxPrice,
+        minPrice: options.minPrice,
         limit,
       });
 
@@ -320,7 +335,15 @@ export class RagService {
   async searchCombined(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number; entityType?: EntityType } = {},
+    options: {
+      limit?: number;
+      confidenceThreshold?: number;
+      entityType?: EntityType;
+      category?: string;
+      brand?: string;
+      maxPrice?: number;
+      minPrice?: number;
+    } = {},
   ) {
     const fetchProducts = !options.entityType || options.entityType === EntityType.PRODUCT;
     const fetchKnowledge = !options.entityType || options.entityType === EntityType.KNOWLEDGE_CHUNK;

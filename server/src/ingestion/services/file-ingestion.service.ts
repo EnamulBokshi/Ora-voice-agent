@@ -133,13 +133,30 @@ export class FileIngestionService {
       await Promise.allSettled(
         chunk.map(async (prod) => {
           try {
+            const specsStr = (prod as any).attributes
+              ? `Specifications: ${Object.entries((prod as any).attributes).map(([k, v]) => `${k}: ${v}`).join(', ')}.`
+              : '';
+            const brandStr = (prod as any).brand ? `Brand: ${(prod as any).brand}.` : '';
+
+            const richText = [
+              `Product: ${prod.name}.`,
+              brandStr,
+              `Category: ${prod.category || 'General'}.`,
+              `Price: ${prod.price} ${prod.currency}.`,
+              prod.description ? `Description: ${prod.description}.` : '',
+              specsStr,
+            ]
+              .filter(Boolean)
+              .join(' ');
+
             await this.vectorStoreService.upsertVector(businessId, {
               entityType: EntityType.PRODUCT,
               entityId: prod._id.toString(),
-              text: `${prod.name}. Price: ${prod.price} ${prod.currency}. Category: ${prod.category || 'General'}. ${prod.description || ''}`.trim(),
+              text: richText.trim(),
               metadata: {
                 nativeProductId: prod.nativeProductId,
                 name: prod.name,
+                brand: (prod as any).brand,
                 price: prod.price,
                 currency: prod.currency,
                 category: prod.category,
