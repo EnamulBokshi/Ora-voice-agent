@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -77,5 +78,16 @@ export class ProductsController {
     @Body() liveData: VerifyLiveDto,
   ) {
     return this.productsService.verifyLive(user.businessId, id, liveData);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('owner' as any, 'admin' as any)
+  @HttpCode(HttpStatus.OK)
+  async remove(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+  ) {
+    return this.productsService.remove(user.businessId, id);
   }
 }
