@@ -11,7 +11,7 @@ import {
 import { ConversationListPanel } from './conversation-list-panel';
 import { ConversationTranscript } from './conversation-transcript';
 import { demoConversationItems } from '@/lib/demo-data';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageSquare } from 'lucide-react';
 
 export function ConversationsClient() {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -139,7 +139,7 @@ export function ConversationsClient() {
   }
 
   return (
-    <div className="flex-1 flex h-full w-full overflow-hidden">
+    <div className="flex-1 flex h-full w-full overflow-hidden bg-background">
       <ConversationListPanel
         conversations={filteredConversations}
         selectedId={selectedId}
@@ -158,8 +158,12 @@ export function ConversationsClient() {
           isLoadingTranscript={isLoadingTranscript}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-          No conversations yet. Conversations from the ORA widget will appear here.
+        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
+          <MessageSquare size={32} className="text-muted-foreground/40" />
+          <p className="font-semibold text-foreground">No conversation selected</p>
+          <p className="text-xs text-muted-foreground">
+            Select a conversation from the left to view the live transcript.
+          </p>
         </div>
       )}
     </div>

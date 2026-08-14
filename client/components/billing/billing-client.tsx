@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { getSubscriptionApi, getBillingPlansApi } from '@/services/billing-service';
 import { getInvoicesApi } from '@/services/invoices-service';
@@ -11,8 +12,13 @@ import { BillingHeader } from './billing-header';
 import { CurrentPlanCard } from './current-plan-card';
 import { PlanComparisonGrid } from './plan-comparison-grid';
 import { InvoiceHistory } from './invoice-history';
+import { UsageDashboard } from './usage-dashboard';
 
-export function BillingClient() {
+function BillingClientContent() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
+  const isUsageTab = tab === 'usage';
+
   const [subscription, setSubscription] = useState<SubscriptionDetailsResponse | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +50,7 @@ export function BillingClient() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-primary" size={20} />
-          <span className="text-sm font-medium">Loading billing...</span>
+          <span className="text-sm font-medium">Loading billing details...</span>
         </div>
       </div>
     );
@@ -59,16 +65,30 @@ export function BillingClient() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full">
-      <div className="max-w-[1200px] mx-auto space-y-6">
-        <BillingHeader />
-        <CurrentPlanCard subscription={subscription} onReload={load} />
-        <PlanComparisonGrid
-          currentPlanId={subscription.plan?.planId ?? null}
-          onSubscribed={load}
-        />
-        <InvoiceHistory invoices={invoices} onResent={load} />
+    <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full bg-background">
+      <div className="max-w-[1300px] mx-auto space-y-6">
+        {isUsageTab ? (
+          <UsageDashboard subscription={subscription} />
+        ) : (
+          <>
+            <BillingHeader />
+            <CurrentPlanCard subscription={subscription} onReload={load} />
+            <PlanComparisonGrid
+              currentPlanId={subscription.plan?.planId ?? null}
+              onSubscribed={load}
+            />
+            <InvoiceHistory invoices={invoices} onResent={load} />
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+export function BillingClient() {
+  return (
+    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Billing...</div>}>
+      <BillingClientContent />
+    </Suspense>
   );
 }

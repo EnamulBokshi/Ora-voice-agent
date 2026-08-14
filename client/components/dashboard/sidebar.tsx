@@ -150,37 +150,46 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div
         className={cn(
           'h-14 flex items-center border-b border-border flex-shrink-0',
-          collapsed ? 'justify-center px-0' : 'justify-between px-3.5',
+          collapsed ? 'justify-center px-2' : 'justify-between px-3.5',
         )}
       >
         {collapsed ? (
-          <Link href="/" title="ORA Landing Page" aria-label="ORA Landing Page" className="w-8 h-8 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none hover:opacity-90 transition-opacity">
-            O
-          </Link>
+          <button
+            onClick={onToggle}
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+            className="w-9 h-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+          >
+            <PanelLeftOpen size={18} />
+          </button>
         ) : (
-          <Link href="/" title="ORA Landing Page" aria-label="ORA Landing Page" className="flex items-center gap-2.5 min-w-0 hover:opacity-90 transition-opacity">
-            <span className="w-7 h-7 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none flex-shrink-0">
-              O
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold leading-none tracking-tight text-foreground">ORA</p>
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.12em] mt-0.5">
-                Command center
-              </p>
-            </div>
-          </Link>
+          <>
+            <Link
+              href="/"
+              title="ORA Landing Page"
+              aria-label="ORA Landing Page"
+              className="flex items-center gap-2.5 min-w-0 hover:opacity-90 transition-opacity"
+            >
+              <span className="w-7 h-7 rounded-md flex items-center justify-center bg-primary text-primary-foreground font-bold text-sm select-none flex-shrink-0">
+                O
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-none tracking-tight text-foreground">ORA</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.12em] mt-0.5">
+                  Command center
+                </p>
+              </div>
+            </Link>
+            <button
+              onClick={onToggle}
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors flex-shrink-0"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          </>
         )}
-        <button
-          onClick={onToggle}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cn(
-            'w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors flex-shrink-0',
-            collapsed && 'absolute bottom-[5.5rem] left-1/2 -translate-x-1/2',
-          )}
-        >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
       </div>
 
       {/* ── Nav ────────────────────────────────────────────────────────── */}
