@@ -10,6 +10,7 @@ export interface GeminiVoiceSessionOptions {
   sessionId: string;
   onAudioData: (base64AudioPcm: string) => void;
   onTextData?: (text: string) => void;
+  onInterrupted?: () => void;
   onError?: (err: any) => void;
   onClose?: () => void;
 }
@@ -35,11 +36,10 @@ export class GeminiVoiceService {
 
     if (!apiKey) {
       throw new Error(
-        'GEMINI_API_KEY is not configured. Add a valid Google AI Studio key (starts with AIzaSy...) to server/.env',
+        'GEMINI_API_KEY is not configured. Add a valid Google AI Studio key to server/.env',
       );
     }
 
-    // Support both legacy AIza... keys and new AQ.Ab... Auth keys from Google AI Studio
     if (!apiKey.startsWith('AIza') && !apiKey.startsWith('AQ.Ab')) {
       this.logger.warn(
         `[GeminiVoiceService] GEMINI_API_KEY has an unusual prefix: '${apiKey.substring(0, 6)}...'. Proceeding with WebSocket connection attempt.`,
@@ -48,17 +48,19 @@ export class GeminiVoiceService {
 
     const host = 'generativelanguage.googleapis.com';
 
-    // Default Live Bidi model identifier supported by Google AI Studio
-    const geminiModel =
+    // Default Live Bidi model identifier (gemini-3.1-flash-live-preview)
+    const rawModel =
       this.configService.get<string>('GEMINI_MODEL') ||
       process.env.GEMINI_MODEL ||
-      'models/gemini-2.5-flash-native-audio-latest';
+      'models/gemini-3.1-flash-live-preview';
+
+    const geminiModel = rawModel.startsWith('models/') ? rawModel : `models/${rawModel}`;
 
     this.logger.log(
-      `[GeminiVoiceService] Connecting to Gemini Live API — model: ${geminiModel}, session: ${options.sessionId}`,
+      `[GeminiVoiceService] Connecting to Gemini Live API (v1beta) — model: ${geminiModel}, session: ${options.sessionId}`,
     );
 
-    const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+    const uri = `wss://${host}/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
     const ws = new WebSocket(uri);
 
     // Fetch merchant agent prompt configuration
@@ -77,18 +79,18 @@ export class GeminiVoiceService {
     }
 
     const systemInstructionText = [
-      'You are ORA, a friendly and professional AI voice sales assistant for an e-commerce store.',
+      'You are ORA, a friendly, helpful and professional AI voice sales assistant for an e-commerce store.',
       merchantBrandVoice,
       '',
       'CRITICAL RULES FOR YOUR BEHAVIOR:',
-      '1. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
-      '2. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
-      '3. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
-      '4. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
-      '5. When asked for a random product or general browse, search once with a broad term. If nothing comes back, say "The catalog appears to be empty right now."',
-      '6. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
-      '7. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
-      '8. If the customer speaks a language other than English, try to respond in their language.',
+      '1. LANGUAGE MATCHING RULE (MANDATORY): You MUST dynamically detect and mirror the customer\'s spoken language turn by turn. If the customer speaks English, reply ONLY in English (never in Bengali). If the customer speaks Bengali (বাংলা), reply in natural Bengali. If the customer speaks Banglish, reply in Banglish. Never use Bengali when addressed in English.',
+      '2. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
+      '3. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
+      '4. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
+      '5. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
+      '6. When asked for a random product or general browse, search once with a broad term. If nothing comes back, say "The catalog appears to be empty right now."',
+      '7. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
+      '8. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
       mentionLowStockUrgency
         ? '9. When a product in the tool response has an urgencyHint field, naturally work that urgency into your reply (e.g., "Just 2 left — grab it while you can!"). Keep it brief and genuine, not pushy.'
         : '',
@@ -128,9 +130,6 @@ export class GeminiVoiceService {
             model: geminiModel,
             generationConfig: {
               responseModalities: ['AUDIO'],
-              thinkingConfig: {
-                thinkingBudget: 0,
-              },
               speechConfig: {
                 voiceConfig: {
                   prebuiltVoiceConfig: {
@@ -169,19 +168,22 @@ export class GeminiVoiceService {
               `[GeminiVoiceService] ✅ Gemini Live session setup CONFIRMED for session ${options.sessionId}`,
             );
 
-            // NOW it's safe to resolve — the session is live
             resolve(sessionControls);
             return;
           }
 
-          // Process audio & text output from model
+          // Real-time output transcription from Gemini
+          if (response.serverContent?.outputTranscription?.text && options.onTextData) {
+            options.onTextData(response.serverContent.outputTranscription.text);
+          }
+
+          // Process audio & text output from model turn
           if (response.serverContent?.modelTurn?.parts) {
             for (const part of response.serverContent.modelTurn.parts) {
-              if (part.inlineData && part.inlineData.mimeType.startsWith('audio/')) {
+              if (part.inlineData && part.inlineData.mimeType?.startsWith('audio/')) {
                 options.onAudioData(part.inlineData.data);
               }
               if (part.text && options.onTextData) {
-                // Filter out thinking/reasoning text (bold headers, internal analysis)
                 const text = part.text.trim();
                 if (
                   text &&
@@ -192,6 +194,14 @@ export class GeminiVoiceService {
                   options.onTextData(text);
                 }
               }
+            }
+          }
+
+          // User interruption handling
+          if (response.serverContent?.interrupted) {
+            this.logger.log(`[GeminiVoiceService] ⚡ User interrupted Gemini turn`);
+            if (options.onInterrupted) {
+              options.onInterrupted();
             }
           }
 
@@ -274,18 +284,16 @@ export class GeminiVoiceService {
         }
       });
 
-      // Define session controls (used after setup is confirmed)
+      // Define session controls with latest Gemini Live audio parameter
       const sessionControls = {
         sendAudioChunk: (base64Pcm16k: string) => {
           if (ws.readyState === WebSocket.OPEN) {
             const realtimeInput = {
               realtimeInput: {
-                mediaChunks: [
-                  {
-                    mimeType: 'audio/pcm;rate=16000',
-                    data: base64Pcm16k,
-                  },
-                ],
+                audio: {
+                  mimeType: 'audio/pcm;rate=16000',
+                  data: base64Pcm16k,
+                },
               },
             };
             ws.send(JSON.stringify(realtimeInput));

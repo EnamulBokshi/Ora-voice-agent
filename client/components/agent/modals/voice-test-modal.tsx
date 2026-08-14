@@ -163,7 +163,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
         if (eventName === 'voice-session-started') {
           setStatus('listening');
-          addTranscript('system', 'ORA Gemini 2.0 Live Voice Agent active! Speak into microphone.');
+          addTranscript('system', 'ORA Gemini Live Voice Agent active! Speak into microphone.');
         } else if (eventName === 'audio-stream') {
           if (payload?.audio) {
             playPcm24kBase64(payload.audio);
@@ -172,6 +172,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           if (payload?.text) {
             addTranscript('agent', payload.text);
           }
+        } else if (eventName === 'voice-interrupted') {
+          if (audioCtxRef.current) {
+            nextPlayTimeRef.current = audioCtxRef.current.currentTime;
+          }
+          setStatus('listening');
         } else if (eventName === 'voice-error') {
           const msg = payload?.message || 'Voice connection error';
           setErrorMessage(msg);
@@ -357,6 +362,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
       processorRef.current = processor;
 
       processor.onaudioprocess = (e) => {
+        const out = e.outputBuffer;
+        for (let c = 0; c < out.numberOfChannels; c++) {
+          out.getChannelData(c).fill(0);
+        }
+
         if (isMuted || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
         const inputBuffer = e.inputBuffer.getChannelData(0);
         const base64Pcm = float32ToInt16Base64(inputBuffer);

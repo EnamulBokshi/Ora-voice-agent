@@ -375,6 +375,13 @@ export function FloatingOrbWidget() {
       });
     });
 
+    socket.on('voice-interrupted', () => {
+      if (playbackContextRef.current) {
+        audioQueueTimeRef.current = playbackContextRef.current.currentTime;
+      }
+      setVoiceState('active');
+    });
+
     socket.on('voice-error', (err: { message?: string }) => {
       const msg = err.message || 'Voice session error';
       setErrorMsg(msg);

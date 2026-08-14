@@ -46,13 +46,13 @@ export class RagService {
   // ---------------------------------------------------------------------------
   private get productThreshold(): number {
     return parseFloat(
-      this.configService.get<string>('RAG_PRODUCT_CONFIDENCE_THRESHOLD') ?? '0.65',
+      this.configService.get<string>('RAG_PRODUCT_CONFIDENCE_THRESHOLD') ?? '0.45',
     );
   }
 
   private get knowledgeThreshold(): number {
     return parseFloat(
-      this.configService.get<string>('RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD') ?? '0.60',
+      this.configService.get<string>('RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD') ?? '0.45',
     );
   }
 
@@ -168,8 +168,21 @@ export class RagService {
               `[Self-Healing RAG] Gap B async ingest failed: ${err.message}`,
             ),
           );
+        } else {
+          // Broad Catalog Fallback: if query is exploratory and no direct match exists,
+          // surface the merchant's active catalog items so ORA can showcase available products
+          const catalogFallback = await this.productsService.findAll(businessId, { limit });
+          if (catalogFallback.items.length > 0) {
+            fallbackTier = 'mongo_regex';
+            finalResults = catalogFallback.items.map((prod) => ({
+              entityId: prod._id.toString(),
+              entityType: EntityType.PRODUCT,
+              text: `${prod.name} ${prod.description || ''} ${prod.category || ''}`.trim(),
+              score: 0.5,
+              data: prod,
+            }));
+          }
         }
-        // If liveResults is empty, finalResults stays [] — "not found" behavior
       }
 
       // Emit fallback event with tier label (Gap A and Gap B share the same EventType)
