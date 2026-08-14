@@ -110,7 +110,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         </div>
       )}
 
-      {error && <p className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">{error}</p>}
+      {error && <p className="rounded-md border border-error/20 bg-error/10 p-3 text-xs text-error">{error}</p>}
 
       <div className="flex items-center justify-end gap-3">
         {saved && (

@@ -37,12 +37,12 @@ export const LogoutButton: React.FC<LogoutButtonProps> = ({
         type="button"
         onClick={handleLogout}
         disabled={loading}
-        className={`w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors ${className}`}
+        className={`w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-error hover:bg-error/10 transition-colors ${className}`}
         aria-label="Log Out"
         title="Log Out"
       >
         {loading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-red-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-error" />
         ) : (
           <LogOut className="h-3.5 w-3.5" />
         )}
@@ -56,10 +56,10 @@ export const LogoutButton: React.FC<LogoutButtonProps> = ({
         type="button"
         onClick={handleLogout}
         disabled={loading}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-surface-lowest text-muted-foreground hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-colors ${className}`}
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border border-border bg-surface-lowest text-muted-foreground hover:text-error hover:bg-error/10 hover:border-error/30 transition-colors ${className}`}
       >
         {loading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-red-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-error" />
         ) : (
           <LogOut className="h-3.5 w-3.5" />
         )}
@@ -73,13 +73,13 @@ export const LogoutButton: React.FC<LogoutButtonProps> = ({
       type="button"
       onClick={handleLogout}
       disabled={loading}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors text-xs font-medium group ${className}`}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-muted-foreground hover:text-error hover:bg-error/10 transition-colors text-xs font-medium group ${className}`}
     >
       <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0">
         {loading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-red-400" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-error" />
         ) : (
-          <LogOut className="h-3.5 w-3.5 text-muted-foreground group-hover:text-red-400" />
+          <LogOut className="h-3.5 w-3.5 text-muted-foreground group-hover:text-error" />
         )}
       </div>
       <span>Log Out</span>

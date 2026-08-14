@@ -97,12 +97,12 @@ export function TextFeedTab({ onFed }: TextFeedTabProps) {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">{error}</div>
+        <div className="p-3 rounded-lg bg-error/10 border border-error/20 text-xs text-error">{error}</div>
       )}
 
       <div className="flex items-center justify-end gap-3">
         {saved && (
-          <span className="flex items-center gap-1 text-xs font-medium text-emerald-400">
+          <span className="flex items-center gap-1 text-xs font-medium text-[color:var(--status-online)]">
             <CheckCircle2 size={14} /> Fed to ORA
           </span>
         )}

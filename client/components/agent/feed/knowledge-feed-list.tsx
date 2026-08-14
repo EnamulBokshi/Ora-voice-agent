@@ -49,7 +49,7 @@ export function KnowledgeFeedList({ docs = [], loading, onDeleted }: KnowledgeFe
       </div>
 
       {error && (
-        <div className="mx-5 mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+        <div className="mx-5 mt-4 p-3 rounded-lg bg-error/10 border border-error/20 text-xs text-error">
           {error}
         </div>
       )}
@@ -92,7 +92,7 @@ export function KnowledgeFeedList({ docs = [], loading, onDeleted }: KnowledgeFe
                   onClick={() => handleDelete(doc._id)}
                   disabled={deletingId === doc._id}
                   aria-label={`Delete ${doc.title}`}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0 disabled:opacity-50"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-error hover:bg-error/10 transition-colors shrink-0 disabled:opacity-50"
                 >
                   {deletingId === doc._id ? (
                     <Loader2 size={13} className="animate-spin" />

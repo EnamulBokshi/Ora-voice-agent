@@ -80,7 +80,7 @@ export function TranscriptHeader({ conversation, onCloseSession, isClosing }: Tr
           <button
             onClick={onCloseSession}
             disabled={isClosing}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold border border-border bg-surface-low text-foreground hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-xs"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold border border-border bg-surface-low text-foreground hover:bg-error/10 hover:text-error hover:border-error/30 disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-xs"
           >
             <PowerOff size={12} />
             <span>{isClosing ? 'Closing...' : 'Close Session'}</span>
