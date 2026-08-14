@@ -1,8 +1,22 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { FileText, Loader2, UploadCloud, X, PenTool, CheckCircle2, Sparkles } from 'lucide-react';
-import { createKnowledgeDocApi } from '@/services/knowledge-service';
+import {
+  FileText,
+  Loader2,
+  UploadCloud,
+  X,
+  PenTool,
+  CheckCircle2,
+  Sparkles,
+  FileCheck,
+  AlertCircle,
+  Package,
+} from 'lucide-react';
+import {
+  createKnowledgeDocApi,
+  uploadKnowledgeFileApi,
+} from '@/services/knowledge-service';
 import { DocType } from '@/types/knowledge';
 
 interface DocumentsFeedTabProps {
@@ -53,10 +67,10 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
   const [selectedCatId, setSelectedCatId] = useState<string>('policy');
   const [docTitle, setDocTitle] = useState('');
   const [textContent, setTextContent] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [fileContent, setFileContent] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isCsv, setIsCsv] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,61 +81,78 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setFileName(file.name);
+    setSelectedFile(file);
+    const ext = file.name.toLowerCase().split('.').pop() || '';
+    setIsCsv(ext === 'csv' || ext === 'tsv' || ext === 'xlsx');
+
     if (!docTitle) {
       setDocTitle(file.name.replace(/\.[^/.]+$/, ''));
     }
     setError(null);
-    const reader = new FileReader();
-    reader.onload = (loadEvent) => setFileContent((loadEvent.target?.result as string) || '');
-    reader.onerror = () => setError('Could not read this file. Please try another document.');
-    reader.readAsText(file);
   };
 
   const clearFile = () => {
-    setFileName('');
-    setFileContent('');
+    setSelectedFile(null);
+    setIsCsv(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalContent = inputMode === 'upload' ? fileContent.trim() : textContent.trim();
-    const finalTitle = docTitle.trim() || (inputMode === 'upload' ? fileName.replace(/\.[^/.]+$/, '') : `${activeCategory.label} Note`);
-
-    if (!finalContent) {
-      setError(
-        inputMode === 'upload'
-          ? 'Please select and upload a valid document file.'
-          : 'Please enter document text before saving.',
-      );
-      return;
-    }
-
-    setIsSaving(true);
     setError(null);
-    try {
-      await createKnowledgeDocApi({
-        title: finalTitle,
-        docType: activeCategory.docType,
-        content: finalContent,
-        metadata: {
-          source: inputMode === 'upload' ? 'document_upload' : 'text_feed',
-          originalFileName: fileName || undefined,
-        },
-      });
+    setSavedMessage(null);
 
-      // Clear inputs
-      setDocTitle('');
-      setTextContent('');
-      clearFile();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      onFed();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save document to knowledge base.');
-    } finally {
-      setIsSaving(false);
+    const finalTitle =
+      docTitle.trim() ||
+      (selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, '') : `${activeCategory.label} Document`);
+
+    if (inputMode === 'upload') {
+      if (!selectedFile) {
+        setError('Please select a valid document file (PDF, TXT, MD, CSV, etc.) to upload.');
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        await uploadKnowledgeFileApi(selectedFile, activeCategory.docType, finalTitle);
+        setDocTitle('');
+        clearFile();
+        setSavedMessage(`Document "${finalTitle}" uploaded & vectorized successfully!`);
+        setTimeout(() => setSavedMessage(null), 4000);
+        onFed();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to parse and upload document.');
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      const finalContent = textContent.trim();
+      if (!finalContent) {
+        setError('Please enter document text before saving.');
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        await createKnowledgeDocApi({
+          title: finalTitle,
+          docType: activeCategory.docType,
+          content: finalContent,
+          metadata: {
+            source: 'text_feed',
+          },
+        });
+
+        setDocTitle('');
+        setTextContent('');
+        setSavedMessage(`Document "${finalTitle}" saved & indexed!`);
+        setTimeout(() => setSavedMessage(null), 4000);
+        onFed();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save document to knowledge base.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -197,41 +228,57 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
           <label className="flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface-low px-6 py-6 text-center transition-colors hover:border-primary/40 hover:bg-surface-high/50 cursor-pointer">
             <UploadCloud size={28} className="mb-2 text-primary" />
             <span className="text-xs font-semibold text-foreground">
-              {fileName || 'Click to select or drag & drop document file'}
+              {selectedFile ? selectedFile.name : 'Click to select or drag & drop document file'}
             </span>
             <span className="mt-1 text-[11px] text-muted-foreground">
-              PDF, TXT, JSON, Markdown (.md)
+              PDF (.pdf), TXT, Markdown (.md), JSON, CSV
             </span>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.txt,.json,.md,.markdown,application/pdf,application/json,text/plain,text/markdown"
+              accept=".pdf,.txt,.json,.md,.markdown,.csv,.tsv,.xlsx,application/pdf,application/json,text/plain,text/markdown,text/csv"
               onChange={handleFileChange}
               className="hidden"
             />
           </label>
 
-          {fileContent && (
-            <div className="rounded-xl border border-border bg-surface-low p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-semibold uppercase tracking-wider text-[10px]">
-                  File Preview ({fileContent.length} chars)
-                </span>
+          {selectedFile && (
+            <div className="rounded-xl border border-border bg-surface-low p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-2 text-primary">
+                    <FileCheck size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground truncate max-w-xs">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-[10px] font-mono text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(1)} KB • {selectedFile.type || 'Document'}
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={clearFile}
                   aria-label="Remove document"
-                  className="rounded p-1 hover:text-foreground hover:bg-surface-high transition-colors"
+                  className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
                 >
-                  <X size={13} />
+                  <X size={14} />
                 </button>
               </div>
-              <textarea
-                value={fileContent}
-                onChange={(e) => setFileContent(e.target.value)}
-                rows={5}
-                className="w-full resize-none bg-surface-lowest rounded-lg border border-border p-2.5 text-xs leading-relaxed text-foreground outline-none font-mono focus:border-primary"
-              />
+
+              {isCsv && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-300">
+                  <Package size={14} className="shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-semibold">Product Catalog CSV Detected:</strong>
+                    <p className="text-[10px] text-amber-300/90 mt-0.5">
+                      If this file contains store products with prices and stock, upload it under the <strong>Products Tab</strong> to create individual catalog items. If it&apos;s general store knowledge, saving it here will index it as reference text.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -266,14 +313,14 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
       <div className="flex items-center justify-between pt-2 border-t border-border">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Sparkles size={13} className="text-primary" />
-          <span>Auto-chunked and embedded for Gemini vector search.</span>
+          <span>Server-side PDF parsing & auto-vectorized in Gemini.</span>
         </div>
 
         <div className="flex items-center gap-3">
-          {saved && (
+          {savedMessage && (
             <div className="flex items-center gap-1.5 text-xs font-medium text-primary animate-in fade-in">
               <CheckCircle2 size={14} />
-              <span>Document indexed successfully</span>
+              <span>{savedMessage}</span>
             </div>
           )}
           <button
@@ -286,7 +333,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
             ) : (
               <UploadCloud size={13} />
             )}
-            {isSaving ? 'Indexing...' : 'Save & Index Document'}
+            {isSaving ? 'Extracting & Indexing...' : 'Save & Index Document'}
           </button>
         </div>
       </div>

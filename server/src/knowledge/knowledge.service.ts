@@ -81,6 +81,110 @@ export class KnowledgeService {
     };
   }
 
+  /**
+   * Uploads and parses a physical document file (PDF, TXT, MD, CSV, etc.) into clean text,
+   * stores it in MongoDB KnowledgeBase, creates chunks, and embeds them into the Vector Index.
+   */
+  async uploadDocument(
+    businessId: string,
+    file: Express.Multer.File,
+    docType?: string,
+    title?: string,
+  ): Promise<{ document: KnowledgeBaseDocument; chunksCount: number; extractedLength: number }> {
+    if (!file || !file.buffer) {
+      throw new DomainException(
+        'INVALID_FILE',
+        'A valid document file buffer is required for upload.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const cleanText = await this.parseDocumentFile(file);
+    if (!cleanText || cleanText.trim().length === 0) {
+      throw new DomainException(
+        'EMPTY_DOCUMENT',
+        `No readable text could be extracted from '${file.originalname}'. Please ensure the file is not empty or corrupted.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const finalTitle =
+      title?.trim() || file.originalname.replace(/\.[^/.]+$/, '').trim() || 'Store Document';
+
+    const finalDocType = docType || 'uploaded_doc';
+
+    const result = await this.create(businessId, {
+      title: finalTitle,
+      docType: finalDocType as any,
+      content: cleanText.trim(),
+      metadata: {
+        source: 'file_upload',
+        originalFileName: file.originalname,
+        mimeType: file.mimetype,
+        fileSizeBytes: file.size,
+      },
+    });
+
+    this.logger.log(
+      `[KnowledgeService] Successfully ingested document '${finalTitle}' (${cleanText.length} chars, ${result.chunksCount} chunks) for business ${businessId}`,
+    );
+
+    return {
+      document: result.document,
+      chunksCount: result.chunksCount,
+      extractedLength: cleanText.length,
+    };
+  }
+
+  /**
+   * Extracts clean plain text from PDF, TXT, MD, CSV, or other document formats
+   */
+  private async parseDocumentFile(file: Express.Multer.File): Promise<string> {
+    const ext = file.originalname.toLowerCase().split('.').pop() || '';
+    const mimeType = file.mimetype || '';
+
+    // 1. PDF File extraction
+    if (ext === 'pdf' || mimeType === 'application/pdf') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdfModule = require('pdf-parse');
+        if (typeof pdfModule === 'function') {
+          const data = await pdfModule(file.buffer);
+          return data?.text || '';
+        } else if (pdfModule?.PDFParse) {
+          const parser = new pdfModule.PDFParse({ data: file.buffer });
+          const data = await parser.getText();
+          if (typeof parser.destroy === 'function') {
+            await parser.destroy();
+          }
+          return data?.text || '';
+        } else if (typeof pdfModule?.default === 'function') {
+          const data = await pdfModule.default(file.buffer);
+          return data?.text || '';
+        }
+      } catch (err: any) {
+        this.logger.error(`[KnowledgeService] PDF parsing failed: ${err.message}`);
+        throw new DomainException(
+          'PDF_PARSE_FAILED',
+          `Could not extract text from PDF file '${file.originalname}': ${err.message}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    // 2. Plain text / Markdown / CSV / JSON
+    try {
+      const text = file.buffer.toString('utf-8');
+      return text;
+    } catch (err: any) {
+      throw new DomainException(
+        'FILE_READ_FAILED',
+        `Failed to decode text from '${file.originalname}': ${err.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   async findAll(
     businessId: string,
     docType?: string,

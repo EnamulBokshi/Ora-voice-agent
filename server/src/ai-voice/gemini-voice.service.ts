@@ -99,7 +99,7 @@ export class GeminiVoiceService {
       '- Use find_products to search the product catalog. Always use it when a customer asks about products.',
       '- Use add_to_cart to add items to the shopping cart.',
       '- Use place_order to complete a purchase from the cart.',
-      '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
+      '- Use get_store_policy to look up return policies, refund rules, warranty, shipping times, or FAQs. ALWAYS call get_store_policy whenever a customer asks about returns, refunds, shipping, or store rules.',
     ].filter(Boolean).join('\n');
 
     // Track whether Gemini has acknowledged the setup handshake

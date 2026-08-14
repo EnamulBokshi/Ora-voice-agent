@@ -76,6 +76,22 @@ export async function updateKnowledgeDocApi(
   });
 }
 
+export async function uploadKnowledgeFileApi(
+  file: File,
+  docType?: string,
+  title?: string,
+): Promise<CreateKnowledgeDocResponseData> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (docType) formData.append('docType', docType);
+  if (title) formData.append('title', title);
+
+  return apiClient<CreateKnowledgeDocResponseData>('/knowledge/upload', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
 export async function deleteKnowledgeDocApi(
   id: string,
 ): Promise<{ message: string }> {

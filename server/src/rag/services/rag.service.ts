@@ -217,18 +217,103 @@ export class RagService {
         ? options.confidenceThreshold
         : this.knowledgeThreshold;
 
-    // Fix 3: extract .vector from EmbeddingResult
-    const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+    let vectorResults: SearchResultItem[] = [];
+    try {
+      const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+      vectorResults = await this.vectorStoreService.searchVectors(
+        businessId,
+        embeddingResult.vector,
+        { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
+      );
+    } catch (err: any) {
+      this.logger.warn(`[RAG Engine] Vector search for knowledge failed: ${err.message}`);
+    }
 
-    const vectorResults = await this.vectorStoreService.searchVectors(
-      businessId,
-      embeddingResult.vector,
-      { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
+    if (vectorResults.length > 0) {
+      return {
+        query: queryText,
+        results: vectorResults,
+      };
+    }
+
+    // Gap A Fallback: Query MongoDB Knowledge documents directly with text/regex
+    this.logger.log(
+      `[RAG Engine] Knowledge vector search yielded 0 results, attempting Gap A MongoDB fallback for "${queryText}"`,
     );
+
+    try {
+      const mongoDirect = await this.knowledgeService.findAll(businessId, undefined, queryText, {
+        limit,
+      });
+
+      if (mongoDirect.items.length > 0) {
+        const fallbackResults: SearchResultItem[] = mongoDirect.items.map((doc) => ({
+          entityId: doc._id.toString(),
+          entityType: EntityType.KNOWLEDGE_CHUNK,
+          text: `[${doc.title} (${doc.docType})]:\n${doc.content}`,
+          score: 0.8,
+          data: doc,
+          metadata: {
+            knowledgeBaseId: doc._id.toString(),
+            docTitle: doc.title,
+            docType: doc.docType,
+          },
+        }));
+
+        return {
+          query: queryText,
+          results: fallbackResults,
+        };
+      }
+
+      // Broad Policy Fallback: if query is asking about store rules (returns, shipping, FAQ, warranty)
+      const allDocs = await this.knowledgeService.findAll(businessId, undefined, undefined, {
+        limit: 10,
+      });
+
+      if (allDocs.items.length > 0) {
+        const queryLower = queryText.toLowerCase();
+        const matched = allDocs.items.filter((doc) => {
+          const title = (doc.title || '').toLowerCase();
+          const content = (doc.content || '').toLowerCase();
+          const docType = (doc.docType || '').toLowerCase();
+          return (
+            title.includes(queryLower) ||
+            content.includes(queryLower) ||
+            docType.includes(queryLower) ||
+            (queryLower.includes('return') && (title.includes('return') || content.includes('return') || docType.includes('policy'))) ||
+            (queryLower.includes('refund') && (title.includes('refund') || content.includes('refund') || docType.includes('policy'))) ||
+            (queryLower.includes('shipping') && (title.includes('shipping') || content.includes('shipping') || docType.includes('policy'))) ||
+            (queryLower.includes('policy') && docType.includes('policy'))
+          );
+        });
+
+        const targetList = matched.length > 0 ? matched : allDocs.items.slice(0, 3);
+        const fallbackResults: SearchResultItem[] = targetList.map((doc) => ({
+          entityId: doc._id.toString(),
+          entityType: EntityType.KNOWLEDGE_CHUNK,
+          text: `[${doc.title} (${doc.docType})]:\n${doc.content}`,
+          score: 0.75,
+          data: doc,
+          metadata: {
+            knowledgeBaseId: doc._id.toString(),
+            docTitle: doc.title,
+            docType: doc.docType,
+          },
+        }));
+
+        return {
+          query: queryText,
+          results: fallbackResults,
+        };
+      }
+    } catch (err: any) {
+      this.logger.error(`[RAG Engine] Gap A knowledge fallback error: ${err.message}`);
+    }
 
     return {
       query: queryText,
-      results: vectorResults,
+      results: [],
     };
   }
 

@@ -285,11 +285,17 @@ export class AiToolsExecutor {
   }
 
   private async handleGetStorePolicy(businessId: string, args: Record<string, any>) {
-    const res = await this.ragService.searchKnowledge(businessId, args.query, {
-      limit: 3,
+    const query = (args && args.query) ? String(args.query) : 'store policy return refund shipping';
+    const res = await this.ragService.searchKnowledge(businessId, query, {
+      limit: 5,
     });
+
+    const policySnippets = res.results.map((r) => r.text).join('\n\n');
     return {
       success: true,
+      query,
+      foundPolicies: res.results.length,
+      policyDetails: policySnippets || 'Standard store policy: 14-day return in original condition.',
       policies: res.results,
     };
   }

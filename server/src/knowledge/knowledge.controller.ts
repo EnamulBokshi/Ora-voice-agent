@@ -8,7 +8,10 @@ import {
   Delete,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { KnowledgeService } from './knowledge.service';
 import { CreateKnowledgeDocDto } from './dto/create-knowledge-doc.dto';
 import { UpdateKnowledgeDocDto } from './dto/update-knowledge-doc.dto';
@@ -23,6 +26,19 @@ import type { JwtPayloadUser } from '../common/decorators/current-user.decorator
 @UseGuards(JwtAuthGuard, TenantScopeGuard)
 export class KnowledgeController {
   constructor(private readonly knowledgeService: KnowledgeService) {}
+
+  @Post('upload')
+  @UseGuards(RolesGuard)
+  @Roles('owner' as any, 'admin' as any)
+  @UseInterceptors(FileInterceptor('file'))
+  async upload(
+    @CurrentUser() user: JwtPayloadUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('docType') docType?: string,
+    @Body('title') title?: string,
+  ) {
+    return this.knowledgeService.uploadDocument(user.businessId, file, docType, title);
+  }
 
   @Post()
   @UseGuards(RolesGuard)
