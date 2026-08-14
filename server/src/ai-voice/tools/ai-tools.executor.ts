@@ -62,9 +62,12 @@ export class AiToolsExecutor {
   }
 
   private async handleFindProducts(businessId: string, args: Record<string, any>) {
-    // 1. Semantic RAG search for shortlist of candidate product IDs (Gap A+B aware)
+    // 1. Semantic RAG search for shortlist of candidate product IDs (with dynamic LLM filter routing)
     const ragRes = await this.ragService.searchCombined(businessId, args.query, {
       limit: 5,
+      category: args.category ? String(args.category).trim() : undefined,
+      brand: args.brand ? String(args.brand).trim() : undefined,
+      maxPrice: args.maxPrice !== undefined ? Number(args.maxPrice) : undefined,
     });
 
     // 2. Fetch sales playbook for this tenant — needed for mentionLowStockUrgency (Fix 5)

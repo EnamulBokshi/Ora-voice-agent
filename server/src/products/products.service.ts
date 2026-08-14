@@ -57,11 +57,21 @@ export class ProductsService {
     };
 
     if (query.category) {
-      filter.category = query.category;
+      filter.category = { $regex: new RegExp(`^${query.category.trim()}$`, 'i') };
+    }
+
+    if (query.brand) {
+      filter.brand = { $regex: new RegExp(`^${query.brand.trim()}$`, 'i') };
     }
 
     if (query.availability) {
       filter.availability = query.availability;
+    }
+
+    if (query.maxPrice !== undefined || query.minPrice !== undefined) {
+      filter.price = {};
+      if (query.minPrice !== undefined) filter.price.$gte = query.minPrice;
+      if (query.maxPrice !== undefined) filter.price.$lte = query.maxPrice;
     }
 
     if (query.search) {
@@ -73,28 +83,45 @@ export class ProductsService {
         'can', 'i', 'get', 'for', 'in', 'store', 'stock', 'tell', 'about', 'looking',
         'need', 'want', 'please', 'give', 'check', 'available', 'product', 'products',
         'item', 'items', 'much', 'cost', 'buy', 'purchase', 'order', 'a', 'an', 'and', 'or',
+        'some', 'with', 'under', 'category', 'find', 'which', 'shop',
       ]);
 
-      const rawTerms = trimmed.split(/\s+/).map((t) => t.replace(/[^a-zA-Z0-9]/g, '').toLowerCase());
+      const rawTerms = trimmed
+        .split(/\s+/)
+        .map((t) => t.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())
+        .filter(Boolean);
+
       const meaningfulTerms = rawTerms.filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
       const searchTerms = meaningfulTerms.length > 0 ? meaningfulTerms : rawTerms.filter((t) => t.length >= 2);
 
-      if (searchTerms.length <= 1) {
-        const term = searchTerms[0] || trimmed;
+      // Dynamic Word-Boundary Regex Creator:
+      // Prevents short words (like "ac", "fan", "ips", "led") from matching inside words like "Machine", "Pack", "Backup"
+      const createDynamicRegex = (term: string) => {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Use strict word boundary for tokens
+        return new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
+      };
+
+      if (searchTerms.length === 0) {
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         filter.$or = [
-          { name: { $regex: term, $options: 'i' } },
-          { description: { $regex: term, $options: 'i' } },
-          { category: { $regex: term, $options: 'i' } },
-          { nativeProductId: { $regex: term, $options: 'i' } },
+          { name: { $regex: escaped, $options: 'i' } },
+          { description: { $regex: escaped, $options: 'i' } },
+          { category: { $regex: escaped, $options: 'i' } },
+          { nativeProductId: { $regex: escaped, $options: 'i' } },
         ];
       } else {
-        // Match meaningful product keywords across fields
-        filter.$or = searchTerms.flatMap((term) => [
-          { name: { $regex: term, $options: 'i' } },
-          { description: { $regex: term, $options: 'i' } },
-          { category: { $regex: term, $options: 'i' } },
-          { nativeProductId: { $regex: term, $options: 'i' } },
-        ]);
+        // Match products containing any of the meaningful keywords as whole words
+        filter.$or = searchTerms.flatMap((term) => {
+          const wordRegex = createDynamicRegex(term);
+          return [
+            { name: { $regex: wordRegex } },
+            { category: { $regex: wordRegex } },
+            { brand: { $regex: wordRegex } },
+            { description: { $regex: wordRegex } },
+            { nativeProductId: { $regex: wordRegex } },
+          ];
+        });
       }
     }
 
@@ -103,13 +130,70 @@ export class ProductsService {
         .find(filter)
         .sort({ updatedAt: -1 })
         .skip(skip)
-        .limit(limit)
+        .limit(Math.max(limit * 3, 20)) // Fetch candidate pool for dynamic title-first re-ranking
         .exec(),
       this.productModel.countDocuments(filter).exec(),
     ]);
 
+    // Dynamic Multi-Field Relevance Scoring:
+    // Prioritizes items where the search terms appear in the Name / Title / Category over description substrings
+    let rankedItems = items;
+    if (query.search && items.length > 0) {
+      const rawTerms = query.search
+        .toLowerCase()
+        .split(/\s+/)
+        .map((t) => t.replace(/[^a-zA-Z0-9]/g, ''))
+        .filter((t) => t.length >= 2);
+
+      rankedItems = items
+        .map((item) => {
+          let score = 0;
+          const nameLower = (item.name || '').toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const brandLower = ((item as any).brand || '').toLowerCase();
+          const descLower = (item.description || '').toLowerCase();
+          const attrsLower = JSON.stringify((item as any).attributes || {}).toLowerCase();
+
+          for (const term of rawTerms) {
+            const wordRegex = new RegExp(`(^|[^a-zA-Z0-9])${term}([^a-zA-Z0-9]|$)`, 'i');
+
+            // Exact whole word in Product Title = highest relevance
+            if (wordRegex.test(nameLower)) {
+              score += 100;
+            } else if (nameLower.includes(term)) {
+              score += 50;
+            }
+
+            // Match in Brand or Category
+            if (wordRegex.test(brandLower) || brandLower.includes(term)) {
+              score += 40;
+            }
+            if (wordRegex.test(catLower) || catLower.includes(term)) {
+              score += 40;
+            }
+
+            // Match in Attributes JSON
+            if (wordRegex.test(attrsLower)) {
+              score += 30;
+            }
+
+            // Match in Description
+            if (wordRegex.test(descLower)) {
+              score += 15;
+            }
+          }
+
+          return { item, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.item)
+        .slice(0, limit);
+    } else {
+      rankedItems = items.slice(0, limit);
+    }
+
     return {
-      items,
+      items: rankedItems,
       pagination: {
         total,
         page,
