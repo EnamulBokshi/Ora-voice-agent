@@ -964,89 +964,105 @@
   color: #ffffff;
 }
 
-/* ── Live Transcript Card (Siri/Gemini response pill) ───────────────────────── */
-.lp-orb-transcript-card {
+/* ── Gemini Mobile Inspired Live Transcribe Pill ──────────────────────────── */
+.lp-orb-gemini-transcript {
   position: absolute;
-  bottom: calc(80px + 3.8rem);
+  bottom: calc(80px + 3.4rem);
   left: 50%;
   transform: translateX(-50%);
-  width: min(340px, 90vw);
-  background: rgba(14, 18, 27, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(200, 240, 49, 0.25);
-  border-radius: 1.25rem;
-  padding: 0.875rem 1rem;
+  width: min(520px, calc(100vw - 32px));
+  max-width: 520px;
+  background: rgba(18, 18, 20, 0.92);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 28px;
+  padding: 1.25rem 1.6rem;
   box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.45),
-    0 0 20px rgba(200, 240, 49, 0.08);
+    0 24px 48px -12px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 24px rgba(200, 240, 49, 0.04);
   pointer-events: auto;
   z-index: 150;
-  animation: lp-fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.lp-orb-transcript-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 1rem;
+  animation: lp-gemini-pill-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.25s ease;
 }
 
-.lp-orb-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--lp-font-mono, monospace);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #c8f031;
+@keyframes lp-gemini-pill-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
-.lp-orb-badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #c8f031;
-  box-shadow: 0 0 6px #c8f031;
-  animation: lp-orb-dot-pulse 1s ease-in-out infinite;
+.lp-orb-gemini-content {
+  flex: 1;
+  min-width: 0;
 }
 
-.lp-orb-close-btn {
-  background: none;
-  border: none;
-  padding: 0.2rem;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  border-radius: 0.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s ease;
+.lp-orb-gemini-text {
+  font-family: var(--lp-font-sans, -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  margin: 0;
+  word-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
 }
-.lp-orb-close-btn:hover {
+
+.lp-orb-gemini-transcript.user-turn .lp-orb-gemini-text {
+  color: #f1f5f9;
+}
+
+.lp-orb-gemini-transcript.agent-turn .lp-orb-gemini-text {
   color: #ffffff;
 }
 
-.lp-orb-transcript-body {
-  max-height: 180px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+.lp-orb-typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--lp-primary, #c8f031);
+  margin-left: 4px;
+  vertical-align: -2px;
+  border-radius: 1px;
+  animation: lp-typing-blink 0.8s infinite ease-in-out;
 }
 
-.lp-orb-transcript-text {
-  font-family: var(--lp-font-sans, 'Inter', sans-serif);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: #f1f5f9;
-  margin: 0;
+@keyframes lp-typing-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
-.lp-orb-transcript-text:not(:last-child) {
-  opacity: 0.65;
+
+.lp-orb-gemini-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  padding: 4px;
+  margin-top: -2px;
+  margin-right: -4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.lp-orb-gemini-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* ── Error Card ────────────────────────────────────────────────────────────── */
@@ -1113,9 +1129,15 @@
   .lp-orb-controls {
     bottom: calc(68px + 10px);
   }
-  .lp-orb-transcript-card {
-    bottom: calc(68px + 3.4rem);
-    width: min(300px, 92vw);
+  .lp-orb-gemini-transcript {
+    bottom: calc(68px + 3.2rem);
+    width: min(360px, calc(100vw - 24px));
+    padding: 1.1rem 1.35rem;
+    border-radius: 24px;
+  }
+  .lp-orb-gemini-text {
+    font-size: 0.9375rem;
+    line-height: 1.45;
   }
   .lp-orb-error-card {
     bottom: calc(68px + 2rem);

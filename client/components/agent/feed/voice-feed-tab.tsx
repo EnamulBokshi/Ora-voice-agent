@@ -66,6 +66,31 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
     setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
   }, []);
 
+  // Intelligently merge streaming text chunks
+  const mergeStreaming = (prevText: string, incomingChunk: string): string => {
+    if (!incomingChunk) return prevText;
+    if (!prevText) return incomingChunk.trimStart();
+    if (incomingChunk.startsWith(prevText)) return incomingChunk;
+    if (prevText.endsWith(incomingChunk.trim()) && incomingChunk.trim().length > 3) return prevText;
+
+    const isPunctuation = /^[,.!?:;'")\]}]/.test(incomingChunk);
+    const isContraction = /^'(s|t|re|ve|m|ll|d)\b/i.test(incomingChunk) || /^n't\b/i.test(incomingChunk);
+    const prevEndsWithSpace = prevText.endsWith(' ') || prevText.endsWith('\n');
+    const chunkStartsWithSpace = incomingChunk.startsWith(' ') || incomingChunk.startsWith('\n');
+
+    let merged = '';
+    if (isPunctuation || isContraction) {
+      merged = `${prevText.trimEnd()}${incomingChunk.trimStart()}`;
+    } else if (prevEndsWithSpace || chunkStartsWithSpace) {
+      merged = `${prevText.trimEnd()} ${incomingChunk.trimStart()}`;
+    } else {
+      const prevEndsWithPunctuation = /[.!?]$/.test(prevText);
+      const chunkStartsCapital = /^[A-Z0-9]/.test(incomingChunk);
+      merged = (prevEndsWithPunctuation || chunkStartsCapital) ? `${prevText} ${incomingChunk}` : `${prevText}${incomingChunk}`;
+    }
+    return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ \'/g, "'");
+  };
+
   // Helper: Convert Float32 audio to Int16 Base64
   const float32ToInt16Base64 = (float32Array: Float32Array): string => {
     const int16Array = new Int16Array(float32Array.length);
@@ -177,7 +202,31 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
           }
         } else if (eventName === 'text-stream') {
           if (payload?.text) {
-            addTranscript('agent', payload.text);
+            setTranscripts((prev) => {
+              const last = prev[prev.length - 1];
+              if (last && last.sender === 'agent') {
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, text: mergeStreaming(last.text, payload.text) },
+                ];
+              }
+              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              return [...prev, { id: Math.random().toString(), sender: 'agent', text: payload.text.trimStart(), timestamp: time }];
+            });
+          }
+        } else if (eventName === 'user-text-stream') {
+          if (payload?.text) {
+            setTranscripts((prev) => {
+              const last = prev[prev.length - 1];
+              if (last && last.sender === 'user') {
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, text: mergeStreaming(last.text, payload.text) },
+                ];
+              }
+              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              return [...prev, { id: Math.random().toString(), sender: 'user', text: payload.text.trimStart(), timestamp: time }];
+            });
           }
         } else if (eventName === 'voice-error') {
           const msg = payload?.message || 'Voice connection error';

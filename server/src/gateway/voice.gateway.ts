@@ -115,6 +115,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         onTextData: (text: string) => {
           client.emit('text-stream', { sessionId, text });
         },
+        onUserTextData: (text: string) => {
+          client.emit('user-text-stream', { sessionId, text });
+        },
         onInterrupted: () => {
           client.emit('voice-interrupted', { sessionId });
         },

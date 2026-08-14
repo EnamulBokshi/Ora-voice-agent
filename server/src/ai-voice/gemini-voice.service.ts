@@ -10,6 +10,7 @@ export interface GeminiVoiceSessionOptions {
   sessionId: string;
   onAudioData: (base64AudioPcm: string) => void;
   onTextData?: (text: string) => void;
+  onUserTextData?: (text: string) => void;
   onInterrupted?: () => void;
   onError?: (err: any) => void;
   onClose?: () => void;
@@ -175,8 +176,25 @@ export class GeminiVoiceService {
             return;
           }
 
+          // Real-time input (user) transcription from Gemini if supported
+          if (response.serverContent?.inputTranscription?.text && options.onUserTextData) {
+            options.onUserTextData(response.serverContent.inputTranscription.text);
+          }
+
+          // User turn parts if emitted
+          if (response.serverContent?.userTurn?.parts) {
+            for (const part of response.serverContent.userTurn.parts) {
+              if (part.text && options.onUserTextData) {
+                options.onUserTextData(part.text);
+              }
+            }
+          }
+
+          let hasOutputTranscription = false;
+
           // Real-time output transcription from Gemini
           if (response.serverContent?.outputTranscription?.text && options.onTextData) {
+            hasOutputTranscription = true;
             options.onTextData(response.serverContent.outputTranscription.text);
           }
 
@@ -186,7 +204,8 @@ export class GeminiVoiceService {
               if (part.inlineData && part.inlineData.mimeType?.startsWith('audio/')) {
                 options.onAudioData(part.inlineData.data);
               }
-              if (part.text && options.onTextData) {
+              // Only fallback to part.text if outputTranscription was not provided
+              if (!hasOutputTranscription && part.text && options.onTextData) {
                 const text = part.text.trim();
                 if (
                   text &&

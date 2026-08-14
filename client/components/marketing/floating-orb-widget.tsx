@@ -74,6 +74,57 @@ function base64ToFloat32Array(base64Pcm: string): Float32Array {
   }
 }
 
+/**
+ * Merges streaming text chunks cleanly into a single continuous sentence.
+ * Eliminates sub-word token splits, duplicate spaces, broken contractions, and misplaced punctuation.
+ */
+function mergeStreamingText(prevText: string, incomingChunk: string): string {
+  if (!incomingChunk) return prevText;
+  if (!prevText) return incomingChunk.trimStart();
+
+  const prev = prevText;
+  const chunk = incomingChunk;
+
+  // 1. If chunk already starts with or is equal to prev, treat as full replacement
+  if (chunk.startsWith(prev)) {
+    return chunk;
+  }
+
+  // 2. If prev already contains/ends with this chunk (duplicate packet), ignore
+  if (prev.endsWith(chunk.trim()) && chunk.trim().length > 3) {
+    return prev;
+  }
+
+  // 3. Check punctuation and contraction attachment (e.g. "I" + "'ll", "don" + "'t", "word" + ",")
+  const isPunctuation = /^[,.!?:;'")\]}]/.test(chunk);
+  const isContraction = /^'(s|t|re|ve|m|ll|d)\b/i.test(chunk) || /^n't\b/i.test(chunk);
+  const prevEndsWithSpace = prev.endsWith(' ') || prev.endsWith('\n');
+  const chunkStartsWithSpace = chunk.startsWith(' ') || chunk.startsWith('\n');
+
+  let merged = '';
+  if (isPunctuation || isContraction) {
+    merged = `${prev.trimEnd()}${chunk.trimStart()}`;
+  } else if (prevEndsWithSpace || chunkStartsWithSpace) {
+    merged = `${prev.trimEnd()} ${chunk.trimStart()}`;
+  } else {
+    // Both lack spaces: check if continuation or new word
+    const prevEndsWithPunctuation = /[.!?]$/.test(prev);
+    const chunkStartsCapital = /^[A-Z0-9]/.test(chunk);
+
+    if (prevEndsWithPunctuation || chunkStartsCapital) {
+      merged = `${prev} ${chunk}`;
+    } else {
+      merged = `${prev}${chunk}`;
+    }
+  }
+
+  // 4. Normalize spaces and fix misplaced spaces before punctuation
+  return merged
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ([.,!?:;])/g, '$1')
+    .replace(/ \'/g, "'");
+}
+
 // ─── Backend Connection Configuration ────────────────────────────────────────
 
 const getSocketUrl = (): string => {
@@ -99,7 +150,8 @@ const PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
  */
 export function FloatingOrbWidget() {
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
-  const [transcript, setTranscript] = useState<string[]>([]);
+  const [liveUtterance, setLiveUtterance] = useState<string>('');
+  const [liveSpeaker, setLiveSpeaker] = useState<'user' | 'agent' | null>(null);
   const [userMicLevel, setUserMicLevel] = useState(0);
   const [speakingLevel, setSpeakingLevel] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
@@ -117,10 +169,21 @@ export function FloatingOrbWidget() {
   const isConnectedRef = useRef(false);
   const isMutedRef = useRef(false);
   const currentSessionIdRef = useRef<string>('');
+  const recognitionRef = useRef<any>(null);
+  const lastSpeakerRef = useRef<'user' | 'agent' | null>(null);
 
-  // Keep isMutedRef synced
+  // Keep isMutedRef synced and manage speech recognition
   useEffect(() => {
     isMutedRef.current = isMuted;
+    if (isMuted && recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+    } else if (!isMuted && isConnectedRef.current && recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch {}
+    }
   }, [isMuted]);
 
   // ── Global event trigger support (e.g. from Hero CTA button) ───────────────
@@ -176,6 +239,13 @@ export function FloatingOrbWidget() {
       } catch {}
       playbackContextRef.current = null;
     }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
     if (socketRef.current) {
       try {
         socketRef.current.emit('stop-voice-session');
@@ -184,6 +254,9 @@ export function FloatingOrbWidget() {
       socketRef.current = null;
     }
 
+    lastSpeakerRef.current = null;
+    setLiveUtterance('');
+    setLiveSpeaker(null);
     audioQueueTimeRef.current = 0;
     setUserMicLevel(0);
     setSpeakingLevel(0);
@@ -299,6 +372,71 @@ export function FloatingOrbWidget() {
         const base64Audio = arrayBufferToBase64(pcm16.buffer);
         socketRef.current.emit('audio-chunk', { audio: base64Audio });
       };
+
+      // ── Start browser SpeechRecognition for instant, zero-latency user transcription ──
+      const SpeechRec = typeof window !== 'undefined'
+        ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        : null;
+
+      if (SpeechRec) {
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.onend = null;
+            try { recognitionRef.current.abort(); } catch {}
+          }
+          const recognition = new SpeechRec();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.maxAlternatives = 1;
+          recognition.lang = typeof navigator !== 'undefined' ? (navigator.language || 'en-US') : 'en-US';
+
+          recognition.onresult = (event: any) => {
+            if (!isConnectedRef.current || isMutedRef.current) return;
+            
+            let interimTranscript = '';
+            let finalTranscript = '';
+
+            for (let i = 0; i < event.results.length; ++i) {
+              const res = event.results[i];
+              if (res && res[0] && res[0].transcript) {
+                if (res.isFinal) {
+                  finalTranscript += res[0].transcript;
+                } else {
+                  interimTranscript += res[0].transcript;
+                }
+              }
+            }
+
+            const cleanText = (finalTranscript + ' ' + interimTranscript).trim();
+            if (cleanText) {
+              const formatted = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
+              lastSpeakerRef.current = 'user';
+              setLiveSpeaker('user');
+              setLiveUtterance(formatted);
+              setShowTranscript(true);
+            }
+          };
+
+          recognition.onerror = (err: any) => {
+            if (err.error !== 'no-speech' && err.error !== 'aborted') {
+              console.debug('[OrbWidget] SpeechRecognition:', err.error);
+            }
+          };
+
+          recognition.onend = () => {
+            if (isConnectedRef.current && !isMutedRef.current && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch {}
+            }
+          };
+
+          recognition.start();
+          recognitionRef.current = recognition;
+        } catch (e) {
+          console.debug('[OrbWidget] SpeechRecognition init failed:', e);
+        }
+      }
     } catch (err: unknown) {
       const error = err as { message?: string };
       console.error('[OrbWidget] Microphone capture error:', error);
@@ -331,7 +469,9 @@ export function FloatingOrbWidget() {
 
     setVoiceState('connecting');
     setErrorMsg('');
-    setTranscript([]);
+    setLiveUtterance('');
+    setLiveSpeaker(null);
+    lastSpeakerRef.current = null;
     setIsMuted(false);
     setShowTranscript(true);
 
@@ -362,15 +502,39 @@ export function FloatingOrbWidget() {
       playIncomingAudioPcm(data.audio);
     });
 
+    socket.on('user-text-stream', (data: { text: string }) => {
+      if (data.text?.trim()) {
+        lastSpeakerRef.current = 'user';
+        setLiveSpeaker('user');
+        setLiveUtterance((prev) => {
+          if (lastSpeakerRef.current !== 'user') {
+            return data.text.trim();
+          }
+          return mergeStreamingText(prev, data.text);
+        });
+        setShowTranscript(true);
+      }
+    });
+
     socket.on('text-stream', (data: { text: string }) => {
-      setTranscript((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && !last.endsWith('.') && !last.endsWith('!') && !last.endsWith('?')) {
-          // Append continuous speech chunk
-          return [...prev.slice(0, -1), `${last} ${data.text}`];
+      if (!data.text) return;
+
+      // Abort previous user recognition instance so subsequent turn starts fresh
+      if (lastSpeakerRef.current === 'user' && recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+
+      setLiveSpeaker('agent');
+      setLiveUtterance((prev) => {
+        if (lastSpeakerRef.current !== 'agent') {
+          lastSpeakerRef.current = 'agent';
+          return data.text.trimStart();
         }
-        return [...prev.slice(-3), data.text];
+        return mergeStreamingText(prev, data.text);
       });
+      setShowTranscript(true);
     });
 
     socket.on('voice-interrupted', () => {
@@ -378,6 +542,14 @@ export function FloatingOrbWidget() {
         audioQueueTimeRef.current = playbackContextRef.current.currentTime;
       }
       setVoiceState('active');
+      lastSpeakerRef.current = 'user';
+      setLiveSpeaker('user');
+      setLiveUtterance('');
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
     });
 
     socket.on('voice-error', (err: { message?: string }) => {
@@ -423,32 +595,31 @@ export function FloatingOrbWidget() {
 
   return (
     <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
-      {/* ── Subtitle / Transcript Bubble (Siri/Gemini pill) ── */}
-      {showTranscript && transcript.length > 0 && (
-        <div className="lp-orb-transcript-card" aria-live="polite">
-          <div className="lp-orb-transcript-header">
-            <div className="lp-orb-badge">
-              <span className="lp-orb-badge-dot" />
-              ORA AI Live
-            </div>
-            <button
-              aria-label="Dismiss transcript"
-              className="lp-orb-close-btn"
-              onClick={() => setShowTranscript(false)}
-              type="button"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </button>
+      {/* ── Gemini Mobile Style Live Transcribe Overlay (Pill) ── */}
+      {showTranscript && liveUtterance && (
+        <div
+          className={`lp-orb-gemini-transcript ${liveSpeaker === 'user' ? 'user-turn' : 'agent-turn'}`}
+          aria-live="polite"
+        >
+          <div className="lp-orb-gemini-content">
+            <p className="lp-orb-gemini-text">
+              {liveUtterance}
+              {liveSpeaker === 'user' && (
+                <span className="lp-orb-typing-cursor" aria-hidden="true" />
+              )}
+            </p>
           </div>
-          <div className="lp-orb-transcript-body">
-            {transcript.map((line, i) => (
-              <p key={i} className="lp-orb-transcript-text">
-                {line}
-              </p>
-            ))}
-          </div>
+          <button
+            aria-label="Dismiss transcript"
+            className="lp-orb-gemini-close"
+            onClick={() => setShowTranscript(false)}
+            type="button"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
       )}
 
