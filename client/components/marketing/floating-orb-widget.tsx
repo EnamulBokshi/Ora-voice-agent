@@ -148,6 +148,267 @@ const PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
  * FloatingOrbWidget — Siri/Gemini Live style interactive voice assistant on the landing page.
  * Provides real-time bidirectional audio conversation with Gemini Live via NestJS VoiceGateway.
  */
+// ─── Procedural Fluid Wave Mesh Engine (Clean Glowing Bluish Center) ─────────
+
+interface OrbFluidWaveProps {
+  voiceState: VoiceState;
+  energyLevel: number;
+}
+
+function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let time = 0;
+
+    const render = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const R = w * 0.46;
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.clip();
+
+      // 1. Clean solid deep obsidian background (zero bleed through)
+      const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+      if (voiceState === 'ora-speaking') {
+        bgGrad.addColorStop(0, '#100824');
+        bgGrad.addColorStop(0.6, '#080514');
+        bgGrad.addColorStop(1, '#050508');
+      } else if (voiceState === 'connecting') {
+        bgGrad.addColorStop(0, '#041d30');
+        bgGrad.addColorStop(0.6, '#06101c');
+        bgGrad.addColorStop(1, '#050508');
+      } else {
+        bgGrad.addColorStop(0, '#0a1024');
+        bgGrad.addColorStop(0.6, '#060816');
+        bgGrad.addColorStop(1, '#050508');
+      }
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Animation speed & dynamic energy
+      const speed = voiceState === 'connecting' ? 0.05 : voiceState === 'ora-speaking' ? 0.035 : 0.02;
+      time += speed;
+
+      const normEnergy = Math.min(100, Math.max(0, energyLevel)) / 100;
+      const isSpeaking = voiceState === 'ora-speaking';
+      const isConnecting = voiceState === 'connecting';
+      const isListening = voiceState === 'active';
+
+      // 2. Multi-Strand Fluid Ribbon Mesh (The Glowing Bluish Wave)
+      ctx.globalCompositeOperation = 'screen';
+
+      const xSpan = R * 1.55;
+      const xStart = cx - xSpan / 2;
+      const xEnd = cx + xSpan / 2;
+      const steps = 60;
+      const dx = xSpan / steps;
+
+      // Define harmonic strands that form the twisting 3D fluid ribbon
+      const strands = [
+        {
+          freq1: 0.048,
+          freq2: 0.024,
+          amp1: 10 + normEnergy * (isSpeaking ? 16 : 8),
+          amp2: 6 + normEnergy * 5,
+          speedMult: 1.0,
+          phase: 0,
+          color: '#00f0ff',
+          shadow: '#00f0ff',
+          width: 2.2,
+        },
+        {
+          freq1: 0.040,
+          freq2: 0.030,
+          amp1: 9 + normEnergy * (isSpeaking ? 14 : 7),
+          amp2: 7 + normEnergy * 5,
+          speedMult: 0.85,
+          phase: Math.PI * 0.45,
+          color: '#38bdf8',
+          shadow: '#38bdf8',
+          width: 2.0,
+        },
+        {
+          freq1: 0.052,
+          freq2: 0.020,
+          amp1: 11 + normEnergy * (isSpeaking ? 18 : 8),
+          amp2: 7 + normEnergy * 6,
+          speedMult: 1.15,
+          phase: Math.PI * 0.9,
+          color: '#818cf8',
+          shadow: '#818cf8',
+          width: 2.2,
+        },
+        {
+          freq1: 0.036,
+          freq2: 0.042,
+          amp1: 8 + normEnergy * (isSpeaking ? 14 : 6),
+          amp2: 8 + normEnergy * 7,
+          speedMult: 0.95,
+          phase: Math.PI * 1.35,
+          color: '#c084fc',
+          shadow: '#a855f7',
+          width: 2.0,
+        },
+        {
+          freq1: 0.060,
+          freq2: 0.028,
+          amp1: (isSpeaking ? 12 : 6) + normEnergy * 10,
+          amp2: 5 + normEnergy * 5,
+          speedMult: 1.3,
+          phase: Math.PI * 1.8,
+          color: isSpeaking || isListening ? '#c8f031' : '#a855f7',
+          shadow: isSpeaking || isListening ? '#c8f031' : '#a855f7',
+          width: 1.6,
+        },
+      ];
+
+      // Calculate strand points
+      const strandPoints: Array<Array<{ x: number; y: number }>> = [];
+
+      strands.forEach((s) => {
+        const points: Array<{ x: number; y: number }> = [];
+        for (let i = 0; i <= steps; i++) {
+          const x = xStart + i * dx;
+          const prog = i / steps;
+          const env = Math.sin(prog * Math.PI) ** 1.3;
+
+          const t = time * s.speedMult + s.phase;
+          const w1 = Math.sin((x - cx) * s.freq1 + t) * s.amp1;
+          const w2 = Math.cos((x - cx) * s.freq2 - t * 0.8) * s.amp2;
+          const twist = Math.sin(t * 0.7 + prog * Math.PI * 2) * 4;
+
+          const y = cy + (w1 + w2 + twist) * env;
+          const hShift = Math.cos(t * 0.5 + prog * Math.PI) * 3 * env;
+
+          points.push({ x: x + hShift, y });
+        }
+        strandPoints.push(points);
+      });
+
+      // 3. Volumetric Translucent Mesh Fills between adjacent strands
+      for (let k = 0; k < strandPoints.length - 1; k++) {
+        const pts1 = strandPoints[k];
+        const pts2 = strandPoints[k + 1];
+
+        ctx.beginPath();
+        ctx.moveTo(pts1[0].x, pts1[0].y);
+        for (let i = 1; i <= steps; i++) {
+          ctx.lineTo(pts1[i].x, pts1[i].y);
+        }
+        for (let i = steps; i >= 0; i--) {
+          ctx.lineTo(pts2[i].x, pts2[i].y);
+        }
+        ctx.closePath();
+
+        const meshGrad = ctx.createLinearGradient(xStart, 0, xEnd, 0);
+        meshGrad.addColorStop(0, 'rgba(0, 240, 255, 0)');
+        meshGrad.addColorStop(0.3, k % 2 === 0 ? 'rgba(0, 240, 255, 0.18)' : 'rgba(129, 140, 248, 0.18)');
+        meshGrad.addColorStop(0.7, k % 2 === 0 ? 'rgba(168, 85, 247, 0.22)' : 'rgba(56, 189, 248, 0.2)');
+        meshGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+
+        ctx.fillStyle = meshGrad;
+        ctx.globalAlpha = 0.75;
+        ctx.fill();
+      }
+
+      // 4. Glowing Filament Lines
+      strands.forEach((s, k) => {
+        const pts = strandPoints[k];
+
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i <= steps; i++) {
+          ctx.lineTo(pts[i].x, pts[i].y);
+        }
+
+        const lineGrad = ctx.createLinearGradient(xStart, 0, xEnd, 0);
+        lineGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        lineGrad.addColorStop(0.2, s.color);
+        lineGrad.addColorStop(0.5, s.color);
+        lineGrad.addColorStop(0.8, s.color);
+        lineGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+        ctx.strokeStyle = lineGrad;
+        ctx.lineWidth = s.width;
+        ctx.shadowColor = s.shadow;
+        ctx.shadowBlur = isSpeaking ? 14 : 8;
+        ctx.globalAlpha = 0.95;
+        ctx.stroke();
+      });
+
+      // 5. Central Glowing White-Cyan Caustic Core
+      ctx.beginPath();
+      const midPts = strandPoints[1];
+      ctx.moveTo(midPts[0].x, midPts[0].y);
+      for (let i = 1; i <= steps; i++) {
+        ctx.lineTo(midPts[i].x, midPts[i].y);
+      }
+      const coreLineGrad = ctx.createLinearGradient(xStart, 0, xEnd, 0);
+      coreLineGrad.addColorStop(0, 'rgba(255,255,255,0)');
+      coreLineGrad.addColorStop(0.35, 'rgba(255,255,255,0.75)');
+      coreLineGrad.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+      coreLineGrad.addColorStop(0.65, 'rgba(255,255,255,0.75)');
+      coreLineGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.strokeStyle = coreLineGrad;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 8;
+      ctx.globalAlpha = 0.85;
+      ctx.stroke();
+
+      // 6. Central Radial Energy Bloom (Soft horizontal glow)
+      const bloomRadius = 18 + (isSpeaking ? normEnergy * 10 : isListening ? normEnergy * 6 : Math.sin(time) * 2);
+      const bloomGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(2, bloomRadius));
+      bloomGrad.addColorStop(0, isSpeaking ? 'rgba(216, 180, 254, 0.7)' : 'rgba(56, 189, 248, 0.65)');
+      bloomGrad.addColorStop(0.5, isSpeaking ? 'rgba(168, 85, 247, 0.25)' : 'rgba(37, 99, 235, 0.25)');
+      bloomGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = bloomGrad;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      animFrameRef.current = requestAnimationFrame(render);
+    };
+
+    animFrameRef.current = requestAnimationFrame(render);
+
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, [voiceState, energyLevel]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={140}
+      height={140}
+      className="lp-orb-canvas"
+      aria-hidden="true"
+    />
+  );
+}
+
+// ─── Main Floating Orb Widget Component ──────────────────────────────────────
+
 export function FloatingOrbWidget() {
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [liveUtterance, setLiveUtterance] = useState<string>('');
@@ -318,7 +579,6 @@ export function FloatingOrbWidget() {
   // ── Start microphone capture and stream to backend ─────────────────────────
   const startMicrophoneCapture = useCallback(async () => {
     try {
-      // Re-use or initialize 16kHz audio context
       if (!audioContextRef.current) {
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         audioContextRef.current = new AudioCtx({ sampleRate: 16000 });
@@ -343,7 +603,6 @@ export function FloatingOrbWidget() {
       const processor = audioCtx.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
-      // Connect through a zero-gain node to destination (avoids feedback while keeping Web Audio node active)
       const muteNode = audioCtx.createGain();
       muteNode.gain.value = 0;
       muteGainNodeRef.current = muteNode;
@@ -358,7 +617,6 @@ export function FloatingOrbWidget() {
         const rawInput = e.inputBuffer.getChannelData(0);
         const inputData = downsampleTo16k(rawInput, audioCtx.sampleRate);
 
-        // Volume meter calculation
         let sum = 0;
         for (let i = 0; i < rawInput.length; i++) {
           sum += rawInput[i] * rawInput[i];
@@ -367,13 +625,11 @@ export function FloatingOrbWidget() {
         const level = Math.min(100, Math.floor(rms * 400));
         setUserMicLevel(level);
 
-        // Send continuous 16kHz PCM stream to allow Gemini VAD real-time endpointing
         const pcm16 = floatTo16BitPCM(inputData);
         const base64Audio = arrayBufferToBase64(pcm16.buffer);
         socketRef.current.emit('audio-chunk', { audio: base64Audio });
       };
 
-      // ── Start browser SpeechRecognition for instant, zero-latency user transcription ──
       const SpeechRec = typeof window !== 'undefined'
         ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
         : null;
@@ -447,7 +703,6 @@ export function FloatingOrbWidget() {
 
   // ── Initiate full live voice session ───────────────────────────────────────
   const handleStart = useCallback(() => {
-    // 1. Immediately unlock / create AudioContexts in direct user gesture context
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!audioContextRef.current) {
@@ -519,7 +774,6 @@ export function FloatingOrbWidget() {
     socket.on('text-stream', (data: { text: string }) => {
       if (!data.text) return;
 
-      // Abort previous user recognition instance so subsequent turn starts fresh
       if (lastSpeakerRef.current === 'user' && recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -594,185 +848,171 @@ export function FloatingOrbWidget() {
   const energyLevel = isSpeaking ? speakingLevel : userMicLevel;
 
   return (
-    <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
-      {/* ── Gemini Mobile Style Live Transcribe Overlay (Pill) ── */}
-      {showTranscript && liveUtterance && (
+    <>
+      {/* Dock ambient backdrop mask to shield widget from scrolling page text */}
+      <div className="lp-orb-dock-mask" aria-hidden="true" />
+
+      <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
+        {/* ── Gemini Mobile Style Live Transcribe Overlay (Pill) ── */}
+        {showTranscript && liveUtterance && (
+          <div
+            className={`lp-orb-gemini-transcript ${liveSpeaker === 'user' ? 'user-turn' : 'agent-turn'}`}
+            aria-live="polite"
+          >
+            <div className="lp-orb-gemini-content">
+              <p className="lp-orb-gemini-text">
+                {liveUtterance}
+                {liveSpeaker === 'user' && (
+                  <span className="lp-orb-typing-cursor" aria-hidden="true" />
+                )}
+              </p>
+            </div>
+            <button
+              aria-label="Dismiss transcript"
+              className="lp-orb-gemini-close"
+              onClick={() => setShowTranscript(false)}
+              type="button"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* ── Unified Floating Island (Status + Controls — Only shown when NOT idle) ── */}
+        {voiceState !== 'idle' && (
+          <div className="lp-orb-island-container">
+            {voiceState === 'connecting' && (
+              <div className="lp-orb-island-pill connecting">
+                <span className="lp-orb-status-dot connecting" />
+                <span className="lp-orb-shimmer-text">Connecting to Gemini Live…</span>
+              </div>
+            )}
+
+            {isActive && (
+              <div className={`lp-orb-island-pill active ${isSpeaking ? 'speaking' : ''}`}>
+                <div className="lp-orb-island-status">
+                  <span
+                    className={`lp-orb-status-dot ${
+                      isSpeaking ? 'speaking' : isMuted ? 'muted' : 'listening'
+                    }`}
+                  />
+                  <span className="lp-orb-island-status-text">
+                    {isSpeaking
+                      ? 'ORA is speaking…'
+                      : isMuted
+                      ? 'Microphone muted'
+                      : 'Listening… Speak now'}
+                  </span>
+                </div>
+
+                <div className="lp-orb-island-divider" />
+
+                <div className="lp-orb-island-actions">
+                  <button
+                    type="button"
+                    className={`lp-orb-island-btn ${isMuted ? 'muted' : ''}`}
+                    onClick={() => setIsMuted((m) => !m)}
+                    aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="lp-orb-island-btn stop"
+                    onClick={teardownAudio}
+                    aria-label="End conversation"
+                    title="End Call"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="5" y="5" width="14" height="14" rx="2.5" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {voiceState === 'error' && (
+              <button
+                type="button"
+                className="lp-orb-island-pill error"
+                onClick={handleStart}
+                aria-label="Retry connection"
+              >
+                <span className="lp-orb-status-dot error" />
+                <span>{errorMsg ? (errorMsg.length > 40 ? errorMsg.slice(0, 40) + '…' : errorMsg) : 'Connection error — Click to retry'}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Main Stationary Crystal Orb Container ── */}
         <div
-          className={`lp-orb-gemini-transcript ${liveSpeaker === 'user' ? 'user-turn' : 'agent-turn'}`}
-          aria-live="polite"
+          className={`lp-orb-container ${isActive ? 'active' : ''} ${isSpeaking ? 'speaking' : ''} ${isConnecting ? 'connecting' : ''}`}
         >
-          <div className="lp-orb-gemini-content">
-            <p className="lp-orb-gemini-text">
-              {liveUtterance}
-              {liveSpeaker === 'user' && (
-                <span className="lp-orb-typing-cursor" aria-hidden="true" />
-              )}
-            </p>
-          </div>
+          {/* Siri/Gemini Fluid Outer Glow & Reactive Ring (Centered strictly inside orb container) */}
+          {isActive && (
+            <div
+              className={`lp-orb-reactive-aura ${isSpeaking ? 'speaking' : 'listening'}`}
+              style={{
+                transform: `scale(${1 + (energyLevel / 100) * 0.35})`,
+                opacity: 0.45 + (energyLevel / 100) * 0.55,
+              }}
+            />
+          )}
+
+          {/* Floor ambient reflection */}
+          <div className="lp-orb-floor-reflection" />
+
+          {/* Outer crystal glass sphere button */}
           <button
-            aria-label="Dismiss transcript"
-            className="lp-orb-gemini-close"
-            onClick={() => setShowTranscript(false)}
+            aria-label={
+              isActive
+                ? 'Click to end voice conversation'
+                : 'Click to start real-time voice conversation with ORA'
+            }
+            className={`lp-orb-glass-sphere lp-orb-btn ${isSpeaking ? 'speaking-active' : ''} ${isConnecting ? 'connecting-active' : ''}`}
+            onClick={handleOrbClick}
             type="button"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-      )}
+            {/* Dynamic Living Bluish Plasma Wave (Pure fluid wave inside crystal glass sphere — no double orb) */}
+            <OrbFluidWave voiceState={voiceState} energyLevel={energyLevel} />
 
-      {/* ── Error Banner ── */}
-      {voiceState === 'error' && errorMsg && (
-        <div className="lp-orb-error-card" role="alert">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-            <span style={{ fontSize: '0.9rem' }}>⚠️</span>
-            <span>{errorMsg.length > 70 ? errorMsg.slice(0, 70) + '…' : errorMsg}</span>
-          </div>
-          <div className="lp-orb-error-hint">Click the orb below to retry</div>
-        </div>
-      )}
+            {/* Inner rim lighting reflection */}
+            <div className="lp-orb-inner-rim-light" />
 
-      {/* ── Floating Controls Bar (Mute & Stop when active) ── */}
-      {isActive && (
-        <div className="lp-orb-controls">
-          <button
-            type="button"
-            className={`lp-orb-control-btn ${isMuted ? 'muted' : ''}`}
-            onClick={() => setIsMuted((m) => !m)}
-            aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-            title={isMuted ? 'Unmute' : 'Mute'}
-          >
-            {isMuted ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="1" y1="1" x2="23" y2="23" />
-                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
+            {/* Top glass glossy highlight */}
+            <div className="lp-orb-top-highlight" />
+
+            {/* Futuristic quantum charging rings on connecting state */}
+            {isConnecting && (
+              <div className="lp-orb-connecting-rings" aria-hidden="true">
+                <div className="lp-orb-quantum-ring ring-1" />
+                <div className="lp-orb-quantum-ring ring-2" />
+              </div>
             )}
           </button>
-          <button
-            type="button"
-            className="lp-orb-control-btn lp-orb-stop-btn"
-            onClick={teardownAudio}
-            aria-label="End conversation"
-            title="End Call"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="6" y="6" width="12" height="12" rx="2" />
-            </svg>
-          </button>
         </div>
-      )}
-
-      {/* ── Status Cue Pill ── */}
-      <div
-        className={`lp-orb-status-chip ${isActive ? 'active' : ''} ${isSpeaking ? 'speaking' : ''} ${isConnecting ? 'connecting' : ''}`}
-      >
-        {voiceState === 'idle' && (
-          <>
-            <span className="lp-orb-status-dot idle" />
-            <span>Talk with ORA</span>
-          </>
-        )}
-        {voiceState === 'connecting' && (
-          <>
-            <span className="lp-orb-status-dot connecting" />
-            <span>Connecting to Gemini…</span>
-          </>
-        )}
-        {voiceState === 'active' && !isMuted && (
-          <>
-            <span className="lp-orb-status-dot listening" />
-            <span>Listening… Speak now</span>
-          </>
-        )}
-        {voiceState === 'active' && isMuted && (
-          <>
-            <span className="lp-orb-status-dot muted" />
-            <span>Microphone muted</span>
-          </>
-        )}
-        {voiceState === 'ora-speaking' && (
-          <>
-            <span className="lp-orb-status-dot speaking" />
-            <span>ORA is speaking…</span>
-          </>
-        )}
-        {voiceState === 'error' && (
-          <>
-            <span className="lp-orb-status-dot error" />
-            <span>Retry conversation</span>
-          </>
-        )}
       </div>
-
-      {/* ── Siri/Gemini Fluid Outer Glow & Reactive Ring ── */}
-      {isActive && (
-        <div
-          className={`lp-orb-reactive-aura ${isSpeaking ? 'speaking' : 'listening'}`}
-          style={{
-            transform: `translateX(-50%) scale(${1 + (energyLevel / 100) * 0.45})`,
-            opacity: 0.4 + (energyLevel / 100) * 0.6,
-          }}
-        />
-      )}
-
-      {/* ── Main Orb Container ── */}
-      <div
-        className={`lp-orb-container ${isActive ? 'active' : ''} ${isSpeaking ? 'speaking' : ''} ${isConnecting ? 'connecting' : ''}`}
-      >
-        {/* Floor ambient reflection */}
-        <div className="lp-orb-floor-reflection" />
-
-        {/* Outer glass sphere button */}
-        <button
-          aria-label={
-            isActive
-              ? 'Click to end voice conversation'
-              : 'Click to start real-time voice conversation with ORA'
-          }
-          className={`lp-orb-glass-sphere lp-orb-btn ${isSpeaking ? 'speaking-active' : ''}`}
-          onClick={handleOrbClick}
-          type="button"
-        >
-          {/* Top glass highlight */}
-          <div className="lp-orb-top-highlight" />
-
-          {/* Inner rim lighting */}
-          <div className="lp-orb-inner-rim-light" />
-
-          {/* Ambient inner aura */}
-          <div className="lp-orb-ambient-aura" />
-
-          {/* Glowing fluid energy wave */}
-          <div className={`lp-orb-wave-img-wrapper ${isActive ? 'spinning' : ''}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt="ORA AI voice energy orb"
-              className="lp-orb-wave-img"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiiHohwyyA_AYKIz0FqIi4lPhglG4dGwSbGydUlHEFcCUM5D4yOQD-RJduetkXycHsfXCpjKD1V6i1Ek4Zmm0SOmvvLn_3yXdEptG2uCrTB1O6TgxzJRmH_pj3OAdpkvd7RoFK6hGg_wsyBjWnmR1a58wAIhaVAeWaiT5787U3fMOsKHQRqRt7z_RXy7bLI8nl0AFq-er2vKD0G1eZAhCcOPbFtAiT0mFdoN1yorZVMMmgRuw7D7j-PbK4xBOs2NjWnzA"
-            />
-          </div>
-
-          {/* Connecting spinner */}
-          {isConnecting && (
-            <div className="lp-orb-connecting-overlay">
-              <div className="lp-orb-spinner" />
-            </div>
-          )}
-        </button>
-      </div>
-    </div>
+    </>
   );
 }

@@ -63,7 +63,14 @@ export class RagService {
   async searchProducts(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number } = {},
+    options: {
+      limit?: number;
+      confidenceThreshold?: number;
+      category?: string;
+      brand?: string;
+      maxPrice?: number;
+      minPrice?: number;
+    } = {},
   ) {
     const limit = Math.min(options.limit || 5, 5); // candidate cap: max 5
     const threshold =
@@ -86,7 +93,7 @@ export class RagService {
 
     if (vectorResults.length > 0) {
       // --- Fast Path: hydrate vector candidates with live product details ---
-      finalResults = await Promise.all(
+      const hydrated = await Promise.all(
         vectorResults.map(async (res) => {
           try {
             const productData = await this.productsService.findOne(businessId, res.entityId);
@@ -96,15 +103,50 @@ export class RagService {
           }
         }),
       );
+
+      const filtered = hydrated.filter((res) => {
+        const prod = res.data as any;
+        if (!prod) return true;
+        if (options.category && prod.category && !new RegExp(`^${options.category.trim()}$`, 'i').test(prod.category)) {
+          return false;
+        }
+        if (options.brand && prod.brand && !new RegExp(`^${options.brand.trim()}$`, 'i').test(prod.brand)) {
+          return false;
+        }
+        if (options.maxPrice !== undefined && prod.price !== undefined && prod.price > options.maxPrice) {
+          return false;
+        }
+        if (options.minPrice !== undefined && prod.price !== undefined && prod.price < options.minPrice) {
+          return false;
+        }
+        return true;
+      });
+
+      // If strict filter removed everything, prefer semantic vector matches over empty
+      finalResults = filtered.length > 0 ? filtered : hydrated;
     } else {
       // -----------------------------------------------------------------------
       // Gap A fallback: product exists in Mongo but isn't embedded yet.
       // -----------------------------------------------------------------------
       fallbackTriggered = true;
-      const mongoResults = await this.productsService.findAll(businessId, {
+      let mongoResults = await this.productsService.findAll(businessId, {
         search: queryText,
         limit,
+        category: options.category,
+        brand: options.brand,
+        maxPrice: options.maxPrice,
+        minPrice: options.minPrice,
       });
+
+      // If strict category/brand filter returned nothing, retry with pure text search
+      if (mongoResults.items.length === 0 && (options.category || options.brand)) {
+        mongoResults = await this.productsService.findAll(businessId, {
+          search: queryText,
+          limit,
+          maxPrice: options.maxPrice,
+          minPrice: options.minPrice,
+        });
+      }
 
       if (mongoResults.items.length > 0) {
         fallbackTier = 'mongo_regex';
@@ -222,7 +264,15 @@ export class RagService {
   async searchCombined(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number; entityType?: EntityType } = {},
+    options: {
+      limit?: number;
+      confidenceThreshold?: number;
+      entityType?: EntityType;
+      category?: string;
+      brand?: string;
+      maxPrice?: number;
+      minPrice?: number;
+    } = {},
   ) {
     const fetchProducts = !options.entityType || options.entityType === EntityType.PRODUCT;
     const fetchKnowledge = !options.entityType || options.entityType === EntityType.KNOWLEDGE_CHUNK;

@@ -184,44 +184,41 @@ export class GeminiVoiceService {
           // Process function/tool calls requested by Gemini
           if (response.toolCall) {
             const functionCalls = response.toolCall.functionCalls || [];
-            for (const call of functionCalls) {
-              this.logger.log(
-                `[GeminiVoiceService] Gemini requested tool execution: ${call.name} (callId: ${call.id})`,
-              );
+            if (functionCalls.length > 0) {
+              const functionResponses = await Promise.all(
+                functionCalls.map(async (call: any) => {
+                  this.logger.log(
+                    `[GeminiVoiceService] Gemini requested tool execution: ${call.name} (callId: ${call.id})`,
+                  );
 
-              const toolResult = await this.aiToolsExecutor.executeTool(
-                options.businessId,
-                options.sessionId,
-                call.name,
-                call.args || {},
-              );
+                  const toolResult = await this.aiToolsExecutor.executeTool(
+                    options.businessId,
+                    options.sessionId,
+                    call.name,
+                    call.args || {},
+                  );
 
-              // Notify proxy gateway for UI-only hint (no tool data sent to client)
-              options.onToolResult?.(call.name);
+                  // Notify proxy gateway for UI-only hint (no tool data sent to client)
+                  options.onToolResult?.(call.name);
 
-              // Return tool execution output back to Gemini WebSocket
-              const toolResponsePayload = {
-                toolResponse: {
-                  functionResponses: [
-                    {
-                      response: { output: toolResult },
-                      id: call.id,
+                  // Return tool execution output back to Gemini WebSocket
+                  const toolResponsePayload = {
+                    toolResponse: {
+                      functionResponses,
                     },
-                  ],
-                },
-              };
+                  };
 
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(toolResponsePayload));
-              }
-            }
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(toolResponsePayload));
+                  }
+                }
           }
-        } catch (err: any) {
-          this.logger.error(
-            `[GeminiVoiceService] Error handling WebSocket message: ${err.message}`,
-          );
-        }
-      });
+          } catch (err: any) {
+            this.logger.error(
+              `[GeminiVoiceService] Error handling WebSocket message: ${err.message}`,
+            );
+          }
+        });
 
       ws.on('error', (err) => {
         this.logger.error(
