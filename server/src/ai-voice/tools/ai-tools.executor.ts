@@ -62,12 +62,9 @@ export class AiToolsExecutor {
   }
 
   private async handleFindProducts(businessId: string, args: Record<string, any>) {
-    // 1. Semantic RAG search for shortlist of candidate product IDs (with dynamic LLM filter routing)
+    // 1. Semantic RAG search for shortlist of candidate product IDs
     const ragRes = await this.ragService.searchCombined(businessId, args.query, {
       limit: 5,
-      category: args.category ? String(args.category).trim() : undefined,
-      brand: args.brand ? String(args.brand).trim() : undefined,
-      maxPrice: args.maxPrice !== undefined ? Number(args.maxPrice) : undefined,
     });
 
     // 2. Fetch sales playbook for this tenant — needed for mentionLowStockUrgency (Fix 5)
@@ -157,6 +154,41 @@ export class AiToolsExecutor {
       };
     }
 
+    // 6. Direct MongoDB catalog fallback: if vector RAG was empty, query DB directly
+    if (liveVerifiedProducts.length === 0) {
+      try {
+        const directDb = await this.productsService.findAll(businessId, {
+          search: (args && args.query) ? String(args.query) : '',
+          limit: 5,
+        });
+
+        if (directDb.items.length > 0) {
+          for (const item of directDb.items) {
+            const entry: Record<string, any> = {
+              id: item._id.toString(),
+              name: item.name,
+              price: item.price,
+              currency: item.currency || 'BDT',
+              availability: item.availability,
+              stockQuantity: item.stockQuantity,
+              category: item.category,
+              sourceTier: item.sourceTier,
+              confidenceScore: 0.9,
+              isLowStock: (item as any).isLowStock ?? false,
+            };
+
+            if (mentionLowStockUrgency && (item as any).isLowStock) {
+              entry.urgencyHint = `Only ${item.stockQuantity} left in stock — selling fast!`;
+            }
+
+            liveVerifiedProducts.push(entry);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`[AiToolsExecutor] Direct catalog fallback note: ${err.message}`);
+      }
+    }
+
     if (liveVerifiedProducts.length === 0) {
       return {
         success: true,
@@ -164,18 +196,25 @@ export class AiToolsExecutor {
         products: [],
         totalFound: 0,
         message:
-          'No products found matching this query. The merchant catalog may be empty or does not contain items matching these search terms. Do NOT retry the same search. Tell the customer you could not find matching products.',
+          'No products found matching this query in the catalog right now. Tell the customer you could not find matching products.',
         fallbackTriggered: ragRes.fallbackTriggered,
         fallbackTier: ragRes.fallbackTier,
       };
     }
+
+    const productSummary = liveVerifiedProducts
+      .map(
+        (p) =>
+          `${p.name} at ${p.currency} ${p.price} (${p.availability}, Stock: ${p.stockQuantity}${p.urgencyHint ? ` - ${p.urgencyHint}` : ''})`,
+      )
+      .join('; ');
 
     return {
       success: true,
       query: args.query,
       products: liveVerifiedProducts,
       totalFound: liveVerifiedProducts.length,
-      message: `Found ${liveVerifiedProducts.length} product(s) matching "${args.query}".`,
+      message: `Found ${liveVerifiedProducts.length} product(s): ${productSummary}`,
       fallbackTriggered: ragRes.fallbackTriggered,
       fallbackTier: ragRes.fallbackTier,
     };

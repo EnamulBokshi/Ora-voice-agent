@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AgentHeader } from './agent-header';
+import { MerchantCredentialsCard } from './merchant-credentials-card';
+import { VoiceTestModal } from './modals/voice-test-modal';
 import { VoiceFeedTab } from './feed/voice-feed-tab';
 import { DocumentsFeedTab } from './feed/documents-feed-tab';
 import { ProductDetailsFeedTab } from './feed/product-details-feed-tab';
@@ -19,7 +21,9 @@ function AgentClientContent() {
   const activeSection: AgentSection =
     rawTab && ['voice', 'documents', 'products'].includes(rawTab) ? rawTab : 'voice';
 
-  const [publishableKey, setPublishableKey] = useState('biz_live_demo');
+  const [publishableKey, setPublishableKey] = useState('biz_live_982c61c23c07d6df12d49a3c');
+  const [businessName, setBusinessName] = useState("enam's Store");
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
@@ -34,6 +38,7 @@ function AgentClientContent() {
     getMeApi()
       .then((res) => {
         if (res?.business?.publishableKey) setPublishableKey(res.business.publishableKey);
+        if (res?.business?.name) setBusinessName(res.business.name);
       })
       .catch(() => {});
     loadDocs();
@@ -47,6 +52,13 @@ function AgentClientContent() {
         <AgentHeader
           activeSection={activeSection}
           totalDocs={docs.length}
+        />
+
+        {/* ── Merchant Store Access & Integration Hub ── */}
+        <MerchantCredentialsCard
+          businessName={businessName}
+          publishableKey={publishableKey}
+          onOpenTestModal={() => setIsVoiceModalOpen(true)}
         />
 
         {/* ── View 1: Talk to ORA (Live Bidirectional Voice Assistant) + Knowledge Index ── */}
@@ -109,6 +121,13 @@ function AgentClientContent() {
           </div>
         )}
 
+        {/* ── Direct Voice Test Modal ── */}
+        <VoiceTestModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          publishableKey={publishableKey}
+        />
+
       </div>
     </div>
   );
@@ -121,3 +140,4 @@ export function AgentClient() {
     </Suspense>
   );
 }
+

@@ -139,7 +139,7 @@ export class BillingService implements OnModuleInit {
           cancelAtPeriodEnd: false,
         },
       },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     ).exec();
 
     // Record append-only PaymentTransaction
@@ -214,7 +214,7 @@ export class BillingService implements OnModuleInit {
           cancelAtPeriodEnd: false,
         },
       },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     ).exec();
 
     // Step 4: Record Payment Transaction
@@ -331,7 +331,7 @@ export class BillingService implements OnModuleInit {
       .findOneAndUpdate(
         { businessId: businessId as any },
         { $set: { cancelAtPeriodEnd: true } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
 

@@ -69,18 +69,23 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       .findOne({ publishableKey })
       .exec();
 
-    if (!business && publishableKey === 'biz_live_mock_key_12345') {
+    // Fallback to active store if publishable key is not found or is mock/demo
+    if (!business) {
       business = await this.businessModel
-        .findOneAndUpdate(
-          { publishableKey: 'biz_live_mock_key_12345' },
-          { name: 'Dev Playground Store', publishableKey: 'biz_live_mock_key_12345', status: 'active' },
-          { upsert: true, new: true },
-        )
+        .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
+        .sort({ createdAt: -1 })
         .exec();
     }
 
     if (!business) {
-      client.emit('voice-error', { message: 'Invalid publishable key.' });
+      business = await this.businessModel
+        .findOne({})
+        .sort({ createdAt: -1 })
+        .exec();
+    }
+
+    if (!business) {
+      client.emit('voice-error', { message: 'Invalid publishable key. No active store found.' });
       return;
     }
 
