@@ -37,11 +37,12 @@ ORA/
 
 ## 2. Actor Model & Authentication Taxonomy
 
-There are **three distinct actor types** in ORA (v5 Architecture). Do not conflate their authentication or authorization flows:
+There are **four distinct actor types** in ORA (v5 Architecture). Do not conflate their authentication or authorization flows:
 
 | Actor | What it is | Auth Mechanism | Primary Context |
 |---|---|---|---|
-| **AdminUser** | A merchant owner/staff accessing the dashboard | JWT access token (memory) + Refresh token (httpOnly cookie) + Redis session. Recipient OTP for billing email verification (v5 Section 10.10). | Admin Dashboard (`client/`) & NestJS Admin Controllers |
+| **SuperAdmin** | Platform operator with root access | JWT access token (memory) + Refresh token (httpOnly cookie) + Redis session (`role: 'super_admin'`). | SuperAdmin Command Center (`client/app/admin/`) & NestJS Admin Controller (`/api/v1/admin/*`) |
+| **AdminUser** | A merchant owner/staff accessing their store dashboard | JWT access token (memory) + Refresh token (httpOnly cookie) + Redis session (`role: 'owner'` / `'admin'` / `'staff'`). Recipient OTP for billing email verification (v5 Section 10.10). | Merchant Dashboard (`client/app/(dashboard)/`) & NestJS Merchant Controllers |
 | **Business (Tenant)** | The merchant account itself | Publishable Widget Key (`biz_live_xxxx` - public) for widget WebSocket connection; Encrypted API keys/secrets server-side (`Business.apiKeyHash`). | Public API, Voice Widget Gateway & Merchant Data Connectors |
 | **Customer** | End-shopper interacting with the voice/chat widget | Ephemeral conversation session token (`Conversation.sessionId`) | Voice Widget runtime & Redis state |
 

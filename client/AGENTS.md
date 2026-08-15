@@ -106,3 +106,23 @@ All marketing UI components live in `components/marketing/`:
 - `/auth` → Login (unauthenticated only; redirects to `/dashboard` if already authenticated)
 - `/dashboard` → Protected; redirects to `/auth?from=/dashboard` if not authenticated
 
+---
+
+## 9. SuperAdmin Command Center (`app/admin/`)
+
+### 9.1 Route & Layout Hierarchy
+```
+app/admin/
+├── layout.tsx         ← RSC root layout with Metadata, renders <AdminLayoutShell>
+├── page.tsx           ← RSC Platform Overview entry point, renders <AdminOverviewView>
+├── merchants/page.tsx ← RSC Merchants Directory, renders <AdminMerchantsView>
+├── users/page.tsx     ← RSC Global Users Registry, renders <AdminUsersView>
+├── voice-monitor/     ← RSC Live AI Voice Telemetry, renders <AdminVoiceMonitorView>
+└── system/page.tsx    ← RSC System Diagnostics, renders <AdminSystemView>
+```
+
+### 9.2 Guarding & Access Control
+- All admin pages are wrapped by `AdminGuard` (`components/admin/admin-guard.tsx`), verifying `user.role === 'super_admin'`. Non-admin accounts are redirected to `/dashboard`.
+- Service layer (`services/admin-service.ts`) communicates with `/api/v1/admin/*` endpoints via `lib/api-client.ts`.
+
+

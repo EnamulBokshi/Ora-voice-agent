@@ -99,6 +99,7 @@ export async function apiClient<T>(
         const currentPath = window.location.pathname;
         const isProtectedRoute =
           currentPath.startsWith('/dashboard') ||
+          currentPath.startsWith('/admin') ||
           currentPath.startsWith('/agent') ||
           currentPath.startsWith('/live-desk') ||
           currentPath.startsWith('/customers') ||
@@ -124,6 +125,7 @@ export async function apiClient<T>(
         const currentPath = window.location.pathname;
         const isProtectedRoute =
           currentPath.startsWith('/dashboard') ||
+          currentPath.startsWith('/admin') ||
           currentPath.startsWith('/agent') ||
           currentPath.startsWith('/live-desk') ||
           currentPath.startsWith('/customers') ||

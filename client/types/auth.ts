@@ -1,8 +1,10 @@
+export type UserRole = 'super_admin' | 'owner' | 'admin' | 'staff';
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'owner' | 'admin' | 'staff';
+  role: UserRole;
   emailVerified: boolean;
 }
 

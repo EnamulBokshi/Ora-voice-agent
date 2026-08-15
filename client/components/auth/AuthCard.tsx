@@ -26,7 +26,8 @@ export const AuthCard: React.FC = () => {
     if (!data.user.emailVerified) {
       setMode('otp');
     } else {
-      window.location.href = redirectTarget;
+      const target = data.user.role === 'super_admin' ? '/admin' : redirectTarget;
+      window.location.href = target;
     }
   };
 
@@ -34,7 +35,11 @@ export const AuthCard: React.FC = () => {
     if (typeof window !== 'undefined' && data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
     }
-    window.location.href = redirectTarget;
+    if (data.user.role === 'super_admin') {
+      window.location.href = redirectTarget === '/dashboard' ? '/admin' : redirectTarget;
+    } else {
+      window.location.href = redirectTarget.startsWith('/admin') ? '/dashboard' : redirectTarget;
+    }
   };
 
   const handleOtpVerifiedSuccess = () => {
