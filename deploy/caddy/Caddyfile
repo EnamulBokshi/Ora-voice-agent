@@ -1,0 +1,37 @@
+# ==============================================================================
+# ORA Caddy Reverse Proxy Configuration (Automatic SSL & WebSockets)
+# ==============================================================================
+
+yourdomain.com, app.ora.ai {
+    # Encode responses with gzip and zstd
+    encode zstd gzip
+
+    # Max upload limit for catalog CSV/PDF files
+    request_body {
+        max_size 50MB
+    }
+
+    # Route WebSockets and backend APIs directly to NestJS
+    @backend {
+        path /api/* /ws/* /socket.io/*
+    }
+    handle @backend {
+        reverse_proxy 127.0.0.1:5000 {
+            # Ensure WebSocket streaming headers are passed
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Route all other dashboard & public web traffic to Next.js
+    handle {
+        reverse_proxy 127.0.0.1:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}
