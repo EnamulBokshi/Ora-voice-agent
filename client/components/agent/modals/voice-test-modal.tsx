@@ -34,11 +34,11 @@ interface TranscriptEntry {
 }
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error';
-type VoiceMode = 'gemini-direct' | 'gemini-proxy' | 'browser-speech';
+type VoiceMode = 'gemini-proxy' | 'browser-speech';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_demo' }: VoiceTestModalProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>('gemini-direct');
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('gemini-proxy');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
@@ -423,10 +423,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
   };
 
   const handleStartSession = () => {
-    if (voiceMode === 'gemini-direct') {
+    if (voiceMode === 'gemini-proxy') {
       startDirectClientSession();
-    } else if (voiceMode === 'gemini-proxy') {
-      startServerGatewaySession();
     } else {
       startBrowserVoiceAssistant();
     }
@@ -462,11 +460,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                 ORA Voice Agent Sandbox
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono flex items-center gap-1">
                   <Zap size={11} />
-                  {voiceMode === 'gemini-direct'
-                    ? 'Direct Client Live (~300ms)'
-                    : voiceMode === 'gemini-proxy'
-                      ? 'Server Gateway Proxy'
-                      : 'Browser Speech AI'}
+                  {voiceMode === 'gemini-proxy'
+                    ? 'ORA Voice Proxy'
+                    : 'Browser Speech AI'}
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
@@ -488,26 +484,15 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           {/* Voice Mode Selector */}
           <div className="flex items-center space-x-1.5 bg-[#0d1c2d] p-1.5 rounded-xl border border-[#273647] text-xs">
             <button
-              onClick={() => { stopSession(); setVoiceMode('gemini-direct'); }}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-direct'
+              onClick={() => { stopSession(); setVoiceMode('gemini-proxy'); }}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-proxy'
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
                 }`}
-              title="Connects directly to Google Gemini Live API from browser (Ultra-Low Latency)"
+              title="Connects via ORA Server Proxy — API key stays on server"
             >
               <Zap size={13} />
-              Direct Live Stream (Fastest)
-            </button>
-            <button
-              onClick={() => { stopSession(); setVoiceMode('gemini-proxy'); }}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-proxy'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-                }`}
-              title="Connects via ORA Backend VoiceGateway relay"
-            >
-              <Server size={13} />
-              Server Relay
+              ORA Voice Proxy
             </button>
             <button
               onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}

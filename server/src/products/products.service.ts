@@ -102,27 +102,23 @@ export class ProductsService {
         return new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
       };
 
-      if (searchTerms.length === 0) {
-        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        filter.$or = [
-          { name: { $regex: escaped, $options: 'i' } },
-          { description: { $regex: escaped, $options: 'i' } },
-          { category: { $regex: escaped, $options: 'i' } },
-          { nativeProductId: { $regex: escaped, $options: 'i' } },
-        ];
-      } else {
-        // Match products containing any of the meaningful keywords as whole words
+      if (searchTerms.length > 0) {
+        // Match products containing any of the search keywords as words or substrings
         filter.$or = searchTerms.flatMap((term) => {
           const wordRegex = createDynamicRegex(term);
+          const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           return [
             { name: { $regex: wordRegex } },
+            { name: { $regex: escaped, $options: 'i' } },
             { category: { $regex: wordRegex } },
+            { category: { $regex: escaped, $options: 'i' } },
             { brand: { $regex: wordRegex } },
-            { description: { $regex: wordRegex } },
-            { nativeProductId: { $regex: wordRegex } },
+            { description: { $regex: escaped, $options: 'i' } },
+            { nativeProductId: { $regex: escaped, $options: 'i' } },
           ];
         });
       }
+      // If search was general (e.g. "what products do you have"), we do not restrict filter.$or so all active store products are returned
     }
 
     const [items, total] = await Promise.all([
@@ -145,49 +141,30 @@ export class ProductsService {
         .map((t) => t.replace(/[^a-zA-Z0-9]/g, ''))
         .filter((t) => t.length >= 2);
 
-      rankedItems = items
-        .map((item) => {
-          let score = 0;
-          const nameLower = (item.name || '').toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const brandLower = ((item as any).brand || '').toLowerCase();
-          const descLower = (item.description || '').toLowerCase();
-          const attrsLower = JSON.stringify((item as any).attributes || {}).toLowerCase();
+      if (rawTerms.length > 0) {
+        rankedItems = items
+          .map((item) => {
+            let score = 0;
+            const nameLower = (item.name || '').toLowerCase();
+            const catLower = (item.category || '').toLowerCase();
+            const brandLower = ((item as any).brand || '').toLowerCase();
+            const descLower = (item.description || '').toLowerCase();
 
-          for (const term of rawTerms) {
-            const wordRegex = new RegExp(`(^|[^a-zA-Z0-9])${term}([^a-zA-Z0-9]|$)`, 'i');
-
-            // Exact whole word in Product Title = highest relevance
-            if (wordRegex.test(nameLower)) {
-              score += 100;
-            } else if (nameLower.includes(term)) {
-              score += 50;
+            for (const term of rawTerms) {
+              if (nameLower.includes(term)) score += 10;
+              if (catLower.includes(term)) score += 5;
+              if (brandLower.includes(term)) score += 4;
+              if (descLower.includes(term)) score += 2;
             }
 
-            // Match in Brand or Category
-            if (wordRegex.test(brandLower) || brandLower.includes(term)) {
-              score += 40;
-            }
-            if (wordRegex.test(catLower) || catLower.includes(term)) {
-              score += 40;
-            }
-
-            // Match in Attributes JSON
-            if (wordRegex.test(attrsLower)) {
-              score += 30;
-            }
-
-            // Match in Description
-            if (wordRegex.test(descLower)) {
-              score += 15;
-            }
-          }
-
-          return { item, score };
-        })
-        .sort((a, b) => b.score - a.score)
-        .map((entry) => entry.item)
-        .slice(0, limit);
+            return { item, score };
+          })
+          .sort((a, b) => b.score - a.score)
+          .map((ranked) => ranked.item)
+          .slice(0, limit);
+      } else {
+        rankedItems = items.slice(0, limit);
+      }
     } else {
       rankedItems = items.slice(0, limit);
     }
@@ -204,12 +181,17 @@ export class ProductsService {
   }
 
   async findOne(businessId: string, id: string): Promise<ProductDocument> {
-    const product = await this.productModel
-      .findOne({
-        _id: id as any,
-        businessId: businessId as any,
-      })
-      .exec();
+    const isObjectId = Types.ObjectId.isValid(id) && id.length === 24;
+    const query: any = {
+      businessId: new Types.ObjectId(businessId),
+    };
+    if (isObjectId) {
+      query.$or = [{ _id: new Types.ObjectId(id) }, { nativeProductId: id }];
+    } else {
+      query.nativeProductId = id;
+    }
+
+    const product = await this.productModel.findOne(query).exec();
 
     if (!product) {
       throw new DomainException(

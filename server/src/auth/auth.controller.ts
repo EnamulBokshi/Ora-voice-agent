@@ -126,6 +126,13 @@ export class AuthController {
     return this.authService.resendOtp(user.sub);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('resend-onboarding')
+  @HttpCode(HttpStatus.OK)
+  async resendOnboardingEmail(@CurrentUser() user: JwtPayloadUser) {
+    return this.authService.resendOnboardingEmail(user.sub);
+  }
+
   private setAuthCookies(
     res: Response,
     refreshToken: string,

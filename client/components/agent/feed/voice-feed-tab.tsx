@@ -20,6 +20,7 @@ import { searchRagCombinedApi } from '@/services/rag-service';
 import { createKnowledgeDocApi } from '@/services/knowledge-service';
 import { DocType } from '@/types/knowledge';
 import { cn } from '@/lib/utils';
+import { GeminiLiveClient } from '@/services/gemini-live-client';
 
 interface VoiceFeedTabProps {
   publishableKey?: string;
@@ -49,7 +50,10 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
   const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
   const [savedNoteSuccess, setSavedNoteSuccess] = useState<boolean>(false);
 
-  // WebSockets and Audio Refs
+  // Direct Client Ref
+  const directClientRef = useRef<GeminiLiveClient | null>(null);
+
+  // Fallback WebSockets and Audio Refs
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -251,6 +255,10 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
 
   // Clean up recording and connections
   const stopSession = useCallback(() => {
+    if (directClientRef.current) {
+      directClientRef.current.stop();
+      directClientRef.current = null;
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
@@ -364,89 +372,30 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
     }
   };
 
-  // Start Real-time WebSocket Voice Stream Session
+  // Start Real-time Direct Gemini Live Voice Stream Session
   const startGeminiLiveSession = async () => {
     try {
       stopSession();
       setErrorMessage(null);
       setStatus('connecting');
-      addTranscript('system', 'Connecting to voice streaming gateway...');
 
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtx({ sampleRate: 16000 });
-      audioCtxRef.current = audioCtx;
-      nextPlayTimeRef.current = audioCtx.currentTime;
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
+      const client = new GeminiLiveClient({
+        publishableKey,
+        sessionId,
+        onStatusChange: (newStatus) => setStatus(newStatus),
+        onTranscript: (sender, text) => addTranscript(sender, text),
+        onAudioLevel: (level) => setAudioLevel(level),
+        onError: (err) => {
+          setErrorMessage(err);
+          setStatus('error');
         },
       });
-      micStreamRef.current = stream;
 
-      const source = audioCtx.createMediaStreamSource(stream);
-      micSourceRef.current = source;
-
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-      source.connect(analyser);
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVolume = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        const avg = sum / dataArray.length;
-        setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-        animFrameRef.current = requestAnimationFrame(updateVolume);
-      };
-      updateVolume();
-
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      processor.onaudioprocess = (e) => {
-        if (isMuted || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        const inputBuffer = e.inputBuffer.getChannelData(0);
-        const base64Pcm = float32ToInt16Base64(inputBuffer);
-        const chunkPayload = JSON.stringify(['audio-chunk', { audio: base64Pcm }]);
-        wsRef.current.send(`42/voice,${chunkPayload}`);
-      };
-
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-
-      const wsHost = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000';
-      const wsUrl = `${wsHost.replace(/^http/, 'ws')}/socket.io/?EIO=4&transport=websocket`;
-
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('[VoiceAssistant] WebSocket connected');
-      };
-
-      ws.onmessage = handleSocketMessage;
-      ws.onerror = (err) => {
-        console.error('[VoiceAssistant] WebSocket error:', err);
-        setErrorMessage('Failed to connect to voice stream gateway.');
-        setStatus('error');
-      };
-      ws.onclose = () => {
-        if (status !== 'idle') {
-          setStatus('idle');
-        }
-      };
+      directClientRef.current = client;
+      await client.start();
     } catch (err: any) {
-      console.error('[VoiceAssistant] Setup error:', err);
-      setErrorMessage(err.message || 'Microphone access denied or audio initialization failed.');
+      console.error('[VoiceAssistant] Direct session setup error:', err);
+      setErrorMessage(err.message || 'Direct voice stream failed to initialize.');
       setStatus('error');
     }
   };
@@ -599,7 +548,13 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
         {isActive && (
           <div className="relative z-10 mt-5 flex items-center gap-3">
             <button
-              onClick={() => setIsMuted((prev) => !prev)}
+              onClick={() => {
+                const nextMuted = !isMuted;
+                setIsMuted(nextMuted);
+                if (directClientRef.current) {
+                  directClientRef.current.setMuted(nextMuted);
+                }
+              }}
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5',
                 isMuted

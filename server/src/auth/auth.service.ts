@@ -2,6 +2,7 @@ import {
   Injectable,
   HttpStatus,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +11,7 @@ import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../common/redis/redis.service';
 import { MailService } from '../mail/mail.service';
+import { OnboardingEmailService } from './services/onboarding-email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
@@ -30,6 +32,8 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    @Optional()
+    private readonly onboardingEmailService?: OnboardingEmailService,
   ) {}
 
   async register(
@@ -79,6 +83,20 @@ export class AuthService {
       expireMinutes: 10,
     });
 
+    // Send ORA Welcome & Integration credentials email
+    if (this.onboardingEmailService) {
+      this.onboardingEmailService
+        .sendOnboardingEmail({
+          toEmail: user.email,
+          merchantName: user.name,
+          storeName: business.name,
+          publishableKey: business.publishableKey,
+        })
+        .catch((err) =>
+          this.logger.warn(`[AuthService] Onboarding email delivery note: ${err.message}`),
+        );
+    }
+
     // Generate tokens & session
     const sessionId = crypto.randomUUID();
     const tokens = await this.generateTokens(
@@ -120,7 +138,47 @@ export class AuthService {
         domain: business.domain,
         publishableKey: business.publishableKey,
       },
-      ...(isDev ? { devOtpCode: otpCode } : {}),
+      devOtpCode: isDev ? otpCode : undefined,
+    };
+  }
+
+  async resendOnboardingEmail(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new DomainException(
+        'USER_NOT_FOUND',
+        'Merchant user not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const business = await this.usersService.findBusinessById(
+      user.businessId.toString(),
+    );
+    if (!business) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        'Store business not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (this.onboardingEmailService) {
+      await this.onboardingEmailService.sendOnboardingEmail({
+        toEmail: user.email,
+        merchantName: user.name,
+        storeName: business.name,
+        publishableKey: business.publishableKey,
+      });
+    }
+
+    return {
+      success: true,
+      message: `Onboarding credentials and user manual have been sent to ${user.email}`,
+      data: {
+        storeName: business.name,
+        publishableKey: business.publishableKey,
+      },
     };
   }
 

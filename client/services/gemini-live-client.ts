@@ -1,7 +1,20 @@
 /**
- * GeminiLiveClient
- * High-performance direct client-side Gemini Multimodal Live API WebSocket client.
- * Provides ultra-low latency bidirectional audio streaming and real-time tool execution.
+ * GeminiLiveClient (Proxy Mode)
+ *
+ * Connects to the ORA server-side WebSocket proxy at /ws/voice instead of
+ * connecting directly to Google Gemini Live API. The API key never leaves
+ * the server — the client just exchanges audio frames with ORA's proxy.
+ *
+ * Protocol (client ↔ ORA proxy):
+ *   Client → Server:  { type: 'audio', data: '<base64 pcm16k>' }
+ *   Server → Client:  { type: 'setup_complete' }
+ *   Server → Client:  { type: 'audio', data: '<base64 pcm24k>' }
+ *   Server → Client:  { type: 'text', text: '...' }
+ *   Server → Client:  { type: 'interrupted' }
+ *   Server → Client:  { type: 'turn_complete' }
+ *   Server → Client:  { type: 'tool_result', toolName: '...' }
+ *   Server → Client:  { type: 'error', message: '...' }
+ *   Server → Client:  { type: 'session_closed' }
  */
 
 export interface LiveClientOptions {
@@ -27,7 +40,6 @@ export class GeminiLiveClient {
   private activeSources: AudioBufferSourceNode[] = [];
   private isMuted: boolean = false;
   private options: LiveClientOptions;
-  private businessId: string | null = null;
   private setupConfirmed: boolean = false;
 
   constructor(options: LiveClientOptions) {
@@ -51,11 +63,11 @@ export class GeminiLiveClient {
     try {
       this.stop();
       onStatusChange?.('connecting');
-      onTranscript?.('system', 'Requesting ephemeral voice session bootstrap from ORA server...');
+      onTranscript?.('system', 'Connecting to ORA Voice Proxy...');
 
       const startTime = performance.now();
 
-      // 1. Fetch Bootstrap Configuration from ORA Backend
+      // ── 1. Bootstrap: obtain sessionId + wsPath from ORA server ──────────────
       const bootstrapRes = await fetch(`${apiBaseUrl}/api/v1/voice/session/bootstrap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,24 +80,20 @@ export class GeminiLiveClient {
       }
 
       const bootstrapEnvelope = await bootstrapRes.json();
-      const bootstrap = bootstrapEnvelope.data;
-      this.businessId = bootstrap.businessId;
-
+      const bootstrap = (bootstrapEnvelope.data && bootstrapEnvelope.data.data) || bootstrapEnvelope.data || bootstrapEnvelope;
       const bootstrapRtt = Math.round(performance.now() - startTime);
       this.options.onLatency?.(bootstrapRtt);
-      onTranscript?.('system', `✅ Session bootstrap received (${bootstrapRtt}ms). Connecting directly to Gemini Live API...`);
+      onTranscript?.('system', `✅ Bootstrap OK (${bootstrapRtt}ms). Connecting to voice proxy...`);
 
-      // 2. Determine WebSocket URL
-      let targetWsUrl = bootstrap.wsUrl;
-      if (bootstrap.isEphemeral) {
-        targetWsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${bootstrap.token}`;
-      }
+      // ── 2. Open WebSocket to ORA Proxy (not Google) ───────────────────────────
+      const wsBase = apiBaseUrl.replace(/^http/, 'ws');
+      const wsPath = bootstrap.wsPath || '/ws/voice';
+      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}`;
 
-      // 3. Connect direct WebSocket to Google Gemini Live API
-      const ws = new WebSocket(targetWsUrl);
+      const ws = new WebSocket(wsUrl);
       this.ws = ws;
 
-      // 4. Setup Web Audio Context (Mic input 16kHz, Output 24kHz)
+      // ── 3. Setup Web Audio Context (Mic input 16kHz, Output 24kHz) ────────────
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioCtx({ sampleRate: 16000 });
       this.audioCtx = audioCtx;
@@ -94,7 +102,7 @@ export class GeminiLiveClient {
       }
       this.nextPlayTime = audioCtx.currentTime;
 
-      // 5. Connect Microphone MediaStream
+      // ── 4. Connect Microphone MediaStream ─────────────────────────────────────
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
@@ -108,7 +116,7 @@ export class GeminiLiveClient {
 
       const source = audioCtx.createMediaStreamSource(stream);
 
-      // 6. Audio Level Analyser
+      // ── 5. Audio Level Analyser ───────────────────────────────────────────────
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
       this.analyser = analyser;
@@ -126,7 +134,7 @@ export class GeminiLiveClient {
       };
       updateVolume();
 
-      // 7. Setup AudioWorklet (with fallback to ScriptProcessor)
+      // ── 6. Setup AudioWorklet (with fallback to ScriptProcessor) ─────────────
       let workletLoaded = false;
       try {
         await audioCtx.audioWorklet.addModule('/audio-processors/pcm-recorder-worklet.js');
@@ -138,7 +146,7 @@ export class GeminiLiveClient {
           const { pcm16Data } = event.data;
           if (pcm16Data) {
             const base64Audio = this.arrayBufferToBase64(pcm16Data);
-            this.sendMediaChunk(base64Audio);
+            this.sendAudioChunk(base64Audio);
           }
         };
 
@@ -156,45 +164,17 @@ export class GeminiLiveClient {
           if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed) return;
           const input = e.inputBuffer.getChannelData(0);
           const base64Pcm = this.float32ToInt16Base64(input);
-          this.sendMediaChunk(base64Pcm);
+          this.sendAudioChunk(base64Pcm);
         };
         source.connect(processor);
         processor.connect(audioCtx.destination);
       }
 
-      // 8. WebSocket Event Handlers
+      // ── 7. WebSocket Event Handlers ───────────────────────────────────────────
       ws.onopen = () => {
-        onTranscript?.('system', '⚡ Direct Gemini Live WebSocket open. Handshaking setup...');
-
-        // Send Setup Payload
-        const setupPayload = {
-          setup: {
-            model: bootstrap.model,
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              thinkingConfig: {
-                thinkingBudget: 0,
-              },
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: bootstrap.voiceConfig?.voiceName || 'Puck',
-                  },
-                },
-              },
-            },
-            systemInstruction: {
-              parts: [{ text: bootstrap.systemInstruction }],
-            },
-            tools: [
-              {
-                functionDeclarations: bootstrap.tools,
-              },
-            ],
-          },
-        };
-
-        ws.send(JSON.stringify(setupPayload));
+        onTranscript?.('system', '⚡ Connected to ORA Voice Proxy. Waiting for session setup...');
+        // Server opens the Google connection and sends setup_complete when ready.
+        // No setup payload needed from the client.
       };
 
       ws.onmessage = async (event: MessageEvent) => {
@@ -202,131 +182,82 @@ export class GeminiLiveClient {
           const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
           const message = JSON.parse(raw);
 
-          // Setup Confirmed
-          if (message.setupComplete && !this.setupConfirmed) {
-            this.setupConfirmed = true;
-            onStatusChange?.('listening');
-            onTranscript?.('system', '🎙️ Direct ORA Voice Live Agent active! Speak into microphone.');
-            return;
-          }
+          switch (message.type) {
+            case 'setup_complete':
+              this.setupConfirmed = true;
+              onStatusChange?.('listening');
+              onTranscript?.('system', '🎙️ ORA Voice Agent is live! Speak into your microphone.');
+              break;
 
-          // Handle Barge-in / Interruption
-          if (message.serverContent?.interrupted) {
-            this.flushPlaybackQueue();
-            onStatusChange?.('listening');
-            return;
-          }
+            case 'audio':
+              this.playPcm24kBase64(message.data);
+              break;
 
-          // Handle Audio & Text Output from Gemini
-          if (message.serverContent?.modelTurn?.parts) {
-            for (const part of message.serverContent.modelTurn.parts) {
-              if (part.inlineData && part.inlineData.mimeType.startsWith('audio/')) {
-                this.playPcm24kBase64(part.inlineData.data);
-              }
-              if (part.text) {
-                const cleanText = part.text.trim();
+            case 'text':
+              if (message.text) {
+                const cleanText = message.text.trim();
                 if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
                   onTranscript?.('agent', cleanText);
                 }
               }
-            }
-          }
+              break;
 
-          // Handle Gemini Tool Calls (find_products, add_to_cart, place_order, etc.)
-          if (message.toolCall) {
-            const functionCalls = message.toolCall.functionCalls || [];
-            for (const call of functionCalls) {
-              onTranscript?.('system', `⚡ ORA executing action: ${call.name}...`);
+            case 'interrupted':
+              this.flushPlaybackQueue();
+              onStatusChange?.('listening');
+              break;
 
-              const toolResult = await this.executeToolOnBackend(
-                apiBaseUrl,
-                call.name,
-                call.args || {},
-              );
+            case 'turn_complete':
+              onStatusChange?.('listening');
+              break;
 
-              // Return Tool Response directly back to Gemini Live WebSocket
-              const toolResponsePayload = {
-                toolResponse: {
-                  functionResponses: [
-                    {
-                      response: { output: toolResult },
-                      id: call.id,
-                    },
-                  ],
-                },
-              };
+            case 'tool_result':
+              // UI hint only — actual tool execution happened on the server
+              onTranscript?.('system', `⚡ ORA executed: ${message.toolName}`);
+              break;
 
-              if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify(toolResponsePayload));
-              }
-            }
+            case 'error':
+              onStatusChange?.('error');
+              onError?.(message.message || 'Voice session error.');
+              onTranscript?.('system', `❌ ${message.message || 'Voice session error.'}`);
+              break;
+
+            case 'session_closed':
+              onStatusChange?.('idle');
+              break;
+
+            default:
+              // Unknown message type — ignore silently
+              break;
           }
         } catch (err: any) {
-          console.error('[GeminiLiveClient] Error handling message:', err);
+          console.error('[GeminiLiveClient] Error handling proxy message:', err);
         }
       };
 
       ws.onerror = (err) => {
-        console.error('[GeminiLiveClient] WebSocket error:', err);
+        console.error('[GeminiLiveClient] Proxy WebSocket error:', err);
         onStatusChange?.('error');
-        onError?.('Direct Gemini Live connection error.');
-        onTranscript?.('system', '❌ Error connecting directly to Gemini Live API.');
+        onError?.('ORA Voice Proxy connection error.');
+        onTranscript?.('system', '❌ Error connecting to ORA Voice Proxy.');
       };
 
       ws.onclose = (event) => {
-        console.log(`[GeminiLiveClient] WebSocket closed (code ${event.code})`);
+        console.log(`[GeminiLiveClient] Proxy WebSocket closed (code ${event.code})`);
         onStatusChange?.('idle');
       };
     } catch (err: any) {
       console.error('[GeminiLiveClient] Start failed:', err);
       onStatusChange?.('error');
-      onError?.(err.message || 'Failed to start Gemini Live session.');
-      onTranscript?.('system', `Error: ${err.message}`);
+      onError?.(err.message || 'Failed to start voice session.');
+      this.options.onTranscript?.('system', `Error: ${err.message}`);
     }
   }
 
-  private sendMediaChunk(base64Pcm: string) {
+  /** Send a base64-encoded PCM 16kHz audio chunk to the ORA proxy */
+  private sendAudioChunk(base64Pcm: string) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    const payload = {
-      realtimeInput: {
-        mediaChunks: [
-          {
-            mimeType: 'audio/pcm;rate=16000',
-            data: base64Pcm,
-          },
-        ],
-      },
-    };
-    this.ws.send(JSON.stringify(payload));
-  }
-
-  private async executeToolOnBackend(
-    apiBaseUrl: string,
-    toolName: string,
-    args: Record<string, any>,
-  ): Promise<any> {
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/voice/tools/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          publishableKey: this.options.publishableKey,
-          businessId: this.businessId,
-          sessionId: this.options.sessionId,
-          toolName,
-          args,
-        }),
-      });
-
-      if (!response.ok) {
-        return { error: `Backend tool execution failed (${response.statusText})` };
-      }
-
-      const resJson = await response.json();
-      return resJson?.data?.output || resJson?.data || { success: true };
-    } catch (err: any) {
-      return { error: err.message || 'Tool execution network error' };
-    }
+    this.ws.send(JSON.stringify({ type: 'audio', data: base64Pcm }));
   }
 
   private playPcm24kBase64(base64Pcm: string) {
@@ -395,16 +326,12 @@ export class GeminiLiveClient {
     this.flushPlaybackQueue();
 
     if (this.workletNode) {
-      try {
-        this.workletNode.disconnect();
-      } catch {}
+      try { this.workletNode.disconnect(); } catch {}
       this.workletNode = null;
     }
 
     if (this.scriptProcessor) {
-      try {
-        this.scriptProcessor.disconnect();
-      } catch {}
+      try { this.scriptProcessor.disconnect(); } catch {}
       this.scriptProcessor = null;
     }
 
@@ -419,16 +346,12 @@ export class GeminiLiveClient {
     }
 
     if (this.ws) {
-      try {
-        this.ws.close();
-      } catch {}
+      try { this.ws.close(); } catch {}
       this.ws = null;
     }
 
     if (this.audioCtx) {
-      try {
-        this.audioCtx.close();
-      } catch {}
+      try { this.audioCtx.close(); } catch {}
       this.audioCtx = null;
     }
 

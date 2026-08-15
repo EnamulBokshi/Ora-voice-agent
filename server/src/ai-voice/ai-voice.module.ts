@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { GeminiVoiceService } from './gemini-voice.service';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { VoiceSessionController } from './voice-session.controller';
+import { VoiceProxyGateway } from './voice-proxy.gateway';
 import { ProductsModule } from '../products/products.module';
 import { RagModule } from '../rag/rag.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
@@ -28,8 +29,8 @@ import { Business, BusinessSchema } from '../users/schemas/business.schema';
     OrdersModule,
   ],
   controllers: [VoiceSessionController],
-  providers: [GeminiVoiceService, AiToolsExecutor],
-  exports: [GeminiVoiceService, AiToolsExecutor],
+  providers: [GeminiVoiceService, AiToolsExecutor, VoiceProxyGateway],
+  exports: [GeminiVoiceService, AiToolsExecutor, VoiceProxyGateway],
 })
 export class AiVoiceModule {}
 

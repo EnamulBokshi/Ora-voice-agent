@@ -82,3 +82,17 @@ export async function resendOtpApi(
     headers,
   });
 }
+
+export async function resendOnboardingApi(
+  accessToken?: string,
+): Promise<{ success: boolean; message: string }> {
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  return apiClient<{ success: boolean; message: string }>('/auth/resend-onboarding', {
+    method: 'POST',
+    headers,
+  });
+}

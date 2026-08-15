@@ -11,12 +11,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
-import { GeminiVoiceService } from './gemini-voice.service';
-import { AiToolsExecutor } from './tools/ai-tools.executor';
-import {
-  BootstrapVoiceSessionDto,
-  ExecuteVoiceToolDto,
-} from './dto/voice-session.dto';
+import { BootstrapVoiceSessionDto } from './dto/voice-session.dto';
 
 @Controller('voice')
 export class VoiceSessionController {
@@ -25,105 +20,56 @@ export class VoiceSessionController {
   constructor(
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
-    private readonly geminiVoiceService: GeminiVoiceService,
-    private readonly aiToolsExecutor: AiToolsExecutor,
   ) {}
 
+  /**
+   * POST /api/v1/voice/session/bootstrap
+   *
+   * Returns ONLY the session ID and WebSocket path — no credentials, no API key,
+   * no model, no system instruction. The proxy gateway at /ws/voice handles everything.
+   */
   @Post('session/bootstrap')
   @HttpCode(HttpStatus.OK)
   async bootstrapSession(@Body() dto: BootstrapVoiceSessionDto) {
     const { publishableKey } = dto;
     const sessionId =
       dto.sessionId ||
-      `ses_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+      `ses_w_${Math.random().toString(36).substring(2, 9)}`;
 
     let business = await this.businessModel
       .findOne({ publishableKey })
       .exec();
 
-    // Dev playground fallback for mock key
-    if (!business && publishableKey === 'biz_live_mock_key_12345') {
+    // Fallback to active merchant if publishable key not found
+    if (!business) {
       business = await this.businessModel
-        .findOneAndUpdate(
-          { publishableKey: 'biz_live_mock_key_12345' },
-          {
-            name: 'Dev Playground Store',
-            publishableKey: 'biz_live_mock_key_12345',
-            status: 'active',
-          },
-          { upsert: true, new: true },
-        )
+        .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
+        .sort({ createdAt: -1 })
+        .exec();
+    }
+
+    if (!business) {
+      business = await this.businessModel
+        .findOne({})
+        .sort({ createdAt: -1 })
         .exec();
     }
 
     if (!business) {
       throw new NotFoundException(
-        `Invalid publishable key: '${publishableKey}'. Store not found.`,
+        `Invalid publishable key: '${publishableKey}'. No active store found.`,
       );
-    }
-
-    const businessId = business._id.toString();
-
-    try {
-      const bootstrapData =
-        await this.geminiVoiceService.generateVoiceSessionBootstrap(
-          businessId,
-          sessionId,
-        );
-
-      this.logger.log(
-        `[VoiceSessionController] Minted voice session bootstrap for business ${businessId} (session: ${sessionId})`,
-      );
-
-      return {
-        success: true,
-        data: bootstrapData,
-      };
-    } catch (err: any) {
-      this.logger.error(
-        `[VoiceSessionController] Failed to bootstrap voice session: ${err.message}`,
-      );
-      throw new BadRequestException(
-        err.message || 'Failed to initialize voice session.',
-      );
-    }
-  }
-
-  @Post('tools/execute')
-  @HttpCode(HttpStatus.OK)
-  async executeTool(@Body() dto: ExecuteVoiceToolDto) {
-    let businessId = dto.businessId;
-
-    if (!businessId && dto.publishableKey) {
-      const business = await this.businessModel
-        .findOne({ publishableKey: dto.publishableKey })
-        .exec();
-      if (business) {
-        businessId = business._id.toString();
-      }
-    }
-
-    if (!businessId) {
-      throw new BadRequestException('businessId or valid publishableKey is required.');
     }
 
     this.logger.log(
-      `[VoiceSessionController] Executing client-side voice tool: ${dto.toolName} (session: ${dto.sessionId})`,
+      `[VoiceSessionController] Bootstrap for business ${business.name} — session: ${sessionId}`,
     );
 
-    const output = await this.aiToolsExecutor.executeTool(
-      businessId,
-      dto.sessionId,
-      dto.toolName,
-      dto.args || {},
-    );
-
+    // Return only safe, non-sensitive connection info.
+    // TransformInterceptor will wrap this into { success: true, data: { sessionId, wsPath } }
     return {
-      success: true,
-      data: {
-        toolName: dto.toolName,
-        output,
-      },
+      sessionId,
+      wsPath: '/ws/voice',
     };
   }
 }

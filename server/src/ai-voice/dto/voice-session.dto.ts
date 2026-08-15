@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class BootstrapVoiceSessionDto {
   @IsString()
@@ -8,26 +8,4 @@ export class BootstrapVoiceSessionDto {
   @IsString()
   @IsOptional()
   sessionId?: string;
-}
-
-export class ExecuteVoiceToolDto {
-  @IsString()
-  @IsOptional()
-  publishableKey?: string;
-
-  @IsString()
-  @IsOptional()
-  businessId?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  sessionId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  toolName: string;
-
-  @IsObject()
-  @IsOptional()
-  args?: Record<string, any>;
 }
