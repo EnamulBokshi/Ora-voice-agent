@@ -313,34 +313,104 @@ export class GeminiVoiceService {
       };
     });
   }
-}
-          }
-        },
-sendTextMessage: (text: string) => {
-  if (ws.readyState === WebSocket.OPEN) {
-    const clientContent = {
-      clientContent: {
-        turns: [
-          {
-            role: 'user',
-            parts: [{ text }],
-          },
-        ],
-        turnComplete: true,
-      },
-    };
-    ws.send(JSON.stringify(clientContent));
-  }
-},
-  closeSession: () => {
-    if (
-      ws.readyState === WebSocket.OPEN ||
-      ws.readyState === WebSocket.CONNECTING
-    ) {
-      ws.close();
+
+  async buildSystemInstruction(businessId: string): Promise<string> {
+    let merchantBrandVoice = '';
+    try {
+      const agentConfig = await this.agentConfigService.getConfig(businessId);
+      if (agentConfig?.config?.brandVoiceDescription) {
+        merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
+      }
+    } catch {
+      // Fallback — no custom brand voice
     }
-  },
-      };
-    });
+
+    return [
+      'You are ORA, a friendly and professional AI voice sales assistant for an e-commerce store.',
+      merchantBrandVoice,
+      '',
+      'CRITICAL RULES FOR YOUR BEHAVIOR:',
+      '1. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
+      '2. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
+      '3. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
+      '4. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
+      '5. When asked for a random product or general browse, search once with a broad term. If nothing comes back, say "The catalog appears to be empty right now."',
+      '6. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
+      '7. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
+      '8. If the customer speaks a language other than English, try to respond in their language.',
+      '',
+      'TOOLS:',
+      '- Use find_products to search the product catalog. Always use it when a customer asks about products.',
+      '- Use add_to_cart to add items to the shopping cart.',
+      '- Use place_order to complete a purchase from the cart.',
+      '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
+    ].join('\n');
+  }
+
+  getToolDeclarations() {
+    return ORA_TOOL_DECLARATIONS;
+  }
+
+  async generateVoiceSessionBootstrap(businessId: string, sessionId: string) {
+    const apiKey =
+      this.configService.get<string>('GEMINI_API_KEY') ||
+      process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error(
+        'GEMINI_API_KEY is not configured on the server.',
+      );
+    }
+
+    const geminiModel =
+      this.configService.get<string>('GEMINI_MODEL') ||
+      process.env.GEMINI_MODEL ||
+      'models/gemini-2.5-flash-native-audio-latest';
+
+    const systemInstruction = await this.buildSystemInstruction(businessId);
+    const tools = this.getToolDeclarations();
+
+    // Attempt to mint an ephemeral token from Google AI Studio / Gemini Live API
+    let ephemeralToken: string | null = null;
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1alpha/${geminiModel}:generateEphemeralToken?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ttl: '1800s',
+          }),
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token || data.name) {
+          ephemeralToken = data.token || data.name;
+        }
+      }
+    } catch (err: any) {
+      this.logger.debug(
+        `[GeminiVoiceService] Ephemeral token endpoint note: ${err.message}. Providing direct connection token.`,
+      );
+    }
+
+    // Direct WebSocket URI
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+
+    return {
+      token: ephemeralToken || apiKey,
+      isEphemeral: !!ephemeralToken,
+      wsUrl,
+      model: geminiModel,
+      systemInstruction,
+      tools,
+      voiceConfig: {
+        voiceName: 'Puck',
+      },
+      sessionId,
+      businessId,
+    };
   }
 }

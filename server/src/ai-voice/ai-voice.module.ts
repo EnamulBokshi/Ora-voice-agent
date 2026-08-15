@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { GeminiVoiceService } from './gemini-voice.service';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
+import { VoiceSessionController } from './voice-session.controller';
 import { ProductsModule } from '../products/products.module';
 import { RagModule } from '../rag/rag.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
@@ -9,10 +11,14 @@ import { RedisModule } from '../common/redis/redis.module';
 import { EventsModule } from '../events/events.module';
 import { AgentConfigModule } from '../agent-config/agent-config.module';
 import { OrdersModule } from '../orders/orders.module';
+import { Business, BusinessSchema } from '../users/schemas/business.schema';
 
 @Module({
   imports: [
     ConfigModule,
+    MongooseModule.forFeature([
+      { name: Business.name, schema: BusinessSchema },
+    ]),
     ProductsModule,
     RagModule,
     KnowledgeModule,
@@ -21,7 +27,9 @@ import { OrdersModule } from '../orders/orders.module';
     AgentConfigModule,
     OrdersModule,
   ],
+  controllers: [VoiceSessionController],
   providers: [GeminiVoiceService, AiToolsExecutor],
   exports: [GeminiVoiceService, AiToolsExecutor],
 })
 export class AiVoiceModule {}
+

@@ -15,8 +15,10 @@ import {
   Zap,
   RefreshCw,
   SlidersHorizontal,
+  Server,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
+import { GeminiLiveClient } from '@/services/gemini-live-client';
 
 interface VoiceTestModalProps {
   isOpen: boolean;
@@ -32,18 +34,22 @@ interface TranscriptEntry {
 }
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error';
-type VoiceMode = 'gemini-live' | 'browser-speech';
+type VoiceMode = 'gemini-direct' | 'gemini-proxy' | 'browser-speech';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_demo' }: VoiceTestModalProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>('gemini-live');
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('gemini-direct');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [sessionId] = useState<string>(() => `ses_${Math.random().toString(36).substring(2, 9)}`);
 
-  // WebSockets and Audio Refs
+  // Direct Live Client Ref
+  const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
+
+  // Legacy Proxy WebSockets and Audio Refs
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -136,66 +142,12 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  // Handle Socket message packet decoding
-  const handleSocketMessage = useCallback((event: MessageEvent) => {
-    const rawData = event.data;
-    if (typeof rawData !== 'string') return;
-
-    if (rawData.startsWith('0')) {
-      wsRef.current?.send('40/voice,');
-      return;
-    }
-
-    if (rawData.startsWith('40/voice,')) {
-      setStatus('connected');
-      addTranscript('system', 'Connected to ORA Voice Gateway. Starting session...');
-      const startPayload = JSON.stringify([
-        'start-voice-session',
-        { publishableKey, sessionId },
-      ]);
-      wsRef.current?.send(`42/voice,${startPayload}`);
-      return;
-    }
-
-    if (rawData.startsWith('42/voice,')) {
-      try {
-        const jsonStr = rawData.substring('42/voice,'.length);
-        const [eventName, payload] = JSON.parse(jsonStr);
-
-        if (eventName === 'voice-session-started') {
-          setStatus('listening');
-          addTranscript('system', 'ORA Gemini 2.0 Live Voice Agent active! Speak into microphone.');
-        } else if (eventName === 'audio-stream') {
-          if (payload?.audio) {
-            playPcm24kBase64(payload.audio);
-          }
-        } else if (eventName === 'text-stream') {
-          if (payload?.text) {
-            addTranscript('agent', payload.text);
-          }
-        } else if (eventName === 'voice-error') {
-          const msg = payload?.message || 'Voice connection error';
-          setErrorMessage(msg);
-          setStatus('error');
-          addTranscript('system', `Error: ${msg}`);
-
-          // Auto switch hint if live model tier restricted
-          if (msg.includes('code: 1008') || msg.includes('not supported for bidiGenerateContent')) {
-            addTranscript('system', '⚡ Tip: Switched to Browser Interactive Voice Mode. Click "Start Voice Session" again to talk!');
-            setVoiceMode('browser-speech');
-          }
-        } else if (eventName === 'voice-session-ended') {
-          setStatus('idle');
-          addTranscript('system', 'Voice session ended.');
-        }
-      } catch (err) {
-        console.error('[VoiceModal] Failed to parse socket message:', err);
-      }
-    }
-  }, [publishableKey, sessionId, addTranscript, playPcm24kBase64]);
-
   // Clean up recording and connections
   const stopSession = useCallback(() => {
+    if (directLiveClientRef.current) {
+      directLiveClientRef.current.stop();
+      directLiveClientRef.current = null;
+    }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch { }
       recognitionRef.current = null;
@@ -234,88 +186,97 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     }
     setStatus('idle');
     setAudioLevel(0);
+    setLatencyMs(null);
   }, []);
 
-  // Start Browser Speech Recognition Assistant Mode
-  const startBrowserVoiceAssistant = async () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setErrorMessage('Browser Speech Recognition not supported in this browser. Please use Chrome/Edge.');
-      setStatus('error');
-      return;
-    }
-
-    try {
-      setErrorMessage(null);
-      setStatus('listening');
-      addTranscript('system', 'Interactive Voice Assistant active! Speak your query...');
-
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = async (event: any) => {
-        const lastIdx = event.results.length - 1;
-        const speechText = event.results[lastIdx][0].transcript;
-        if (!speechText.trim()) return;
-
-        addTranscript('user', speechText);
-        setStatus('speaking');
-
-        try {
-          // Perform RAG search for store product & policy info
-          const ragResult = await searchRagCombinedApi({ query: speechText, limit: 3 });
-          let answerText = "I found matching information for you in the store database.";
-
-          if (ragResult.products.length > 0) {
-            const p = ragResult.products[0];
-            const pTitle = p.metadata?.title || p.text;
-            const pPrice = p.metadata?.price ? `$${p.metadata.price}` : '';
-            answerText = `We have ${pTitle} ${pPrice ? `priced at ${pPrice}` : ''}.`;
-          } else if (ragResult.knowledge.length > 0) {
-            answerText = ragResult.knowledge[0].text;
-          } else {
-            answerText = `I heard you ask: "${speechText}". ORA AI Assistant is ready to help with products, stock, and store policies!`;
-          }
-
-          addTranscript('agent', answerText);
-          speakWithBrowserTts(answerText);
-        } catch (err: any) {
-          console.error('[VoiceModal] RAG Search Error:', err);
-          addTranscript('agent', `I heard: "${speechText}". ORA AI Assistant is active!`);
-          speakWithBrowserTts(`I heard: "${speechText}". ORA AI Assistant is active!`);
-        }
-      };
-
-      recognition.onerror = (err: any) => {
-        console.error('[VoiceModal] Speech recognition error:', err);
-        if (err.error !== 'no-speech') {
-          addTranscript('system', `Mic listener notice: ${err.error}`);
-        }
-      };
-
-      recognition.onend = () => {
-        if (status !== 'idle' && recognitionRef.current) {
-          try { recognition.start(); } catch { }
-        }
-      };
-
-      recognition.start();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to start browser speech recognition.');
-      setStatus('error');
-    }
-  };
-
-  // Start Gemini Live WebSockets Session
-  const startGeminiLiveSession = async () => {
+  // Start Direct Client-Side Gemini Live Session
+  const startDirectClientSession = async () => {
     try {
       stopSession();
       setErrorMessage(null);
       setStatus('connecting');
-      addTranscript('system', 'Connecting to ws://localhost:5000/voice...');
+
+      const client = new GeminiLiveClient({
+        publishableKey,
+        sessionId,
+        onStatusChange: (newStatus) => setStatus(newStatus),
+        onTranscript: (sender, text) => addTranscript(sender, text),
+        onAudioLevel: (level) => setAudioLevel(level),
+        onLatency: (rtt) => setLatencyMs(rtt),
+        onError: (err) => {
+          setErrorMessage(err);
+          setStatus('error');
+        },
+      });
+
+      directLiveClientRef.current = client;
+      await client.start();
+    } catch (err: any) {
+      console.error('[VoiceModal] Direct session init error:', err);
+      setErrorMessage(err.message || 'Direct session failed to start.');
+      setStatus('error');
+    }
+  };
+
+  // Handle Legacy Socket message packet decoding
+  const handleSocketMessage = useCallback((event: MessageEvent) => {
+    const rawData = event.data;
+    if (typeof rawData !== 'string') return;
+
+    if (rawData.startsWith('0')) {
+      wsRef.current?.send('40/voice,');
+      return;
+    }
+
+    if (rawData.startsWith('40/voice,')) {
+      setStatus('connected');
+      addTranscript('system', 'Connected to ORA Voice Gateway. Starting session...');
+      const startPayload = JSON.stringify([
+        'start-voice-session',
+        { publishableKey, sessionId },
+      ]);
+      wsRef.current?.send(`42/voice,${startPayload}`);
+      return;
+    }
+
+    if (rawData.startsWith('42/voice,')) {
+      try {
+        const jsonStr = rawData.substring('42/voice,'.length);
+        const [eventName, payload] = JSON.parse(jsonStr);
+
+        if (eventName === 'voice-session-started') {
+          setStatus('listening');
+          addTranscript('system', 'ORA Voice Gateway active! Speak into microphone.');
+        } else if (eventName === 'audio-stream') {
+          if (payload?.audio) {
+            playPcm24kBase64(payload.audio);
+          }
+        } else if (eventName === 'text-stream') {
+          if (payload?.text) {
+            addTranscript('agent', payload.text);
+          }
+        } else if (eventName === 'voice-error') {
+          const msg = payload?.message || 'Voice connection error';
+          setErrorMessage(msg);
+          setStatus('error');
+          addTranscript('system', `Error: ${msg}`);
+        } else if (eventName === 'voice-session-ended') {
+          setStatus('idle');
+          addTranscript('system', 'Voice session ended.');
+        }
+      } catch (err) {
+        console.error('[VoiceModal] Failed to parse socket message:', err);
+      }
+    }
+  }, [publishableKey, sessionId, addTranscript, playPcm24kBase64]);
+
+  // Start Legacy Server Voice Gateway WebSockets Session
+  const startServerGatewaySession = async () => {
+    try {
+      stopSession();
+      setErrorMessage(null);
+      setStatus('connecting');
+      addTranscript('system', 'Connecting to ws://localhost:5000/voice (Server Proxy)...');
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioCtx({ sampleRate: 16000 });
@@ -374,35 +335,108 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
-      ws.onopen = () => {
-        console.log('[VoiceModal] WebSocket connected');
-      };
-
       ws.onmessage = handleSocketMessage;
-
       ws.onerror = (err) => {
         console.error('[VoiceModal] WebSocket error:', err);
         setErrorMessage('Failed to connect to backend voice gateway at ws://localhost:5000/voice');
         setStatus('error');
       };
-
       ws.onclose = () => {
-        console.log('[VoiceModal] WebSocket closed');
         setStatus('idle');
       };
     } catch (err: any) {
       console.error('[VoiceModal] Initialization failed:', err);
-      setErrorMessage(err.message || 'Microphone access denied or audio initialization error.');
+      setErrorMessage(err.message || 'Microphone access denied or audio error.');
       setStatus('error');
-      addTranscript('system', `Error: ${err.message || 'Microphone access denied'}`);
+    }
+  };
+
+  // Start Browser Speech Recognition Assistant Mode
+  const startBrowserVoiceAssistant = async () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setErrorMessage('Browser Speech Recognition not supported in this browser. Please use Chrome/Edge.');
+      setStatus('error');
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+      setStatus('listening');
+      addTranscript('system', 'Interactive Voice Assistant active! Speak your query...');
+
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = async (event: any) => {
+        const lastIdx = event.results.length - 1;
+        const speechText = event.results[lastIdx][0].transcript;
+        if (!speechText.trim()) return;
+
+        addTranscript('user', speechText);
+        setStatus('speaking');
+
+        try {
+          const ragResult = await searchRagCombinedApi({ query: speechText, limit: 3 });
+          let answerText = "I found matching information for you in the store database.";
+
+          if (ragResult.products.length > 0) {
+            const p = ragResult.products[0];
+            const pTitle = p.metadata?.title || p.text;
+            const pPrice = p.metadata?.price ? `$${p.metadata.price}` : '';
+            answerText = `We have ${pTitle} ${pPrice ? `priced at ${pPrice}` : ''}.`;
+          } else if (ragResult.knowledge.length > 0) {
+            answerText = ragResult.knowledge[0].text;
+          } else {
+            answerText = `I heard you ask: "${speechText}". ORA AI Assistant is ready to help with products, stock, and store policies!`;
+          }
+
+          addTranscript('agent', answerText);
+          speakWithBrowserTts(answerText);
+        } catch (err: any) {
+          console.error('[VoiceModal] RAG Search Error:', err);
+          addTranscript('agent', `I heard: "${speechText}". ORA AI Assistant is active!`);
+          speakWithBrowserTts(`I heard: "${speechText}". ORA AI Assistant is active!`);
+        }
+      };
+
+      recognition.onerror = (err: any) => {
+        if (err.error !== 'no-speech') {
+          addTranscript('system', `Mic listener notice: ${err.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        if (status !== 'idle' && recognitionRef.current) {
+          try { recognition.start(); } catch { }
+        }
+      };
+
+      recognition.start();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to start browser speech recognition.');
+      setStatus('error');
     }
   };
 
   const handleStartSession = () => {
-    if (voiceMode === 'gemini-live') {
-      startGeminiLiveSession();
+    if (voiceMode === 'gemini-direct') {
+      startDirectClientSession();
+    } else if (voiceMode === 'gemini-proxy') {
+      startServerGatewaySession();
     } else {
       startBrowserVoiceAssistant();
+    }
+  };
+
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    if (directLiveClientRef.current) {
+      directLiveClientRef.current.setMuted(nextMuted);
     }
   };
 
@@ -426,12 +460,17 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             <div>
               <h3 className="font-semibold text-lg text-slate-100 flex items-center gap-2">
                 ORA Voice Agent Sandbox
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
-                  {voiceMode === 'gemini-live' ? 'Gemini Live WebSocket' : 'Interactive Speech AI'}
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono flex items-center gap-1">
+                  <Zap size={11} />
+                  {voiceMode === 'gemini-direct'
+                    ? 'Direct Client Live (~300ms)'
+                    : voiceMode === 'gemini-proxy'
+                      ? 'Server Gateway Proxy'
+                      : 'Browser Speech AI'}
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Real-time Bidirectional Microphone & Voice Testing
+                Ultra-Low Latency Bi-directional Voice & Real-Time Tool Calling
               </p>
             </div>
           </div>
@@ -447,26 +486,38 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
         {/* Modal Body */}
         <div className="p-6 flex flex-col items-center justify-center space-y-6 flex-1 overflow-y-auto">
           {/* Voice Mode Selector */}
-          <div className="flex items-center space-x-2 bg-[#0d1c2d] p-1.5 rounded-xl border border-[#273647]">
+          <div className="flex items-center space-x-1.5 bg-[#0d1c2d] p-1.5 rounded-xl border border-[#273647] text-xs">
             <button
-              onClick={() => { stopSession(); setVoiceMode('gemini-live'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-live'
+              onClick={() => { stopSession(); setVoiceMode('gemini-direct'); }}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-direct'
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
                 }`}
+              title="Connects directly to Google Gemini Live API from browser (Ultra-Low Latency)"
             >
               <Zap size={13} />
-              Gemini 2.0 Live (WS Stream)
+              Direct Live Stream (Fastest)
+            </button>
+            <button
+              onClick={() => { stopSession(); setVoiceMode('gemini-proxy'); }}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-proxy'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+                }`}
+              title="Connects via ORA Backend VoiceGateway relay"
+            >
+              <Server size={13} />
+              Server Relay
             </button>
             <button
               onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'browser-speech'
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'browser-speech'
                   ? 'bg-purple-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
                 }`}
             >
               <SlidersHorizontal size={13} />
-              Interactive Voice AI (TTS/STT)
+              Browser TTS/STT
             </button>
           </div>
 
@@ -536,24 +587,31 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               />
               <span className="text-slate-300 font-medium">
                 {status === 'idle' && 'Click Start Session to talk with ORA Voice Agent'}
-                {status === 'connecting' && 'Establishing WebSocket connection...'}
+                {status === 'connecting' && 'Bootstrapping & establishing direct stream...'}
                 {status === 'listening' && 'ORA is listening... Speak clearly into microphone'}
-                {status === 'speaking' && 'Streaming voice response...'}
+                {status === 'speaking' && 'Streaming voice response in real-time...'}
                 {status === 'error' && (errorMessage || 'Connection error')}
               </span>
             </div>
 
-            {status !== 'idle' && (
-              <div className="flex items-center space-x-1.5 text-slate-400">
-                <Activity size={13} />
-                <div className="w-16 h-1.5 bg-[#1c2b3c] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-400 transition-all duration-75"
-                    style={{ width: `${audioLevel}%` }}
-                  />
+            <div className="flex items-center space-x-3">
+              {latencyMs !== null && (
+                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  ⚡ {latencyMs}ms RTT
+                </span>
+              )}
+              {status !== 'idle' && (
+                <div className="flex items-center space-x-1.5 text-slate-400">
+                  <Activity size={13} />
+                  <div className="w-16 h-1.5 bg-[#1c2b3c] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400 transition-all duration-75"
+                      style={{ width: `${audioLevel}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Main Control Buttons */}
@@ -569,7 +627,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             ) : (
               <>
                 <button
-                  onClick={() => setIsMuted(!isMuted)}
+                  onClick={toggleMute}
                   className={`p-3 rounded-xl border transition-colors ${isMuted
                       ? 'bg-red-500/20 border-red-500/40 text-red-400'
                       : 'bg-[#1c2b3c] border-[#273647] text-slate-200 hover:bg-[#273647]'
@@ -595,17 +653,17 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             <div className="flex items-center justify-between border-b border-[#273647] pb-2">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Zap size={13} className="text-amber-400" />
-                Live Conversation Log
+                Live Conversation & Tool Execution Log
               </span>
               <span className="text-[11px] text-slate-500 font-mono">
-                Session ID: {sessionId}
+                Session: {sessionId}
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
               {transcripts.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-slate-500 italic">
-                  Transcripts and tool executions will appear here in real-time...
+                  Transcripts and live actions (find_products, cart, policies) will stream here...
                 </div>
               ) : (
                 transcripts.map((item) => (
