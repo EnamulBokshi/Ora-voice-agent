@@ -2,20 +2,41 @@ export interface PlatformOverviewStats {
   totalBusinesses: number;
   activeBusinesses: number;
   suspendedBusinesses: number;
+  pendingBusinesses: number;
   totalUsers: number;
   totalConversations: number;
-  totalCustomers: number;
-  totalVoiceMinutes: number;
   voiceConversationsCount: number;
+  textConversationsCount: number;
+  totalVoiceMinutes: number;
+  totalCustomers: number;
+  totalOrders: number;
+  totalGmv: number;
+  oraAgentOrders: number;
+  oraAgentGmv: number;
+  totalProducts: number;
   platformMRR: number;
+  platformARR: number;
+  planDistribution: {
+    free: number;
+    growth: number;
+    scale: number;
+  };
+  growth: {
+    mrrTrend: string;
+    storeTrend: string;
+    voiceTrend: string;
+  };
 }
 
 export interface SystemStatus {
   serverUptimeSeconds: number;
   nodeMemoryUsageMB: number;
+  nodeMemoryTotalMB: number;
   redisStatus: string;
   redisLatencyMs: number;
   mongoStatus: string;
+  environment?: string;
+  nodeVersion?: string;
 }
 
 export interface RecentSignup {
@@ -28,10 +49,19 @@ export interface RecentSignup {
   createdAt: string;
 }
 
+export interface ActivityTimelinePoint {
+  date: string;
+  conversations: number;
+  voiceMinutes: number;
+  newStores: number;
+  gmv: number;
+}
+
 export interface PlatformStatsData {
   overview: PlatformOverviewStats;
   system: SystemStatus;
   recentSignups: RecentSignup[];
+  activityTimeline: ActivityTimelinePoint[];
 }
 
 export interface AdminBusinessItem {
@@ -45,6 +75,34 @@ export interface AdminBusinessItem {
   ownerName: string;
   conversationsCount: number;
   createdAt: string;
+}
+
+export interface AdminBusinessDetail {
+  id: string;
+  name: string;
+  domain: string;
+  publishableKey: string;
+  status: 'active' | 'suspended' | 'pending';
+  connectedPlatform: string;
+  owner: {
+    name: string;
+    email: string;
+    role: string;
+    createdAt?: string;
+  } | null;
+  subscription: {
+    planId: string;
+    status: string;
+    billingProvider: string;
+    currentPeriodEnd: string;
+  } | null;
+  metrics: {
+    productsCount: number;
+    ordersCount: number;
+    conversationsCount: number;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AdminBusinessesResponse {
@@ -112,3 +170,4 @@ export interface SystemHealthData {
     nodeVersion: string;
   };
 }
+

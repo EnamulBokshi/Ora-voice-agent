@@ -136,3 +136,24 @@ All endpoints MUST adhere to the standardized response envelope:
 
 - **Unit Tests (`*.spec.ts`):** Mandatory for all services with business logic (payment providers, billing, catalog, RAG). Mock Mongoose models and Redis calls.
 - **E2E Tests (`*.e2e-spec.ts`):** Mandatory for authentication, token refresh, token theft rotation, RBAC guards, and webhook handlers.
+
+---
+
+## 8. SuperAdmin & Platform Control Plane (`/api/v1/admin`)
+
+### 8.1 Role & Guard Requirements
+- SuperAdmin endpoints are strictly guarded by `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(AdminRole.SUPER_ADMIN)`.
+- Unlike tenant endpoints, SuperAdmin queries aggregate platform-wide telemetry across all tenant collections (`Business`, `AdminUser`, `Subscription`, `Order`, `Conversation`, `Customer`, `Product`) while excluding the system tenant (`name: { $ne: 'ORA Platform' }`).
+- Never apply `TenantScopeGuard` to SuperAdmin controller endpoints.
+
+### 8.2 Endpoints Summary (`AdminController`)
+| Endpoint | Method | Role | Description |
+|---|---|---|---|
+| `/api/v1/admin/stats` | `GET` | `super_admin` | Aggregated platform metrics (MRR/ARR, plan distribution, voice minutes, GMV, 7D/30D activity trends, infrastructure health). |
+| `/api/v1/admin/businesses` | `GET` | `super_admin` | Paginated, searchable merchant list with owner email, status, and conversation counts. |
+| `/api/v1/admin/businesses/:id` | `GET` | `super_admin` | Single merchant deep inspection (subscription, catalog size, orders, activity). |
+| `/api/v1/admin/businesses/:id/status` | `PATCH` | `super_admin` | Update store status (`active`, `suspended`, `pending`). |
+| `/api/v1/admin/users` | `GET` | `super_admin` | Cross-tenant user directory with role filters (`super_admin`, `owner`, `admin`, `staff`). |
+| `/api/v1/admin/voice-sessions` | `GET` | `super_admin` | Real-time and recent Gemini voice sessions with turn counts and status. |
+| `/api/v1/admin/system/health` | `GET` | `super_admin` | Diagnostics for Node process, MongoDB connection, and Redis latency. |
+

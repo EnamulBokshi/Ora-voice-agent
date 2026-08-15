@@ -163,3 +163,234 @@ Both the **Voice Gateway** (`ws://<host>/voice`) and the **Text Chat Gateway** (
 | `/api/v1/invoices/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single invoice details by ID. |
 | `/api/v1/invoices/:id/pdf` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Stream or view server-side rendered HTML/PDF invoice document. |
 | `/api/v1/invoices/:id/resend` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Manually resend invoice PDF email and audit log delivery attempt. |
+
+---
+
+## 8. Phase 7: SuperAdmin Platform Command Center & Diagnostics (`/api/v1/admin`)
+
+### Summary
+
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/v1/admin/stats` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Platform Command Overview**: Global telemetry aggregating platform MRR/ARR, plan distribution, active/suspended merchant stores, AI voice minutes, total GMV, 7D/30D activity time-series, and infrastructure health. |
+| `/api/v1/admin/businesses` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Merchants & Stores Directory**: Paginated tenant list with query filters (`page`, `limit`, `search`, `status`), enriched with store owner details, connected platform, and conversation counts. |
+| `/api/v1/admin/businesses/:id` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Merchant Tenant Inspection**: Detailed drilldown of single store tenant (profile, subscription state, product count, total orders, recent activity). |
+| `/api/v1/admin/businesses/:id/status` | `PATCH` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Tenant Lifecycle Control**: Update store operational status (`active`, `suspended`, `pending`). Suspended stores immediately halt AI widget sessions. |
+| `/api/v1/admin/users` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Global User Registry**: Cross-tenant user directory with role filters (`super_admin`, `owner`, `admin`, `staff`), search, verification status, and pagination. |
+| `/api/v1/admin/voice-sessions` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **AI Voice Telemetry & Monitor**: Live and recent real-time Gemini voice conversation sessions across all stores with turn counts, duration, caller identifier, and status. |
+| `/api/v1/admin/system/health` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Infrastructure Diagnostics**: Real-time health pulse of Node process runtime, memory heap/RSS allocations, MongoDB connection pool, and Redis latency. |
+
+### 8.1 SuperAdmin Role Enforcement & Actor Security
+All `/api/v1/admin/*` endpoints strictly require:
+1. `JwtAuthGuard` validating an active, non-expired AdminUser session.
+2. `RolesGuard` enforcing `@Roles(AdminRole.SUPER_ADMIN)`. Any request by `owner`, `admin`, or `staff` returns `403 Forbidden` (`FORBIDDEN_RESOURCE`).
+3. Cross-Tenant Aggregation: Unlike merchant endpoints, `/api/v1/admin/*` operates without `TenantScopeGuard`, querying cross-business platform telemetry while strictly excluding internal system tenants (`name: { $ne: 'ORA Platform' }`).
+
+### 8.2 Platform Overview Statistics (`GET /api/v1/admin/stats`)
+- **Query Parameters**:
+  - `period` (optional, string): Timeframe for trend aggregation (`7d`, `30d`, `all`, default `30d`).
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "overview": {
+      "totalBusinesses": 42,
+      "activeBusinesses": 40,
+      "suspendedBusinesses": 2,
+      "pendingBusinesses": 0,
+      "totalUsers": 58,
+      "totalConversations": 14250,
+      "voiceConversationsCount": 5120,
+      "textConversationsCount": 9130,
+      "totalVoiceMinutes": 12288,
+      "totalCustomers": 9820,
+      "totalOrders": 1450,
+      "totalGmv": 128450.00,
+      "oraAgentOrders": 890,
+      "oraAgentGmv": 78200.00,
+      "totalProducts": 18450,
+      "platformMRR": 3490,
+      "platformARR": 41880,
+      "planDistribution": {
+        "free": 12,
+        "growth": 24,
+        "scale": 6
+      },
+      "growth": {
+        "mrrTrend": "+18.4%",
+        "storeTrend": "+12.5%",
+        "voiceTrend": "+31.2%"
+      }
+    },
+    "system": {
+      "serverUptimeSeconds": 184520,
+      "nodeMemoryUsageMB": 142,
+      "nodeMemoryTotalMB": 256,
+      "redisStatus": "healthy",
+      "redisLatencyMs": 2,
+      "mongoStatus": "connected",
+      "environment": "production",
+      "nodeVersion": "v20.11.0"
+    },
+    "recentSignups": [
+      {
+        "id": "60d5ec49f1b2c8b1f8e4e1a1",
+        "name": "Aura Silk & Fashion",
+        "domain": "aurasilk.com",
+        "publishableKey": "biz_live_aurasilk_8f91a2c3",
+        "status": "active",
+        "connectedPlatform": "shopify",
+        "createdAt": "2026-08-14T10:30:00.000Z"
+      }
+    ],
+    "activityTimeline": [
+      {
+        "date": "2026-08-14",
+        "conversations": 480,
+        "voiceMinutes": 395,
+        "newStores": 2,
+        "gmv": 4200.00
+      }
+    ]
+  }
+}
+```
+
+### 8.3 Merchants & Stores Directory (`GET /api/v1/admin/businesses`)
+- **Query Parameters**:
+  - `page` (optional, number, default `1`)
+  - `limit` (optional, number, default `15`, max `100`)
+  - `search` (optional, string): Case-insensitive match against store name, domain, or publishable key.
+  - `status` (optional, string): Filter by `active`, `suspended`, or `pending`.
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "businesses": [
+      {
+        "id": "60d5ec49f1b2c8b1f8e4e1a1",
+        "name": "Apex Footwear Store",
+        "domain": "apexfootwear.com",
+        "publishableKey": "biz_live_apex_3b4c5d6e",
+        "status": "active",
+        "connectedPlatform": "shopify",
+        "ownerEmail": "merchant@apex.com",
+        "ownerName": "Apex Operations",
+        "conversationsCount": 1840,
+        "createdAt": "2026-07-10T08:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 15,
+      "total": 42,
+      "totalPages": 3
+    }
+  }
+}
+```
+
+### 8.4 Update Merchant Status (`PATCH /api/v1/admin/businesses/:id/status`)
+- **Path Parameter**: `id` — Target business MongoDB ObjectId.
+- **Request Body DTO**:
+```json
+{
+  "status": "suspended" // "active" | "suspended" | "pending"
+}
+```
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "60d5ec49f1b2c8b1f8e4e1a1",
+    "name": "Apex Footwear Store",
+    "status": "suspended",
+    "message": "Business status successfully updated to \"suspended\"."
+  }
+}
+```
+
+### 8.5 Global Users Registry (`GET /api/v1/admin/users`)
+- **Query Parameters**:
+  - `page` (optional, number, default `1`)
+  - `limit` (optional, number, default `20`)
+  - `role` (optional, string): Filter by `super_admin`, `owner`, `admin`, `staff`.
+  - `search` (optional, string): Search by name or email.
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "60d5ec49f1b2c8b1f8e4e999",
+        "name": "Platform SuperAdmin",
+        "email": "admin@ora.ai",
+        "role": "super_admin",
+        "emailVerified": true,
+        "businessName": "ORA Platform",
+        "businessId": "60d5ec49f1b2c8b1f8e4e000",
+        "businessStatus": "active",
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 58,
+      "totalPages": 3
+    }
+  }
+}
+```
+
+### 8.6 Voice Sessions Monitor (`GET /api/v1/admin/voice-sessions`)
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "sessions": [
+      {
+        "id": "60d5ec49f1b2c8b1f8e4e777",
+        "sessionId": "sess_live_voice_99a8b7",
+        "businessName": "Apex Footwear Store",
+        "customerIdentifier": "Shopper (+8801712345678)",
+        "status": "active",
+        "turnCount": 8,
+        "createdAt": "2026-08-15T10:12:00.000Z",
+        "updatedAt": "2026-08-15T10:14:32.000Z"
+      }
+    ]
+  }
+}
+```
+
+### 8.7 System Health Diagnostics (`GET /api/v1/admin/system/health`)
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "status": "operational",
+    "timestamp": "2026-08-15T11:15:00.000Z",
+    "database": {
+      "status": "connected",
+      "driver": "mongoose"
+    },
+    "redis": {
+      "status": "healthy",
+      "latencyMs": 2
+    },
+    "process": {
+      "uptimeSeconds": 184520,
+      "memoryUsedMB": 142,
+      "totalMemoryMB": 256,
+      "nodeVersion": "v20.11.0"
+    }
+  }
+}
+```

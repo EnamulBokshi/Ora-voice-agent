@@ -2,13 +2,15 @@ import { apiClient } from '@/lib/api-client';
 import {
   PlatformStatsData,
   AdminBusinessesResponse,
+  AdminBusinessDetail,
   AdminUsersResponse,
   VoiceSessionsResponse,
   SystemHealthData,
 } from '@/types/admin';
 
-export async function fetchPlatformStats(): Promise<PlatformStatsData> {
-  return apiClient<PlatformStatsData>('/admin/stats', {
+export async function fetchPlatformStats(period = '30d'): Promise<PlatformStatsData> {
+  const query = period ? `?period=${encodeURIComponent(period)}` : '';
+  return apiClient<PlatformStatsData>(`/admin/stats${query}`, {
     method: 'GET',
   });
 }
@@ -28,6 +30,17 @@ export async function fetchAdminBusinesses(params?: {
   const queryStr = searchParams.toString();
   return apiClient<AdminBusinessesResponse>(
     `/admin/businesses${queryStr ? `?${queryStr}` : ''}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function fetchAdminBusinessById(
+  businessId: string,
+): Promise<{ business: AdminBusinessDetail }> {
+  return apiClient<{ business: AdminBusinessDetail }>(
+    `/admin/businesses/${businessId}`,
     {
       method: 'GET',
     },
@@ -68,8 +81,8 @@ export async function fetchAdminUsers(params?: {
   );
 }
 
-export async function fetchVoiceSessions(): Promise<VoiceSessionsResponse> {
-  return apiClient<VoiceSessionsResponse>('/admin/voice-sessions', {
+export async function fetchVoiceSessions(limit = 20): Promise<VoiceSessionsResponse> {
+  return apiClient<VoiceSessionsResponse>(`/admin/voice-sessions?limit=${limit}`, {
     method: 'GET',
   });
 }
@@ -79,3 +92,4 @@ export async function fetchSystemHealth(): Promise<SystemHealthData> {
     method: 'GET',
   });
 }
+

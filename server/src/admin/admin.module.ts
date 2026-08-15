@@ -6,6 +6,9 @@ import { Business, BusinessSchema } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 import { Conversation, ConversationSchema } from '../conversations/schemas/conversation.schema';
 import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
+import { Subscription, SubscriptionSchema } from '../billing/schemas/subscription.schema';
+import { Order, OrderSchema } from '../orders/schemas/order.schema';
+import { Product, ProductSchema } from '../products/schemas/product.schema';
 
 @Module({
   imports: [
@@ -14,6 +17,9 @@ import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
       { name: AdminUser.name, schema: AdminUserSchema },
       { name: Conversation.name, schema: ConversationSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: Subscription.name, schema: SubscriptionSchema },
+      { name: Order.name, schema: OrderSchema },
+      { name: Product.name, schema: ProductSchema },
     ]),
   ],
   controllers: [AdminController],
@@ -21,3 +27,4 @@ import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
   exports: [AdminService],
 })
 export class AdminModule {}
+

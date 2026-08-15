@@ -20,8 +20,8 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('stats')
-  async getStats() {
-    return this.adminService.getPlatformStats();
+  async getStats(@Query('period') period?: string) {
+    return this.adminService.getPlatformStats(period);
   }
 
   @Get('businesses')
@@ -32,6 +32,11 @@ export class AdminController {
     @Query('status') status?: string,
   ) {
     return this.adminService.getBusinesses({ page, limit, search, status });
+  }
+
+  @Get('businesses/:id')
+  async getBusinessById(@Param('id') id: string) {
+    return this.adminService.getBusinessById(id);
   }
 
   @Patch('businesses/:id/status')
@@ -53,8 +58,8 @@ export class AdminController {
   }
 
   @Get('voice-sessions')
-  async getVoiceSessions() {
-    return this.adminService.getVoiceSessions();
+  async getVoiceSessions(@Query('limit') limit?: number) {
+    return this.adminService.getVoiceSessions(limit);
   }
 
   @Get('system/health')
@@ -62,3 +67,4 @@ export class AdminController {
     return this.adminService.getSystemHealth();
   }
 }
+
