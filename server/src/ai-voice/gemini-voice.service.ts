@@ -191,27 +191,47 @@ export class GeminiVoiceService {
                     `[GeminiVoiceService] Gemini requested tool execution: ${call.name} (callId: ${call.id})`,
                   );
 
-                  const toolResult = await this.aiToolsExecutor.executeTool(
-                    options.businessId,
-                    options.sessionId,
-                    call.name,
-                    call.args || {},
-                  );
+                  let toolResult: any;
+                  try {
+                    toolResult = await this.aiToolsExecutor.executeTool(
+                      options.businessId,
+                      options.sessionId,
+                      call.name,
+                      call.args || {},
+                    );
+                  } catch (err: any) {
+                    this.logger.error(
+                      `[GeminiVoiceService] Error executing tool ${call.name}: ${err.message}`,
+                    );
+                    toolResult = {
+                      success: false,
+                      error: err.message,
+                      products: [],
+                    };
+                  }
 
                   // Notify proxy gateway for UI-only hint (no tool data sent to client)
                   options.onToolResult?.(call.name);
 
-                  // Return tool execution output back to Gemini WebSocket
-                  const toolResponsePayload = {
-                    toolResponse: {
-                      functionResponses,
-                    },
+                  return {
+                    id: call.id,
+                    name: call.name,
+                    response: { output: toolResult },
                   };
+                }),
+              );
 
-                  if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify(toolResponsePayload));
-                  }
-                }
+              // Return batched tool execution outputs back to Gemini WebSocket
+              const toolResponsePayload = {
+                toolResponse: {
+                  functionResponses,
+                },
+              };
+
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(toolResponsePayload));
+              }
+            }
           }
           } catch (err: any) {
             this.logger.error(
