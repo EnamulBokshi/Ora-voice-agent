@@ -1,41 +1,61 @@
 'use client';
 
 import { useState } from 'react';
-import { TrendingUp, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/format';
 
 type Period = 'daily' | 'weekly';
 
-interface ChartDataPoint {
+export interface ChartDataPoint {
   label: string;
+  date?: string;
   value: number;
 }
 
-const DATA_SERIES: Record<Period, ChartDataPoint[]> = {
-  daily: [
-    { label: 'Mon', value: 2400 },
-    { label: 'Tue', value: 3100 },
-    { label: 'Wed', value: 2800 },
-    { label: 'Thu', value: 4200 },
-    { label: 'Fri', value: 3900 },
-    { label: 'Sat', value: 5100 },
-    { label: 'Sun', value: 4820 },
-  ],
-  weekly: [
-    { label: 'Week 1', value: 14200 },
-    { label: 'Week 2', value: 18500 },
-    { label: 'Week 3', value: 21900 },
-    { label: 'Week 4', value: 24820 },
-  ],
-};
+const DEFAULT_DAILY: ChartDataPoint[] = [
+  { label: 'Mon', value: 0 },
+  { label: 'Tue', value: 0 },
+  { label: 'Wed', value: 0 },
+  { label: 'Thu', value: 0 },
+  { label: 'Fri', value: 0 },
+  { label: 'Sat', value: 0 },
+  { label: 'Sun', value: 0 },
+];
 
-export function RevenueChart() {
+const DEFAULT_WEEKLY: ChartDataPoint[] = [
+  { label: 'Week 1', value: 0 },
+  { label: 'Week 2', value: 0 },
+  { label: 'Week 3', value: 0 },
+  { label: 'Week 4', value: 0 },
+];
+
+export interface RevenueChartProps {
+  daily?: ChartDataPoint[];
+  weekly?: ChartDataPoint[];
+  growthRate?: string;
+  totalRevenue?: number;
+}
+
+export function RevenueChart({
+  daily,
+  weekly,
+  growthRate = '+0.0%',
+  totalRevenue,
+}: RevenueChartProps) {
   const [period, setPeriod] = useState<Period>('daily');
-  const activeData = DATA_SERIES[period];
 
-  const maxValue = Math.max(...activeData.map((d) => d.value));
+  const dailyData = daily && daily.length > 0 ? daily : DEFAULT_DAILY;
+  const weeklyData = weekly && weekly.length > 0 ? weekly : DEFAULT_WEEKLY;
+  const activeData = period === 'daily' ? dailyData : weeklyData;
+
+  const rawMax = Math.max(...activeData.map((d) => d.value), 0);
+  const maxValue = rawMax > 0 ? rawMax : 100;
   const minValue = 0;
-  const totalRevenue = activeData.reduce((acc, d) => acc + d.value, 0);
+  const activeSum = activeData.reduce((acc, d) => acc + d.value, 0);
+  const displayRevenue = totalRevenue !== undefined && period === 'weekly' ? totalRevenue : activeSum;
+
+  const isPositiveGrowth = !growthRate.startsWith('-');
 
   // SVG coordinate calculations (viewBox 0 0 600 180)
   const width = 600;
@@ -44,8 +64,14 @@ export function RevenueChart() {
   const paddingY = 20;
 
   const points = activeData.map((d, index) => {
-    const x = paddingX + (index / (activeData.length - 1)) * (width - 2 * paddingX);
-    const y = height - paddingY - ((d.value - minValue) / (maxValue - minValue)) * (height - 2 * paddingY);
+    const x =
+      activeData.length === 1
+        ? width / 2
+        : paddingX + (index / (activeData.length - 1)) * (width - 2 * paddingX);
+    const y =
+      rawMax === 0
+        ? height - paddingY
+        : height - paddingY - ((d.value - minValue) / (maxValue - minValue)) * (height - 2 * paddingY);
     return { x, y, ...d };
   });
 
@@ -78,9 +104,16 @@ export function RevenueChart() {
 
         {/* Controls & Period Selector */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--status-online)] bg-[color:var(--status-online)]/10 px-2 py-0.5 rounded">
-            <TrendingUp size={12} />
-            +18.4% this week
+          <div
+            className={cn(
+              'flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded',
+              isPositiveGrowth
+                ? 'text-[color:var(--status-online)] bg-[color:var(--status-online)]/10'
+                : 'text-[color:var(--status-error)] bg-[color:var(--status-error)]/10',
+            )}
+          >
+            {isPositiveGrowth ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            {growthRate} this week
           </div>
 
           <div className="inline-flex rounded-md bg-surface-low p-0.5 border border-border">
@@ -105,7 +138,7 @@ export function RevenueChart() {
       {/* Metric Callout */}
       <div className="py-3 flex items-baseline gap-2">
         <span className="text-2xl font-bold tabular-nums text-foreground">
-          ${totalRevenue.toLocaleString()}
+          {formatCurrency(displayRevenue)}
         </span>
         <span className="text-[11px] text-muted-foreground">
           total {period === 'daily' ? 'past 7 days' : 'past 4 weeks'}
@@ -156,7 +189,7 @@ export function RevenueChart() {
 
           {/* Data Nodes */}
           {points.map((pt, i) => (
-            <g key={pt.label} className="group">
+            <g key={`${pt.label}-${i}`} className="group">
               <circle
                 cx={pt.x}
                 cy={pt.y}
@@ -171,11 +204,12 @@ export function RevenueChart() {
 
         {/* X-Axis Labels */}
         <div className="flex justify-between items-center text-[10px] text-muted-foreground pt-2 px-1 font-mono">
-          {activeData.map((d) => (
-            <span key={d.label}>{d.label}</span>
+          {activeData.map((d, i) => (
+            <span key={`${d.label}-${i}`}>{d.label}</span>
           ))}
         </div>
       </div>
     </div>
   );
 }
+

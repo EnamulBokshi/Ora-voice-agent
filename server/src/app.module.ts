@@ -23,6 +23,7 @@ import { MailModule } from './mail/mail.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 
 import { DashboardModule } from './dashboard/dashboard.module';
+import { LiveDeskModule } from './live-desk/live-desk.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     OrdersModule,
     AiVoiceModule,
     DashboardModule,
+    LiveDeskModule,
   ],
   controllers: [AppController],
   providers: [AppService],

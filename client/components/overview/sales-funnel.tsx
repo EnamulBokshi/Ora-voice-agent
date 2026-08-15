@@ -2,21 +2,28 @@
 
 import { Filter } from 'lucide-react';
 
-interface FunnelStep {
+export interface FunnelStep {
   label: string;
   count: number;
   pct: number;
   isLast?: boolean;
 }
 
-const FUNNEL_STEPS: FunnelStep[] = [
-  { label: 'Shopper Inquiries', count: 1284, pct: 100 },
-  { label: 'Products Recommended', count: 892, pct: 69.4 },
-  { label: 'Items Added to Cart', count: 340, pct: 26.5 },
-  { label: 'Orders Completed', count: 236, pct: 18.4, isLast: true },
+const DEFAULT_FUNNEL: FunnelStep[] = [
+  { label: 'Shopper Inquiries', count: 0, pct: 100 },
+  { label: 'Products Recommended', count: 0, pct: 0 },
+  { label: 'Items Added to Cart', count: 0, pct: 0 },
+  { label: 'Orders Completed', count: 0, pct: 0, isLast: true },
 ];
 
-export function SalesFunnel() {
+export interface SalesFunnelProps {
+  funnel?: FunnelStep[];
+  overallConversion?: number;
+}
+
+export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps) {
+  const steps = funnel && funnel.length > 0 ? funnel : DEFAULT_FUNNEL;
+
   return (
     <div className="rounded-md border border-border bg-surface-container p-5 flex flex-col justify-between h-full">
       {/* Header */}
@@ -34,7 +41,7 @@ export function SalesFunnel() {
 
       {/* Funnel Progress Steps */}
       <div className="py-4 space-y-3.5">
-        {FUNNEL_STEPS.map((step) => (
+        {steps.map((step) => (
           <div key={step.label} className="space-y-1.5">
             <div className="flex justify-between items-center text-[12px]">
               <span className="text-muted-foreground font-medium">{step.label}</span>
@@ -59,7 +66,7 @@ export function SalesFunnel() {
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
-                  width: `${step.pct}%`,
+                  width: `${Math.min(100, Math.max(0, step.pct))}%`,
                   backgroundColor: step.isLast ? 'var(--primary)' : 'var(--chart-4)',
                 }}
               />
@@ -72,9 +79,10 @@ export function SalesFunnel() {
       <div className="pt-3 border-t border-border flex items-center justify-between">
         <span className="text-[12px] text-muted-foreground">Overall Funnel Conversion</span>
         <span className="text-[14px] font-bold text-primary tabular-nums">
-          18.4%
+          {overallConversion}%
         </span>
       </div>
     </div>
   );
 }
+
