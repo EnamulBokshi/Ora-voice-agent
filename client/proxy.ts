@@ -16,6 +16,7 @@ export function proxy(request: NextRequest) {
   // All protected dashboard and command center routes
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/agent') ||
     pathname.startsWith('/live-desk') ||
     pathname.startsWith('/customers') ||

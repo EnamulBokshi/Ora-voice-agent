@@ -1,0 +1,57 @@
+'use client';
+
+import React from 'react';
+import { ShieldCheck, Activity, RefreshCw } from 'lucide-react';
+
+interface AdminHeaderProps {
+  title: string;
+  description?: string;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}
+
+export function AdminHeader({
+  title,
+  description,
+  onRefresh,
+  isRefreshing = false,
+}: AdminHeaderProps) {
+  return (
+    <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border bg-surface-lowest px-6 py-4">
+      <div>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">{title}</h1>
+          <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+            <ShieldCheck size={12} />
+            SuperAdmin
+          </span>
+        </div>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        {/* System Pulse Indicator */}
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-container px-3 py-1.5 text-xs">
+          <Activity size={14} className="text-primary animate-pulse" />
+          <span className="text-[11px] font-medium text-foreground">Global Status:</span>
+          <span className="text-[11px] font-semibold text-primary">Operational</span>
+        </div>
+
+        {/* Refresh Action */}
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-high px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-bright transition-colors disabled:opacity-50"
+            title="Refresh statistics"
+          >
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}
