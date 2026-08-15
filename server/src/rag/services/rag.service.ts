@@ -63,7 +63,14 @@ export class RagService {
   async searchProducts(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number } = {},
+    options: {
+      limit?: number;
+      confidenceThreshold?: number;
+      category?: string;
+      brand?: string;
+      maxPrice?: number;
+      minPrice?: number;
+    } = {},
   ) {
     const limit = Math.min(options.limit || 5, 5); // candidate cap: max 5
     const threshold =
@@ -86,7 +93,7 @@ export class RagService {
 
     if (vectorResults.length > 0) {
       // --- Fast Path: hydrate vector candidates with live product details ---
-      finalResults = await Promise.all(
+      const hydrated = await Promise.all(
         vectorResults.map(async (res) => {
           try {
             const productData = await this.productsService.findOne(businessId, res.entityId);
@@ -96,15 +103,50 @@ export class RagService {
           }
         }),
       );
+
+      const filtered = hydrated.filter((res) => {
+        const prod = res.data as any;
+        if (!prod) return true;
+        if (options.category && prod.category && !new RegExp(`^${options.category.trim()}$`, 'i').test(prod.category)) {
+          return false;
+        }
+        if (options.brand && prod.brand && !new RegExp(`^${options.brand.trim()}$`, 'i').test(prod.brand)) {
+          return false;
+        }
+        if (options.maxPrice !== undefined && prod.price !== undefined && prod.price > options.maxPrice) {
+          return false;
+        }
+        if (options.minPrice !== undefined && prod.price !== undefined && prod.price < options.minPrice) {
+          return false;
+        }
+        return true;
+      });
+
+      // If strict filter removed everything, prefer semantic vector matches over empty
+      finalResults = filtered.length > 0 ? filtered : hydrated;
     } else {
       // -----------------------------------------------------------------------
       // Gap A fallback: product exists in Mongo but isn't embedded yet.
       // -----------------------------------------------------------------------
       fallbackTriggered = true;
-      const mongoResults = await this.productsService.findAll(businessId, {
+      let mongoResults = await this.productsService.findAll(businessId, {
         search: queryText,
         limit,
+        category: options.category,
+        brand: options.brand,
+        maxPrice: options.maxPrice,
+        minPrice: options.minPrice,
       });
+
+      // If strict category/brand filter returned nothing, retry with pure text search
+      if (mongoResults.items.length === 0 && (options.category || options.brand)) {
+        mongoResults = await this.productsService.findAll(businessId, {
+          search: queryText,
+          limit,
+          maxPrice: options.maxPrice,
+          minPrice: options.minPrice,
+        });
+      }
 
       if (mongoResults.items.length > 0) {
         fallbackTier = 'mongo_regex';
@@ -222,7 +264,15 @@ export class RagService {
   async searchCombined(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number; entityType?: EntityType } = {},
+    options: {
+      limit?: number;
+      confidenceThreshold?: number;
+      entityType?: EntityType;
+      category?: string;
+      brand?: string;
+      maxPrice?: number;
+      minPrice?: number;
+    } = {},
   ) {
     const fetchProducts = !options.entityType || options.entityType === EntityType.PRODUCT;
     const fetchKnowledge = !options.entityType || options.entityType === EntityType.KNOWLEDGE_CHUNK;
@@ -374,72 +424,4 @@ export class RagService {
     }
   }
 }
-   */
-  private async runGapBFallback(
-  businessId: string,
-  queryText: string,
-): Promise < any[] > {
-  const business = await this.businessModel
-    .findById(businessId as any)
-    .exec();
-  const platform = business?.connectedPlatform || 'none';
 
-  this.logger.log(
-    `[RAG Engine] Gap B live fallback — platform: ${platform} (businessId: ${businessId}, query: "${queryText}")`,
-  );
-
-  let raw: any[] = [];
-  let tier: FallbackTier = 'none';
-
-  if(platform === 'shopify' && this.shopifyConnector) {
-  raw = await this.shopifyConnector.searchProductsLive(businessId, queryText);
-  tier = 'live_shopify';
-} else if (platform === 'woocommerce' && this.wooCommerceConnector) {
-  raw = await this.wooCommerceConnector.searchProductsLive(businessId, queryText);
-  tier = 'live_woocommerce';
-} else if (platform === 'manual' && this.manualConnector) {
-  raw = await this.manualConnector.searchProductsLive(businessId, queryText);
-  tier = 'live_manual';
-} else {
-  // feed / passive / none — no live query capability
-  this.logger.log(
-    `[RAG Engine] Gap B not applicable for platform "${platform}" — no live query capability.`,
-  );
-}
-
-// Attach the tier label so the caller can include it in the event payload
-return raw.map((item) => ({ ...item, _fallbackTier: tier }));
-  }
-
-  /**
-   * Asynchronously batch-sync Gap B live results into MongoDB, then embed each
-   * into the vector store so future queries hit the fast RAG path.
-   */
-  private async ingestAndEmbedLiveProducts(
-  businessId: string,
-  products: any[],
-): Promise < void> {
-  const cleanProducts = products.map(({ _fallbackTier, ...rest }) => rest);
-
-  // Determine sourceTier from the first product
-  const sourceTier = cleanProducts[0]?.sourceTier || SourceTier.TIER1_CONNECTOR;
-
-  await this.productsService.batchSync(businessId, {
-    sourceTier,
-    products: cleanProducts,
-  });
-
-  for(const prod of cleanProducts) {
-    await this.vectorStoreService.upsertVector(businessId, {
-      entityType: EntityType.PRODUCT,
-      entityId: prod.nativeProductId,
-      text: `${prod.name} ${prod.description || ''} ${prod.category || ''}`.trim(),
-      metadata: {
-        nativeProductId: prod.nativeProductId,
-        price: prod.price,
-        category: prod.category,
-      },
-    });
-  }
-}
-}

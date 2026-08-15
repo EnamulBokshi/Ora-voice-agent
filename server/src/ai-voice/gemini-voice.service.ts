@@ -193,27 +193,44 @@ export class GeminiVoiceService {
           // Process function/tool calls requested by Gemini
           if (response.toolCall) {
             const functionCalls = response.toolCall.functionCalls || [];
-            for (const call of functionCalls) {
-              this.logger.log(
-                `[GeminiVoiceService] Gemini requested tool execution: ${call.name} (callId: ${call.id})`,
+            if (functionCalls.length > 0) {
+              const functionResponses = await Promise.all(
+                functionCalls.map(async (call: any) => {
+                  this.logger.log(
+                    `[GeminiVoiceService] Gemini requested tool execution: ${call.name} (callId: ${call.id})`,
+                  );
+
+                  let toolResult: any;
+                  try {
+                    toolResult = await this.aiToolsExecutor.executeTool(
+                      options.businessId,
+                      options.sessionId,
+                      call.name,
+                      call.args || {},
+                    );
+                  } catch (err: any) {
+                    this.logger.error(
+                      `[GeminiVoiceService] Error executing tool ${call.name}: ${err.message}`,
+                    );
+                    toolResult = {
+                      success: false,
+                      error: err.message,
+                      products: [],
+                    };
+                  }
+
+                  return {
+                    id: call.id,
+                    name: call.name,
+                    response: { output: toolResult },
+                  };
+                }),
               );
 
-              const toolResult = await this.aiToolsExecutor.executeTool(
-                options.businessId,
-                options.sessionId,
-                call.name,
-                call.args || {},
-              );
-
-              // Return tool execution output back to Gemini WebSocket
+              // Return batched tool execution outputs back to Gemini WebSocket
               const toolResponsePayload = {
                 toolResponse: {
-                  functionResponses: [
-                    {
-                      response: { output: toolResult },
-                      id: call.id,
-                    },
-                  ],
+                  functionResponses,
                 },
               };
 
@@ -310,36 +327,6 @@ export class GeminiVoiceService {
             ws.close();
           }
         },
-      };
-    });
-  }
-}
-          }
-        },
-sendTextMessage: (text: string) => {
-  if (ws.readyState === WebSocket.OPEN) {
-    const clientContent = {
-      clientContent: {
-        turns: [
-          {
-            role: 'user',
-            parts: [{ text }],
-          },
-        ],
-        turnComplete: true,
-      },
-    };
-    ws.send(JSON.stringify(clientContent));
-  }
-},
-  closeSession: () => {
-    if (
-      ws.readyState === WebSocket.OPEN ||
-      ws.readyState === WebSocket.CONNECTING
-    ) {
-      ws.close();
-    }
-  },
       };
     });
   }
