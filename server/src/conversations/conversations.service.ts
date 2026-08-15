@@ -143,7 +143,7 @@ export class ConversationsService {
           businessId: businessId as any,
         },
         { $set: { status, lastActivityAt: new Date() } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
 

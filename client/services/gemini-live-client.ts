@@ -1,0 +1,384 @@
+/**
+ * GeminiLiveClient (Proxy Mode)
+ *
+ * Connects to the ORA server-side WebSocket proxy at /ws/voice instead of
+ * connecting directly to Google Gemini Live API. The API key never leaves
+ * the server — the client just exchanges audio frames with ORA's proxy.
+ *
+ * Protocol (client ↔ ORA proxy):
+ *   Client → Server:  { type: 'audio', data: '<base64 pcm16k>' }
+ *   Server → Client:  { type: 'setup_complete' }
+ *   Server → Client:  { type: 'audio', data: '<base64 pcm24k>' }
+ *   Server → Client:  { type: 'text', text: '...' }
+ *   Server → Client:  { type: 'interrupted' }
+ *   Server → Client:  { type: 'turn_complete' }
+ *   Server → Client:  { type: 'tool_result', toolName: '...' }
+ *   Server → Client:  { type: 'error', message: '...' }
+ *   Server → Client:  { type: 'session_closed' }
+ */
+
+export interface LiveClientOptions {
+  publishableKey: string;
+  sessionId: string;
+  apiBaseUrl?: string;
+  onStatusChange?: (status: 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error') => void;
+  onTranscript?: (sender: 'user' | 'agent' | 'system', text: string) => void;
+  onAudioLevel?: (level: number) => void;
+  onLatency?: (rttMs: number) => void;
+  onError?: (errMessage: string) => void;
+}
+
+export class GeminiLiveClient {
+  private ws: WebSocket | null = null;
+  private audioCtx: AudioContext | null = null;
+  private micStream: MediaStream | null = null;
+  private workletNode: AudioWorkletNode | null = null;
+  private scriptProcessor: ScriptProcessorNode | null = null;
+  private analyser: AnalyserNode | null = null;
+  private animFrameId: number | null = null;
+  private nextPlayTime: number = 0;
+  private activeSources: AudioBufferSourceNode[] = [];
+  private isMuted: boolean = false;
+  private options: LiveClientOptions;
+  private setupConfirmed: boolean = false;
+
+  constructor(options: LiveClientOptions) {
+    this.options = options;
+  }
+
+  public setMuted(muted: boolean) {
+    this.isMuted = muted;
+  }
+
+  public async start(): Promise<void> {
+    const {
+      publishableKey,
+      sessionId,
+      apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
+      onStatusChange,
+      onTranscript,
+      onError,
+    } = this.options;
+
+    try {
+      this.stop();
+      onStatusChange?.('connecting');
+      onTranscript?.('system', 'Connecting to ORA Voice Proxy...');
+
+      const startTime = performance.now();
+
+      // ── 1. Bootstrap: obtain sessionId + wsPath from ORA server ──────────────
+      const bootstrapRes = await fetch(`${apiBaseUrl}/api/v1/voice/session/bootstrap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publishableKey, sessionId }),
+      });
+
+      if (!bootstrapRes.ok) {
+        const errorJson = await bootstrapRes.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to bootstrap voice session.');
+      }
+
+      const bootstrapEnvelope = await bootstrapRes.json();
+      const bootstrap = (bootstrapEnvelope.data && bootstrapEnvelope.data.data) || bootstrapEnvelope.data || bootstrapEnvelope;
+      const bootstrapRtt = Math.round(performance.now() - startTime);
+      this.options.onLatency?.(bootstrapRtt);
+      onTranscript?.('system', `✅ Bootstrap OK (${bootstrapRtt}ms). Connecting to voice proxy...`);
+
+      // ── 2. Open WebSocket to ORA Proxy (not Google) ───────────────────────────
+      const wsBase = apiBaseUrl.replace(/^http/, 'ws');
+      const wsPath = bootstrap.wsPath || '/ws/voice';
+      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}`;
+
+      const ws = new WebSocket(wsUrl);
+      this.ws = ws;
+
+      // ── 3. Setup Web Audio Context (Mic input 16kHz, Output 24kHz) ────────────
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtx({ sampleRate: 16000 });
+      this.audioCtx = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      this.nextPlayTime = audioCtx.currentTime;
+
+      // ── 4. Connect Microphone MediaStream ─────────────────────────────────────
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      this.micStream = stream;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+
+      // ── 5. Audio Level Analyser ───────────────────────────────────────────────
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      this.analyser = analyser;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateVolume = () => {
+        if (!this.analyser) return;
+        this.analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        this.options.onAudioLevel?.(Math.min(100, Math.round((avg / 128) * 100)));
+        this.animFrameId = requestAnimationFrame(updateVolume);
+      };
+      updateVolume();
+
+      // ── 6. Setup AudioWorklet (with fallback to ScriptProcessor) ─────────────
+      let workletLoaded = false;
+      try {
+        await audioCtx.audioWorklet.addModule('/audio-processors/pcm-recorder-worklet.js');
+        const workletNode = new AudioWorkletNode(audioCtx, 'pcm-recorder-processor');
+        this.workletNode = workletNode;
+
+        workletNode.port.onmessage = (event) => {
+          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed) return;
+          const { pcm16Data } = event.data;
+          if (pcm16Data) {
+            const base64Audio = this.arrayBufferToBase64(pcm16Data);
+            this.sendAudioChunk(base64Audio);
+          }
+        };
+
+        source.connect(workletNode);
+        workletNode.connect(audioCtx.destination);
+        workletLoaded = true;
+      } catch (workletErr) {
+        console.warn('[GeminiLiveClient] AudioWorklet not available, falling back to ScriptProcessor:', workletErr);
+      }
+
+      if (!workletLoaded) {
+        const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+        this.scriptProcessor = processor;
+        processor.onaudioprocess = (e) => {
+          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const base64Pcm = this.float32ToInt16Base64(input);
+          this.sendAudioChunk(base64Pcm);
+        };
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+      }
+
+      // ── 7. WebSocket Event Handlers ───────────────────────────────────────────
+      ws.onopen = () => {
+        onTranscript?.('system', '⚡ Connected to ORA Voice Proxy. Waiting for session setup...');
+        // Server opens the Google connection and sends setup_complete when ready.
+        // No setup payload needed from the client.
+      };
+
+      ws.onmessage = async (event: MessageEvent) => {
+        try {
+          const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
+          const message = JSON.parse(raw);
+
+          switch (message.type) {
+            case 'setup_complete':
+              this.setupConfirmed = true;
+              onStatusChange?.('listening');
+              onTranscript?.('system', '🎙️ ORA Voice Agent is live! Speak into your microphone.');
+              break;
+
+            case 'audio':
+              this.playPcm24kBase64(message.data);
+              break;
+
+            case 'text':
+              if (message.text) {
+                const cleanText = message.text.trim();
+                if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
+                  onTranscript?.('agent', cleanText);
+                }
+              }
+              break;
+
+            case 'interrupted':
+              this.flushPlaybackQueue();
+              onStatusChange?.('listening');
+              break;
+
+            case 'turn_complete':
+              onStatusChange?.('listening');
+              break;
+
+            case 'tool_result':
+              // UI hint only — actual tool execution happened on the server
+              onTranscript?.('system', `⚡ ORA executed: ${message.toolName}`);
+              break;
+
+            case 'error':
+              onStatusChange?.('error');
+              onError?.(message.message || 'Voice session error.');
+              onTranscript?.('system', `❌ ${message.message || 'Voice session error.'}`);
+              break;
+
+            case 'session_closed':
+              onStatusChange?.('idle');
+              break;
+
+            default:
+              // Unknown message type — ignore silently
+              break;
+          }
+        } catch (err: any) {
+          console.error('[GeminiLiveClient] Error handling proxy message:', err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error('[GeminiLiveClient] Proxy WebSocket error:', err);
+        onStatusChange?.('error');
+        onError?.('ORA Voice Proxy connection error.');
+        onTranscript?.('system', '❌ Error connecting to ORA Voice Proxy.');
+      };
+
+      ws.onclose = (event) => {
+        console.log(`[GeminiLiveClient] Proxy WebSocket closed (code ${event.code})`);
+        onStatusChange?.('idle');
+      };
+    } catch (err: any) {
+      console.error('[GeminiLiveClient] Start failed:', err);
+      onStatusChange?.('error');
+      onError?.(err.message || 'Failed to start voice session.');
+      this.options.onTranscript?.('system', `Error: ${err.message}`);
+    }
+  }
+
+  /** Send a base64-encoded PCM 16kHz audio chunk to the ORA proxy */
+  private sendAudioChunk(base64Pcm: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: 'audio', data: base64Pcm }));
+  }
+
+  private playPcm24kBase64(base64Pcm: string) {
+    try {
+      if (!this.audioCtx) return;
+      const audioCtx = this.audioCtx;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const binaryString = atob(base64Pcm);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const int16Array = new Int16Array(bytes.buffer);
+      const numSamples = int16Array.length;
+      const float32Array = new Float32Array(numSamples);
+      for (let i = 0; i < numSamples; i++) {
+        float32Array[i] = int16Array[i] / (int16Array[i] < 0 ? 32768 : 32767);
+      }
+
+      const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000);
+      audioBuffer.getChannelData(0).set(float32Array);
+
+      const sourceNode = audioCtx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      const startTime = Math.max(now, this.nextPlayTime);
+      sourceNode.start(startTime);
+      this.nextPlayTime = startTime + audioBuffer.duration;
+
+      this.activeSources.push(sourceNode);
+      this.options.onStatusChange?.('speaking');
+
+      sourceNode.onended = () => {
+        this.activeSources = this.activeSources.filter((s) => s !== sourceNode);
+        if (this.audioCtx && this.audioCtx.currentTime >= this.nextPlayTime - 0.05) {
+          this.options.onStatusChange?.('listening');
+        }
+      };
+    } catch (err: any) {
+      console.error('[GeminiLiveClient] Audio playback error:', err);
+    }
+  }
+
+  private flushPlaybackQueue() {
+    for (const source of this.activeSources) {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch {}
+    }
+    this.activeSources = [];
+    if (this.audioCtx) {
+      this.nextPlayTime = this.audioCtx.currentTime;
+    }
+  }
+
+  public stop() {
+    this.setupConfirmed = false;
+    this.flushPlaybackQueue();
+
+    if (this.workletNode) {
+      try { this.workletNode.disconnect(); } catch {}
+      this.workletNode = null;
+    }
+
+    if (this.scriptProcessor) {
+      try { this.scriptProcessor.disconnect(); } catch {}
+      this.scriptProcessor = null;
+    }
+
+    if (this.micStream) {
+      this.micStream.getTracks().forEach((track) => track.stop());
+      this.micStream = null;
+    }
+
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+
+    if (this.ws) {
+      try { this.ws.close(); } catch {}
+      this.ws = null;
+    }
+
+    if (this.audioCtx) {
+      try { this.audioCtx.close(); } catch {}
+      this.audioCtx = null;
+    }
+
+    this.options.onStatusChange?.('idle');
+    this.options.onAudioLevel?.(0);
+  }
+
+  private float32ToInt16Base64(float32Array: Float32Array): string {
+    const int16Array = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    let binary = '';
+    const bytes = new Uint8Array(int16Array.buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+}

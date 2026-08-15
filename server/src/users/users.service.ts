@@ -65,7 +65,7 @@ export class UsersService {
     update: Partial<AdminUser>,
   ): Promise<AdminUserDocument | null> {
     return this.adminUserModel
-      .findByIdAndUpdate(id, { $set: update }, { new: true })
+      .findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after' })
       .exec();
   }
 }
