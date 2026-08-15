@@ -8,12 +8,13 @@ import {
   Play,
   Volume2,
   X,
+  Sparkles,
   Activity,
+  Bot,
   User,
   Zap,
   RefreshCw,
   SlidersHorizontal,
-  Radio,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
 
@@ -31,7 +32,7 @@ interface TranscriptEntry {
 }
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error';
-type VoiceMode = 'gemini-live' | 'speech-ai';
+type VoiceMode = 'gemini-live' | 'browser-speech';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_demo' }: VoiceTestModalProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
@@ -58,31 +59,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
   }, []);
-
-  // Intelligently merge streaming text chunks
-  const mergeStreaming = (prevText: string, incomingChunk: string): string => {
-    if (!incomingChunk) return prevText;
-    if (!prevText) return incomingChunk.trimStart();
-    if (incomingChunk.startsWith(prevText)) return incomingChunk;
-    if (prevText.endsWith(incomingChunk.trim()) && incomingChunk.trim().length > 3) return prevText;
-
-    const isPunctuation = /^[,.!?:;'")\]}]/.test(incomingChunk);
-    const isContraction = /^'(s|t|re|ve|m|ll|d)\b/i.test(incomingChunk) || /^n't\b/i.test(incomingChunk);
-    const prevEndsWithSpace = prevText.endsWith(' ') || prevText.endsWith('\n');
-    const chunkStartsWithSpace = incomingChunk.startsWith(' ') || incomingChunk.startsWith('\n');
-
-    let merged = '';
-    if (isPunctuation || isContraction) {
-      merged = `${prevText.trimEnd()}${incomingChunk.trimStart()}`;
-    } else if (prevEndsWithSpace || chunkStartsWithSpace) {
-      merged = `${prevText.trimEnd()} ${incomingChunk.trimStart()}`;
-    } else {
-      const prevEndsWithPunctuation = /[.!?]$/.test(prevText);
-      const chunkStartsCapital = /^[A-Z0-9]/.test(incomingChunk);
-      merged = (prevEndsWithPunctuation || chunkStartsCapital) ? `${prevText} ${incomingChunk}` : `${prevText}${incomingChunk}`;
-    }
-    return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ \'/g, "'");
-  };
 
   // Helper: Convert Float32 audio to Int16 Base64
   const float32ToInt16Base64 = (float32Array: Float32Array): string => {
@@ -188,44 +164,15 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
         if (eventName === 'voice-session-started') {
           setStatus('listening');
-          addTranscript('system', 'ORA Gemini Live Voice Agent active! Speak into microphone.');
+          addTranscript('system', 'ORA Gemini 2.0 Live Voice Agent active! Speak into microphone.');
         } else if (eventName === 'audio-stream') {
           if (payload?.audio) {
             playPcm24kBase64(payload.audio);
           }
         } else if (eventName === 'text-stream') {
           if (payload?.text) {
-            setTranscripts((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.sender === 'agent') {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, text: mergeStreaming(last.text, payload.text) },
-                ];
-              }
-              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              return [...prev, { id: Math.random().toString(), sender: 'agent', text: payload.text.trimStart(), timestamp: time }];
-            });
+            addTranscript('agent', payload.text);
           }
-        } else if (eventName === 'user-text-stream') {
-          if (payload?.text) {
-            setTranscripts((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.sender === 'user') {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, text: mergeStreaming(last.text, payload.text) },
-                ];
-              }
-              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              return [...prev, { id: Math.random().toString(), sender: 'user', text: payload.text.trimStart(), timestamp: time }];
-            });
-          }
-        } else if (eventName === 'voice-interrupted') {
-          if (audioCtxRef.current) {
-            nextPlayTimeRef.current = audioCtxRef.current.currentTime;
-          }
-          setStatus('listening');
         } else if (eventName === 'voice-error') {
           const msg = payload?.message || 'Voice connection error';
           setErrorMessage(msg);
@@ -235,7 +182,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           // Auto switch hint if live model tier restricted
           if (msg.includes('code: 1008') || msg.includes('not supported for bidiGenerateContent')) {
             addTranscript('system', '⚡ Tip: Switched to Browser Interactive Voice Mode. Click "Start Voice Session" again to talk!');
-            setVoiceMode('speech-ai');
+            setVoiceMode('browser-speech');
           }
         } else if (eventName === 'voice-session-ended') {
           setStatus('idle');
@@ -250,7 +197,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
   // Clean up recording and connections
   const stopSession = useCallback(() => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
+      try { recognitionRef.current.stop(); } catch { }
       recognitionRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -276,13 +223,13 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
       try {
         wsRef.current.send('42/voice,["stop-voice-session",{}]');
         wsRef.current.close();
-      } catch {}
+      } catch { }
       wsRef.current = null;
     }
     if (audioCtxRef.current) {
       try {
         audioCtxRef.current.close();
-      } catch {}
+      } catch { }
       audioCtxRef.current = null;
     }
     setStatus('idle');
@@ -351,7 +298,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
       recognition.onend = () => {
         if (status !== 'idle' && recognitionRef.current) {
-          try { recognition.start(); } catch {}
+          try { recognition.start(); } catch { }
         }
       };
 
@@ -407,15 +354,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
       };
       updateVolume();
 
-      const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
       processor.onaudioprocess = (e) => {
-        const out = e.outputBuffer;
-        for (let c = 0; c < out.numberOfChannels; c++) {
-          out.getChannelData(c).fill(0);
-        }
-
         if (isMuted || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
         const inputBuffer = e.inputBuffer.getChannelData(0);
         const base64Pcm = float32ToInt16Base64(inputBuffer);
@@ -473,31 +415,30 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-4">
-      <div className="relative w-full max-w-2xl bg-surface-container border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in p-4">
+      <div className="relative w-full max-w-2xl bg-[#122131] border border-[#273647] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-lowest">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#273647] bg-[#0d1c2d]">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
-              <Radio size={18} className="animate-pulse" />
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Sparkles size={18} />
             </div>
             <div>
-              <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
-                Voice Call Testing
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-mono border border-primary/25">
-                  {voiceMode === 'gemini-live' ? 'Live Stream' : 'Interactive Call'}
+              <h3 className="font-semibold text-lg text-slate-100 flex items-center gap-2">
+                ORA Voice Agent Sandbox
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
+                  {voiceMode === 'gemini-live' ? 'Gemini Live WebSocket' : 'Interactive Speech AI'}
                 </span>
               </h3>
-              <p className="text-xs text-muted-foreground">
-                Test microphone audio and real-time voice responses
+              <p className="text-xs text-slate-400">
+                Real-time Bidirectional Microphone & Voice Testing
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
-            aria-label="Close modal"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#1c2b3c] transition-colors"
           >
             <X size={18} />
           </button>
@@ -506,39 +447,37 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
         {/* Modal Body */}
         <div className="p-6 flex flex-col items-center justify-center space-y-6 flex-1 overflow-y-auto">
           {/* Voice Mode Selector */}
-          <div className="flex items-center space-x-2 bg-surface-low p-1.5 rounded-xl border border-border">
+          <div className="flex items-center space-x-2 bg-[#0d1c2d] p-1.5 rounded-xl border border-[#273647]">
             <button
               onClick={() => { stopSession(); setVoiceMode('gemini-live'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                voiceMode === 'gemini-live'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-live'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+                }`}
             >
               <Zap size={13} />
-              Real-time Voice Stream
+              Gemini 2.0 Live (WS Stream)
             </button>
             <button
-              onClick={() => { stopSession(); setVoiceMode('speech-ai'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                voiceMode === 'speech-ai'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high'
-              }`}
+              onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'browser-speech'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+                }`}
             >
               <SlidersHorizontal size={13} />
-              Interactive Voice Call
+              Interactive Voice AI (TTS/STT)
             </button>
           </div>
 
           {/* Main Visualizer Orb */}
           <div className="relative flex items-center justify-center my-2">
             {status === 'speaking' && (
-              <div className="absolute w-44 h-44 rounded-full bg-primary/20 animate-ping" />
+              <div className="absolute w-44 h-44 rounded-full bg-emerald-500/20 animate-ping" />
             )}
             {status === 'listening' && (
               <div
-                className="absolute rounded-full bg-[color:var(--status-warning)]/20 transition-all duration-75"
+                className="absolute rounded-full bg-amber-500/20 transition-all duration-75"
                 style={{
                   width: `${120 + audioLevel * 0.8}px`,
                   height: `${120 + audioLevel * 0.8}px`,
@@ -547,57 +486,55 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             )}
 
             <div
-              className={`relative z-10 w-32 h-32 rounded-full flex flex-col items-center justify-center shadow-xl border-2 transition-all duration-300 ${
-                status === 'speaking'
-                  ? 'bg-primary/10 border-primary text-primary shadow-primary/30'
+              className={`relative z-10 w-32 h-32 rounded-full flex flex-col items-center justify-center shadow-xl border-2 transition-all duration-300 ${status === 'speaking'
+                  ? 'bg-emerald-950/80 border-emerald-400 text-emerald-400 shadow-emerald-500/30'
                   : status === 'listening'
-                  ? 'bg-[color:var(--status-warning)]/15 border-[color:var(--status-warning)] text-[color:var(--status-warning)] shadow-[color:var(--status-warning)]/30'
-                  : status === 'connecting'
-                  ? 'bg-surface-high border-primary/50 text-primary animate-pulse'
-                  : status === 'error'
-                  ? 'bg-error/15 border-error text-error'
-                  : 'bg-surface-low border-border text-primary'
-              }`}
+                    ? 'bg-amber-950/80 border-amber-400 text-amber-400 shadow-amber-500/30'
+                    : status === 'connecting'
+                      ? 'bg-blue-950/80 border-blue-400 text-blue-400 animate-pulse'
+                      : status === 'error'
+                        ? 'bg-red-950/80 border-red-400 text-red-400'
+                        : 'bg-[#1c2b3c] border-[#273647] text-slate-400'
+                }`}
             >
               {status === 'connecting' ? (
-                <RefreshCw size={36} className="animate-spin text-primary" />
+                <RefreshCw size={36} className="animate-spin" />
               ) : status === 'speaking' ? (
-                <Volume2 size={36} className="animate-bounce text-primary" />
+                <Volume2 size={38} className="animate-bounce" />
               ) : status === 'listening' ? (
-                <Mic size={36} className="text-[color:var(--status-warning)] animate-pulse" />
+                <Mic size={38} />
               ) : (
-                <Radio size={36} className="text-primary" />
+                <Bot size={38} />
               )}
 
-              <span className="text-[10px] font-bold tracking-wider uppercase mt-2 text-foreground">
+              <span className="text-[11px] font-semibold tracking-wider uppercase mt-2">
                 {status === 'connecting'
                   ? 'Connecting'
                   : status === 'speaking'
-                  ? 'ORA Speaking'
-                  : status === 'listening'
-                  ? 'Listening'
-                  : status === 'error'
-                  ? 'Error'
-                  : 'Ready'}
+                    ? 'ORA Speaking'
+                    : status === 'listening'
+                      ? 'Listening'
+                      : status === 'error'
+                        ? 'Error'
+                        : 'Ready'}
               </span>
             </div>
           </div>
 
           {/* Status Bar */}
-          <div className="w-full flex items-center justify-between text-xs px-4 py-2.5 rounded-xl bg-surface-low border border-border">
+          <div className="w-full flex items-center justify-between text-xs px-4 py-2 rounded-lg bg-[#0d1c2d] border border-[#273647]">
             <div className="flex items-center space-x-2">
               <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  status === 'speaking' || status === 'listening'
-                    ? 'bg-primary animate-pulse'
+                className={`w-2.5 h-2.5 rounded-full ${status === 'speaking' || status === 'listening'
+                    ? 'bg-emerald-400 animate-pulse'
                     : status === 'connecting'
-                    ? 'bg-[color:var(--status-warning)] animate-ping'
-                    : status === 'error'
-                    ? 'bg-error'
-                    : 'bg-muted-foreground'
-                }`}
+                      ? 'bg-amber-400 animate-ping'
+                      : status === 'error'
+                        ? 'bg-red-400'
+                        : 'bg-slate-500'
+                  }`}
               />
-              <span className="text-foreground font-medium text-xs">
+              <span className="text-slate-300 font-medium">
                 {status === 'idle' && 'Click Start Session to talk with ORA Voice Agent'}
                 {status === 'connecting' && 'Establishing WebSocket connection...'}
                 {status === 'listening' && 'ORA is listening... Speak clearly into microphone'}
@@ -607,11 +544,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             </div>
 
             {status !== 'idle' && (
-              <div className="flex items-center space-x-1.5 text-muted-foreground">
+              <div className="flex items-center space-x-1.5 text-slate-400">
                 <Activity size={13} />
-                <div className="w-16 h-1.5 bg-surface-high rounded-full overflow-hidden">
+                <div className="w-16 h-1.5 bg-[#1c2b3c] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-primary transition-all duration-75"
+                    className="h-full bg-emerald-400 transition-all duration-75"
                     style={{ width: `${audioLevel}%` }}
                   />
                 </div>
@@ -624,20 +561,19 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             {status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
-                className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg shadow-primary/20 transition-all"
+                className="px-6 py-2.5 rounded-xl font-medium text-sm flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition-all"
               >
-                <Play size={15} fill="currentColor" />
+                <Play size={16} fill="currentColor" />
                 <span>Start Voice Session</span>
               </button>
             ) : (
               <>
                 <button
                   onClick={() => setIsMuted(!isMuted)}
-                  className={`p-3 rounded-xl border transition-colors ${
-                    isMuted
-                      ? 'bg-error/10 border-error/30 text-error'
-                      : 'bg-surface-high border-border text-foreground hover:bg-surface-bright'
-                  }`}
+                  className={`p-3 rounded-xl border transition-colors ${isMuted
+                      ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                      : 'bg-[#1c2b3c] border-[#273647] text-slate-200 hover:bg-[#273647]'
+                    }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
                   {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
@@ -645,9 +581,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
                 <button
                   onClick={stopSession}
-                  className="px-6 py-2.5 rounded-xl font-semibold text-xs flex items-center space-x-2 bg-error/10 border border-error/30 text-error hover:bg-error/20 transition-all"
+                  className="px-6 py-2.5 rounded-xl font-medium text-sm flex items-center space-x-2 bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30 transition-all"
                 >
-                  <Square size={15} fill="currentColor" />
+                  <Square size={16} fill="currentColor" />
                   <span>End Session</span>
                 </button>
               </>
@@ -655,46 +591,46 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           </div>
 
           {/* Live Transcript Log Box */}
-          <div className="w-full bg-surface-low border border-border rounded-xl p-4 h-48 flex flex-col space-y-3">
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Zap size={13} className="text-primary" />
+          <div className="w-full bg-[#0d1c2d] border border-[#273647] rounded-xl p-4 h-48 flex flex-col space-y-3">
+            <div className="flex items-center justify-between border-b border-[#273647] pb-2">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap size={13} className="text-amber-400" />
                 Live Conversation Log
               </span>
-              <span className="text-[11px] text-muted-foreground font-mono">
+              <span className="text-[11px] text-slate-500 font-mono">
                 Session ID: {sessionId}
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
               {transcripts.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground italic">
+                <div className="h-full flex items-center justify-center text-slate-500 italic">
                   Transcripts and tool executions will appear here in real-time...
                 </div>
               ) : (
                 transcripts.map((item) => (
                   <div key={item.id} className="flex items-start space-x-2">
-                    <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                    <span className="text-[10px] text-slate-500 font-mono mt-0.5">
                       [{item.timestamp}]
                     </span>
                     {item.sender === 'user' ? (
-                      <span className="text-[color:var(--status-warning)] font-semibold flex items-center gap-1">
+                      <span className="text-amber-300 font-semibold flex items-center gap-1">
                         <User size={11} /> User:
                       </span>
                     ) : item.sender === 'agent' ? (
-                      <span className="text-primary font-semibold flex items-center gap-1">
-                        <Radio size={11} /> ORA:
+                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                        <Bot size={11} /> ORA:
                       </span>
                     ) : (
-                      <span className="text-muted-foreground font-mono text-[11px]">⚡</span>
+                      <span className="text-slate-400 font-mono text-[11px]">⚡</span>
                     )}
                     <span
                       className={
                         item.sender === 'agent'
-                          ? 'text-foreground font-medium'
+                          ? 'text-slate-200'
                           : item.sender === 'user'
-                          ? 'text-foreground/90'
-                          : 'text-muted-foreground italic'
+                            ? 'text-amber-100'
+                            : 'text-slate-400 italic'
                       }
                     >
                       {item.text}

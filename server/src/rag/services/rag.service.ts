@@ -39,20 +39,20 @@ export class RagService {
     @Optional() private readonly shopifyConnector?: ShopifyConnectorService,
     @Optional() private readonly wooCommerceConnector?: WooCommerceConnectorService,
     @Optional() private readonly manualConnector?: ManualConnectorService,
-  ) {}
+  ) { }
 
   // ---------------------------------------------------------------------------
   // Fix 4: read thresholds from env, fall back to safe defaults
   // ---------------------------------------------------------------------------
   private get productThreshold(): number {
     return parseFloat(
-      this.configService.get<string>('RAG_PRODUCT_CONFIDENCE_THRESHOLD') ?? '0.45',
+      this.configService.get<string>('RAG_PRODUCT_CONFIDENCE_THRESHOLD') ?? '0.65',
     );
   }
 
   private get knowledgeThreshold(): number {
     return parseFloat(
-      this.configService.get<string>('RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD') ?? '0.45',
+      this.configService.get<string>('RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD') ?? '0.60',
     );
   }
 
@@ -63,14 +63,7 @@ export class RagService {
   async searchProducts(
     businessId: string,
     queryText: string,
-    options: {
-      limit?: number;
-      confidenceThreshold?: number;
-      category?: string;
-      brand?: string;
-      maxPrice?: number;
-      minPrice?: number;
-    } = {},
+    options: { limit?: number; confidenceThreshold?: number } = {},
   ) {
     const limit = Math.min(options.limit || 5, 5); // candidate cap: max 5
     const threshold =
@@ -78,18 +71,14 @@ export class RagService {
         ? options.confidenceThreshold
         : this.productThreshold;
 
-    // 1. Embed the query
-    let vectorResults: SearchResultItem[] = [];
-    try {
-      const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
-      vectorResults = await this.vectorStoreService.searchVectors(
-        businessId,
-        embeddingResult.vector,
-        { entityType: EntityType.PRODUCT, limit, confidenceThreshold: threshold },
-      );
-    } catch (err: any) {
-      this.logger.warn(`[RAG Engine] Vector search error for "${queryText}": ${err.message}`);
-    }
+    // 1. Embed the query (Fix 3: use .vector field)
+    const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+
+    const vectorResults = await this.vectorStoreService.searchVectors(
+      businessId,
+      embeddingResult.vector,
+      { entityType: EntityType.PRODUCT, limit, confidenceThreshold: threshold },
+    );
 
     let fallbackTriggered = false;
     let fallbackTier: FallbackTier = 'none';
@@ -109,15 +98,11 @@ export class RagService {
       );
     } else {
       // -----------------------------------------------------------------------
-      // Gap A fallback: product exists in Mongo or search needs keyword precision
+      // Gap A fallback: product exists in Mongo but isn't embedded yet.
       // -----------------------------------------------------------------------
       fallbackTriggered = true;
       const mongoResults = await this.productsService.findAll(businessId, {
         search: queryText,
-        category: options.category,
-        brand: options.brand,
-        maxPrice: options.maxPrice,
-        minPrice: options.minPrice,
         limit,
       });
 
@@ -183,21 +168,8 @@ export class RagService {
               `[Self-Healing RAG] Gap B async ingest failed: ${err.message}`,
             ),
           );
-        } else {
-          // Broad Catalog Fallback: if query is exploratory and no direct match exists,
-          // surface the merchant's active catalog items so ORA can showcase available products
-          const catalogFallback = await this.productsService.findAll(businessId, { limit });
-          if (catalogFallback.items.length > 0) {
-            fallbackTier = 'mongo_regex';
-            finalResults = catalogFallback.items.map((prod) => ({
-              entityId: prod._id.toString(),
-              entityType: EntityType.PRODUCT,
-              text: `${prod.name} ${prod.description || ''} ${prod.category || ''}`.trim(),
-              score: 0.5,
-              data: prod,
-            }));
-          }
         }
+        // If liveResults is empty, finalResults stays [] — "not found" behavior
       }
 
       // Emit fallback event with tier label (Gap A and Gap B share the same EventType)
@@ -232,118 +204,25 @@ export class RagService {
         ? options.confidenceThreshold
         : this.knowledgeThreshold;
 
-    let vectorResults: SearchResultItem[] = [];
-    try {
-      const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
-      vectorResults = await this.vectorStoreService.searchVectors(
-        businessId,
-        embeddingResult.vector,
-        { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
-      );
-    } catch (err: any) {
-      this.logger.warn(`[RAG Engine] Vector search for knowledge failed: ${err.message}`);
-    }
+    // Fix 3: extract .vector from EmbeddingResult
+    const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
 
-    if (vectorResults.length > 0) {
-      return {
-        query: queryText,
-        results: vectorResults,
-      };
-    }
-
-    // Gap A Fallback: Query MongoDB Knowledge documents directly with text/regex
-    this.logger.log(
-      `[RAG Engine] Knowledge vector search yielded 0 results, attempting Gap A MongoDB fallback for "${queryText}"`,
+    const vectorResults = await this.vectorStoreService.searchVectors(
+      businessId,
+      embeddingResult.vector,
+      { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
     );
-
-    try {
-      const mongoDirect = await this.knowledgeService.findAll(businessId, undefined, queryText, {
-        limit,
-      });
-
-      if (mongoDirect.items.length > 0) {
-        const fallbackResults: SearchResultItem[] = mongoDirect.items.map((doc) => ({
-          entityId: doc._id.toString(),
-          entityType: EntityType.KNOWLEDGE_CHUNK,
-          text: `[${doc.title} (${doc.docType})]:\n${doc.content}`,
-          score: 0.8,
-          data: doc,
-          metadata: {
-            knowledgeBaseId: doc._id.toString(),
-            docTitle: doc.title,
-            docType: doc.docType,
-          },
-        }));
-
-        return {
-          query: queryText,
-          results: fallbackResults,
-        };
-      }
-
-      // Broad Policy Fallback: if query is asking about store rules (returns, shipping, FAQ, warranty)
-      const allDocs = await this.knowledgeService.findAll(businessId, undefined, undefined, {
-        limit: 10,
-      });
-
-      if (allDocs.items.length > 0) {
-        const queryLower = queryText.toLowerCase();
-        const matched = allDocs.items.filter((doc) => {
-          const title = (doc.title || '').toLowerCase();
-          const content = (doc.content || '').toLowerCase();
-          const docType = (doc.docType || '').toLowerCase();
-          return (
-            title.includes(queryLower) ||
-            content.includes(queryLower) ||
-            docType.includes(queryLower) ||
-            (queryLower.includes('return') && (title.includes('return') || content.includes('return') || docType.includes('policy'))) ||
-            (queryLower.includes('refund') && (title.includes('refund') || content.includes('refund') || docType.includes('policy'))) ||
-            (queryLower.includes('shipping') && (title.includes('shipping') || content.includes('shipping') || docType.includes('policy'))) ||
-            (queryLower.includes('policy') && docType.includes('policy'))
-          );
-        });
-
-        const targetList = matched.length > 0 ? matched : allDocs.items.slice(0, 3);
-        const fallbackResults: SearchResultItem[] = targetList.map((doc) => ({
-          entityId: doc._id.toString(),
-          entityType: EntityType.KNOWLEDGE_CHUNK,
-          text: `[${doc.title} (${doc.docType})]:\n${doc.content}`,
-          score: 0.75,
-          data: doc,
-          metadata: {
-            knowledgeBaseId: doc._id.toString(),
-            docTitle: doc.title,
-            docType: doc.docType,
-          },
-        }));
-
-        return {
-          query: queryText,
-          results: fallbackResults,
-        };
-      }
-    } catch (err: any) {
-      this.logger.error(`[RAG Engine] Gap A knowledge fallback error: ${err.message}`);
-    }
 
     return {
       query: queryText,
-      results: [],
+      results: vectorResults,
     };
   }
 
   async searchCombined(
     businessId: string,
     queryText: string,
-    options: {
-      limit?: number;
-      confidenceThreshold?: number;
-      entityType?: EntityType;
-      category?: string;
-      brand?: string;
-      maxPrice?: number;
-      minPrice?: number;
-    } = {},
+    options: { limit?: number; confidenceThreshold?: number; entityType?: EntityType } = {},
   ) {
     const fetchProducts = !options.entityType || options.entityType === EntityType.PRODUCT;
     const fetchKnowledge = !options.entityType || options.entityType === EntityType.KNOWLEDGE_CHUNK;
@@ -494,4 +373,73 @@ export class RagService {
       });
     }
   }
+}
+   */
+  private async runGapBFallback(
+  businessId: string,
+  queryText: string,
+): Promise < any[] > {
+  const business = await this.businessModel
+    .findById(businessId as any)
+    .exec();
+  const platform = business?.connectedPlatform || 'none';
+
+  this.logger.log(
+    `[RAG Engine] Gap B live fallback — platform: ${platform} (businessId: ${businessId}, query: "${queryText}")`,
+  );
+
+  let raw: any[] = [];
+  let tier: FallbackTier = 'none';
+
+  if(platform === 'shopify' && this.shopifyConnector) {
+  raw = await this.shopifyConnector.searchProductsLive(businessId, queryText);
+  tier = 'live_shopify';
+} else if (platform === 'woocommerce' && this.wooCommerceConnector) {
+  raw = await this.wooCommerceConnector.searchProductsLive(businessId, queryText);
+  tier = 'live_woocommerce';
+} else if (platform === 'manual' && this.manualConnector) {
+  raw = await this.manualConnector.searchProductsLive(businessId, queryText);
+  tier = 'live_manual';
+} else {
+  // feed / passive / none — no live query capability
+  this.logger.log(
+    `[RAG Engine] Gap B not applicable for platform "${platform}" — no live query capability.`,
+  );
+}
+
+// Attach the tier label so the caller can include it in the event payload
+return raw.map((item) => ({ ...item, _fallbackTier: tier }));
+  }
+
+  /**
+   * Asynchronously batch-sync Gap B live results into MongoDB, then embed each
+   * into the vector store so future queries hit the fast RAG path.
+   */
+  private async ingestAndEmbedLiveProducts(
+  businessId: string,
+  products: any[],
+): Promise < void> {
+  const cleanProducts = products.map(({ _fallbackTier, ...rest }) => rest);
+
+  // Determine sourceTier from the first product
+  const sourceTier = cleanProducts[0]?.sourceTier || SourceTier.TIER1_CONNECTOR;
+
+  await this.productsService.batchSync(businessId, {
+    sourceTier,
+    products: cleanProducts,
+  });
+
+  for(const prod of cleanProducts) {
+    await this.vectorStoreService.upsertVector(businessId, {
+      entityType: EntityType.PRODUCT,
+      entityId: prod.nativeProductId,
+      text: `${prod.name} ${prod.description || ''} ${prod.category || ''}`.trim(),
+      metadata: {
+        nativeProductId: prod.nativeProductId,
+        price: prod.price,
+        category: prod.category,
+      },
+    });
+  }
+}
 }
