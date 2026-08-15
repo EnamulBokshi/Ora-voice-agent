@@ -848,11 +848,7 @@ export function FloatingOrbWidget() {
   const energyLevel = isSpeaking ? speakingLevel : userMicLevel;
 
   return (
-    <>
-      {/* Dock ambient backdrop mask to shield widget from scrolling page text */}
-      <div className="lp-orb-dock-mask" aria-hidden="true" />
-
-      <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
+    <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
         {/* ── Gemini Mobile Style Live Transcribe Overlay (Pill) ── */}
         {showTranscript && liveUtterance && (
           <div
@@ -1013,6 +1009,5 @@ export function FloatingOrbWidget() {
           </button>
         </div>
       </div>
-    </>
   );
 }

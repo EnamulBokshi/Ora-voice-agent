@@ -632,27 +632,6 @@
   50%      { opacity: 0.15; }
 }
 
-/* ── Ambient Dock Backdrop Mask ─────────────────────────────────────────────── */
-/* Prevents scrolling page text from bleeding awkwardly into the bottom widget area */
-.lp-orb-dock-mask {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 160px;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.82) 0%,
-    rgba(0, 0, 0, 0.45) 55%,
-    transparent 100%
-  );
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  mask-image: linear-gradient(to top, black 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
-  pointer-events: none;
-  z-index: 95;
-}
 
 /* ── Root: fixed bottom-center with clean flex column layout ──────────────── */
 .lp-orb-root {
