@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
   MessageSquare,
   Mic,
@@ -8,47 +7,59 @@ import {
   ShoppingCart,
   ReceiptText,
 } from 'lucide-react';
-
-interface Stat {
-  label: string;
-  icon: React.ReactNode;
-  colorClass: string;
-  base: number;
-  delta: number;
-  neutral?: boolean;
-}
-
-const STATS: Stat[] = [
-  { label: 'Active Convos', icon: <MessageSquare size={16} />, colorClass: 'text-primary', base: 12, delta: 3 },
-  { label: 'Voice Sessions', icon: <Mic size={16} />, colorClass: 'text-[color:var(--chart-2)]', base: 8, delta: 2 },
-  { label: 'Product Searches', icon: <Search size={16} />, colorClass: 'text-[color:var(--chart-3)]', base: 34, delta: 12 },
-  { label: 'Cart Actions', icon: <ShoppingCart size={16} />, colorClass: 'text-[color:var(--status-online)]', base: 17, delta: 5 },
-  { label: 'Orders Influenced', icon: <ReceiptText size={16} />, colorClass: 'text-[color:var(--chart-4)]', base: 6, delta: 0, neutral: true },
-];
+import type { LiveStatsResponse } from '@/services/live-desk-service';
 
 interface LiveStatsBarProps {
-  paused: boolean;
+  stats?: LiveStatsResponse | null;
 }
 
-export function LiveStatsBar({ paused }: LiveStatsBarProps) {
-  const [values, setValues] = useState<number[]>(STATS.map((s) => s.base));
-
-  useEffect(() => {
-    if (paused) return;
-    const interval = setInterval(() => {
-      setValues((prev) =>
-        prev.map((v, i) => {
-          if (STATS[i].neutral) return v;
-          return Math.random() > 0.65 ? v + 1 : v;
-        })
-      );
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [paused]);
+export function LiveStatsBar({ stats }: LiveStatsBarProps) {
+  const statItems = [
+    {
+      label: 'Active Convos',
+      icon: <MessageSquare size={16} />,
+      colorClass: 'text-primary',
+      value: stats?.activeConvos ?? 0,
+      delta: '+0',
+      neutral: true,
+    },
+    {
+      label: 'Voice Sessions',
+      icon: <Mic size={16} />,
+      colorClass: 'text-[color:var(--chart-2)]',
+      value: stats?.activeVoiceCalls ?? 0,
+      delta: '+0',
+      neutral: true,
+    },
+    {
+      label: 'Product Searches',
+      icon: <Search size={16} />,
+      colorClass: 'text-[color:var(--chart-3)]',
+      value: stats?.productSearches ?? 0,
+      delta: stats?.productSearchesDelta ?? '+0',
+      neutral: false,
+    },
+    {
+      label: 'Cart Actions',
+      icon: <ShoppingCart size={16} />,
+      colorClass: 'text-[color:var(--status-online)]',
+      value: stats?.cartActions ?? 0,
+      delta: stats?.cartActionsDelta ?? '+0',
+      neutral: false,
+    },
+    {
+      label: 'Orders Influenced',
+      icon: <ReceiptText size={16} />,
+      colorClass: 'text-[color:var(--chart-4)]',
+      value: stats?.ordersInfluenced ?? 0,
+      delta: stats?.ordersInfluencedDelta ?? '+0',
+      neutral: false,
+    },
+  ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-      {STATS.map((stat, i) => (
+      {statItems.map((stat) => (
         <div
           key={stat.label}
           className="rounded-md border border-border bg-surface-container p-3.5 flex flex-col justify-between transition-all hover:border-border/80"
@@ -62,11 +73,17 @@ export function LiveStatsBar({ paused }: LiveStatsBarProps) {
 
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-2xl font-bold tabular-nums text-foreground">
-              {values[i]}
+              {stat.value}
             </span>
-            {stat.delta > 0 ? (
-              <span className="text-[11px] font-semibold text-[color:var(--status-online)] flex items-center gap-0.5">
-                ↑ {stat.delta}{stat.label === 'Product Searches' ? '%' : ''}
+            {!stat.neutral && stat.delta && stat.delta !== '+0' && stat.delta !== '0' ? (
+              <span
+                className={`text-[11px] font-semibold flex items-center gap-0.5 ${
+                  stat.delta.startsWith('-')
+                    ? 'text-[color:var(--status-error)]'
+                    : 'text-[color:var(--status-online)]'
+                }`}
+              >
+                {stat.delta.startsWith('-') ? '↓' : '↑'} {stat.delta.replace(/[+-]/, '')}
               </span>
             ) : (
               <span className="text-[11px] font-medium text-muted-foreground">— 0</span>
@@ -77,3 +94,4 @@ export function LiveStatsBar({ paused }: LiveStatsBarProps) {
     </div>
   );
 }
+

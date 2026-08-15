@@ -1,23 +1,74 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Settings2, ArrowRight, Radio } from 'lucide-react';
 import Link from 'next/link';
 import { buttonVariants } from '@/components/ui/button';
 import { LiveTopBar } from './live-top-bar';
 import { LiveStatsBar } from './live-stats-bar';
-import { ActivityFeed, type FeedSession } from './activity-feed';
+import { ActivityFeed } from './activity-feed';
 import { OraStatusPanel } from './ora-status-panel';
 import { VoiceSessionsPanel } from './voice-sessions-panel';
 import { SalesActionsPanel } from './sales-actions-panel';
 import { DetailDrawer } from './detail-drawer';
+import {
+  getLiveStatsApi,
+  getActivityFeedApi,
+  getVoiceSessionsApi,
+  getSalesConversionsApi,
+  getSystemHealthApi,
+  type LiveStatsResponse,
+  type LiveFeedSession,
+  type LiveVoiceSession,
+  type LiveSalesAction,
+  type SystemHealthResponse,
+} from '@/services/live-desk-service';
 
 export function LiveDeskClient() {
   const [paused, setPaused] = useState(false);
-  const [activeSession, setActiveSession] = useState<FeedSession | null>(null);
+  const [activeSession, setActiveSession] = useState<LiveFeedSession | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  function handleSelectSession(session: FeedSession) {
+  const [stats, setStats] = useState<LiveStatsResponse | null>(null);
+  const [feed, setFeed] = useState<LiveFeedSession[]>([]);
+  const [voiceSessions, setVoiceSessions] = useState<LiveVoiceSession[]>([]);
+  const [salesActions, setSalesActions] = useState<LiveSalesAction[]>([]);
+  const [health, setHealth] = useState<SystemHealthResponse | null>(null);
+
+  const fetchTelemetry = useCallback(async () => {
+    try {
+      const [statsRes, feedRes, voiceRes, salesRes, healthRes] =
+        await Promise.allSettled([
+          getLiveStatsApi(),
+          getActivityFeedApi(10),
+          getVoiceSessionsApi(),
+          getSalesConversionsApi(),
+          getSystemHealthApi(),
+        ]);
+
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+      if (feedRes.status === 'fulfilled') setFeed(feedRes.value);
+      if (voiceRes.status === 'fulfilled') setVoiceSessions(voiceRes.value);
+      if (salesRes.status === 'fulfilled') setSalesActions(salesRes.value);
+      if (healthRes.status === 'fulfilled') setHealth(healthRes.value);
+    } catch {
+      // Background polling fails gracefully without disrupting UI
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTelemetry();
+  }, [fetchTelemetry]);
+
+  useEffect(() => {
+    if (paused) return;
+    const interval = setInterval(() => {
+      fetchTelemetry();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [paused, fetchTelemetry]);
+
+  function handleSelectSession(session: LiveFeedSession) {
     setActiveSession(session);
     setDrawerOpen(true);
   }
@@ -77,7 +128,7 @@ export function LiveDeskClient() {
         </div>
 
         {/* ── Row 1: Real-Time Dynamic Stat Counters ── */}
-        <LiveStatsBar paused={paused} />
+        <LiveStatsBar stats={stats} />
 
         {/* ── Row 2: Two-Column Live Activity Workspace ── */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
@@ -85,6 +136,7 @@ export function LiveDeskClient() {
           <div className="xl:col-span-8 space-y-4">
             <ActivityFeed
               paused={paused}
+              sessions={feed}
               activeSessionId={activeSession?.id}
               onSelectSession={handleSelectSession}
             />
@@ -104,13 +156,13 @@ export function LiveDeskClient() {
           {/* Right Column: Live Telemetry Panels (4 Cols) */}
           <div className="xl:col-span-4 flex flex-col gap-4">
             {/* Active Voice Calls with 7-bar audio waveform */}
-            <VoiceSessionsPanel />
+            <VoiceSessionsPanel sessions={voiceSessions} />
 
             {/* AI Sales Conversion Actions */}
-            <SalesActionsPanel />
+            <SalesActionsPanel actions={salesActions} />
 
             {/* System Status Indicators */}
-            <OraStatusPanel />
+            <OraStatusPanel health={health} />
           </div>
         </div>
 
@@ -125,3 +177,4 @@ export function LiveDeskClient() {
     </div>
   );
 }
+
