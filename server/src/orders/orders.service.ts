@@ -111,7 +111,7 @@ export class OrdersService {
           businessId: businessId as any,
         },
         { $set: { status } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
 

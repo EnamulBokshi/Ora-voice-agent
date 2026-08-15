@@ -50,7 +50,7 @@ export class ApiKeyGuard implements CanActivate {
         .findOneAndUpdate(
           { publishableKey: 'biz_live_mock_key_12345' },
           { name: 'Dev Playground Store', publishableKey: 'biz_live_mock_key_12345', status: 'active' },
-          { upsert: true, new: true },
+          { upsert: true, returnDocument: 'after' },
         )
         .exec();
     }

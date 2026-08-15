@@ -57,13 +57,13 @@ export class AgentConfigService {
       this.agentConfigModel.findOneAndUpdate(
         { businessId: bId },
         { $set: configFields },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       ).exec(),
       voiceId
         ? this.voiceSettingsModel.findOneAndUpdate(
             { businessId: bId },
             { $set: { voiceId } },
-            { upsert: true, new: true },
+            { upsert: true, returnDocument: 'after' },
           ).exec()
         : this.voiceSettingsModel.findOne({ businessId: bId }).exec(),
       upsellCategories !== undefined || mentionLowStockUrgency !== undefined
@@ -77,7 +77,7 @@ export class AgentConfigService {
                   : {}),
               },
             },
-            { upsert: true, new: true },
+            { upsert: true, returnDocument: 'after' },
           ).exec()
         : this.salesPlaybookModel.findOne({ businessId: bId }).exec(),
     ]);

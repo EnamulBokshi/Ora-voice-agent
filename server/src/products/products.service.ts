@@ -221,7 +221,7 @@ export class ProductsService {
             lastVerifiedAt: new Date(),
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
 
@@ -395,7 +395,7 @@ export class ProductsService {
           businessId: businessId as any,
         },
         { $inc: incField },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
   }

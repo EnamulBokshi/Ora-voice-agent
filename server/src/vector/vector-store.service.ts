@@ -43,7 +43,7 @@ export class VectorStoreService {
           embeddingVersion: embeddingResult.embeddingVersion,
         },
       },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     ).exec();
 
     // Mark the source product as embedded so the dashboard can distinguish
