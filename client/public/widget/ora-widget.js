@@ -1,24 +1,12 @@
 /**
- * ORA Voice AI — Storefront Embed Widget v4 (Ultra-Fast Proxy Edition)
- * Zero-latency real-time streaming, instant barge-in cutoff, smart positioning.
- *
- * ─── HTML script tag (Shopify, WooCommerce, Plain HTML) ─────────────────────
- *   <script
- *     src="https://yourapp.com/widget/ora-widget.js"
- *     data-ora-key="biz_live_your_key"
- *     data-ora-api="https://yourapp.com"
- *     defer>
- *   </script>
- *
- * ─── Next.js / React Apps ──────────────────────────────────────────────────
- *   <script dangerouslySetInnerHTML={{ __html: 'window.ORA_CONFIG={key:"...",api:"..."}' }} />
- *   <Script src="https://yourapp.com/widget/ora-widget.js" strategy="afterInteractive" />
+ * ORA Voice AI — Storefront Embed Widget v4.5 (Lumina Glass Orb Edition)
+ * Pixel-perfect 3D electric glass orb, Siri-style transcript pill, 0ms proxy streaming.
  */
 (function () {
   'use strict';
 
-  if (window.__ORA_WIDGET_V4__) return;
-  window.__ORA_WIDGET_V4__ = true;
+  if (window.__ORA_WIDGET_V4_5__) return;
+  window.__ORA_WIDGET_V4_5__ = true;
 
   // ─── Config resolution ─────────────────────────────────────────────────────
   var _cfg = window.ORA_CONFIG || {};
@@ -54,14 +42,14 @@
     }
   }
 
-  // Positioning: 'bottom-right' (default), 'bottom-left', or 'bottom-center'
-  var position = _cfg.position || (scriptEl && scriptEl.getAttribute('data-ora-position')) || 'bottom-right';
+  // Positioning: 'bottom-center' (default)
+  var position = _cfg.position || (scriptEl && scriptEl.getAttribute('data-ora-position')) || 'bottom-center';
 
   // ─── State ─────────────────────────────────────────────────────────────────
   let voiceState = 'idle'; // 'idle' | 'connecting' | 'active' | 'ora-speaking' | 'error'
   let isMuted = false;
   let liveUtterance = '';
-  let liveSpeaker = null; // 'user' | 'agent' | null
+  let liveSpeaker = null;
   let showTranscript = false;
   let errorMsg = '';
   let lastSpeaker = null;
@@ -70,8 +58,8 @@
   let animFrameId = null;
 
   // Audio Contexts & Buffers
-  let audioContext = null;    // 16 kHz capture
-  let playbackContext = null; // 24 kHz playback
+  let audioContext = null;
+  let playbackContext = null;
   let mediaStream = null;
   let processorNode = null;
   let muteGainNode = null;
@@ -116,9 +104,7 @@
     let binary = '';
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
+    for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary);
   }
 
@@ -164,48 +150,66 @@
   // ─── Inject CSS ─────────────────────────────────────────────────────────────
   const styleEl = document.createElement('style');
   styleEl.textContent = `
+    /* ── Keyframe Animations ── */
+    @keyframes ora-w-fly-in {
+      0%   { opacity: 0; transform: translateY(80px) scale(0.85); }
+      60%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
     @keyframes ora-w-bob {
       0%, 100% { transform: translateY(0px); }
-      50%      { transform: translateY(-5px); }
+      50%      { transform: translateY(-6px); }
+    }
+    @keyframes ora-w-wave-spin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     @keyframes ora-w-glow-pulse {
       0%, 100% {
         box-shadow:
-          inset -6px -6px 20px rgba(150, 100, 255, 0.5),
-          inset 6px 6px 14px rgba(255, 255, 255, 0.35),
-          0 0 25px rgba(150, 100, 255, 0.35),
-          0 4px 16px rgba(0, 0, 0, 0.4);
+          inset -10px -10px 40px rgba(150, 100, 255, 0.5),
+          inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+          0 0 50px rgba(150, 100, 255, 0.3);
       }
       50% {
         box-shadow:
-          inset -6px -6px 25px rgba(150, 100, 255, 0.75),
-          inset 6px 6px 18px rgba(255, 255, 255, 0.5),
-          0 0 38px rgba(200, 240, 49, 0.5),
-          0 6px 20px rgba(0, 0, 0, 0.5);
+          inset -10px -10px 40px rgba(150, 100, 255, 0.65),
+          inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+          0 0 80px rgba(150, 100, 255, 0.55);
       }
     }
     @keyframes ora-w-speaking-pulse {
       0%, 100% {
         box-shadow:
-          inset -8px -8px 25px rgba(150, 100, 255, 0.9),
-          inset 8px 8px 18px rgba(255, 255, 255, 0.6),
-          0 0 45px rgba(200, 240, 49, 0.8),
-          0 0 25px rgba(168, 85, 247, 0.6);
+          inset -10px -10px 40px rgba(150, 100, 255, 0.8),
+          inset 10px 10px 20px rgba(255, 255, 255, 0.45),
+          0 0 60px rgba(200, 240, 49, 0.6),
+          0 0 35px rgba(168, 85, 247, 0.5);
       }
       50% {
         box-shadow:
-          inset -8px -8px 30px rgba(150, 100, 255, 1),
-          inset 8px 8px 22px rgba(255, 255, 255, 0.8),
-          0 0 65px rgba(200, 240, 49, 1),
-          0 0 35px rgba(168, 85, 247, 0.8);
+          inset -10px -10px 40px rgba(150, 100, 255, 1),
+          inset 10px 10px 20px rgba(255, 255, 255, 0.6),
+          0 0 90px rgba(200, 240, 49, 0.85),
+          0 0 55px rgba(168, 85, 247, 0.75);
       }
+    }
+    @keyframes ora-w-aura-spin {
+      0%   { filter: blur(14px) hue-rotate(0deg); }
+      100% { filter: blur(14px) hue-rotate(360deg); }
     }
     @keyframes ora-w-spin {
       to { transform: rotate(360deg); }
     }
-    @keyframes ora-w-pop-in {
-      0%   { opacity: 0; transform: scale(0.8) translateY(10px); }
-      100% { opacity: 1; transform: scale(1) translateY(0); }
+    @keyframes ora-w-dot-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.35); opacity: 0.6; }
+    }
+
+    @keyframes ora-w-fly-in-center {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(80px) scale(0.85); }
+      60%  { opacity: 1; transform: translateX(-50%) translateY(-4px) scale(1.02); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
 
     /* ── Root Container ── */
@@ -215,138 +219,60 @@
       z-index: 2147483647;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: center;
       pointer-events: none;
       user-select: none;
-      animation: ora-w-pop-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    .ora-w-root.pos-bottom-right { bottom: 24px; right: 24px; }
-    .ora-w-root.pos-bottom-left  { bottom: 24px; left: 24px; align-items: flex-start; }
-    .ora-w-root.pos-bottom-center { bottom: 20px; left: 50%; transform: translateX(-50%); align-items: center; }
-
-    /* ── Orb Container ── */
-    .ora-w-container {
-      position: relative;
-      width: 64px;
-      height: 64px;
-      margin-top: 8px;
+    .ora-w-root.pos-bottom-center {
+      bottom: 0px;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: ora-w-fly-in-center 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
-
-    /* ── Glass Sphere Button ── */
-    .ora-w-glass-sphere {
-      cursor: pointer;
-      pointer-events: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      border: 1.5px solid rgba(200, 150, 255, 0.4);
-      background: radial-gradient(
-        circle at 30% 30%,
-        rgba(255, 255, 255, 0.45) 0%,
-        rgba(150, 100, 255, 0.25) 40%,
-        rgba(10, 10, 15, 0.95) 100%
-      );
-      box-shadow:
-        inset -6px -6px 20px rgba(150, 100, 255, 0.5),
-        inset 6px 6px 14px rgba(255, 255, 255, 0.35),
-        0 0 25px rgba(150, 100, 255, 0.35),
-        0 4px 16px rgba(0, 0, 0, 0.4);
-      outline: none;
-      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease;
-      animation: ora-w-bob 4s ease-in-out infinite, ora-w-glow-pulse 3s ease-in-out infinite;
+    .ora-w-root.pos-bottom-right {
+      bottom: 20px;
+      right: 28px;
+      animation: ora-w-fly-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
-    .ora-w-glass-sphere:hover {
-      transform: scale(1.08);
-      border-color: rgba(200, 240, 49, 0.7);
-    }
-    .ora-w-glass-sphere:active { transform: scale(0.94); }
-    .ora-w-glass-sphere.speaking {
-      animation: ora-w-speaking-pulse 0.8s ease-in-out infinite !important;
-      border-color: #C8F031;
+    .ora-w-root.pos-bottom-left {
+      bottom: 20px;
+      left: 28px;
+      animation: ora-w-fly-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    /* ── Center Icon / Waves ── */
-    .ora-w-icon-svg {
-      width: 28px;
-      height: 28px;
-      color: #EAE6FF;
-      filter: drop-shadow(0 0 6px rgba(200, 240, 49, 0.8));
-      transition: transform 0.2s ease;
-    }
-    .ora-w-glass-sphere.speaking .ora-w-icon-svg {
-      color: #C8F031;
-      transform: scale(1.15);
-    }
-
-    /* ── Status Pill Badge ── */
-    .ora-w-status-chip {
-      pointer-events: auto;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #F3F4F6;
-      background: rgba(18, 24, 38, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-      transition: all 0.2s ease;
-      margin-bottom: 6px;
-    }
-    .ora-w-status-chip:hover {
-      background: rgba(26, 34, 52, 0.95);
-      border-color: rgba(200, 240, 49, 0.4);
-    }
-    .ora-w-status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #9CA3AF;
-    }
-    .ora-w-status-dot.active { background: #C8F031; box-shadow: 0 0 8px #C8F031; }
-    .ora-w-status-dot.connecting { background: #38BDF8; animation: ora-w-spin 1s linear infinite; }
-    .ora-w-status-dot.speaking { background: #C8F031; box-shadow: 0 0 10px #C8F031; }
-    .ora-w-status-dot.error { background: #EF4444; }
-
-    /* ── Transcript Bubble ── */
-    .ora-w-transcript {
+    /* ── Siri/Gemini Transcript Pill ── */
+    .ora-w-transcript-pill {
       pointer-events: auto;
       max-width: 320px;
-      min-width: 200px;
-      padding: 12px 16px;
-      border-radius: 16px;
+      min-width: 180px;
+      padding: 10px 16px;
+      border-radius: 20px;
       font-size: 13px;
-      line-height: 1.45;
-      color: #F8FAFC;
-      background: rgba(13, 19, 33, 0.94);
-      border: 1px solid rgba(200, 150, 255, 0.25);
+      line-height: 1.4;
+      color: #FFFFFF;
+      background: rgba(17, 17, 17, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       backdrop-filter: blur(16px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
       margin-bottom: 8px;
-      animation: ora-w-pop-in 0.25s ease forwards;
+      transition: all 0.2s ease;
+      text-align: center;
     }
-    .ora-w-transcript.user-turn {
-      border-color: rgba(56, 189, 248, 0.4);
-      background: rgba(15, 23, 42, 0.94);
+    .ora-w-transcript-pill.user-turn {
+      border-color: rgba(56, 189, 248, 0.5);
     }
-    .ora-w-transcript.agent-turn {
-      border-color: rgba(200, 240, 49, 0.4);
+    .ora-w-transcript-pill.agent-turn {
+      border-color: rgba(200, 240, 49, 0.5);
     }
 
-    /* ── Action Controls Bar ── */
-    .ora-w-controls {
+    /* ── Control Action Buttons (Mute / Stop) ── */
+    .ora-w-controls-row {
       pointer-events: auto;
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-top: 6px;
+      gap: 8px;
+      margin-bottom: 6px;
     }
     .ora-w-ctrl-btn {
       cursor: pointer;
@@ -356,77 +282,298 @@
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: rgba(18, 24, 38, 0.9);
+      background: rgba(17, 17, 17, 0.85);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      color: #94A3B8;
+      color: #E2E8F0;
+      backdrop-filter: blur(12px);
       transition: all 0.15s ease;
+      outline: none;
     }
     .ora-w-ctrl-btn:hover {
-      color: #FFF;
       background: rgba(30, 41, 59, 1);
-      border-color: rgba(200, 240, 49, 0.5);
+      border-color: rgba(200, 240, 49, 0.6);
+      transform: scale(1.06);
     }
     .ora-w-ctrl-btn.muted {
       color: #EF4444;
       border-color: #EF4444;
-      background: rgba(239, 68, 68, 0.15);
+      background: rgba(239, 68, 68, 0.18);
     }
 
-    /* ── Audio Waveform Visualizer Bar ── */
-    .ora-w-audio-wave {
+    /* ── Status Cue Pill Chip ── */
+    .ora-w-status-chip {
+      pointer-events: auto;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(17, 17, 17, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #E2E8F0;
+      margin-bottom: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+    .ora-w-status-chip:hover {
+      background: rgba(24, 24, 28, 0.95);
+      border-color: rgba(200, 240, 49, 0.4);
+    }
+    .ora-w-status-chip.active {
+      border-color: rgba(200, 240, 49, 0.5);
+      color: #FFFFFF;
+    }
+    .ora-w-status-chip.speaking {
+      border-color: rgba(168, 85, 247, 0.6);
+    }
+    .ora-w-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .ora-w-status-dot.idle { background: #94A3B8; }
+    .ora-w-status-dot.connecting { background: #38BDF8; animation: ora-w-dot-pulse 0.8s ease-in-out infinite; }
+    .ora-w-status-dot.listening { background: #C8F031; box-shadow: 0 0 8px #C8F031; }
+    .ora-w-status-dot.speaking { background: #D4F536; box-shadow: 0 0 10px #C8F031; }
+    .ora-w-status-dot.muted { background: #EF4444; }
+    .ora-w-status-dot.error { background: #EF4444; }
+
+    /* ── Main Orb Container (80px compact) ── */
+    .ora-w-orb-container {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+
+    /* ── Outer 3D Glass Sphere Button ── */
+    .ora-w-glass-sphere {
+      cursor: pointer;
+      pointer-events: auto;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 30% 30%,
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(150, 100, 255, 0.1) 40%,
+        rgba(0, 0, 0, 0.8) 100%
+      );
+      box-shadow:
+        inset -10px -10px 40px rgba(150, 100, 255, 0.5),
+        inset 10px 10px 20px rgba(255, 255, 255, 0.3),
+        0 0 50px rgba(150, 100, 255, 0.3);
+      border: 1px solid rgba(200, 150, 255, 0.3);
+      overflow: hidden;
+      z-index: 10;
+      outline: none;
+      padding: 0;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease;
+      animation: ora-w-bob 4s ease-in-out infinite, ora-w-glow-pulse 3s ease-in-out infinite;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ora-w-glass-sphere:hover {
+      transform: scale(1.06);
+    }
+    .ora-w-glass-sphere:active {
+      transform: scale(0.95);
+    }
+    .ora-w-glass-sphere.active {
+      box-shadow:
+        inset -10px -10px 40px rgba(150, 100, 255, 0.7),
+        inset 10px 10px 20px rgba(255, 255, 255, 0.4),
+        0 0 50px rgba(200, 240, 49, 0.45),
+        0 0 25px rgba(150, 100, 255, 0.35);
+      border-color: rgba(200, 240, 49, 0.6);
+    }
+    .ora-w-glass-sphere.speaking-active {
+      animation: ora-w-bob 4s ease-in-out infinite, ora-w-speaking-pulse 0.8s ease-in-out infinite !important;
+    }
+
+    /* ── Top Glass Highlight ── */
+    .ora-w-top-highlight {
+      position: absolute;
+      top: 5%; left: 15%;
+      width: 70%; height: 30%;
+      border-radius: 50% 50% 10% 10% / 100% 100% 10% 10%;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+      transform: rotate(-15deg);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* ── Inner Rim Lighting ── */
+    .ora-w-inner-rim-light {
+      position: absolute;
+      top: 2%; left: 2%;
+      width: 96%; height: 96%;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-bottom-color: rgba(150, 100, 255, 0.4);
+      border-right-color: rgba(100, 200, 255, 0.3);
+      transform: rotate(45deg);
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    /* ── Ambient Inner Aura ── */
+    .ora-w-ambient-aura {
+      position: absolute;
+      top: 5%; left: 5%;
+      width: 90%; height: 90%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(150, 100, 255, 0.2) 0%, transparent 70%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ── Inner Electric Plasma Wave Wrapper ── */
+    .ora-w-wave-wrapper {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 95%; height: 95%;
+      border-radius: 50%;
+      overflow: hidden;
+      z-index: 5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    /* ── Inner Plasma Texture Image ── */
+    .ora-w-wave-img {
+      width: 250%; height: 250%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0.92;
+      mix-blend-mode: screen;
+      filter: contrast(1.25) brightness(1.15);
+      animation: ora-w-wave-spin 18s linear infinite;
+      transform-origin: center center;
+    }
+    .ora-w-wave-wrapper.spinning .ora-w-wave-img {
+      animation: ora-w-wave-spin 10s linear infinite;
+    }
+
+    /* ── Floor Shadow Reflection ── */
+    .ora-w-floor-reflection {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 56px;
+      height: 11px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(150, 100, 255, 0.45) 0%, transparent 70%);
+      filter: blur(6px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Reactive Fluid Outer Aura ── */
+    .ora-w-reactive-aura {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 2;
+      filter: blur(14px);
+      transition: transform 0.1s ease-out, opacity 0.15s ease-out;
+    }
+    .ora-w-reactive-aura.listening {
+      background: radial-gradient(
+        circle,
+        rgba(200, 240, 49, 0.6) 0%,
+        rgba(99, 102, 241, 0.4) 50%,
+        transparent 75%
+      );
+    }
+    .ora-w-reactive-aura.speaking {
+      background: radial-gradient(
+        circle,
+        rgba(168, 85, 247, 0.7) 0%,
+        rgba(200, 240, 49, 0.5) 45%,
+        rgba(56, 189, 248, 0.3) 70%,
+        transparent 85%
+      );
+      animation: ora-w-aura-spin 4s linear infinite;
+    }
+
+    /* ── Connecting Overlay Spinner ── */
+    .ora-w-connecting-overlay {
+      position: absolute;
+      inset: 0;
       display: flex;
       align-items: center;
-      gap: 3px;
-      height: 14px;
-      padding: 0 4px;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 25;
     }
-    .ora-w-wave-bar {
-      width: 2.5px;
-      height: 4px;
-      background: #C8F031;
-      border-radius: 2px;
-      transition: height 0.08s ease;
+    .ora-w-spinner {
+      width: 24px;
+      height: 24px;
+      border: 2.5px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #C8F031;
+      border-radius: 50%;
+      animation: ora-w-spin 0.8s linear infinite;
     }
   `;
   document.head.appendChild(styleEl);
 
-  // ─── Build DOM ─────────────────────────────────────────────────────────────
+  // ─── Assemble DOM ──────────────────────────────────────────────────────────
   const root = document.createElement('div');
   root.className = 'ora-w-root pos-' + position;
 
   root.innerHTML = `
-    <div id="oraWTranscript" class="ora-w-transcript" style="display:none;">
-      <div id="oraWTranscriptText"></div>
+    <div id="oraWTranscript" class="ora-w-transcript-pill" style="display:none;">
+      <span id="oraWTranscriptText"></span>
+    </div>
+
+    <div id="oraWControls" class="ora-w-controls-row" style="display:none;">
+      <button id="oraWMuteBtn" class="ora-w-ctrl-btn" title="Mute Microphone" type="button" aria-label="Mute">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button id="oraWCloseBtn" class="ora-w-ctrl-btn" title="End Voice Conversation" type="button" aria-label="End call">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
     </div>
 
     <div id="oraWStatusChip" class="ora-w-status-chip">
-      <span id="oraWDot" class="ora-w-status-dot"></span>
-      <span id="oraWStatusLabel">Ask ORA AI</span>
-      <div id="oraWWaveVisualizer" class="ora-w-audio-wave" style="display:none;">
-        <span class="ora-w-wave-bar" style="height:4px"></span>
-        <span class="ora-w-wave-bar" style="height:8px"></span>
-        <span class="ora-w-wave-bar" style="height:12px"></span>
-        <span class="ora-w-wave-bar" style="height:8px"></span>
-        <span class="ora-w-wave-bar" style="height:4px"></span>
-      </div>
+      <span id="oraWDot" class="ora-w-status-dot idle"></span>
+      <span id="oraWStatusLabel">Talk with ORA</span>
     </div>
 
-    <div class="ora-w-container">
+    <div id="oraWReactiveAura" class="ora-w-reactive-aura" style="display:none;"></div>
+
+    <div class="ora-w-orb-container">
+      <div class="ora-w-floor-reflection"></div>
       <button id="oraWOrbBtn" class="ora-w-glass-sphere" type="button" aria-label="Talk with ORA Voice AI">
-        <svg class="ora-w-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="22"/>
-        </svg>
-      </button>
-    </div>
-
-    <div id="oraWControls" class="ora-w-controls" style="display:none;">
-      <button id="oraWMuteBtn" class="ora-w-ctrl-btn" title="Mute Microphone">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-      </button>
-      <button id="oraWCloseBtn" class="ora-w-ctrl-btn" title="End Voice Conversation">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <div class="ora-w-top-highlight"></div>
+        <div class="ora-w-inner-rim-light"></div>
+        <div class="ora-w-ambient-aura"></div>
+        <div id="oraWWaveWrapper" class="ora-w-wave-wrapper">
+          <img
+            alt="ORA AI voice energy orb"
+            class="ora-w-wave-img"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiiHohwyyA_AYKIz0FqIi4lPhglG4dGwSbGydUlHEFcCUM5D4yOQD-RJduetkXycHsfXCpjKD1V6i1Ek4Zmm0SOmvvLn_3yXdEptG2uCrTB1O6TgxzJRmH_pj3OAdpkvd7RoFK6hGg_wsyBjWnmR1a58wAIhaVAeWaiT5787U3fMOsKHQRqRt7z_RXy7bLI8nl0AFq-er2vKD0G1eZAhCcOPbFtAiT0mFdoN1yorZVMMmgRuw7D7j-PbK4xBOs2NjWnzA"
+          />
+        </div>
+        <div id="oraWConnectingSpinner" class="ora-w-connecting-overlay" style="display:none;">
+          <div class="ora-w-spinner"></div>
+        </div>
       </button>
     </div>
   `;
@@ -434,66 +581,70 @@
 
   // Element refs
   const orbBtn = document.getElementById('oraWOrbBtn');
+  const waveWrapper = document.getElementById('oraWWaveWrapper');
+  const connectingSpinner = document.getElementById('oraWConnectingSpinner');
   const statusChip = document.getElementById('oraWStatusChip');
   const statusDot = document.getElementById('oraWDot');
   const statusLabel = document.getElementById('oraWStatusLabel');
-  const waveVisualizer = document.getElementById('oraWWaveVisualizer');
+  const reactiveAura = document.getElementById('oraWReactiveAura');
   const transcriptBox = document.getElementById('oraWTranscript');
   const transcriptText = document.getElementById('oraWTranscriptText');
   const controlsBar = document.getElementById('oraWControls');
   const muteBtn = document.getElementById('oraWMuteBtn');
   const closeBtn = document.getElementById('oraWCloseBtn');
 
-  // ─── Render UI ─────────────────────────────────────────────────────────────
+  // ─── Render UI State ───────────────────────────────────────────────────────
   function render() {
     const isActive = voiceState === 'active' || voiceState === 'ora-speaking';
     const isConnecting = voiceState === 'connecting';
     const isSpeaking = voiceState === 'ora-speaking';
+    const energyLevel = isSpeaking ? speakingLevel : userMicLevel;
 
-    orbBtn.className = 'ora-w-glass-sphere' + (isSpeaking ? ' speaking' : '');
+    // Glass Sphere styling
+    orbBtn.className = 'ora-w-glass-sphere' +
+      (isActive ? ' active' : '') +
+      (isSpeaking ? ' speaking-active' : '');
+
+    waveWrapper.className = 'ora-w-wave-wrapper' + (isActive ? ' spinning' : '');
+    connectingSpinner.style.display = isConnecting ? 'flex' : 'none';
     controlsBar.style.display = isActive ? 'flex' : 'none';
 
+    // Reactive outer aura
+    if (isActive) {
+      reactiveAura.style.display = 'block';
+      reactiveAura.className = 'ora-w-reactive-aura ' + (isSpeaking ? 'speaking' : 'listening');
+      reactiveAura.style.transform = 'translateX(-50%) scale(' + (1 + (energyLevel / 100) * 0.45) + ')';
+      reactiveAura.style.opacity = (0.4 + (energyLevel / 100) * 0.6).toString();
+    } else {
+      reactiveAura.style.display = 'none';
+    }
+
     // Status chip
+    statusChip.className = 'ora-w-status-chip' + (isActive ? ' active' : '') + (isSpeaking ? ' speaking' : '');
     if (voiceState === 'connecting') {
       statusDot.className = 'ora-w-status-dot connecting';
       statusLabel.innerText = 'Connecting to ORA…';
-      waveVisualizer.style.display = 'none';
     } else if (isSpeaking) {
       statusDot.className = 'ora-w-status-dot speaking';
       statusLabel.innerText = 'ORA is speaking…';
-      waveVisualizer.style.display = 'flex';
     } else if (isActive && !isMuted) {
-      statusDot.className = 'ora-w-status-dot active';
+      statusDot.className = 'ora-w-status-dot listening';
       statusLabel.innerText = 'Listening… Speak now';
-      waveVisualizer.style.display = 'flex';
     } else if (isActive && isMuted) {
-      statusDot.className = 'ora-w-status-dot';
-      statusLabel.innerText = 'Muted';
-      waveVisualizer.style.display = 'none';
+      statusDot.className = 'ora-w-status-dot muted';
+      statusLabel.innerText = 'Microphone muted';
     } else if (voiceState === 'error') {
       statusDot.className = 'ora-w-status-dot error';
-      statusLabel.innerText = errorMsg ? errorMsg.slice(0, 28) : 'Click to retry';
-      waveVisualizer.style.display = 'none';
+      statusLabel.innerText = errorMsg ? errorMsg.slice(0, 26) : 'Retry conversation';
     } else {
-      statusDot.className = 'ora-w-status-dot';
-      statusLabel.innerText = 'Ask ORA AI';
-      waveVisualizer.style.display = 'none';
-    }
-
-    // Audio Visualizer waveform bars animation
-    if (waveVisualizer.style.display === 'flex') {
-      const bars = waveVisualizer.querySelectorAll('.ora-w-wave-bar');
-      const level = isSpeaking ? speakingLevel : userMicLevel;
-      bars.forEach((bar, idx) => {
-        const h = Math.max(3, Math.min(14, Math.floor((level / 100) * 14 * (0.6 + idx * 0.2))));
-        bar.style.height = h + 'px';
-      });
+      statusDot.className = 'ora-w-status-dot idle';
+      statusLabel.innerText = 'Talk with ORA';
     }
 
     // Transcript Box
     if (showTranscript && liveUtterance) {
       transcriptBox.style.display = 'block';
-      transcriptBox.className = 'ora-w-transcript ' + (liveSpeaker === 'user' ? 'user-turn' : 'agent-turn');
+      transcriptBox.className = 'ora-w-transcript-pill ' + (liveSpeaker === 'user' ? 'user-turn' : 'agent-turn');
       transcriptText.innerHTML = (liveSpeaker === 'user' ? '<strong>You:</strong> ' : '<strong>ORA:</strong> ') + escapeHtml(liveUtterance);
     } else {
       transcriptBox.style.display = 'none';
@@ -569,7 +720,7 @@
       activeSources.push(source);
       voiceState = 'ora-speaking';
 
-      // Calculate audio energy level for visualizer
+      // Energy level
       let sum = 0;
       const step = Math.max(1, Math.floor(float32.length / 32));
       for (let i = 0; i < float32.length; i += step) sum += float32[i] * float32[i];
@@ -642,7 +793,6 @@
         }
         const cleanText = (finalTranscript + ' ' + interimTranscript).trim();
         if (cleanText) {
-          // If user starts speaking while ORA is talking, flush audio instantly
           if (voiceState === 'ora-speaking') {
             flushPlaybackQueue();
           }
@@ -701,18 +851,15 @@
       const rawInput = e.inputBuffer.getChannelData(0);
       const inputData = downsampleTo16k(rawInput, audioContext.sampleRate);
 
-      // Mic volume level calculation
       let sum = 0;
       for (let i = 0; i < rawInput.length; i++) sum += rawInput[i] * rawInput[i];
       const rms = Math.sqrt(sum / rawInput.length);
       userMicLevel = Math.min(100, Math.floor(rms * 400));
 
-      // If user speaks loud enough during ORA speech, cut ORA audio
       if (rms > 0.04 && voiceState === 'ora-speaking') {
         flushPlaybackQueue();
       }
 
-      // Stream PCM chunk to ORA Proxy
       const pcm16 = floatTo16BitPCM(inputData);
       const b64 = arrayBufferToBase64(pcm16.buffer);
       geminiWs.send(JSON.stringify({ type: 'audio', data: b64 }));
@@ -721,9 +868,8 @@
     startSpeechRecognition();
   }
 
-  // ─── Start Voice Session (Instant Parallel Connection) ───────────────────────
+  // ─── Start Voice Session ─────────────────────────────────────────────────────
   async function startVoiceSession() {
-    // 1. Prime AudioContext in direct user click gesture
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
@@ -741,7 +887,6 @@
     isMuted = false;
     startVisualizer();
 
-    // 2. Start Microphone capture in parallel immediately
     const micPromise = startMicCapture().catch((err) => {
       console.warn('[ORA Widget] Mic permission error:', err);
       errorMsg = 'Mic permission required';
@@ -751,7 +896,6 @@
     });
 
     try {
-      // 3. Connect directly via WebSocket to ORA Proxy (Ultra-Fast 0ms handshake)
       sessionId = 'ses_w_' + Math.random().toString(36).substring(2, 9);
       const wsBase = apiBase.replace(/^http/, 'ws');
       const wsUri = wsBase + '/ws/voice' +
@@ -762,7 +906,7 @@
       geminiWs = ws;
 
       ws.onopen = function () {
-        console.log('[ORA Widget] ⚡ Connected to ORA Voice Proxy. Live streaming...');
+        console.log('[ORA Widget] ⚡ Connected to ORA Voice Proxy.');
       };
 
       ws.onmessage = async function (event) {
@@ -851,7 +995,7 @@
     }
   }
 
-  // ─── Event Handlers ──────────────────────────────────────────────────────────
+  // ─── Event Listeners ─────────────────────────────────────────────────────────
   orbBtn.addEventListener('click', function () {
     if (voiceState === 'idle' || voiceState === 'error') {
       startVoiceSession();
