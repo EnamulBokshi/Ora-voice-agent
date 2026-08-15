@@ -1,25 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>ORA Voice Agent Free Test Playground</title>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
-    body { font-family: system-ui, sans-serif; background: #090d16; color: #e2e8f0; padding: 40px; max-width: 600px; margin: 0 auto; }
-    h1 { color: #3d7a60; font-size: 24px; margin-bottom: 8px; }
-    p { color: #94a3b8; font-size: 14px; }
-    .card { background: #121d2d; border: 1px solid #1e2d42; border-radius: 12px; padding: 24px; margin-top: 20px; }
-    label { display: block; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px; }
-    input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; margin-bottom: 16px; box-sizing: border-box; }
-    button { background: #2C5745; color: #EBE3A7; border: none; padding: 12px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; font-size: 15px; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status { margin-top: 16px; font-size: 14px; font-weight: bold; color: #38bdf8; }
-    .meter { height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; margin-top: 8px; }
-    .meter-fill { height: 100%; width: 0%; background: #2DD4C8; transition: width 0.1s ease; }
-    .transcript { margin-top: 16px; background: #070a12; padding: 12px; border-radius: 8px; min-height: 100px; max-height: 250px; overflow-y: auto; font-size: 13px; color: #cbd5e1; }
-    .warning-box { background: rgba(235, 125, 0, 0.15); border: 1px solid #EB7D00; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #EBE3A7; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #090d16;
+      color: #e2e8f0;
+      padding: 40px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #3d7a60;
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .card {
+      background: #121d2d;
+      border: 1px solid #1e2d42;
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #f8fafc;
+      margin-bottom: 16px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #2C5745;
+      color: #EBE3A7;
+      border: none;
+      padding: 12px 20px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 15px;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+
+    .meter {
+      height: 8px;
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: #2DD4C8;
+      transition: width 0.1s ease;
+    }
+
+    .transcript {
+      margin-top: 16px;
+      background: #070a12;
+      padding: 12px;
+      border-radius: 8px;
+      min-height: 100px;
+      max-height: 250px;
+      overflow-y: auto;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .warning-box {
+      background: rgba(235, 125, 0, 0.15);
+      border: 1px solid #EB7D00;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #EBE3A7;
+    }
   </style>
 </head>
+
 <body>
 
   <h1>🎙️ ORA Voice Agent Playground</h1>
@@ -27,7 +124,8 @@
 
   <div class="card">
     <div class="warning-box">
-      ⚠️ <strong>Prerequisite:</strong> Ensure you have added your free <code>GEMINI_API_KEY</code> into <code>server/.env</code> file.
+      ⚠️ <strong>Prerequisite:</strong> Ensure you have added your free <code>GEMINI_API_KEY</code> into
+      <code>server/.env</code> file.
     </div>
 
     <label>Publishable Key</label>
@@ -39,7 +137,9 @@
     <button id="toggleBtn" onclick="toggleVoiceSession()">Start Speaking</button>
 
     <div class="status" id="statusText">Status: Idle</div>
-    <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+    <div class="meter">
+      <div class="meter-fill" id="meterFill"></div>
+    </div>
     <div class="transcript" id="transcriptBox">Transcripts and ORA responses will appear here...</div>
   </div>
 
@@ -63,7 +163,7 @@
       const sessionId = document.getElementById('sessionId').value.trim();
 
       document.getElementById('statusText').innerText = "Connecting to Voice Gateway...";
-      
+
       socket = io("http://localhost:5000/voice", { transports: ['websocket'] });
 
       socket.on("connect", () => {
@@ -229,4 +329,5 @@
     }
   </script>
 </body>
+
 </html>
