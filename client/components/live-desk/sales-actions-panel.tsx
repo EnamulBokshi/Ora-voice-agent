@@ -1,17 +1,23 @@
 'use client';
 
 import { Zap } from 'lucide-react';
+import type { LiveSalesAction } from '@/services/live-desk-service';
 
-const SALES_ACTIONS = [
-  { label: 'Recommendations Offered', count: 24, delta: '+8' },
-  { label: 'Upsells Accepted', count: 9, delta: '+3' },
-  { label: 'Items Added to Cart', count: 17, delta: '+5' },
-  { label: 'Checkout Assisted', count: 11, delta: '+4' },
-  { label: 'Orders Placed Live', count: 6, delta: '+2' },
+const DEFAULT_SALES_ACTIONS: LiveSalesAction[] = [
+  { label: 'Recommendations Offered', count: 0, delta: '+0' },
+  { label: 'Upsells Accepted', count: 0, delta: '+0' },
+  { label: 'Items Added to Cart', count: 0, delta: '+0' },
+  { label: 'Checkout Assisted', count: 0, delta: '+0' },
+  { label: 'Orders Placed Live', count: 0, delta: '+0' },
 ];
 
-export function SalesActionsPanel() {
-  const maxCount = SALES_ACTIONS[0].count;
+interface SalesActionsPanelProps {
+  actions?: LiveSalesAction[] | null;
+}
+
+export function SalesActionsPanel({ actions }: SalesActionsPanelProps) {
+  const items = actions && actions.length > 0 ? actions : DEFAULT_SALES_ACTIONS;
+  const maxCount = Math.max(...items.map((a) => a.count), 1);
 
   return (
     <div className="rounded-md border border-border bg-surface-container overflow-hidden">
@@ -28,7 +34,7 @@ export function SalesActionsPanel() {
 
       {/* Action rows */}
       <div className="p-3.5 space-y-3">
-        {SALES_ACTIONS.map((action, i) => {
+        {items.map((action, i) => {
           const pct = Math.round((action.count / maxCount) * 100);
 
           return (
@@ -39,9 +45,19 @@ export function SalesActionsPanel() {
                   <span className="text-foreground font-semibold tabular-nums text-[12px]">
                     {action.count}
                   </span>
-                  <span className="text-[10px] text-[color:var(--status-online)] font-medium">
-                    {action.delta}
-                  </span>
+                  {action.delta && action.delta !== '+0' && action.delta !== '0' ? (
+                    <span
+                      className={`text-[10px] font-medium ${
+                        action.delta.startsWith('-')
+                          ? 'text-[color:var(--status-error)]'
+                          : 'text-[color:var(--status-online)]'
+                      }`}
+                    >
+                      {action.delta}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">— 0</span>
+                  )}
                 </div>
               </div>
 
@@ -67,3 +83,4 @@ export function SalesActionsPanel() {
     </div>
   );
 }
+

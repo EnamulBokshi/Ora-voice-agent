@@ -11,9 +11,9 @@ interface HeroStatusCardProps {
 }
 
 export function HeroStatusCard({
-  activeConversations = 12,
-  voiceSessions = 3,
-  productsCount = 412,
+  activeConversations = 0,
+  voiceSessions = 0,
+  productsCount = 0,
 }: HeroStatusCardProps) {
   return (
     <section

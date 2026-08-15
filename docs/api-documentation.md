@@ -166,6 +166,131 @@ Both the **Voice Gateway** (`ws://<host>/voice`) and the **Text Chat Gateway** (
 
 ---
 
+## 8. Phase 7: Store Performance & Overview Analytics (`/api/v1/dashboard`)
+
+### Summary
+
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/v1/dashboard/stats` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | **Primary Overview Metrics**: Aggregates catalog totals, order counts, conversation volume, live active sessions, total revenue, weekly trends, revenue timeseries (daily/weekly), sales funnel stages, and recent activity. |
+| `/api/v1/dashboard/revenue-analytics` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Time-bucketed daily (last 7 days) and weekly (last 4 weeks) revenue timeseries with growth rate calculation. |
+| `/api/v1/dashboard/funnel-analytics` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | 4-stage customer conversion funnel (*Shopper Inquiries → Products Recommended → Items Added to Cart → Orders Completed*) and overall conversion percentage. |
+
+### 8.1 Overview Response Envelope Example (`GET /api/v1/dashboard/stats`)
+
+```json
+{
+  "success": true,
+  "data": {
+    "productTotal": 412,
+    "orderTotal": 236,
+    "conversationTotal": 1284,
+    "activeChats": 12,
+    "activeVoiceCalls": 3,
+    "totalRevenue": 24820,
+    "revenueTrend": "+18.4%",
+    "ordersTrend": "+12.4%",
+    "conversationsTrend": "+8.1%",
+    "planName": "Growth",
+    "planStatus": "active",
+    "revenueTimeseries": {
+      "daily": [
+        { "label": "Mon", "date": "2026-08-09", "value": 2400 },
+        { "label": "Tue", "date": "2026-08-10", "value": 3100 },
+        { "label": "Wed", "date": "2026-08-11", "value": 2800 },
+        { "label": "Thu", "date": "2026-08-12", "value": 4200 },
+        { "label": "Fri", "date": "2026-08-13", "value": 3900 },
+        { "label": "Sat", "date": "2026-08-14", "value": 5100 },
+        { "label": "Sun", "date": "2026-08-15", "value": 4820 }
+      ],
+      "weekly": [
+        { "label": "Week 1", "value": 14200 },
+        { "label": "Week 2", "value": 18500 },
+        { "label": "Week 3", "value": 21900 },
+        { "label": "Week 4", "value": 24820 }
+      ],
+      "growthRate": "+18.4%",
+      "totalRevenue": 24820
+    },
+    "funnel": [
+      { "label": "Shopper Inquiries", "count": 1284, "pct": 100 },
+      { "label": "Products Recommended", "count": 892, "pct": 69.5 },
+      { "label": "Items Added to Cart", "count": 340, "pct": 26.5 },
+      { "label": "Orders Completed", "count": 236, "pct": 18.4, "isLast": true }
+    ],
+    "overallConversion": 18.4,
+    "recentOrders": [],
+    "recentConversations": []
+  }
+}
+```
+
+---
+
+## 9. Phase 8: Real-Time Live Desk & Telemetry Command Center (`/api/v1/live-desk`)
+
+### Summary
+
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/v1/live-desk/stats` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | **Real-Time Counters**: Active chat sessions, active voice calls, and rolling 1-hour metrics (product searches, cart actions, orders influenced) with calculated period deltas. |
+| `/api/v1/live-desk/activity-feed` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Live streaming shopper activity feed with auto-classified intent states, latest customer query, and verified product snapshots. Supports `?limit=10`. |
+| `/api/v1/live-desk/voice-sessions` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Active bidirectional voice calls with caller identity, action label, and dynamic elapsed duration (`mm:ss`). |
+| `/api/v1/live-desk/sales-conversions` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Rolling 1-hour conversion progression (*Recommendations → Upsells → Cart Additions → Checkout Assisted → Orders Placed Live*). |
+| `/api/v1/live-desk/system-health` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Measured round-trip ping latencies and operational status for Redis session gateway, MongoDB catalog engine, and BullMQ worker pipelines. |
+
+### 9.1 Intent State Classification Taxonomy (`stateType`)
+
+When returning shopper activity in `/api/v1/live-desk/activity-feed`, the engine inspects the latest message's content, tool calls, and event triggers to classify the customer's current state:
+
+| State Type | State Label | Trigger Conditions | Border & Chip Styling |
+|---|---|---|---|
+| `searching` | Searching | Customer query mentions keywords ("find", "looking for") or AI calls `find_products` tool. | Primary Accent (Lime tint) |
+| `comparing` | Comparing | Customer asks for comparisons, differences, or alternatives. | Tertiary Accent (White/Secondary tint) |
+| `cart` | Adding to cart | Customer asks to buy/reserve or AI calls `add_to_cart` tool. | Success Green (`--status-online`) |
+| `checking` | Checking stock | Customer asks for availability, sizes, delivery eligibility, or AI calls `get_product_details`. | Info Gray (`--chart-4`) |
+| `idle` | Active / Responding | Store policy FAQs, general inquiries, or resolved conversations. | Surface Ghost Border |
+
+### 9.2 Real-Time Telemetry Response Examples
+
+#### Live Stats (`GET /api/v1/live-desk/stats`)
+```json
+{
+  "success": true,
+  "data": {
+    "activeConvos": 12,
+    "activeVoiceCalls": 3,
+    "productSearches": 34,
+    "productSearchesDelta": "+12",
+    "cartActions": 17,
+    "cartActionsDelta": "+5",
+    "ordersInfluenced": 6,
+    "ordersInfluencedDelta": "+2"
+  }
+}
+```
+
+#### System Health Diagnostics (`GET /api/v1/live-desk/system-health`)
+```json
+{
+  "success": true,
+  "data": {
+    "allOnline": true,
+    "services": [
+      { "name": "Store Chat Gateway", "latency": "12ms", "status": "Operational" },
+      { "name": "Voice Stream Engine", "latency": "12ms", "status": "Operational" },
+      { "name": "Conversation Runtime", "latency": "18ms", "status": "Operational" },
+      { "name": "Search & Catalog Index", "latency": "18ms", "status": "Operational" },
+      { "name": "Catalog Auto-Sync", "latency": "Active", "status": "Operational" },
+      { "name": "Webhook & Order Relay", "latency": "Active", "status": "Operational" }
+    ]
+  }
+}
+```
+
+
+---
+
 ## 8. Phase 7: SuperAdmin Platform Command Center & Diagnostics (`/api/v1/admin`)
 
 ### Summary

@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect } from 'react';
-import { X, CheckCircle2, MessageSquare, ShieldCheck, UserCheck, ArrowUpRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { FeedSession } from './activity-feed';
+import { useEffect, useState } from 'react';
+import { X, CheckCircle2, MessageSquare, ShieldCheck, UserCheck, ArrowUpRight, Loader2 } from 'lucide-react';
+import type { LiveFeedSession } from '@/services/live-desk-service';
+import { getConversationTranscriptApi } from '@/services/conversations-service';
+import type { Message } from '@/types/conversation';
 import Link from 'next/link';
 
 interface DetailDrawerProps {
   open: boolean;
-  session: FeedSession | null;
+  session: LiveFeedSession | null;
   onClose: () => void;
 }
 
 export function DetailDrawer({ open, session, onClose }: DetailDrawerProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && open) {
@@ -23,14 +27,37 @@ export function DetailDrawer({ open, session, onClose }: DetailDrawerProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open || !session?.id) return;
+    let isCurrent = true;
+    setLoading(true);
+
+    getConversationTranscriptApi(session.id)
+      .then((res) => {
+        if (isCurrent && res?.messages) {
+          setMessages(res.messages);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) setMessages([]);
+      })
+      .finally(() => {
+        if (isCurrent) setLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [open, session?.id]);
+
   if (!open) return null;
 
   const s = session;
   const verified = s?.verifiedItem ?? {
-    name: 'Nike Pegasus 41',
-    price: '$99',
-    inventory: 'In stock (42 units)',
-    status: 'Live Verified',
+    name: 'Store Catalog Item',
+    price: 'Live Verified',
+    inventory: 'In Stock',
+    status: 'RAG Synced',
   };
 
   return (
@@ -124,52 +151,64 @@ export function DetailDrawer({ open, session, onClose }: DetailDrawerProps) {
               <span className="text-[10px] text-muted-foreground">Real-time sync</span>
             </div>
 
-            <div className="space-y-3 text-[13px]">
-              {/* Customer utterance */}
-              <div className="flex gap-2.5 items-start">
-                <div className="w-6 h-6 rounded bg-surface-high border border-border flex items-center justify-center font-bold text-[10px] text-muted-foreground flex-shrink-0 mt-0.5">
-                  {s?.initial ?? 'C'}
-                </div>
-                <div className="flex-1 rounded-md rounded-tl-none p-3 bg-surface-low border border-border text-foreground">
-                  {s?.message ?? 'Hi, can you help me find a great product in stock?'}
-                </div>
+            {loading ? (
+              <div className="py-8 flex items-center justify-center text-muted-foreground gap-2">
+                <Loader2 className="animate-spin text-primary" size={16} />
+                <span className="text-xs">Loading transcript...</span>
               </div>
+            ) : messages.length > 0 ? (
+              <div className="space-y-3 text-[13px]">
+                {messages.map((m) => {
+                  const isUser = m.role === 'user';
+                  return (
+                    <div
+                      key={m._id}
+                      className={`flex gap-2.5 items-start ${isUser ? '' : 'flex-row-reverse'}`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5 ${
+                          isUser
+                            ? 'bg-surface-high border border-border text-muted-foreground'
+                            : 'bg-primary text-primary-foreground'
+                        }`}
+                      >
+                        {isUser ? s?.initial ?? 'C' : 'O'}
+                      </div>
+                      <div
+                        className={`flex-1 rounded-md p-3 border text-foreground ${
+                          isUser
+                            ? 'rounded-tl-none bg-surface-low border-border'
+                            : 'rounded-tr-none bg-primary/10 border-primary/20'
+                        }`}
+                      >
+                        {m.content}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-3 text-[13px]">
+                {/* Fallback to last recorded session query */}
+                <div className="flex gap-2.5 items-start">
+                  <div className="w-6 h-6 rounded bg-surface-high border border-border flex items-center justify-center font-bold text-[10px] text-muted-foreground flex-shrink-0 mt-0.5">
+                    {s?.initial ?? 'C'}
+                  </div>
+                  <div className="flex-1 rounded-md rounded-tl-none p-3 bg-surface-low border border-border text-foreground">
+                    {s?.message ?? 'Hi, can you help me find a product in stock?'}
+                  </div>
+                </div>
 
-              {/* ORA Agent reply */}
-              <div className="flex gap-2.5 items-start flex-row-reverse">
-                <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">
-                  O
-                </div>
-                <div className="flex-1 rounded-md rounded-tr-none p-3 bg-primary/10 border border-primary/20 text-foreground">
-                  I can certainly help you with that! The <strong className="text-primary font-semibold">{verified.name}</strong> is currently available at {verified.price} with immediate dispatch. Would you like me to reserve one in your cart?
-                </div>
-              </div>
-
-              {/* Customer followup */}
-              <div className="flex gap-2.5 items-start">
-                <div className="w-6 h-6 rounded bg-surface-high border border-border flex items-center justify-center font-bold text-[10px] text-muted-foreground flex-shrink-0 mt-0.5">
-                  {s?.initial ?? 'C'}
-                </div>
-                <div className="flex-1 rounded-md rounded-tl-none p-3 bg-surface-low border border-border text-foreground">
-                  Yes please, also what is the estimated delivery time?
+                <div className="flex gap-2.5 items-start flex-row-reverse">
+                  <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">
+                    O
+                  </div>
+                  <div className="flex-1 rounded-md rounded-tr-none p-3 bg-primary/10 border border-primary/20 text-foreground">
+                    I can help with that! Looking up availability and checking our active catalog...
+                  </div>
                 </div>
               </div>
-
-              {/* Typing indicator */}
-              <div className="flex gap-2.5 items-center flex-row-reverse">
-                <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                  O
-                </div>
-                <div className="rounded-md rounded-tr-none px-3 py-2 bg-primary/10 border border-primary/20 flex items-center gap-1.5 text-xs text-primary font-medium">
-                  <span className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
-                  </span>
-                  <span>ORA is calculating route & replying...</span>
-                </div>
-              </div>
-            </div>
+            )}
           </section>
 
         </div>
@@ -196,3 +235,4 @@ export function DetailDrawer({ open, session, onClose }: DetailDrawerProps) {
     </div>
   );
 }
+

@@ -6,6 +6,7 @@ import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
 import { Conversation, ConversationSchema } from '../conversations/schemas/conversation.schema';
 import { Subscription, SubscriptionSchema } from '../billing/schemas/subscription.schema';
+import { Event, EventSchema } from '../events/schemas/event.schema';
 
 @Module({
   imports: [
@@ -14,9 +15,12 @@ import { Subscription, SubscriptionSchema } from '../billing/schemas/subscriptio
       { name: Order.name, schema: OrderSchema },
       { name: Conversation.name, schema: ConversationSchema },
       { name: Subscription.name, schema: SubscriptionSchema },
+      { name: Event.name, schema: EventSchema },
     ]),
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
+  exports: [DashboardService],
 })
 export class DashboardModule {}
+

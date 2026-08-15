@@ -14,27 +14,16 @@ import {
   TrendingUp,
   DollarSign,
 } from 'lucide-react';
-import { getDashboardStatsApi } from '@/services/dashboard-service';
-import { Order } from '@/services/orders-service';
-import { Conversation } from '@/services/conversations-service';
+import {
+  getDashboardStatsApi,
+  DashboardStatsResponse,
+} from '@/services/dashboard-service';
 import { demoOrders, demoConversations, demoProfile } from '@/lib/demo-data';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
 import { HeroStatusCard } from './hero-status-card';
 import { RevenueChart } from './revenue-chart';
 import { SalesFunnel } from './sales-funnel';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface OverviewStats {
-  productTotal: number;
-  orderTotal: number;
-  conversationTotal: number;
-  planName: string | null;
-  planStatus: string | null;
-  recentOrders: Order[];
-  recentConversations: Conversation[];
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -67,7 +56,7 @@ const convStatusConfig: Record<string, { bg: string; text: string; label: string
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function OverviewClient() {
-  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('');
@@ -93,8 +82,22 @@ export function OverviewClient() {
           productTotal: d.productTotal ?? 0,
           orderTotal: d.orderTotal ?? 0,
           conversationTotal: d.conversationTotal ?? 0,
+          activeChats: d.activeChats ?? 0,
+          activeVoiceCalls: d.activeVoiceCalls ?? 0,
+          totalRevenue: d.totalRevenue ?? 0,
+          revenueTrend: d.revenueTrend ?? '+0.0%',
+          ordersTrend: d.ordersTrend ?? '+0.0%',
+          conversationsTrend: d.conversationsTrend ?? '+0.0%',
           planName: d.planName ?? null,
           planStatus: d.planStatus ?? null,
+          revenueTimeseries: d.revenueTimeseries ?? {
+            daily: [],
+            weekly: [],
+            growthRate: '+0.0%',
+            totalRevenue: 0,
+          },
+          funnel: d.funnel ?? [],
+          overallConversion: d.overallConversion ?? 0,
           recentOrders: d.recentOrders?.length > 0 ? d.recentOrders : demoOrders,
           recentConversations:
             d.recentConversations?.length > 0 ? d.recentConversations : demoConversations,
@@ -139,15 +142,15 @@ export function OverviewClient() {
       label: 'Assisted Orders',
       value: stats.orderTotal.toLocaleString(),
       icon: <ShoppingCart size={16} />,
-      trend: '+12.4%',
+      trend: stats.ordersTrend,
       meta: 'Converted orders',
       href: '/live-desk',
     },
     {
       label: 'Revenue Influenced',
-      value: '$24,820',
+      value: formatCurrency(stats.totalRevenue),
       icon: <DollarSign size={16} />,
-      trend: '+18.4%',
+      trend: stats.revenueTrend,
       meta: 'Direct checkout sales',
       href: '/billing',
     },
@@ -155,7 +158,7 @@ export function OverviewClient() {
       label: 'Conversations',
       value: stats.conversationTotal.toLocaleString(),
       icon: <MessageSquareText size={16} />,
-      trend: '+8.1%',
+      trend: stats.conversationsTrend,
       meta: 'Customer interactions',
       href: '/conversations',
     },
@@ -217,9 +220,9 @@ export function OverviewClient() {
 
         {/* ── Row 1: Hero Store Status Card ───────────────────────────── */}
         <HeroStatusCard
-          activeConversations={12}
-          voiceSessions={3}
-          productsCount={stats.productTotal || 412}
+          activeConversations={stats.activeChats}
+          voiceSessions={stats.activeVoiceCalls}
+          productsCount={stats.productTotal}
         />
 
         {/* ── Row 2: Key Metric Cards ──────────────────────────────────── */}
@@ -243,7 +246,13 @@ export function OverviewClient() {
                   {card.value}
                 </p>
                 {card.trend && (
-                  <span className="text-[10px] font-bold text-[color:var(--status-online)]">
+                  <span
+                    className={`text-[10px] font-bold ${
+                      card.trend.startsWith('-')
+                        ? 'text-[color:var(--status-error)]'
+                        : 'text-[color:var(--status-online)]'
+                    }`}
+                  >
                     {card.trend}
                   </span>
                 )}
@@ -257,12 +266,20 @@ export function OverviewClient() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
           {/* Revenue Chart (7 cols) */}
           <div className="xl:col-span-7">
-            <RevenueChart />
+            <RevenueChart
+              daily={stats.revenueTimeseries?.daily}
+              weekly={stats.revenueTimeseries?.weekly}
+              growthRate={stats.revenueTrend}
+              totalRevenue={stats.totalRevenue}
+            />
           </div>
 
           {/* Sales Funnel (5 cols) */}
           <div className="xl:col-span-5">
-            <SalesFunnel />
+            <SalesFunnel
+              funnel={stats.funnel}
+              overallConversion={stats.overallConversion}
+            />
           </div>
         </div>
 
@@ -273,6 +290,7 @@ export function OverviewClient() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {quickActions.map((action) => (
+
               <Link
                 key={action.id}
                 id={action.id}

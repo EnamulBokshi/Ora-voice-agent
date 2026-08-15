@@ -14,4 +14,15 @@ export class DashboardController {
   async getStats(@CurrentUser() user: JwtPayloadUser) {
     return this.dashboardService.getStats(user.businessId);
   }
+
+  @Get('revenue-analytics')
+  async getRevenueAnalytics(@CurrentUser() user: JwtPayloadUser) {
+    return this.dashboardService.getRevenueAnalytics(user.businessId);
+  }
+
+  @Get('funnel-analytics')
+  async getFunnelAnalytics(@CurrentUser() user: JwtPayloadUser) {
+    return this.dashboardService.getFunnelAnalytics(user.businessId);
+  }
 }
+
