@@ -33,7 +33,7 @@ export class AuthController {
       ip: req.ip,
     });
 
-    this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId);
+    this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
     return {
       accessToken: result.tokens.accessToken,
@@ -54,7 +54,7 @@ export class AuthController {
       ip: req.ip,
     });
 
-    this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId);
+    this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
     return {
       accessToken: result.tokens.accessToken,
@@ -78,7 +78,7 @@ export class AuthController {
         ip: req.ip,
       });
 
-      this.setAuthCookies(res, tokens.refreshToken, sessionId);
+      this.setAuthCookies(res, tokens.refreshToken, sessionId, tokens.role);
 
       return {
         accessToken: tokens.accessToken,
@@ -130,6 +130,7 @@ export class AuthController {
     res: Response,
     refreshToken: string,
     sessionId: string,
+    userRole?: string,
   ) {
     const isProd = process.env.NODE_ENV === 'production';
     const cookieOptions = {
@@ -142,6 +143,12 @@ export class AuthController {
 
     res.cookie('refreshToken', refreshToken, cookieOptions);
     res.cookie('sessionId', sessionId, cookieOptions);
+    if (userRole) {
+      res.cookie('userRole', userRole, {
+        ...cookieOptions,
+        httpOnly: false,
+      });
+    }
   }
 
   private clearAuthCookies(res: Response) {
@@ -155,6 +162,7 @@ export class AuthController {
 
     res.clearCookie('refreshToken', cookieOptions);
     res.clearCookie('sessionId', cookieOptions);
+    res.clearCookie('userRole', { ...cookieOptions, httpOnly: false });
   }
 
 }

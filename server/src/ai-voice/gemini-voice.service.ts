@@ -1,15 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import WebSocket from 'ws';
 import { ORA_TOOL_DECLARATIONS } from './tools/ai-tools.definition';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { AgentConfigService } from '../agent-config/agent-config.service';
+import { ProductsService } from '../products/products.service';
 
 export interface GeminiVoiceSessionOptions {
   businessId: string;
   sessionId: string;
   onAudioData: (base64AudioPcm: string) => void;
   onTextData?: (text: string) => void;
+  /** Called when Gemini signals a barge-in / interruption */
+  onInterrupted?: () => void;
+  /** Called when Gemini signals the agent has finished its turn */
+  onTurnComplete?: () => void;
+  /** Called after each tool is executed server-side (toolName for UI hints only) */
+  onToolResult?: (toolName: string) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
 }
@@ -18,10 +25,14 @@ export interface GeminiVoiceSessionOptions {
 export class GeminiVoiceService {
   private readonly logger = new Logger(GeminiVoiceService.name);
 
+  private readonly instructionCache = new Map<string, { instruction: string; expiresAt: number }>();
+
   constructor(
     private readonly configService: ConfigService,
     private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly agentConfigService: AgentConfigService,
+    @Optional()
+    private readonly productsService?: ProductsService,
   ) { }
 
   async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<{
@@ -61,39 +72,9 @@ export class GeminiVoiceService {
     const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
     const ws = new WebSocket(uri);
 
-    // Fetch merchant agent prompt configuration
-    let merchantBrandVoice = '';
-    try {
-      const agentConfig = await this.agentConfigService.getConfig(
-        options.businessId,
-      );
-      if (agentConfig?.config?.brandVoiceDescription) {
-        merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
-      }
-    } catch {
-      // Fallback — no custom brand voice
-    }
-
-    const systemInstructionText = [
-      'You are ORA, a friendly and professional AI voice sales assistant for an e-commerce store.',
-      merchantBrandVoice,
-      '',
-      'CRITICAL RULES FOR YOUR BEHAVIOR:',
-      '1. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
-      '2. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
-      '3. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
-      '4. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
-      '5. When asked for a random product or general browse, search once with a broad term. If nothing comes back, say "The catalog appears to be empty right now."',
-      '6. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
-      '7. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
-      '8. If the customer speaks a language other than English, try to respond in their language.',
-      '',
-      'TOOLS:',
-      '- Use find_products to search the product catalog. Always use it when a customer asks about products.',
-      '- Use add_to_cart to add items to the shopping cart.',
-      '- Use place_order to complete a purchase from the cart.',
-      '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
-    ].join('\n');
+    const systemInstructionText = await this.buildSystemInstruction(
+      options.businessId,
+    );
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
@@ -169,6 +150,16 @@ export class GeminiVoiceService {
             return;
           }
 
+          // Barge-in / interruption signal
+          if (response.serverContent?.interrupted) {
+            options.onInterrupted?.();
+          }
+
+          // Turn complete signal
+          if (response.serverContent?.turnComplete) {
+            options.onTurnComplete?.();
+          }
+
           // Process audio & text output from model
           if (response.serverContent?.modelTurn?.parts) {
             for (const part of response.serverContent.modelTurn.parts) {
@@ -218,6 +209,9 @@ export class GeminiVoiceService {
                       products: [],
                     };
                   }
+
+                  // Notify proxy gateway for UI-only hint (no tool data sent to client)
+                  options.onToolResult?.(call.name);
 
                   return {
                     id: call.id,
@@ -329,5 +323,80 @@ export class GeminiVoiceService {
         },
       };
     });
+  }
+
+  async buildSystemInstruction(businessId: string): Promise<string> {
+    const cached = this.instructionCache.get(businessId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.instruction;
+    }
+
+    let merchantBrandVoice = '';
+    try {
+      const agentConfig = await this.agentConfigService.getConfig(businessId);
+      if (agentConfig?.config?.brandVoiceDescription) {
+        merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
+      }
+    } catch {
+      // Fallback — no custom brand voice
+    }
+
+    let catalogSummary = '';
+    try {
+      if (this.productsService) {
+        const productsRes = await this.productsService.findAll(businessId, { limit: 15 });
+        if (productsRes.items.length > 0) {
+          const categories = Array.from(
+            new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
+          );
+          const sampleNames = productsRes.items
+            .slice(0, 8)
+            .map((p) => `${p.name} (${p.currency || 'BDT'} ${p.price})`)
+            .join(', ');
+          catalogSummary = `\nStore Catalog Knowledge:\n- Categories Available: ${categories.join(', ')}\n- Featured Inventory Items: ${sampleNames}\n- Total Catalog Size: ${productsRes.pagination.total} items\n- When asked for products or recommendations, search using find_products tool.`;
+        }
+      }
+    } catch {
+      // Fallback — proceed without catalog summary
+    }
+
+
+    // console.log(merchantBrandVoice);
+    console.log(catalogSummary);
+
+    const instruction = [
+      'You are ORA, a friendly and professional AI voice sales assistant for an e-commerce store.',
+      merchantBrandVoice,
+      catalogSummary,
+      '',
+      'CRITICAL RULES FOR YOUR BEHAVIOR:',
+      '1. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
+      '2. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
+      '3. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
+      '4. When a tool returns products, mention the product names and prices clearly to the customer.',
+      '5. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
+      '6. When asked what we sell or for a general browse, tell the customer about the store categories or search once with find_products.',
+      '7. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
+      '8. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
+      '9. If the customer speaks Bengali or another language, respond in their language.',
+      '',
+      'TOOLS:',
+      '- Use find_products to search the product catalog. Always use it whenever the customer asks about products, pricing, availability, or recommendations.',
+      '- Use add_to_cart to add items to the shopping cart.',
+      '- Use place_order to complete a purchase from the cart.',
+      '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
+    ].join('\n');
+
+    // Cache for 5 minutes
+    this.instructionCache.set(businessId, {
+      instruction,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    });
+
+    return instruction;
+  }
+
+  getToolDeclarations() {
+    return ORA_TOOL_DECLARATIONS;
   }
 }

@@ -1,10 +1,12 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
@@ -12,10 +14,14 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRole } from '../users/enums/admin-role.enum';
+import { AdminUserQueryDto } from './dto/admin-user-query.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
+import { AdminUserActionDto } from './dto/admin-user-action.dto';
+import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(AdminRole.SUPER_ADMIN)
+@Roles(AdminRole.SUPER_ADMIN, AdminRole.ADMIN)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -48,13 +54,36 @@ export class AdminController {
   }
 
   @Get('users')
-  async getUsers(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('role') role?: string,
-    @Query('search') search?: string,
+  async getUsers(@Query() query: AdminUserQueryDto) {
+    return this.adminService.getUsers(query);
+  }
+
+  @Get('users/:id')
+  async getUserById(@Param('id') id: string) {
+    return this.adminService.getUserById(id);
+  }
+
+  @Post('users')
+  async createPlatformUser(@Body() dto: CreatePlatformUserDto) {
+    return this.adminService.createPlatformUser(dto);
+  }
+
+  @Patch('users/:id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() dto: UpdateAdminUserDto,
   ) {
-    return this.adminService.getUsers({ page, limit, role, search });
+    return this.adminService.updateUser(id, dto);
+  }
+
+  @Post('users/:id/action')
+  async executeUserAction(
+    @Param('id') id: string,
+    @Body() dto: AdminUserActionDto,
+    @Req() req: any,
+  ) {
+    const currentUserId = req?.user?.adminUserId || req?.user?.sub;
+    return this.adminService.executeUserAction(id, dto, currentUserId);
   }
 
   @Get('voice-sessions')
@@ -67,4 +96,5 @@ export class AdminController {
     return this.adminService.getSystemHealth();
   }
 }
+
 
