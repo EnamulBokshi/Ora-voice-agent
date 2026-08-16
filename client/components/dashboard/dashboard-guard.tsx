@@ -36,8 +36,8 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
           // Merchant/store operators (owner, staff)
           setIsAuthorized(true);
         } else {
-          // Regular 'user' role or unprivileged account cannot access store dashboard
-          router.replace('/');
+          // Regular 'user' role or unsubscribed account must select a plan -> redirect to /pricing
+          router.replace('/pricing');
         }
       } catch {
         if (!mounted) return;

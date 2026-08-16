@@ -26,6 +26,7 @@ export const LogoutButton: React.FC<LogoutButtonProps> = ({
     } finally {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
+        document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
         window.location.href = '/auth';
       }
     }

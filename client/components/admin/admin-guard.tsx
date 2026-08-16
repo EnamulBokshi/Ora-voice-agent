@@ -37,8 +37,8 @@ export function AdminGuard({ children }: AdminGuardProps) {
           // Merchant attempting to access /admin -> redirect to /dashboard
           router.replace('/dashboard');
         } else {
-          // Regular 'user' role cannot access /admin -> redirect to /
-          router.replace('/');
+          // Regular 'user' role cannot access /admin -> redirect to /pricing
+          router.replace('/pricing');
         }
       } catch (err) {
         if (!mounted) return;

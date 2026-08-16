@@ -58,16 +58,17 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // 3. Authenticated user attempting to access /auth -> Redirect based on role
+  // 3. Authenticated user attempting to access /auth -> Redirect active roles (admin/owner/staff)
   const hasFromParam = request.nextUrl.searchParams.has('from');
-  if (isAuthRoute && isAuthenticated && !hasFromParam) {
-    let target = '/dashboard';
+  const hasModeParam = request.nextUrl.searchParams.has('mode');
+  if (isAuthRoute && isAuthenticated && !hasFromParam && !hasModeParam) {
     if (userRole === 'admin' || userRole === 'super_admin') {
-      target = '/admin';
-    } else if (userRole === 'user') {
-      target = '/pricing';
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
-    return NextResponse.redirect(new URL(target, request.url));
+    if (userRole === 'owner' || userRole === 'staff') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    // Unsubscribed 'user' role is allowed to view /auth (e.g. to sign up, sign in, or switch accounts)
   }
 
   // 4. Proxy /api requests to NestJS backend on port 5000

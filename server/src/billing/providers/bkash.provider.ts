@@ -4,6 +4,7 @@ import {
   PaymentProvider,
   ProviderSubscriptionRef,
   ChargeResult,
+  CustomerBillingDetails,
 } from './payment-provider.interface';
 import { DomainException } from '../../common/exceptions/domain.exception';
 
@@ -284,6 +285,7 @@ export class BkashProvider implements PaymentProvider {
   async createSubscription(
     businessId: string,
     planId: string,
+    customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef> {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';

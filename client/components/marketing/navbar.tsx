@@ -14,18 +14,27 @@ export function MarketingNavbar() {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    if (typeof window !== 'undefined' && localStorage.getItem('accessToken')) {
-      getMeApi()
-        .then((data) => {
-          if (data?.user) {
-            setIsLoggedIn(true);
-            setUserRole(data.user.role);
-          }
-        })
-        .catch(() => {
-          setIsLoggedIn(false);
-          setUserRole(null);
-        });
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        getMeApi(token)
+          .then((data) => {
+            if (data?.user) {
+              setIsLoggedIn(true);
+              setUserRole(data.user.role);
+            } else {
+              setIsLoggedIn(false);
+              setUserRole(null);
+            }
+          })
+          .catch(() => {
+            setIsLoggedIn(false);
+            setUserRole(null);
+          });
+      } else {
+        setIsLoggedIn(false);
+        setUserRole(null);
+      }
     }
 
     return () => window.removeEventListener('scroll', onScroll);
@@ -36,7 +45,7 @@ export function MarketingNavbar() {
     if (userRole === 'admin' || userRole === 'super_admin') return '/admin';
     if (userRole === 'owner' || userRole === 'staff') return '/dashboard';
     if (userRole === 'user') return '/pricing';
-    return '/pricing';
+    return '/auth';
   };
 
   const getCtaLabel = () => {

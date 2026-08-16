@@ -98,7 +98,11 @@ export class BillingService implements OnModuleInit {
     };
   }
 
-  async subscribe(businessId: string, dto: SubscribeDto) {
+  async subscribe(
+    businessId: string,
+    dto: SubscribeDto,
+    userContext?: { email?: string; name?: string; userId?: string },
+  ) {
     const plan = await this.planModel.findOne({ planId: dto.planId }).exec();
     if (!plan) {
       throw new DomainException(
@@ -109,6 +113,20 @@ export class BillingService implements OnModuleInit {
     }
 
     const bId = businessId as any;
+
+    // Resolve user details for billing provider customer record
+    let customerEmail = userContext?.email;
+    let customerName = userContext?.name;
+
+    if (!customerEmail || !customerName) {
+      const user = userContext?.userId
+        ? await this.adminUserModel.findById(userContext.userId).exec()
+        : await this.adminUserModel.findOne({ businessId: bId }).sort({ createdAt: 1 }).exec();
+      if (user) {
+        customerEmail = customerEmail || user.email;
+        customerName = customerName || user.name;
+      }
+    }
 
     // 1. Handle Free Tier Subscription (0 cost — instant activation)
     if (dto.planId === PlanId.FREE || (plan.priceUsdCents === 0 && plan.priceBdtPaisa === 0)) {
@@ -157,7 +175,10 @@ export class BillingService implements OnModuleInit {
 
     // 2. Handle bKash Subscription Initiation
     if (dto.billingProvider === BillingProvider.BKASH) {
-      const subRef = await this.bkashProvider.createSubscription(businessId, dto.planId);
+      const subRef = await this.bkashProvider.createSubscription(businessId, dto.planId, {
+        email: customerEmail,
+        name: customerName,
+      });
       
       let bkashURL = '';
       let paymentID = '';
@@ -181,7 +202,10 @@ export class BillingService implements OnModuleInit {
     }
 
     // 3. Handle Stripe Subscription Flow
-    const subRef = await this.stripeProvider.createSubscription(businessId, dto.planId);
+    const subRef = await this.stripeProvider.createSubscription(businessId, dto.planId, {
+      email: customerEmail,
+      name: customerName,
+    });
 
     // If Stripe created an online Hosted Checkout URL
     if (

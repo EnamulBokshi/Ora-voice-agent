@@ -302,7 +302,7 @@ export function PricingPageClient() {
             }}
           >
             {plans.map((plan) => {
-              const isGrowth = plan.planId === 'growth';
+              const isSelected = requestedPlan ? plan.planId === requestedPlan : plan.planId === 'growth';
               const isScale = plan.planId === 'scale';
               const isSubscribing = subscribingId === plan.planId;
               const price = getPlanPriceDisplay(plan);
@@ -316,16 +316,16 @@ export function PricingPageClient() {
                     display: 'flex',
                     flexDirection: 'column',
                     padding: '2.5rem 2rem',
-                    backgroundColor: isGrowth ? 'var(--lp-dark-elevated)' : 'var(--lp-bg-white)',
-                    border: isGrowth ? '2px solid var(--lp-primary)' : '1px solid var(--lp-border)',
-                    boxShadow: isGrowth
+                    backgroundColor: isSelected ? 'var(--lp-dark-elevated)' : 'var(--lp-bg-white)',
+                    border: isSelected ? '2px solid var(--lp-primary)' : '1px solid var(--lp-border)',
+                    boxShadow: isSelected
                       ? '0 12px 36px -8px rgba(200, 240, 49, 0.18)'
                       : 'var(--lp-shadow-card)',
                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                   }}
                 >
-                  {/* Floating Most Popular Badge */}
-                  {isGrowth && (
+                  {/* Floating Most Popular / Selected Badge */}
+                  {isSelected && (
                     <div
                       style={{
                         position: 'absolute',
@@ -345,7 +345,7 @@ export function PricingPageClient() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      Most Popular
+                      {requestedPlan === plan.planId ? 'Selected Plan' : 'Most Popular'}
                     </div>
                   )}
 
@@ -370,7 +370,7 @@ export function PricingPageClient() {
                         minHeight: '2.5rem',
                       }}
                     >
-                      {isGrowth
+                      {plan.planId === 'growth'
                         ? 'For growing e-commerce stores wanting autonomous voice conversions.'
                         : isScale
                         ? 'For high-volume merchants demanding unlimited voice scale.'
@@ -480,10 +480,10 @@ export function PricingPageClient() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '0.5rem',
-                      border: isGrowth ? 'none' : '1px solid var(--lp-border)',
-                      backgroundColor: isGrowth ? 'var(--lp-primary)' : 'var(--lp-dark)',
-                      color: isGrowth ? 'var(--lp-dark)' : '#ffffff',
-                      boxShadow: isGrowth ? '0 4px 16px rgba(200, 240, 49, 0.35)' : 'none',
+                      border: isSelected ? 'none' : '1px solid var(--lp-border)',
+                      backgroundColor: isSelected ? 'var(--lp-primary)' : 'var(--lp-dark)',
+                      color: isSelected ? 'var(--lp-dark)' : '#ffffff',
+                      boxShadow: isSelected ? '0 4px 16px rgba(200, 240, 49, 0.35)' : 'none',
                       transition: 'all 0.15s ease',
                       opacity: isSubscribing ? 0.7 : 1,
                     }}
@@ -500,7 +500,7 @@ export function PricingPageClient() {
                       </>
                     ) : userRole === 'user' ? (
                       <>
-                        Subscribe & Activate Store
+                        {plan.planId === 'free' ? 'Activate Free Tier' : 'Subscribe & Activate Store'}
                         <Zap size={15} />
                       </>
                     ) : (

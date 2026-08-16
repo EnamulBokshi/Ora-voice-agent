@@ -5,6 +5,7 @@ import {
   PaymentProvider,
   ProviderSubscriptionRef,
   ChargeResult,
+  CustomerBillingDetails,
 } from './payment-provider.interface';
 
 @Injectable()
@@ -30,22 +31,45 @@ export class StripeProvider implements PaymentProvider {
   async createSubscription(
     businessId: string,
     planId: string,
+    customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef> {
     this.logger.log(
-      `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId})`,
+      `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId}, email: ${customerDetails?.email || 'unspecified'})`,
     );
 
     if (this.stripe) {
       try {
-        const customer = await this.stripe.customers.create({
-          metadata: { businessId },
-        });
+        let customer: Stripe.Customer | undefined;
+
+        // 1. Search for existing Stripe customer by email if provided
+        if (customerDetails?.email) {
+          const existing = await this.stripe.customers.list({
+            email: customerDetails.email,
+            limit: 1,
+          });
+          if (existing.data && existing.data.length > 0) {
+            customer = existing.data[0];
+          }
+        }
+
+        // 2. Create customer with email, name, and business metadata if not found
+        if (!customer) {
+          customer = await this.stripe.customers.create({
+            email: customerDetails?.email,
+            name: customerDetails?.name,
+            metadata: { businessId },
+          });
+        }
 
         const frontendUrl =
           this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
         const session = await this.stripe.checkout.sessions.create({
           customer: customer.id,
+          customer_update: {
+            name: 'auto',
+            address: 'auto',
+          },
           payment_method_types: ['card'],
           mode: 'subscription',
           line_items: [

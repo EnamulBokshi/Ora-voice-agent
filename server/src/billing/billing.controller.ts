@@ -48,7 +48,10 @@ export class BillingController {
     @CurrentUser() user: JwtPayloadUser,
     @Body() dto: SubscribeDto,
   ) {
-    return this.billingService.subscribe(user.businessId, dto);
+    return this.billingService.subscribe(user.businessId, dto, {
+      email: user.email,
+      userId: user.sub,
+    });
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
