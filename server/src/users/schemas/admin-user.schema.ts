@@ -34,7 +34,7 @@ export class AdminUser {
     type: String,
     required: true,
     enum: Object.values(AdminRole),
-    default: AdminRole.OWNER,
+    default: AdminRole.USER,
   })
   role: AdminRole;
 

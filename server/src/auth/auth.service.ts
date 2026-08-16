@@ -61,7 +61,7 @@ export class AuthService {
       email: dto.email,
       passwordHash,
       name: dto.name,
-      role: AdminRole.OWNER,
+      role: AdminRole.USER,
     });
 
     // Generate 6-digit OTP
@@ -295,20 +295,24 @@ export class AuthService {
       );
     }
 
+    const user = await this.usersService.findById(session.adminUserId);
+    const activeRole = user?.role || session.role;
+
     // Generate new rotated refresh token & new access token
     const newTokens = await this.generateTokens(
       session.adminUserId,
       session.businessId,
       session.email,
-      session.role,
+      activeRole,
       sessionId,
     );
 
     const newRefreshTokenHash = await bcrypt.hash(newTokens.refreshToken, 10);
 
-    // Update session in Redis with rotated refresh token hash
+    // Update session in Redis with rotated refresh token hash and active role
     await this.redisService.setSession(sessionId, {
       ...session,
+      role: activeRole,
       refreshTokenHash: newRefreshTokenHash,
       userAgent: reqInfo.userAgent || session.userAgent,
       ip: reqInfo.ip || session.ip,

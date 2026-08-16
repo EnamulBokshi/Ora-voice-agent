@@ -41,7 +41,7 @@ export class UsersService {
       email: params.email.toLowerCase(),
       passwordHash: params.passwordHash,
       name: params.name,
-      role: params.role || AdminRole.OWNER,
+      role: params.role || AdminRole.USER,
       emailVerified: false,
     });
 

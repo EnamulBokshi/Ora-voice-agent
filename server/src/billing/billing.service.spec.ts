@@ -4,6 +4,7 @@ import { BillingService } from './billing.service';
 import { Plan } from './schemas/plan.schema';
 import { Subscription } from './schemas/subscription.schema';
 import { PaymentTransaction } from './schemas/payment-transaction.schema';
+import { AdminUser } from '../users/schemas/admin-user.schema';
 import { StripeProvider } from './providers/stripe.provider';
 import { BkashProvider } from './providers/bkash.provider';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -37,6 +38,12 @@ describe('BillingService', () => {
           provide: getModelToken(PaymentTransaction.name),
           useValue: {
             save: jest.fn(),
+          },
+        },
+        {
+          provide: getModelToken(AdminUser.name),
+          useValue: {
+            updateMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) }),
           },
         },
         {

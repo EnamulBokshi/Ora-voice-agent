@@ -29,7 +29,7 @@ describe('AuthService', () => {
     email: 'merchant@acme.com',
     passwordHash: '$2a$10$e8W/X2...mockhash',
     name: 'Jane Doe',
-    role: AdminRole.OWNER,
+    role: AdminRole.USER,
     emailVerified: false,
     pendingOtpHash: '$2a$10$mockotphash',
     otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),

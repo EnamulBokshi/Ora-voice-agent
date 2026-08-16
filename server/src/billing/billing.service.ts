@@ -19,6 +19,8 @@ import { BkashProvider } from './providers/bkash.provider';
 import { InvoicesService } from '../invoices/invoices.service';
 import { RedisService } from '../common/redis/redis.service';
 import { DomainException } from '../common/exceptions/domain.exception';
+import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
+import { AdminRole } from '../users/enums/admin-role.enum';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -31,6 +33,8 @@ export class BillingService implements OnModuleInit {
     private readonly subscriptionModel: Model<SubscriptionDocument>,
     @InjectModel(PaymentTransaction.name)
     private readonly transactionModel: Model<PaymentTransactionDocument>,
+    @InjectModel(AdminUser.name)
+    private readonly adminUserModel: Model<AdminUserDocument>,
     private readonly stripeProvider: StripeProvider,
     private readonly bkashProvider: BkashProvider,
     private readonly invoicesService: InvoicesService,
@@ -164,6 +168,12 @@ export class BillingService implements OnModuleInit {
       currency: 'USD',
     });
 
+    // Upgrade subscriber role from 'user' to 'owner' upon active subscription
+    await this.adminUserModel.updateMany(
+      { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+      { $set: { role: AdminRole.OWNER } },
+    ).exec();
+
     return {
       subscription: sub,
       transaction,
@@ -238,6 +248,12 @@ export class BillingService implements OnModuleInit {
       amountBdtPaisa: plan.priceBdtPaisa,
       currency: 'BDT',
     });
+
+    // Upgrade subscriber role from 'user' to 'owner' upon active bKash agreement
+    await this.adminUserModel.updateMany(
+      { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+      { $set: { role: AdminRole.OWNER } },
+    ).exec();
 
     return {
       success: true,
