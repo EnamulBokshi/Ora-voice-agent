@@ -1,7 +1,7 @@
 import { Injectable, HttpStatus, Logger, Inject, forwardRef, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { KnowledgeBase, KnowledgeBaseDocument } from './schemas/knowledge-base.schema';
+import { KnowledgeBase, KnowledgeBaseDocument, DocType } from './schemas/knowledge-base.schema';
 import { KnowledgeChunk, KnowledgeChunkDocument } from './schemas/knowledge-chunk.schema';
 import { CreateKnowledgeDocDto } from './dto/create-knowledge-doc.dto';
 import { UpdateKnowledgeDocDto } from './dto/update-knowledge-doc.dto';
@@ -382,6 +382,81 @@ export class KnowledgeService {
   }
 
   /**
+   * Idempotently upserts an extracted knowledge document (policy, FAQ, service description)
+   * avoiding duplicate documents, unnecessary writes, and redundant vector re-embeddings.
+   */
+  async upsertExtractedDoc(
+    businessId: string,
+    doc: {
+      title: string;
+      category: 'policy' | 'faq' | 'general' | 'services' | 'pricing';
+      markdown: string;
+      sourceUrl?: string;
+      contentHash?: string;
+    },
+  ): Promise<{ document: KnowledgeBaseDocument; updated: boolean; chunksCount: number }> {
+    const docType = this.mapCategoryToDocType(doc.category);
+
+    // Look for existing document by sourceUrl or (businessId + exact title + docType)
+    const existing = await this.knowledgeBaseModel
+      .findOne({
+        businessId: businessId as any,
+        $or: [
+          ...(doc.sourceUrl ? [{ sourceUrl: doc.sourceUrl }] : []),
+          { title: doc.title, docType },
+        ],
+      })
+      .exec();
+
+    if (existing) {
+      // Content hash check to prevent redundant writes and re-embeddings
+      if (
+        existing.metadata?.contentHash === doc.contentHash ||
+        existing.content.trim() === doc.markdown.trim()
+      ) {
+        this.logger.debug(
+          `[KnowledgeService] Skipping unchanged knowledge doc '${doc.title}' (${existing._id})`,
+        );
+        return { document: existing, updated: false, chunksCount: 0 };
+      }
+
+      // Content changed - update and re-embed chunks
+      const result = await this.update(businessId, existing._id.toString(), {
+        title: doc.title,
+        content: doc.markdown,
+        metadata: { ...existing.metadata, contentHash: doc.contentHash },
+      });
+
+      return { document: result.document, updated: true, chunksCount: result.chunksCount || 0 };
+    }
+
+    // New document
+    const created = await this.create(businessId, {
+      title: doc.title,
+      docType,
+      content: doc.markdown,
+      sourceUrl: doc.sourceUrl,
+      metadata: { contentHash: doc.contentHash },
+    });
+
+    return { document: created.document, updated: true, chunksCount: created.chunksCount };
+  }
+
+  private mapCategoryToDocType(category: string): DocType {
+    switch (category) {
+      case 'policy':
+        return DocType.POLICY;
+      case 'faq':
+        return DocType.FAQ;
+      case 'services':
+      case 'pricing':
+        return DocType.SALES_PLAYBOOK;
+      default:
+        return DocType.BRAND_RULE;
+    }
+  }
+
+  /**
    * Chunks text into ~500 character snippets with 50 character overlap
    */
   private chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
@@ -419,3 +494,4 @@ export class KnowledgeService {
     return chunks;
   }
 }
+

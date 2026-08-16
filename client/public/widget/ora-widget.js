@@ -147,6 +147,102 @@
     return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ '/g, "'");
   }
 
+  // ─── Storefront DOM & JSON-LD Extractor ────────────────────────────────────
+  function extractPageContext() {
+    try {
+      var context = {
+        url: window.location.href,
+        title: document.title,
+        pathname: window.location.pathname,
+        isProductPage: false,
+        product: null
+      };
+
+      // 1. Check Schema.org JSON-LD
+      var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var i = 0; i < ldScripts.length; i++) {
+        try {
+          var parsed = JSON.parse(ldScripts[i].innerText || '{}');
+          var items = Array.isArray(parsed) ? parsed : [parsed];
+          var flattened = items.flatMap(function(x) { return x && x['@graph'] ? x['@graph'] : [x]; });
+          var prod = flattened.find(function(node) {
+            return node && node['@type'] && (node['@type'] === 'Product' || (Array.isArray(node['@type']) && node['@type'].includes('Product')));
+          });
+          if (prod) {
+            var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
+            context.isProductPage = true;
+            context.product = {
+              name: prod.name || document.title,
+              price: offer && offer.price ? Number(offer.price) : null,
+              currency: offer && offer.priceCurrency ? offer.priceCurrency : 'USD',
+              availability: offer && /instock/i.test(offer.availability || '') ? 'in_stock' : 'unknown',
+              sku: prod.sku || null
+            };
+            break;
+          }
+        } catch (e) {}
+      }
+
+      // 2. OpenGraph / Meta Fallback
+      if (!context.product) {
+        var ogTitle = document.querySelector('meta[property="og:title"]');
+        var ogPrice = document.querySelector('meta[property="og:price:amount"]') || document.querySelector('meta[property="product:price:amount"]');
+        var ogCurrency = document.querySelector('meta[property="og:price:currency"]') || document.querySelector('meta[property="product:price:currency"]');
+        if (ogTitle && ogPrice) {
+          context.isProductPage = true;
+          context.product = {
+            name: ogTitle.getAttribute('content') || document.title,
+            price: Number(ogPrice.getAttribute('content')),
+            currency: ogCurrency ? ogCurrency.getAttribute('content') : 'USD',
+            availability: 'in_stock'
+          };
+        }
+      }
+
+      return context;
+    } catch (err) {
+      return { url: window.location.href, title: document.title };
+    }
+  }
+
+  function triggerPassiveStorefrontSync() {
+    try {
+      var ctx = extractPageContext();
+      if (!ctx || !ctx.product) return;
+      var cacheKey = '__ora_synced_' + ctx.url;
+      if (window.sessionStorage && window.sessionStorage.getItem(cacheKey)) return;
+
+      if (window.sessionStorage) window.sessionStorage.setItem(cacheKey, '1');
+
+      if (apiBase) {
+        fetch(apiBase + '/api/v1/ingestion/passive', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-publishable-key': publishableKey,
+          },
+          body: JSON.stringify({
+            nativeProductId: ctx.product.sku || 'dom_' + Math.abs(ctx.url.split('').reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(36),
+            name: ctx.product.name,
+            description: (document.querySelector('meta[name="description"]') && document.querySelector('meta[name="description"]').getAttribute('content')) || '',
+            price: ctx.product.price || 0,
+            category: 'General',
+            attributes: { sourceUrl: ctx.url, currency: ctx.product.currency }
+          })
+        }).catch(function() {});
+      }
+    } catch (e) {}
+  }
+
+  // Trigger passive storefront context sync on load
+  if (typeof window !== 'undefined') {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(function () { triggerPassiveStorefrontSync(); });
+    } else {
+      setTimeout(triggerPassiveStorefrontSync, 1500);
+    }
+  }
+
   // ─── Inject CSS ─────────────────────────────────────────────────────────────
   const styleEl = document.createElement('style');
   styleEl.textContent = `
@@ -907,6 +1003,13 @@
 
       ws.onopen = function () {
         console.log('[ORA Widget] ⚡ Connected to ORA Voice Proxy.');
+        try {
+          var pageCtx = extractPageContext();
+          ws.send(JSON.stringify({
+            type: 'page_context',
+            data: pageCtx
+          }));
+        } catch (e) {}
       };
 
       ws.onmessage = async function (event) {

@@ -188,6 +188,26 @@ export class IngestionController {
     );
   }
 
+  /**
+   * Sync from Website URL / Deep Storefront Crawler Endpoint.
+   * Auto-detects platform, fast-syncs catalog/policies, and crawls public sitemaps.
+   */
+  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @Post('crawl-store')
+  @HttpCode(HttpStatus.OK)
+  async crawlStore(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: { domain: string },
+  ) {
+    if (!dto.domain) {
+      throw new BadRequestException('A valid website domain or URL is required.');
+    }
+    return this.sitemapCrawlerService.syncFromWebsite({
+      businessId: user.businessId,
+      domain: dto.domain,
+    });
+  }
+
   // Tier 4 Custom Endpoint Field Mapping
   @UseGuards(JwtAuthGuard, TenantScopeGuard)
   @Post('manual')
@@ -202,3 +222,4 @@ export class IngestionController {
     );
   }
 }
+
