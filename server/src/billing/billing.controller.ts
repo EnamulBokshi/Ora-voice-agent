@@ -91,10 +91,10 @@ export class BillingController {
     @Req() req: Request,
     @Headers() headers: Record<string, string>,
   ) {
-    const rawBody = req.body;
-    const isValid = this.stripeProvider.verifyWebhookSignature(rawBody, headers);
-    if (isValid) {
-      await this.billingService.handleStripeWebhookEvent(rawBody);
+    const rawBody = (req as any).rawBody || req.body;
+    const event = this.stripeProvider.constructWebhookEvent(rawBody, headers, req.body);
+    if (event) {
+      await this.billingService.handleStripeWebhookEvent(event);
     }
     return { received: true };
   }

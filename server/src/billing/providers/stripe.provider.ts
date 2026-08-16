@@ -85,7 +85,7 @@ export class StripeProvider implements PaymentProvider {
               quantity: 1,
             },
           ],
-          success_url: `${frontendUrl}/billing?session_id={CHECKOUT_SESSION_ID}&status=success`,
+          success_url: `${frontendUrl}/pricing?session_id={CHECKOUT_SESSION_ID}&status=success`,
           cancel_url: `${frontendUrl}/pricing?canceled=true`,
           metadata: { businessId, planId },
         });
@@ -135,24 +135,41 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
-  verifyWebhookSignature(
-    rawBody: Buffer,
+  constructWebhookEvent(
+    rawBody: Buffer | string | any,
     headers: Record<string, string>,
-  ): boolean {
+    fallbackBody?: any,
+  ): Stripe.Event | null {
     const signature = headers['stripe-signature'];
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
 
-    if (!webhookSecret || webhookSecret.includes('replace_with') || !signature || !this.stripe) {
-      return true; // Bypass signature verification in local development mode
+    if (!this.stripe) {
+      this.logger.warn('[StripeProvider] Stripe SDK is not initialized, using fallback body.');
+      return fallbackBody || (typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody);
+    }
+
+    if (!webhookSecret || webhookSecret.includes('replace_with') || !signature) {
+      return fallbackBody || (Buffer.isBuffer(rawBody) ? JSON.parse(rawBody.toString('utf8')) : rawBody);
     }
 
     try {
-      this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-      return true;
+      const payload = Buffer.isBuffer(rawBody)
+        ? rawBody
+        : typeof rawBody === 'string'
+        ? rawBody
+        : Buffer.from(JSON.stringify(rawBody));
+      return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
     } catch (err: any) {
       this.logger.error(`[StripeProvider] Webhook signature verification failed: ${err.message}`);
-      return false;
+      return null;
     }
+  }
+
+  verifyWebhookSignature(
+    rawBody: Buffer | string | any,
+    headers: Record<string, string>,
+  ): boolean {
+    return this.constructWebhookEvent(rawBody, headers) !== null;
   }
 
   async handleWebhookEvent(payload: any): Promise<void> {

@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, Sparkles, Shield, Zap, ArrowRight, Loader2, CheckCircle2, Globe, CreditCard } from 'lucide-react';
+import { Check, Sparkles, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard } from 'lucide-react';
 import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
-import { getMeApi } from '@/services/auth-service';
+import { getMeApi, refreshApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
 
@@ -12,6 +12,9 @@ export function PricingPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get('plan');
+  const statusParam = searchParams.get('status');
+  const canceledParam = searchParams.get('canceled');
+  const sessionIdParam = searchParams.get('session_id');
 
   const [provider, setProvider] = useState<'stripe' | 'bkash'>('stripe');
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -21,6 +24,7 @@ export function PricingPageClient() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // 1. Fetch plans
@@ -47,7 +51,35 @@ export function PricingPageClient() {
           });
       }
     }
-  }, []);
+
+    // 3. Handle incoming Stripe / Gateway return callback
+    if (statusParam === 'success' || sessionIdParam) {
+      setSuccessMessage('🎉 Payment & subscription confirmed! Activating your merchant dashboard...');
+      setErrorMessage(null);
+      if (typeof document !== 'undefined') {
+        const isProd = process.env.NODE_ENV === 'production';
+        document.cookie = `userRole=owner; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
+      }
+      setUserRole('owner');
+
+      // Refresh JWT token to owner payload
+      refreshApi()
+        .then((refreshRes) => {
+          if (refreshRes?.accessToken && typeof window !== 'undefined') {
+            localStorage.setItem('accessToken', refreshRes.accessToken);
+          }
+        })
+        .catch(() => null);
+
+      const timer = setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 2500);
+      return () => clearTimeout(timer);
+    } else if (canceledParam === 'true' || statusParam === 'canceled') {
+      setErrorMessage('Subscription checkout was canceled or incomplete. You can select a plan at any time.');
+      setSuccessMessage(null);
+    }
+  }, [statusParam, sessionIdParam, canceledParam]);
 
   const handleSelectPlan = async (plan: Plan) => {
     // If not logged in -> redirect to auth with return params
@@ -58,6 +90,7 @@ export function PricingPageClient() {
 
     setSubscribingId(plan.planId);
     setSuccessMessage(null);
+    setErrorMessage(null);
 
     try {
       const res = await subscribePlanApi({
@@ -85,15 +118,24 @@ export function PricingPageClient() {
 
       setUserRole('owner');
       setSuccessMessage(
-        `🎉 Congratulations! You have successfully subscribed to the ${plan.name}. Your account is now active.`
+        `🎉 Congratulations! You have successfully subscribed to the ${plan.name}. Redirecting to your dashboard...`
       );
+
+      // Refresh JWT token to owner payload
+      refreshApi()
+        .then((refreshRes) => {
+          if (refreshRes?.accessToken && typeof window !== 'undefined') {
+            localStorage.setItem('accessToken', refreshRes.accessToken);
+          }
+        })
+        .catch(() => null);
 
       // Brief delay to display celebration toast, then navigate to dashboard
       setTimeout(() => {
         window.location.href = '/dashboard';
-      }, 1500);
+      }, 2500);
     } catch (err: any) {
-      alert(err?.message || 'Subscription initiation failed. Please try again.');
+      setErrorMessage(err?.message || 'Subscription initiation failed. Please try again.');
     } finally {
       setSubscribingId(null);
     }
@@ -140,11 +182,46 @@ export function PricingPageClient() {
               alignItems: 'center',
               gap: '1rem',
               color: 'var(--lp-text-primary)',
+              animation: 'fadeIn 0.3s ease-out',
             }}
           >
             <CheckCircle2 style={{ color: 'var(--lp-primary)', flexShrink: 0 }} size={24} />
             <div style={{ flex: 1, fontWeight: 600, fontSize: '0.9375rem' }}>{successMessage}</div>
             <Loader2 className="animate-spin" style={{ color: 'var(--lp-primary)' }} size={20} />
+          </div>
+        )}
+
+        {/* Error Banner */}
+        {errorMessage && (
+          <div
+            style={{
+              marginBottom: '2.5rem',
+              padding: '1.25rem 1.5rem',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--lp-radius-xl)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              color: '#ef4444',
+              animation: 'fadeIn 0.3s ease-out',
+            }}
+          >
+            <AlertCircle style={{ color: '#ef4444', flexShrink: 0 }} size={24} />
+            <div style={{ flex: 1, fontWeight: 600, fontSize: '0.9375rem' }}>{errorMessage}</div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'currentColor',
+                cursor: 'pointer',
+                opacity: 0.7,
+              }}
+            >
+              <XCircle size={18} />
+            </button>
           </div>
         )}
 
