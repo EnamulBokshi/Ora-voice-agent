@@ -197,7 +197,8 @@ export class IngestionController {
    * Sync from Website URL / Deep Storefront Crawler Endpoint.
    * Auto-detects platform, fast-syncs catalog/policies, and crawls public sitemaps.
    */
-  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('crawl-store')
   @HttpCode(HttpStatus.OK)
   async crawlStore(
