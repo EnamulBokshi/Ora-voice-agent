@@ -8,6 +8,7 @@ import { getMeApi } from '@/services/auth-service';
 export function MarketingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -16,13 +17,33 @@ export function MarketingNavbar() {
     if (typeof window !== 'undefined' && localStorage.getItem('accessToken')) {
       getMeApi()
         .then((data) => {
-          if (data?.user) setIsLoggedIn(true);
+          if (data?.user) {
+            setIsLoggedIn(true);
+            setUserRole(data.user.role);
+          }
         })
-        .catch(() => setIsLoggedIn(false));
+        .catch(() => {
+          setIsLoggedIn(false);
+          setUserRole(null);
+        });
     }
 
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const getCtaLink = () => {
+    if (!isLoggedIn) return '/auth';
+    if (userRole === 'admin' || userRole === 'super_admin') return '/admin';
+    if (userRole === 'owner' || userRole === 'staff') return '/dashboard';
+    return '/';
+  };
+
+  const getCtaLabel = () => {
+    if (!isLoggedIn) return 'Get Started';
+    if (userRole === 'admin' || userRole === 'super_admin') return 'Admin Portal';
+    if (userRole === 'owner' || userRole === 'staff') return 'Dashboard';
+    return 'Home';
+  };
 
   return (
     <header className={`lp-navbar${scrolled ? ' scrolled' : ''}`} role="banner">
@@ -54,11 +75,11 @@ export function MarketingNavbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ThemeToggle />
           <Link
-            href={isLoggedIn ? '/dashboard' : '/auth'}
+            href={getCtaLink()}
             className="lp-btn-primary lp-nav-cta"
             id="nav-get-started-cta"
           >
-            {isLoggedIn ? 'Dashboard' : 'Get Started'}
+            {getCtaLabel()}
           </Link>
         </div>
       </div>

@@ -20,6 +20,7 @@ import { AdminRole } from '../users/enums/admin-role.enum';
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+  role?: string;
 }
 
 @Injectable()
@@ -304,7 +305,10 @@ export class AuthService {
       ip: reqInfo.ip || session.ip,
     });
 
-    return newTokens;
+    return {
+      ...newTokens,
+      role: session.role,
+    };
   }
 
   async logout(sessionId: string) {

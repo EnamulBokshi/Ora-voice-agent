@@ -11,8 +11,11 @@ export interface GeminiVoiceSessionOptions {
   sessionId: string;
   onAudioData: (base64AudioPcm: string) => void;
   onTextData?: (text: string) => void;
+  /** Called when Gemini signals a barge-in / interruption */
   onInterrupted?: () => void;
+  /** Called when Gemini signals the agent has finished its turn */
   onTurnComplete?: () => void;
+  /** Called after each tool is executed server-side (toolName for UI hints only) */
   onToolResult?: (toolName: string) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
@@ -27,8 +30,9 @@ export class GeminiVoiceService {
     private readonly configService: ConfigService,
     private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly agentConfigService: AgentConfigService,
-    @Optional() private readonly productsService?: ProductsService,
-  ) {}
+    @Optional()
+    private readonly productsService?: ProductsService,
+  ) { }
 
   async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<{
     sendAudioChunk: (base64Pcm16k: string) => void;
@@ -67,7 +71,9 @@ export class GeminiVoiceService {
     const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
     const ws = new WebSocket(uri);
 
-    const systemInstructionText = await this.buildSystemInstruction(options.businessId);
+    const systemInstructionText = await this.buildSystemInstruction(
+      options.businessId,
+    );
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
@@ -186,12 +192,12 @@ export class GeminiVoiceService {
             return;
           }
 
-          // Handle interruption signal from Gemini
+          // Barge-in / interruption signal
           if (response.serverContent?.interrupted) {
             options.onInterrupted?.();
           }
 
-          // Handle turn complete signal
+          // Turn complete signal
           if (response.serverContent?.turnComplete) {
             options.onTurnComplete?.();
           }

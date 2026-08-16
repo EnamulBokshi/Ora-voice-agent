@@ -19,19 +19,26 @@ export function AdminGuard({ children }: AdminGuardProps) {
   useEffect(() => {
     let mounted = true;
 
-    async function checkSuperAdmin() {
+    async function checkAdminAccess() {
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
         const profile = await getMeApi(token || undefined);
 
         if (!mounted) return;
 
-        if (profile?.user?.role === 'super_admin') {
+        const role = profile?.user?.role;
+        const isAdminUser = role === 'admin' || role === 'super_admin';
+        const isMerchantUser = role === 'owner' || role === 'staff';
+
+        if (isAdminUser) {
           setUser(profile.user);
           setIsAuthorized(true);
-        } else {
-          // Merchant or non-admin attempting to access /admin
+        } else if (isMerchantUser) {
+          // Merchant attempting to access /admin -> redirect to /dashboard
           router.replace('/dashboard');
+        } else {
+          // Regular 'user' role cannot access /admin -> redirect to /
+          router.replace('/');
         }
       } catch (err) {
         if (!mounted) return;
@@ -41,7 +48,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
       }
     }
 
-    checkSuperAdmin();
+    checkAdminAccess();
 
     return () => {
       mounted = false;
@@ -57,7 +64,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
           </div>
           <div className="text-center">
             <h3 className="text-sm font-semibold tracking-wider text-foreground">
-              VERIFYING SUPERADMIN PRIVILEGES
+              VERIFYING ADMINISTRATOR PRIVILEGES
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Authenticating session with ORA Global Access Gateway...
@@ -75,7 +82,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
           <ShieldAlert className="h-10 w-10 text-destructive" />
           <h2 className="text-base font-bold text-foreground">Access Restricted</h2>
           <p className="text-xs text-muted-foreground">
-            This sector is strictly reserved for ORA Platform SuperAdministrators. Redirecting you to your store dashboard...
+            This sector is strictly reserved for ORA Platform Administrators. Redirecting you to your store dashboard...
           </p>
         </div>
       </div>
@@ -84,3 +91,4 @@ export function AdminGuard({ children }: AdminGuardProps) {
 
   return <>{children}</>;
 }
+

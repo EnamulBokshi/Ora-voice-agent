@@ -118,6 +118,51 @@ Implementation of the provider-abstracted subscription billing engine supporting
 
 ---
 
+## 🟢 Phase 7: Store Performance & Overview Analytics (COMPLETED)
+
+### Overview
+Primary merchant overview analytics engine aggregating catalog totals, order counts, conversation volume, live active sessions, total revenue, weekly trends, revenue timeseries (daily/weekly), sales funnel stages, and recent activity.
+
+### Implemented Components
+
+| Component / Layer | Location | Status | Details |
+|---|---|---|---|
+| **Dashboard Controller** | `server/src/dashboard/dashboard.controller.ts` | Completed | Endpoints: `GET /api/v1/dashboard/stats`, `GET /api/v1/dashboard/revenue-analytics`, `GET /api/v1/dashboard/funnel-analytics`. |
+| **Dashboard Service** | `server/src/dashboard/dashboard.service.ts` | Completed | Aggregation pipelines for 7-day/4-week revenue timeseries, 4-stage conversion funnels, and real-time activity feeds. |
+
+---
+
+## 🟢 Phase 8: Real-Time Live Desk & Telemetry Command Center (COMPLETED)
+
+### Overview
+Live real-time telemetry command center providing operational health diagnostics, active Gemini voice sessions, streaming shopper activity feeds with intent state classification (`searching`, `comparing`, `cart`, `checking`, `idle`), and rolling 1-hour conversion metrics.
+
+### Implemented Components
+
+| Component / Layer | Location | Status | Details |
+|---|---|---|---|
+| **Live Desk Controller** | `server/src/live-desk/live-desk.controller.ts` | Completed | Endpoints: `GET /api/v1/live-desk/stats`, `GET /api/v1/live-desk/activity-feed`, `GET /api/v1/live-desk/voice-sessions`, `GET /api/v1/live-desk/sales-conversions`, `GET /api/v1/live-desk/system-health`. |
+| **Live Desk Service** | `server/src/live-desk/live-desk.service.ts` | Completed | Intent classification engine, rolling 1-hour deltas, and live latency diagnostics. |
+
+---
+
+## 🟡 Phase 9: SuperAdmin Platform Command Center & Users/Subscribers Management (ACTIVE / IN PROGRESS)
+
+### Overview
+Global cross-tenant SuperAdmin command center providing platform MRR/ARR telemetry, merchant directory, infrastructure diagnostics, and an enriched **Users & Subscribers** management engine supporting the 5-role taxonomy (`super_admin`, `owner`, `admin`, `staff`, `user`).
+
+### Target & Implemented Components
+
+| Component / Layer | Location | Status | Details |
+|---|---|---|---|
+| **Admin Controller** | `server/src/admin/admin.controller.ts` | In Progress | Endpoints: `GET /api/v1/admin/stats`, `GET /api/v1/admin/businesses`, `GET /api/v1/admin/businesses/:id`, `PATCH /api/v1/admin/businesses/:id/status`, `GET /api/v1/admin/users`, `GET /api/v1/admin/users/:id`, `POST /api/v1/admin/users`, `PATCH /api/v1/admin/users/:id`, `POST /api/v1/admin/users/:id/action`, `GET /api/v1/admin/voice-sessions`, `GET /api/v1/admin/system/health`. |
+| **Admin Service** | `server/src/admin/admin.service.ts` | In Progress | Subscriber metadata enrichment (`planId`, `planName`, `billingProvider`, `isSubscriber`), executive KPI stats, single user drilldown, profile updates, account action dispatcher (`suspend`, `activate`, `resend_otp`, `revoke_sessions`, `delete`), and direct user provisioning. |
+| **Admin DTOs** | `server/src/admin/dto/` | Completed | `AdminUserQueryDto`, `UpdateAdminUserDto`, `AdminUserActionDto`, `CreatePlatformUserDto` supporting 5-role validation (`super_admin`, `owner`, `admin`, `staff`, `user`). |
+| **Admin Role Enum** | `server/src/users/enums/admin-role.enum.ts` | In Progress | Expanded to support `super_admin`, `owner`, `admin`, `staff`, and `user`. |
+| **Admin Frontend Console** | `client/app/admin/users/`, `client/components/admin/` | In Progress | KPI summary stat cards, subscriber/plan badges, user drilldown modal, and action menus. |
+
+---
+
 ### Verification Summary
 - **Build Status**: Passed (`pnpm --filter server build`)
 - **Unit & Integration Test Suites**: **18 passed (25 tests total)**:
@@ -133,3 +178,4 @@ Implementation of the provider-abstracted subscription billing engine supporting
   - `ai-tools.executor.spec.ts`
   - `bkash.provider.spec.ts`, `billing.service.spec.ts`, `invoices.service.spec.ts`
   - `app.controller.spec.ts`
+

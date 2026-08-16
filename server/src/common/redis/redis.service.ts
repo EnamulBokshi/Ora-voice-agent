@@ -70,6 +70,31 @@ export class RedisService implements OnModuleDestroy {
     await this.redisClient.del(key);
   }
 
+  async revokeUserSessions(adminUserId: string): Promise<number> {
+    try {
+      const keys = await this.redisClient.keys('session:*');
+      let count = 0;
+      for (const key of keys) {
+        const raw = await this.redisClient.get(key);
+        if (raw) {
+          try {
+            const data = JSON.parse(raw);
+            if (data.adminUserId === adminUserId) {
+              await this.redisClient.del(key);
+              count++;
+            }
+          } catch {
+            // ignore JSON parse error
+          }
+        }
+      }
+      return count;
+    } catch (err: any) {
+      this.logger.warn(`Failed to scan/revoke user sessions: ${err.message}`);
+      return 0;
+    }
+  }
+
   onModuleDestroy() {
     this.redisClient.disconnect();
   }

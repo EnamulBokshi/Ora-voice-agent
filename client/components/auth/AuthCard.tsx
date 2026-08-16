@@ -7,6 +7,7 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { OtpVerificationForm } from './OtpVerificationForm';
 import { AuthResponseData } from '@/types/auth';
+import { getMeApi } from '@/services/auth-service';
 
 export const AuthCard: React.FC = () => {
   const searchParams = useSearchParams();
@@ -15,6 +16,17 @@ export const AuthCard: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'register' | 'otp'>('register');
   const [sessionToken, setSessionToken] = useState<string | undefined>(undefined);
   const [registeredEmail, setRegisteredEmail] = useState<string | undefined>(undefined);
+
+  const resolveTargetUrl = (role?: string) => {
+    if (role === 'admin' || role === 'super_admin') {
+      return redirectTarget.startsWith('/admin') ? redirectTarget : '/admin';
+    }
+    if (role === 'owner' || role === 'staff') {
+      return redirectTarget.startsWith('/admin') ? '/dashboard' : redirectTarget;
+    }
+    // 'user' role cannot access admin or dashboard -> redirect to home
+    return '/';
+  };
 
   const handleRegisterSuccess = (data: AuthResponseData) => {
     setSessionToken(data.accessToken);
@@ -26,8 +38,7 @@ export const AuthCard: React.FC = () => {
     if (!data.user.emailVerified) {
       setMode('otp');
     } else {
-      const target = data.user.role === 'super_admin' ? '/admin' : redirectTarget;
-      window.location.href = target;
+      window.location.href = resolveTargetUrl(data.user.role);
     }
   };
 
@@ -35,15 +46,17 @@ export const AuthCard: React.FC = () => {
     if (typeof window !== 'undefined' && data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
     }
-    if (data.user.role === 'super_admin') {
-      window.location.href = redirectTarget === '/dashboard' ? '/admin' : redirectTarget;
-    } else {
-      window.location.href = redirectTarget.startsWith('/admin') ? '/dashboard' : redirectTarget;
-    }
+    window.location.href = resolveTargetUrl(data.user.role);
   };
 
-  const handleOtpVerifiedSuccess = () => {
-    window.location.href = redirectTarget;
+  const handleOtpVerifiedSuccess = async () => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : sessionToken;
+      const profile = await getMeApi(token || undefined);
+      window.location.href = resolveTargetUrl(profile?.user?.role);
+    } catch {
+      window.location.href = resolveTargetUrl();
+    }
   };
 
   return (
