@@ -11,10 +11,16 @@ export interface ChargeResult {
   errorMessage?: string;
 }
 
+export interface CustomerBillingDetails {
+  email?: string;
+  name?: string;
+}
+
 export interface PaymentProvider {
   createSubscription(
     businessId: string,
     planId: string,
+    customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef>;
   cancelSubscription(ref: ProviderSubscriptionRef): Promise<void>;
   chargeRenewal(ref: ProviderSubscriptionRef): Promise<ChargeResult>;

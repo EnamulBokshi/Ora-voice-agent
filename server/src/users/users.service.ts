@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
@@ -7,7 +7,9 @@ import { Business, BusinessDocument } from './schemas/business.schema';
 import { AdminRole } from './enums/admin-role.enum';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectModel(AdminUser.name)
     private readonly adminUserModel: Model<AdminUserDocument>,
@@ -15,10 +17,46 @@ export class UsersService {
     private readonly businessModel: Model<BusinessDocument>,
   ) {}
 
+  async onModuleInit() {
+    try {
+      // 1. Heal any existing business records that have null or missing publishableKey
+      const businessesWithoutKey = await this.businessModel
+        .find({
+          $or: [
+            { publishableKey: null },
+            { publishableKey: { $exists: false } },
+            { publishableKey: '' },
+          ],
+        })
+        .exec();
+
+      if (businessesWithoutKey.length > 0) {
+        this.logger.log(
+          `[UsersService] Healing ${businessesWithoutKey.length} business document(s) with missing publishableKey...`,
+        );
+        for (const biz of businessesWithoutKey) {
+          const randomHex = crypto.randomBytes(12).toString('hex');
+          biz.publishableKey = `biz_live_${randomHex}`;
+          await biz.save();
+        }
+      }
+
+      // 2. Drop legacy non-sparse index and ensure sparse unique index exists
+      await this.businessModel.collection.dropIndex('publishableKey_1').catch(() => null);
+      await this.businessModel.collection
+        .createIndex({ publishableKey: 1 }, { unique: true, sparse: true })
+        .catch(() => null);
+    } catch (err: any) {
+      this.logger.warn(`[UsersService] Index initialization hint: ${err.message}`);
+    }
+  }
+
   async createBusiness(name: string, domain?: string): Promise<BusinessDocument> {
+    const randomHex = crypto.randomBytes(12).toString('hex');
     const business = new this.businessModel({
       name,
       domain,
+      publishableKey: `biz_live_${randomHex}`,
       status: 'pending',
     });
 

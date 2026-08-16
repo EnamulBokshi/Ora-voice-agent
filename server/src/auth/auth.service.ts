@@ -315,7 +315,7 @@ export class AuthService {
 
     return {
       ...newTokens,
-      role: session.role,
+      role: activeRole,
     };
   }
 
