@@ -21,6 +21,8 @@
     "seed:admin": "ts-node scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -33,12 +35,16 @@
     "@nestjs/websockets": "^11.1.29",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.41.0",
+    "cheerio": "^1.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "csv-parse": "^7.0.2",
     "ejs": "^3.1.10",
+    "fast-xml-parser": "^5.11.0",
     "ioredis": "^6.0.0",
+    "jsdom": "^30.0.1",
     "mongoose": "^9.9.2",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.5",
@@ -50,6 +56,7 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
     "stripe": "^22.5.0",
+    "turndown": "^7.2.4",
     "ws": "^8.21.3",
     "xlsx": "^0.18.5"
   },
@@ -65,11 +72,14 @@
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/jsdom": "^30.0.0",
+    "@types/mozilla__readability": "^0.4.2",
     "@types/multer": "^2.2.0",
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.0.0",
+    "@types/turndown": "^5.0.6",
     "@types/ws": "^8.18.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -101,7 +111,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(@exodus|html-encoding-sniffer)/)"
+    ]
   },
   "pnpm": {
     "onlyBuiltDependencies": [

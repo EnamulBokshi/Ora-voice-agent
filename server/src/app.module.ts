@@ -1,6 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BullModule } from '@nestjs/bullmq';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -39,6 +40,17 @@ import { AdminModule } from './admin/admin.module';
         uri:
           configService.get<string>('MONGODB_URI') ||
           'mongodb://localhost:27017/ora',
+      }),
+    }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: Number(configService.get<number>('REDIS_PORT')) || 6379,
+          password: configService.get<string>('REDIS_PASSWORD') || undefined,
+        },
       }),
     }),
     RedisModule,
