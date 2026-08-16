@@ -67,9 +67,9 @@ export class ConversationGateway
       return;
     }
 
-    const business = await this.businessModel.findOne({ publishableKey }).exec();
+    const business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
     if (!business) {
-      client.emit('error', { message: 'Invalid publishable widget key.' });
+      client.emit('error', { message: 'Invalid or inactive publishable widget key.' });
       return;
     }
 
@@ -106,9 +106,9 @@ export class ConversationGateway
       return;
     }
 
-    const business = await this.businessModel.findOne({ publishableKey }).exec();
+    const business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
     if (!business) {
-      client.emit('error', { message: 'Invalid publishable key.' });
+      client.emit('error', { message: 'Invalid or inactive publishable key.' });
       return;
     }
 

@@ -36,28 +36,13 @@ export class VoiceSessionController {
       dto.sessionId ||
       `ses_w_${Math.random().toString(36).substring(2, 9)}`;
 
-    let business = await this.businessModel
-      .findOne({ publishableKey })
+    const business = await this.businessModel
+      .findOne({ publishableKey, status: 'active' })
       .exec();
-
-    // Fallback to active merchant if publishable key not found
-    if (!business) {
-      business = await this.businessModel
-        .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
-        .sort({ createdAt: -1 })
-        .exec();
-    }
-
-    if (!business) {
-      business = await this.businessModel
-        .findOne({})
-        .sort({ createdAt: -1 })
-        .exec();
-    }
 
     if (!business) {
       throw new NotFoundException(
-        `Invalid publishable key: '${publishableKey}'. No active store found.`,
+        `Invalid or inactive publishable key: '${publishableKey}'. No active store found.`,
       );
     }
 

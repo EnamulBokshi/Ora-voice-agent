@@ -93,18 +93,7 @@ export class VoiceProxyGateway {
       businessId = cachedBiz.businessId;
       businessName = cachedBiz.name;
     } else {
-      let business = await this.businessModel.findOne({ publishableKey }).exec();
-
-      if (!business) {
-        business = await this.businessModel
-          .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
-          .sort({ createdAt: -1 })
-          .exec();
-      }
-
-      if (!business) {
-        business = await this.businessModel.findOne({}).sort({ createdAt: -1 }).exec();
-      }
+      const business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
       if (business) {
         const id = (business._id as any).toString();
@@ -119,7 +108,10 @@ export class VoiceProxyGateway {
     }
 
     if (!businessId) {
-      sendToClient({ type: 'error', message: 'Invalid publishable key. No active store found.' });
+      this.logger.warn(
+        `[VoiceProxyGateway] Connection rejected: invalid or inactive publishable key '${publishableKey}' for session ${sessionId}`,
+      );
+      sendToClient({ type: 'error', message: 'Invalid or inactive publishable key. Access denied.' });
       clientWs.close(1008, 'Invalid publishable key');
       return;
     }
