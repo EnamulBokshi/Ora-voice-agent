@@ -5,6 +5,8 @@ import { Plan } from './schemas/plan.schema';
 import { Subscription } from './schemas/subscription.schema';
 import { PaymentTransaction } from './schemas/payment-transaction.schema';
 import { AdminUser } from '../users/schemas/admin-user.schema';
+import { Business } from '../users/schemas/business.schema';
+import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
 import { StripeProvider } from './providers/stripe.provider';
 import { BkashProvider } from './providers/bkash.provider';
 import { InvoicesService } from '../invoices/invoices.service';
@@ -44,6 +46,19 @@ describe('BillingService', () => {
           provide: getModelToken(AdminUser.name),
           useValue: {
             updateMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) }),
+            findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+          },
+        },
+        {
+          provide: getModelToken(Business.name),
+          useValue: {
+            findById: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+          },
+        },
+        {
+          provide: OnboardingEmailService,
+          useValue: {
+            sendOnboardingEmail: jest.fn().mockResolvedValue({ success: true }),
           },
         },
         {

@@ -83,20 +83,6 @@ export class AuthService {
       expireMinutes: 10,
     });
 
-    // Send ORA Welcome & Integration credentials email
-    if (this.onboardingEmailService) {
-      this.onboardingEmailService
-        .sendOnboardingEmail({
-          toEmail: user.email,
-          merchantName: user.name,
-          storeName: business.name,
-          publishableKey: business.publishableKey,
-        })
-        .catch((err) =>
-          this.logger.warn(`[AuthService] Onboarding email delivery note: ${err.message}`),
-        );
-    }
-
     // Generate tokens & session
     const sessionId = crypto.randomUUID();
     const tokens = await this.generateTokens(

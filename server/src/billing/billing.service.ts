@@ -20,7 +20,9 @@ import { InvoicesService } from '../invoices/invoices.service';
 import { RedisService } from '../common/redis/redis.service';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
+import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
+import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -35,10 +37,13 @@ export class BillingService implements OnModuleInit {
     private readonly transactionModel: Model<PaymentTransactionDocument>,
     @InjectModel(AdminUser.name)
     private readonly adminUserModel: Model<AdminUserDocument>,
+    @InjectModel(Business.name)
+    private readonly businessModel: Model<BusinessDocument>,
     private readonly stripeProvider: StripeProvider,
     private readonly bkashProvider: BkashProvider,
     private readonly invoicesService: InvoicesService,
     private readonly redisService: RedisService,
+    private readonly onboardingEmailService: OnboardingEmailService,
   ) {}
 
   async onModuleInit() {
@@ -174,6 +179,9 @@ export class BillingService implements OnModuleInit {
       { $set: { role: AdminRole.OWNER } },
     ).exec();
 
+    // Dispatch ORA credentials & widget embed manual email to subscriber
+    await this.sendSubscriberWelcomeEmail(businessId);
+
     return {
       subscription: sub,
       transaction,
@@ -254,6 +262,9 @@ export class BillingService implements OnModuleInit {
       { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
       { $set: { role: AdminRole.OWNER } },
     ).exec();
+
+    // Dispatch ORA credentials & widget embed manual email to subscriber
+    await this.sendSubscriberWelcomeEmail(businessId);
 
     return {
       success: true,
@@ -432,4 +443,30 @@ export class BillingService implements OnModuleInit {
 
     await this.planModel.insertMany(defaultPlans);
   }
+
+  private async sendSubscriberWelcomeEmail(businessId: string) {
+    try {
+      const bId = businessId as any;
+      const [business, owner] = await Promise.all([
+        this.businessModel.findById(bId).exec(),
+        this.adminUserModel
+          .findOne({ businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } })
+          .exec(),
+      ]);
+
+      if (business && owner && this.onboardingEmailService) {
+        await this.onboardingEmailService.sendOnboardingEmail({
+          toEmail: owner.email,
+          merchantName: owner.name,
+          storeName: business.name,
+          publishableKey: business.publishableKey,
+        });
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `[BillingService] Failed to dispatch onboarding credentials email: ${err.message}`,
+      );
+    }
+  }
 }
+
