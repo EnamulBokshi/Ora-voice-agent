@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import * as nodemailer from 'nodemailer';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export interface OnboardingEmailPayload {
   toEmail: string;
@@ -113,8 +115,16 @@ export class OnboardingEmailService {
         <div class="step-desc">Open the Voice Sandbox in your dashboard to speak with ORA over your microphone and verify product discovery, pricing, and cart actions.</div>
       </div>
 
+      <div style="background-color: #1A1A1A; border: 1px dashed #C8F031; border-radius: 12px; padding: 20px; margin-top: 24px; text-align: center;">
+        <h4 style="color: #C8F031; margin: 0 0 8px 0; font-size: 15px;">📥 Official ORA Merchant Manual & Implementation Handbook</h4>
+        <p style="color: #9CA3AF; font-size: 13px; margin: 0 0 16px 0;">We've prepared an actionable step-by-step PDF & Markdown guide covering catalog sync, voice fine-tuning, Shopify/Woo embed, and conversion optimization.</p>
+        <a href="${frontendUrl}/docs/ORA-Merchant-Owner-Manual.md" target="_blank" style="display: inline-block; background-color: #222222; color: #FAFAFA; border: 1px solid #444444; font-weight: 600; font-size: 13px; padding: 10px 20px; border-radius: 8px; text-decoration: none; margin-right: 8px;">
+          📄 View / Download Manual (.md)
+        </a>
+      </div>
+
       <div style="text-align: center; margin-top: 28px;">
-        <a href="${frontendUrl}/agent" class="btn">Open ORA Dashboard & Sandbox</a>
+        <a href="${frontendUrl}/agent" class="btn">Launch ORA Command Center &rarr;</a>
       </div>
     </div>
 
@@ -127,6 +137,23 @@ export class OnboardingEmailService {
 </html>
     `;
 
+    // Resolve manual file buffer if available on disk
+    const candidateManualPaths = [
+      path.resolve(process.cwd(), '../docs/ORA-Merchant-Owner-Manual.md'),
+      path.resolve(process.cwd(), 'docs/ORA-Merchant-Owner-Manual.md'),
+      path.resolve(__dirname, '../../../../../docs/ORA-Merchant-Owner-Manual.md'),
+      path.resolve(process.cwd(), '../client/public/docs/ORA-Merchant-Owner-Manual.md'),
+    ];
+    let manualContentBuffer: Buffer | null = null;
+    for (const p of candidateManualPaths) {
+      if (fs.existsSync(p)) {
+        try {
+          manualContentBuffer = fs.readFileSync(p);
+          break;
+        } catch (e) {}
+      }
+    }
+
     // 1. Send via Resend if available
     if (this.resendClient) {
       try {
@@ -135,6 +162,16 @@ export class OnboardingEmailService {
           to: payload.toEmail,
           subject: `✦ Your ORA Voice AI Credentials & User Manual — ${payload.storeName}`,
           html: htmlContent,
+          ...(manualContentBuffer
+            ? {
+                attachments: [
+                  {
+                    filename: 'ORA-Merchant-Owner-Manual.md',
+                    content: manualContentBuffer,
+                  },
+                ],
+              }
+            : {}),
         });
 
         this.logger.log(
@@ -154,6 +191,16 @@ export class OnboardingEmailService {
           to: payload.toEmail,
           subject: `✦ Your ORA Voice AI Credentials & User Manual — ${payload.storeName}`,
           html: htmlContent,
+          ...(manualContentBuffer
+            ? {
+                attachments: [
+                  {
+                    filename: 'ORA-Merchant-Owner-Manual.md',
+                    content: manualContentBuffer,
+                  },
+                ],
+              }
+            : {}),
         });
 
         this.logger.log(
