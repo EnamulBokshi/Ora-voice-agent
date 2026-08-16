@@ -29,12 +29,15 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
     setSubscribingId(plan._id);
     try {
       const result = await subscribePlanApi({ planId: plan.planId, provider: 'stripe' });
-      if (result.clientSecret) {
-        // In production Stripe Checkout would be redirected; backend handles the rest.
-        onSubscribed();
-      } else {
-        onSubscribed();
+      if (result.requiresRedirect && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
       }
+      if (result.requiresRedirect && result.bkashURL) {
+        window.location.href = result.bkashURL;
+        return;
+      }
+      onSubscribed();
     } catch {
       // silent
     } finally {

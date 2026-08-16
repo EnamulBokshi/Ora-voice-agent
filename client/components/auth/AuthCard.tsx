@@ -24,8 +24,8 @@ export const AuthCard: React.FC = () => {
     if (role === 'owner' || role === 'staff') {
       return redirectTarget.startsWith('/admin') ? '/dashboard' : redirectTarget;
     }
-    // 'user' role cannot access admin or dashboard -> redirect to home
-    return '/';
+    // 'user' role cannot access admin or dashboard -> redirect to /pricing
+    return '/pricing';
   };
 
   const handleRegisterSuccess = (data: AuthResponseData) => {

@@ -150,6 +150,14 @@ export class AuthService {
       );
     }
 
+    if (!business.publishableKey) {
+      throw new DomainException(
+        'SUBSCRIPTION_REQUIRED',
+        'An active subscription is required before widget credentials can be generated and sent.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     if (this.onboardingEmailService) {
       await this.onboardingEmailService.sendOnboardingEmail({
         toEmail: user.email,

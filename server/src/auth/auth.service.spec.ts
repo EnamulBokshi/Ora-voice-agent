@@ -19,8 +19,8 @@ describe('AuthService', () => {
     _id: '507f1f77bcf86cd799439011',
     name: 'Acme Store',
     domain: 'acme.com',
-    publishableKey: 'biz_live_1234567890abcdef',
-    status: 'active',
+    publishableKey: undefined,
+    status: 'pending',
   };
 
   const mockUser = {

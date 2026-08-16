@@ -1,6 +1,8 @@
 import { Injectable, OnModuleInit, HttpStatus, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as crypto from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { Plan, PlanDocument, PlanId } from './schemas/plan.schema';
 import {
   Subscription,
@@ -18,6 +20,7 @@ import { StripeProvider } from './providers/stripe.provider';
 import { BkashProvider } from './providers/bkash.provider';
 import { InvoicesService } from '../invoices/invoices.service';
 import { RedisService } from '../common/redis/redis.service';
+import { MailService } from '../mail/mail.service';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
@@ -43,6 +46,8 @@ export class BillingService implements OnModuleInit {
     private readonly bkashProvider: BkashProvider,
     private readonly invoicesService: InvoicesService,
     private readonly redisService: RedisService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
     private readonly onboardingEmailService: OnboardingEmailService,
   ) {}
 
@@ -103,7 +108,54 @@ export class BillingService implements OnModuleInit {
       );
     }
 
-    // Handle bKash Subscription Initiation
+    const bId = businessId as any;
+
+    // 1. Handle Free Tier Subscription (0 cost — instant activation)
+    if (dto.planId === PlanId.FREE || (plan.priceUsdCents === 0 && plan.priceBdtPaisa === 0)) {
+      const periodStart = new Date();
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      const sub = await this.subscriptionModel.findOneAndUpdate(
+        { businessId: bId },
+        {
+          $set: {
+            planId: PlanId.FREE,
+            billingProvider: BillingProvider.STRIPE,
+            providerRef: 'free_tier',
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: false,
+          },
+        },
+        { upsert: true, returnDocument: 'after' },
+      ).exec();
+
+      // Activate business & generate key if needed
+      const business = await this.businessModel.findById(bId).exec();
+      if (business) {
+        if (!business.publishableKey) {
+          const randomHex = crypto.randomBytes(12).toString('hex');
+          business.publishableKey = `biz_live_${randomHex}`;
+        }
+        business.status = 'active';
+        await business.save();
+      }
+
+      // Upgrade subscriber role from 'user' to 'owner'
+      await this.adminUserModel.updateMany(
+        { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+        { $set: { role: AdminRole.OWNER } },
+      ).exec();
+
+      return {
+        requiresRedirect: false,
+        subscription: sub,
+        message: 'Free tier activated successfully.',
+      };
+    }
+
+    // 2. Handle bKash Subscription Initiation
     if (dto.billingProvider === BillingProvider.BKASH) {
       const subRef = await this.bkashProvider.createSubscription(businessId, dto.planId);
       
@@ -128,10 +180,24 @@ export class BillingService implements OnModuleInit {
       };
     }
 
-    // Handle Stripe Subscription Flow
+    // 3. Handle Stripe Subscription Flow
     const subRef = await this.stripeProvider.createSubscription(businessId, dto.planId);
 
-    const bId = businessId as any;
+    // If Stripe created an online Hosted Checkout URL
+    if (
+      subRef.providerRef &&
+      (subRef.providerRef.startsWith('http://') || subRef.providerRef.startsWith('https://'))
+    ) {
+      return {
+        requiresRedirect: true,
+        billingProvider: BillingProvider.STRIPE,
+        checkoutUrl: subRef.providerRef,
+        subscriptionId: subRef.subscriptionId,
+        message: 'Please complete subscription checkout on Stripe.',
+      };
+    }
+
+    // 4. Development / Mock fallback when Stripe credentials are not live
     const periodStart = new Date();
     const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -173,19 +239,32 @@ export class BillingService implements OnModuleInit {
       currency: 'USD',
     });
 
+    // Generate publishable key if none exists for this business & activate business
+    const business = await this.businessModel.findById(bId).exec();
+    if (business) {
+      if (!business.publishableKey) {
+        const randomHex = crypto.randomBytes(12).toString('hex');
+        business.publishableKey = `biz_live_${randomHex}`;
+      }
+      business.status = 'active';
+      await business.save();
+    }
+
     // Upgrade subscriber role from 'user' to 'owner' upon active subscription
     await this.adminUserModel.updateMany(
       { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
       { $set: { role: AdminRole.OWNER } },
     ).exec();
 
-    // Dispatch ORA credentials & widget embed manual email to subscriber
-    await this.sendSubscriberWelcomeEmail(businessId);
+    // Dispatch Congratulations email and ORA credentials & widget embed manual email
+    await this.sendSubscriberWelcomeEmail(businessId, plan.name);
 
     return {
+      requiresRedirect: false,
       subscription: sub,
       transaction,
       invoice,
+      message: 'Subscription activated in sandbox development mode.',
     };
   }
 
@@ -257,14 +336,25 @@ export class BillingService implements OnModuleInit {
       currency: 'BDT',
     });
 
+    // Generate publishable key if none exists for this business & activate business
+    const business = await this.businessModel.findById(bId).exec();
+    if (business) {
+      if (!business.publishableKey) {
+        const randomHex = crypto.randomBytes(12).toString('hex');
+        business.publishableKey = `biz_live_${randomHex}`;
+      }
+      business.status = 'active';
+      await business.save();
+    }
+
     // Upgrade subscriber role from 'user' to 'owner' upon active bKash agreement
     await this.adminUserModel.updateMany(
       { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
       { $set: { role: AdminRole.OWNER } },
     ).exec();
 
-    // Dispatch ORA credentials & widget embed manual email to subscriber
-    await this.sendSubscriberWelcomeEmail(businessId);
+    // Dispatch Congratulations email and ORA credentials & widget embed manual email
+    await this.sendSubscriberWelcomeEmail(businessId, plan.name);
 
     return {
       success: true,
@@ -444,7 +534,7 @@ export class BillingService implements OnModuleInit {
     await this.planModel.insertMany(defaultPlans);
   }
 
-  private async sendSubscriberWelcomeEmail(businessId: string) {
+  private async sendSubscriberWelcomeEmail(businessId: string, planName = 'Growth Plan') {
     try {
       const bId = businessId as any;
       const [business, owner] = await Promise.all([
@@ -454,19 +544,214 @@ export class BillingService implements OnModuleInit {
           .exec(),
       ]);
 
-      if (business && owner && this.onboardingEmailService) {
-        await this.onboardingEmailService.sendOnboardingEmail({
-          toEmail: owner.email,
-          merchantName: owner.name,
+      if (business && owner) {
+        const frontendUrl =
+          this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+        // 1. Dispatch Congratulations Email
+        await this.mailService.sendCongratulationsEmail(owner.email, {
+          recipientName: owner.name,
           storeName: business.name,
-          publishableKey: business.publishableKey,
+          planName: planName,
+          dashboardUrl: `${frontendUrl}/dashboard`,
         });
+
+        // 2. Dispatch ORA Voice AI Credentials & User Manual Email
+        if (this.onboardingEmailService && business.publishableKey) {
+          await this.onboardingEmailService.sendOnboardingEmail({
+            toEmail: owner.email,
+            merchantName: owner.name,
+            storeName: business.name,
+            publishableKey: business.publishableKey,
+          });
+        }
       }
     } catch (err: any) {
       this.logger.warn(
-        `[BillingService] Failed to dispatch onboarding credentials email: ${err.message}`,
+        `[BillingService] Failed to dispatch onboarding welcome/credentials emails: ${err.message}`,
       );
     }
   }
+
+  async handleStripeWebhookEvent(event: any): Promise<void> {
+    const eventType = event?.type;
+    const dataObject = event?.data?.object;
+
+    this.logger.log(`[BillingService] Processing Stripe webhook event: ${eventType}`);
+
+    switch (eventType) {
+      case 'checkout.session.completed': {
+        const session = dataObject;
+        const businessId = session.metadata?.businessId;
+        const planId = session.metadata?.planId || PlanId.GROWTH;
+        const subscriptionId = session.subscription || session.id;
+
+        if (!businessId) {
+          this.logger.warn(`[BillingService] checkout.session.completed missing businessId in metadata`);
+          return;
+        }
+
+        const plan = await this.planModel.findOne({ planId: planId as any }).exec();
+        const bId = businessId as any;
+        const periodStart = new Date();
+        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+        // 1. Activate or Upsert Subscription
+        const sub = await this.subscriptionModel.findOneAndUpdate(
+          { businessId: bId },
+          {
+            $set: {
+              planId: planId,
+              billingProvider: BillingProvider.STRIPE,
+              providerRef: subscriptionId,
+              status: SubscriptionStatus.ACTIVE,
+              currentPeriodStart: periodStart,
+              currentPeriodEnd: periodEnd,
+              cancelAtPeriodEnd: false,
+            },
+          },
+          { upsert: true, returnDocument: 'after' },
+        ).exec();
+
+        // 2. Record Payment Transaction
+        const amountUsd = session.amount_total ? session.amount_total / 100 : (plan ? plan.priceUsdCents / 100 : 49);
+        const transaction = await new this.transactionModel({
+          businessId: bId,
+          subscriptionId: sub._id as any,
+          billingProvider: BillingProvider.STRIPE,
+          providerTransactionId: session.payment_intent || session.id,
+          amount: amountUsd,
+          currency: 'USD',
+          status: TransactionStatus.SUCCEEDED,
+          billingPeriodStart: periodStart,
+        }).save();
+
+        // 3. Generate Sequential Invoice
+        await this.invoicesService.generateInvoice({
+          businessId,
+          subscriptionId: sub._id.toString(),
+          transactionId: transaction._id.toString(),
+          amountUsdCents: Math.round(amountUsd * 100),
+          amountBdtPaisa: plan ? plan.priceBdtPaisa : 550000,
+          currency: 'USD',
+        });
+
+        // 4. Activate Business & Generate Key
+        const business = await this.businessModel.findById(bId).exec();
+        if (business) {
+          if (!business.publishableKey) {
+            const randomHex = crypto.randomBytes(12).toString('hex');
+            business.publishableKey = `biz_live_${randomHex}`;
+          }
+          business.status = 'active';
+          await business.save();
+        }
+
+        // 5. Upgrade AdminUser role to OWNER
+        await this.adminUserModel.updateMany(
+          { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+          { $set: { role: AdminRole.OWNER } },
+        ).exec();
+
+        // 6. Send Congratulations and Credentials Email
+        await this.sendSubscriberWelcomeEmail(businessId, plan ? plan.name : 'Growth Plan');
+        break;
+      }
+
+      case 'invoice.payment_succeeded':
+      case 'invoice.paid': {
+        const invoice = dataObject;
+        const stripeSubId = invoice.subscription;
+        if (!stripeSubId) break;
+
+        const sub = await this.subscriptionModel.findOne({ providerRef: stripeSubId }).exec();
+        if (sub) {
+          const periodStart = invoice.period_start ? new Date(invoice.period_start * 1000) : new Date();
+          const periodEnd = invoice.period_end ? new Date(invoice.period_end * 1000) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+          sub.status = SubscriptionStatus.ACTIVE;
+          sub.currentPeriodStart = periodStart;
+          sub.currentPeriodEnd = periodEnd;
+          await sub.save();
+
+          const amountUsd = invoice.amount_paid ? invoice.amount_paid / 100 : (invoice.total ? invoice.total / 100 : 49);
+          const plan = await this.planModel.findOne({ planId: sub.planId as any }).exec();
+
+          const transaction = await new this.transactionModel({
+            businessId: sub.businessId,
+            subscriptionId: sub._id,
+            billingProvider: BillingProvider.STRIPE,
+            providerTransactionId: invoice.payment_intent || invoice.id || `TXN-${Date.now()}`,
+            amount: amountUsd,
+            currency: 'USD',
+            status: TransactionStatus.SUCCEEDED,
+            billingPeriodStart: periodStart,
+          }).save();
+
+          await this.invoicesService.generateInvoice({
+            businessId: sub.businessId.toString(),
+            subscriptionId: sub._id.toString(),
+            transactionId: transaction._id.toString(),
+            amountUsdCents: Math.round(amountUsd * 100),
+            amountBdtPaisa: plan ? plan.priceBdtPaisa : 550000,
+            currency: 'USD',
+          });
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = dataObject;
+        const stripeSubId = invoice.subscription;
+        if (!stripeSubId) break;
+
+        const sub = await this.subscriptionModel.findOne({ providerRef: stripeSubId }).exec();
+        if (sub) {
+          sub.status = SubscriptionStatus.PAST_DUE;
+          await sub.save();
+
+          await new this.transactionModel({
+            businessId: sub.businessId,
+            subscriptionId: sub._id,
+            billingProvider: BillingProvider.STRIPE,
+            providerTransactionId: `FAILED-${Date.now()}`,
+            amount: invoice.amount_due ? invoice.amount_due / 100 : 49,
+            currency: 'USD',
+            status: TransactionStatus.FAILED,
+            billingPeriodStart: sub.currentPeriodStart,
+          }).save();
+        }
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const stripeSub = dataObject;
+        const sub = await this.subscriptionModel.findOne({ providerRef: stripeSub.id }).exec();
+        if (sub) {
+          sub.cancelAtPeriodEnd = !!stripeSub.cancel_at_period_end;
+          if (stripeSub.status === 'active') sub.status = SubscriptionStatus.ACTIVE;
+          else if (stripeSub.status === 'past_due') sub.status = SubscriptionStatus.PAST_DUE;
+          else if (stripeSub.status === 'canceled') sub.status = SubscriptionStatus.CANCELED;
+          await sub.save();
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const stripeSub = dataObject;
+        const sub = await this.subscriptionModel.findOne({ providerRef: stripeSub.id }).exec();
+        if (sub) {
+          sub.status = SubscriptionStatus.CANCELED;
+          await sub.save();
+        }
+        break;
+      }
+
+      default:
+        this.logger.log(`[BillingService] Unhandled Stripe event type: ${eventType}`);
+        break;
+    }
+  }
 }
+
 

@@ -16,14 +16,10 @@ export class UsersService {
   ) {}
 
   async createBusiness(name: string, domain?: string): Promise<BusinessDocument> {
-    const randomHex = crypto.randomBytes(12).toString('hex');
-    const publishableKey = `biz_live_${randomHex}`;
-
     const business = new this.businessModel({
       name,
       domain,
-      publishableKey,
-      status: 'active',
+      status: 'pending',
     });
 
     return business.save();
@@ -67,5 +63,34 @@ export class UsersService {
     return this.adminUserModel
       .findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after' })
       .exec();
+  }
+
+  async updateBusiness(
+    id: string,
+    update: Partial<Business>,
+  ): Promise<BusinessDocument | null> {
+    return this.businessModel
+      .findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after' })
+      .exec();
+  }
+
+  async generatePublishableKeyForBusiness(businessId: string): Promise<string> {
+    const business = await this.businessModel.findById(businessId).exec();
+    if (!business) {
+      throw new Error(`Business not found: ${businessId}`);
+    }
+
+    if (business.publishableKey) {
+      return business.publishableKey;
+    }
+
+    const randomHex = crypto.randomBytes(12).toString('hex');
+    const publishableKey = `biz_live_${randomHex}`;
+
+    business.publishableKey = publishableKey;
+    business.status = 'active';
+    await business.save();
+
+    return publishableKey;
   }
 }

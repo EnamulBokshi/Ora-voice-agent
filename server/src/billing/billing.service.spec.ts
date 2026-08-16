@@ -12,6 +12,9 @@ import { BkashProvider } from './providers/bkash.provider';
 import { InvoicesService } from '../invoices/invoices.service';
 import { RedisService } from '../common/redis/redis.service';
 
+import { MailService } from '../mail/mail.service';
+import { ConfigService } from '@nestjs/config';
+
 describe('BillingService', () => {
   let service: BillingService;
 
@@ -53,6 +56,18 @@ describe('BillingService', () => {
           provide: getModelToken(Business.name),
           useValue: {
             findById: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+          },
+        },
+        {
+          provide: MailService,
+          useValue: {
+            sendCongratulationsEmail: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultVal?: any) => defaultVal),
           },
         },
         {

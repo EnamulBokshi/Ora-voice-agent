@@ -40,6 +40,12 @@ export function proxy(request: NextRequest) {
   if (isAuthenticated && userRole) {
     const isAdmin = userRole === 'admin' || userRole === 'super_admin';
     const isMerchant = userRole === 'owner' || userRole === 'staff';
+    const isRegularUser = userRole === 'user';
+
+    // Regular 'user' role without active subscription cannot access /admin, /dashboard, or merchant routes
+    if (isRegularUser && (isAdminRoute || isDashboardRoute)) {
+      return NextResponse.redirect(new URL('/pricing', request.url));
+    }
 
     // Admin & SuperAdmin can ONLY access /admin
     if (isAdmin && isDashboardRoute) {
@@ -50,11 +56,6 @@ export function proxy(request: NextRequest) {
     if (isMerchant && isAdminRoute) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
-
-    // Regular 'user' role cannot access /admin or /dashboard
-    if (!isAdmin && !isMerchant && (isAdminRoute || isDashboardRoute)) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
   }
 
   // 3. Authenticated user attempting to access /auth -> Redirect based on role
@@ -64,7 +65,7 @@ export function proxy(request: NextRequest) {
     if (userRole === 'admin' || userRole === 'super_admin') {
       target = '/admin';
     } else if (userRole === 'user') {
-      target = '/';
+      target = '/pricing';
     }
     return NextResponse.redirect(new URL(target, request.url));
   }

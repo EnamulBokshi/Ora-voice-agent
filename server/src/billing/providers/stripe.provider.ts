@@ -61,14 +61,14 @@ export class StripeProvider implements PaymentProvider {
               quantity: 1,
             },
           ],
-          success_url: `${frontendUrl}/billing?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${frontendUrl}/billing`,
+          success_url: `${frontendUrl}/billing?session_id={CHECKOUT_SESSION_ID}&status=success`,
+          cancel_url: `${frontendUrl}/pricing?canceled=true`,
           metadata: { businessId, planId },
         });
 
         return {
           subscriptionId: session.id,
-          providerRef: session.id,
+          providerRef: session.url || session.id,
         };
       } catch (err: any) {
         this.logger.error(`[StripeProvider] Stripe API error: ${err.message}`);

@@ -20,6 +20,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
+import { AdminRole } from '../users/enums/admin-role.enum';
+
 @Controller('billing')
 export class BillingController {
   constructor(
@@ -39,7 +41,7 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
-  @Roles('owner' as any, 'admin' as any)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
   @Post('subscribe')
   @HttpCode(HttpStatus.OK)
   async subscribe(
@@ -50,7 +52,7 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
-  @Roles('owner' as any, 'admin' as any)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
   @Post('bkash/execute-agreement')
   @HttpCode(HttpStatus.OK)
   async executeBkashAgreement(
@@ -65,7 +67,7 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
-  @Roles('owner' as any, 'admin' as any)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('process-renewals')
   @HttpCode(HttpStatus.OK)
   async processRenewals() {
@@ -89,7 +91,7 @@ export class BillingController {
     const rawBody = req.body;
     const isValid = this.stripeProvider.verifyWebhookSignature(rawBody, headers);
     if (isValid) {
-      await this.stripeProvider.handleWebhookEvent(rawBody);
+      await this.billingService.handleStripeWebhookEvent(rawBody);
     }
     return { received: true };
   }

@@ -44,12 +44,21 @@ export interface SubscriptionDetailsResponse {
 
 export interface SubscribePayload {
   planId: string;
-  provider: 'stripe' | 'bkash';
+  provider?: 'stripe' | 'bkash';
+  billingProvider?: 'stripe' | 'bkash';
   paymentMethodId?: string;
 }
 
 export interface SubscribeResponseData {
-  subscription: Subscription;
+  subscription?: Subscription;
+  requiresRedirect?: boolean;
+  billingProvider?: 'stripe' | 'bkash' | string;
+  checkoutUrl?: string;
+  bkashURL?: string;
+  paymentID?: string;
   clientSecret?: string;
   message?: string;
+  transaction?: any;
+  invoice?: any;
 }
+

@@ -1,0 +1,83 @@
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td>
+      <h1 style="margin: 0 0 10px 0; color: #15151F; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">
+        🎉 Subscription Confirmed!
+      </h1>
+      <p style="margin: 0 0 24px 0; color: #4A4A6A; font-size: 15px; line-height: 24px;">
+        Hello <strong><%= recipientName %></strong>, your subscription to the <strong><%= planName %></strong> for <strong><%= storeName %></strong> is now active. You have been upgraded to <strong>Store Owner</strong> with full access to all ORA AI features, live dashboards, and analytics.
+      </p>
+    </td>
+  </tr>
+
+  <!-- Subscription Details Card -->
+  <tr>
+    <td style="background: linear-gradient(135deg, #12121A 0%, #1B1C27 100%); border-radius: 14px; padding: 24px; color: #EDEEF4; margin-bottom: 24px; border: 1px solid #2A2C3A;">
+      <span style="color: #2DD4C8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; display: block; margin-bottom: 14px;">
+        Plan & Access Summary
+      </span>
+      
+      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td style="padding-bottom: 10px; color: #8B8BB0; font-size: 13px; width: 140px;">
+            Plan Tier:
+          </td>
+          <td style="padding-bottom: 10px; color: #FFFFFF; font-size: 14px; font-weight: 700;">
+            <%= planName %>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom: 10px; color: #8B8BB0; font-size: 13px;">
+            Store / Workspace:
+          </td>
+          <td style="padding-bottom: 10px; color: #FFFFFF; font-size: 14px; font-weight: 700;">
+            <%= storeName %>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom: 10px; color: #8B8BB0; font-size: 13px;">
+            Role Granted:
+          </td>
+          <td style="padding-bottom: 10px; color: #C8F031; font-size: 14px; font-weight: 700;">
+            Owner (Full Platform Access)
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom: 10px; color: #8B8BB0; font-size: 13px;">
+            Status:
+          </td>
+          <td style="padding-bottom: 10px; color: #2DD4C8; font-size: 14px; font-weight: 700;">
+            ● Active Subscription
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Next Steps -->
+  <tr>
+    <td style="padding: 20px 0 10px 0;">
+      <p style="margin: 0 0 8px 0; color: #15151F; font-size: 14px; font-weight: 700;">
+        What's next?
+      </p>
+      <p style="margin: 0 0 16px 0; color: #4A4A6A; font-size: 13px; line-height: 20px;">
+        We've also sent your <strong>ORA Voice AI Credentials & User Manual</strong> containing your store's live publishable key and the 1-minute website embed script. You can now log into your merchant dashboard to train your sales agent, upload product catalogs, and review live conversations.
+      </p>
+    </td>
+  </tr>
+
+  <!-- CTA Button -->
+  <tr>
+    <td align="center" style="padding: 10px 0 24px 0;">
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="border-radius: 10px; background: linear-gradient(135deg, #6C5CE7 0%, #5645C7 100%); box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
+            <a href="<%= dashboardUrl %>" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #FFFFFF; text-decoration: none; border-radius: 10px; padding: 14px 34px; display: inline-block; font-weight: 700;">
+              Go to Merchant Dashboard &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
