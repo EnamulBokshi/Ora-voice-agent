@@ -35,14 +35,16 @@ export function MarketingNavbar() {
     if (!isLoggedIn) return '/auth';
     if (userRole === 'admin' || userRole === 'super_admin') return '/admin';
     if (userRole === 'owner' || userRole === 'staff') return '/dashboard';
-    return '/';
+    if (userRole === 'user') return '/pricing';
+    return '/pricing';
   };
 
   const getCtaLabel = () => {
     if (!isLoggedIn) return 'Get Started';
     if (userRole === 'admin' || userRole === 'super_admin') return 'Admin Portal';
     if (userRole === 'owner' || userRole === 'staff') return 'Dashboard';
-    return 'Home';
+    if (userRole === 'user') return 'Choose Plan';
+    return 'Get Started';
   };
 
   return (
@@ -64,10 +66,10 @@ export function MarketingNavbar() {
         {/* Desktop nav */}
         <nav aria-label="Main navigation">
           <ul className="lp-nav-links">
-            <li><Link href="#features">Features</Link></li>
-            <li><Link href="#solutions">Solutions</Link></li>
-            <li><Link href="#pricing">Pricing</Link></li>
-            <li><Link href="#docs">Docs</Link></li>
+            <li><Link href="/#features">Features</Link></li>
+            <li><Link href="/#solutions">Solutions</Link></li>
+            <li><Link href="/pricing">Pricing</Link></li>
+            <li><Link href="/#docs">Docs</Link></li>
           </ul>
         </nav>
 

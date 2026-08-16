@@ -4,8 +4,10 @@ import { Resend } from 'resend';
 import {
   renderVerifyEmailTemplate,
   renderOtpTemplate,
+  renderCongratulationsTemplate,
   VerifyEmailData,
   OtpEmailData,
+  CongratulationsEmailData,
 } from './email-templates';
 
 @Injectable()
@@ -90,6 +92,41 @@ export class MailService {
         `==================================================\n` +
           `[DEV OTP LOG] OTP Email to: ${to}\n` +
           `[DEV OTP LOG] OTP Code: ${data.code}\n` +
+          `==================================================`,
+      );
+    }
+  }
+
+  async sendCongratulationsEmail(to: string, data: CongratulationsEmailData): Promise<void> {
+    const html = renderCongratulationsTemplate(data);
+    const from =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      this.configService.get<string>('SMTP_FROM') ||
+      'ORA Subscriptions <billing@resend.dev>';
+
+    if (this.resend) {
+      try {
+        const response = await this.resend.emails.send({
+          from,
+          to,
+          subject: `🎉 Subscription Confirmed — Welcome to ORA, ${data.recipientName}!`,
+          html,
+        });
+        this.logger.log(
+          `[MailService] Congratulations email sent to ${to} via Resend (ID: ${response.data?.id})`,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `[MailService] Failed to send congratulations email via Resend: ${err.message}`,
+        );
+      }
+    } else {
+      this.logger.log(
+        `==================================================\n` +
+          `[DEV EMAIL LOG] Congratulations Email to: ${to}\n` +
+          `[DEV EMAIL LOG] Plan: ${data.planName}\n` +
+          `[DEV EMAIL LOG] Store: ${data.storeName}\n` +
+          `[DEV EMAIL LOG] Dashboard: ${data.dashboardUrl}\n` +
           `==================================================`,
       );
     }

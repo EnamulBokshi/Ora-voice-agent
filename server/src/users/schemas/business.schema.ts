@@ -11,13 +11,13 @@ export class Business {
   @Prop({ trim: true })
   domain?: string;
 
-  @Prop({ required: true, unique: true, index: true })
-  publishableKey: string;
+  @Prop({ trim: true, unique: true, sparse: true, index: true })
+  publishableKey?: string;
 
   @Prop()
   apiKeyHash?: string;
 
-  @Prop({ default: 'active', enum: ['active', 'suspended', 'pending'] })
+  @Prop({ default: 'pending', enum: ['active', 'suspended', 'pending'] })
   status: string;
 
   /**

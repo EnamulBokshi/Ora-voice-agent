@@ -2,11 +2,15 @@ import { Controller, Get, Post, Param, Query, UseGuards, HttpCode, HttpStatus, H
 import { InvoicesService } from './invoices.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { AdminRole } from '../users/enums/admin-role.enum';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('invoices')
-@UseGuards(JwtAuthGuard, TenantScopeGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+@Roles(AdminRole.OWNER, AdminRole.ADMIN)
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 
