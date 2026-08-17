@@ -12,7 +12,7 @@ export interface Business {
   id: string;
   name: string;
   domain?: string;
-  publishableKey: string;
+  publishableKey?: string | null;
   status?: string;
 }
 

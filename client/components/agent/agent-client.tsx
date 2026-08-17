@@ -21,7 +21,7 @@ function AgentClientContent() {
   const activeSection: AgentSection =
     rawTab && ['voice', 'documents', 'products'].includes(rawTab) ? rawTab : 'voice';
 
-  const [publishableKey, setPublishableKey] = useState('biz_live_982c61c23c07d6df12d49a3c');
+  const [publishableKey, setPublishableKey] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("enam's Store");
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
@@ -37,7 +37,7 @@ function AgentClientContent() {
   useEffect(() => {
     getMeApi()
       .then((res) => {
-        if (res?.business?.publishableKey) setPublishableKey(res.business.publishableKey);
+        setPublishableKey(res?.business?.publishableKey || null);
         if (res?.business?.name) setBusinessName(res.business.name);
       })
       .catch(() => {});
@@ -58,6 +58,7 @@ function AgentClientContent() {
         <MerchantCredentialsCard
           businessName={businessName}
           publishableKey={publishableKey}
+          onKeyChange={(newKey) => setPublishableKey(newKey)}
           onOpenTestModal={() => setIsVoiceModalOpen(true)}
         />
 
@@ -66,7 +67,7 @@ function AgentClientContent() {
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
             <div className="xl:col-span-7">
               <VoiceFeedTab
-                publishableKey={publishableKey}
+                publishableKey={publishableKey || undefined}
                 onFed={loadDocs}
               />
             </div>
@@ -125,7 +126,7 @@ function AgentClientContent() {
         <VoiceTestModal
           isOpen={isVoiceModalOpen}
           onClose={() => setIsVoiceModalOpen(false)}
-          publishableKey={publishableKey}
+          publishableKey={publishableKey || undefined}
         />
 
       </div>

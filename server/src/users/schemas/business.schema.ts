@@ -11,8 +11,8 @@ export class Business {
   @Prop({ trim: true })
   domain?: string;
 
-  @Prop({ required: true, unique: true, index: true })
-  publishableKey: string;
+  @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
+  publishableKey?: string | null;
 
   @Prop()
   apiKeyHash?: string;
