@@ -89,6 +89,60 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    // Check if store or key is suspended by administration
+    if (business.status === 'suspended' || business.keyStatus === 'suspended') {
+      this.logger.warn(
+        `[VoiceGateway] Connection rejected: key/store suspended for business ${business._id} (${business.name})`,
+      );
+      client.emit('voice-error', {
+        message: 'This publishable key has been suspended by administration. Access denied.',
+      });
+      return;
+    }
+
+    // Extract connection origin/referer telemetry
+    const rawOrigin =
+      (client.handshake.headers.origin as string) ||
+      (client.handshake.headers.referer as string) ||
+      'direct-connection';
+
+    let parsedDomain = 'direct';
+    try {
+      if (rawOrigin.startsWith('http://') || rawOrigin.startsWith('https://')) {
+        parsedDomain = new URL(rawOrigin).hostname;
+      } else {
+        parsedDomain = rawOrigin;
+      }
+    } catch {
+      parsedDomain = rawOrigin;
+    }
+
+    // Determine domain mismatch anomaly
+    let isMismatch = false;
+    if (business.domain && business.domain.trim().length > 0) {
+      const cleanStoreDomain = business.domain
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.*$/, '');
+      const cleanOriginDomain = parsedDomain.trim().toLowerCase();
+      const isLocalhost =
+        cleanOriginDomain === 'localhost' ||
+        cleanOriginDomain === '127.0.0.1' ||
+        cleanOriginDomain.endsWith('.localhost');
+
+      if (
+        !isLocalhost &&
+        !cleanOriginDomain.includes(cleanStoreDomain) &&
+        !cleanStoreDomain.includes(cleanOriginDomain)
+      ) {
+        isMismatch = true;
+      }
+    }
+
+    // Record origin telemetry asynchronously
+    this.recordOriginTelemetry(business._id, rawOrigin, parsedDomain, isMismatch);
+
     const businessId = business._id.toString();
 
     try {
@@ -147,6 +201,48 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       session.closeSession();
       this.activeVoiceSessions.delete(client.id);
       client.emit('voice-session-ended', { success: true });
+    }
+  }
+
+  private async recordOriginTelemetry(
+    businessId: any,
+    origin: string,
+    domain: string,
+    isMismatch: boolean,
+  ) {
+    try {
+      const business = await this.businessModel.findById(businessId);
+      if (!business) return;
+
+      const existingOrigins = business.detectedOrigins || [];
+      const existingIndex = existingOrigins.findIndex(
+        (o) => o.domain === domain || o.origin === origin,
+      );
+
+      if (existingIndex >= 0) {
+        existingOrigins[existingIndex].lastSeen = new Date();
+        existingOrigins[existingIndex].sessionCount =
+          (existingOrigins[existingIndex].sessionCount || 1) + 1;
+        existingOrigins[existingIndex].isMismatch = isMismatch;
+      } else {
+        if (existingOrigins.length >= 20) {
+          existingOrigins.shift();
+        }
+        existingOrigins.push({
+          origin,
+          domain,
+          lastSeen: new Date(),
+          sessionCount: 1,
+          isMismatch,
+        });
+      }
+
+      await this.businessModel.updateOne(
+        { _id: businessId },
+        { $set: { detectedOrigins: existingOrigins } },
+      );
+    } catch (err: any) {
+      this.logger.warn(`[VoiceGateway] Origin telemetry error: ${err.message}`);
     }
   }
 }
