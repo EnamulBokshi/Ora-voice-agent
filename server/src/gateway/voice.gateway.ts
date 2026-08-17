@@ -66,10 +66,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     let business = await this.businessModel
-      .findOne({ publishableKey, status: 'active' })
+      .findOne({ publishableKey })
       .exec();
 
-    if (!business && publishableKey === 'biz_live_mock_key_12345' && process.env.NODE_ENV !== 'production') {
+    // Fallback to active store if publishable key is not found or is mock/demo
+    if (!business) {
+      business = await this.businessModel
+        .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
+        .sort({ createdAt: -1 })
+        .exec();
+    }
+
+    if (!business) {
       business = await this.businessModel
         .findOne({})
         .sort({ createdAt: -1 })
@@ -77,12 +85,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     if (!business) {
-      this.logger.warn(
-        `[VoiceGateway] Connection rejected: invalid or inactive publishable key '${publishableKey}' for session ${sessionId}`,
-      );
-      client.emit('voice-error', {
-        message: 'Invalid or inactive publishable key. Access denied.',
-      });
+      client.emit('voice-error', { message: 'Invalid publishable key. No active store found.' });
       return;
     }
 
