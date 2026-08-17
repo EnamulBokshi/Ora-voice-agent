@@ -18,6 +18,7 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { resendOnboardingApi } from '@/services/auth-service';
@@ -217,16 +218,6 @@ export function MerchantCredentialsCard({
               </button>
             )}
 
-            {hasActiveKey && (
-              <button
-                onClick={() => setShowRevokeModal(true)}
-                className="px-3.5 py-2 rounded-lg text-xs font-bold bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/25 transition-colors flex items-center gap-1.5 shadow-xs"
-              >
-                <Trash2 size={14} />
-                Revoke Key
-              </button>
-            )}
-
             {hasActiveKey && onOpenTestModal && (
               <button
                 onClick={onOpenTestModal}
@@ -278,15 +269,6 @@ export function MerchantCredentialsCard({
                 <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   Publishable Widget Key
                 </label>
-                {hasActiveKey && (
-                  <button
-                    onClick={() => setShowRevokeModal(true)}
-                    className="text-[11px] font-bold text-destructive hover:underline transition-colors flex items-center gap-1"
-                  >
-                    <Trash2 size={12} />
-                    Revoke Key
-                  </button>
-                )}
               </div>
 
               {hasActiveKey ? (
@@ -304,7 +286,7 @@ export function MerchantCredentialsCard({
                   <button
                     onClick={() => setShowRevokeModal(true)}
                     className="p-1.5 rounded-md hover:bg-destructive/20 text-destructive transition-colors"
-                    title="Revoke and delete this key"
+                    title="Revoke Key"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -414,35 +396,53 @@ export function MerchantCredentialsCard({
 
       {/* ── Revoke Key Confirmation Modal ── */}
       {showRevokeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface-container p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center text-destructive shrink-0">
-                <AlertTriangle size={20} />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => !isRevoking && setShowRevokeModal(false)}
+        >
+          <div
+            className="w-full max-w-[420px] rounded-2xl border border-border/80 bg-surface-container p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground tracking-tight">
+                  Revoke publishable key
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Are you sure you want to revoke this key?
+                </p>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-foreground">Revoke Publishable Key?</h3>
-                <p className="text-xs text-muted-foreground">Immediate invalidation & cutoff</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-lg bg-surface-low border border-border text-xs text-muted-foreground leading-relaxed space-y-2">
-              <p>
-                <strong className="text-foreground font-semibold">Warning:</strong> Once revoked, any live storefront widget, mobile client, or voice connection using{' '}
-                <span className="font-mono text-primary font-bold">{publishableKey}</span> will be{' '}
-                <span className="text-destructive font-semibold">immediately invalidated</span> and rejected.
-              </p>
-              <p>
-                You can generate a new publishable key at any time after revoking this key.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowRevokeModal(false)}
                 disabled={isRevoking}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-surface-low border border-border text-foreground hover:bg-surface-high transition-colors"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-surface-high transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="text-xs text-muted-foreground leading-relaxed space-y-2.5">
+              <p>
+                Any live storefront widget or voice connection using{' '}
+                <code className="inline-block px-1.5 py-0.5 rounded bg-surface-high border border-border font-mono text-[11px] text-foreground break-all">
+                  {publishableKey}
+                </code>{' '}
+                will be immediately disconnected.
+              </p>
+              <p className="text-[11px] text-muted-foreground/75">
+                You can generate a new publishable key at any time.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/60">
+              <button
+                type="button"
+                onClick={() => setShowRevokeModal(false)}
+                disabled={isRevoking}
+                className="px-3.5 py-2 text-xs font-medium rounded-lg bg-surface-low border border-border text-foreground hover:bg-surface-high transition-colors"
               >
                 Cancel
               </button>
@@ -450,10 +450,10 @@ export function MerchantCredentialsCard({
                 type="button"
                 onClick={handleRevokeKeyConfirm}
                 disabled={isRevoking}
-                className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors flex items-center gap-1.5 shadow-sm"
+                className="px-4 py-2 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
               >
-                {isRevoking ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                Yes, Revoke Key
+                {isRevoking && <Loader2 size={13} className="animate-spin" />}
+                Revoke key
               </button>
             </div>
           </div>

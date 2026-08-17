@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, Sparkles, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard } from 'lucide-react';
+import { Check, Sparkles, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard, LogOut, User } from 'lucide-react';
 import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
-import { getMeApi, refreshApi } from '@/services/auth-service';
+import { getMeApi, refreshApi, logoutApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
 
@@ -23,6 +23,7 @@ export function PricingPageClient() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -138,6 +139,25 @@ export function PricingPageClient() {
       setErrorMessage(err?.message || 'Subscription initiation failed. Please try again.');
     } finally {
       setSubscribingId(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logoutApi();
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
+        setIsLoggedIn(false);
+        setUserRole(null);
+        setUserEmail(null);
+        window.location.href = '/auth';
+      }
     }
   };
 
@@ -262,34 +282,6 @@ export function PricingPageClient() {
           >
             Choose the plan that fits your business scale. Unlock real-time voice selling, live inventory syncing, and automated instant checkout.
           </p>
-
-          {/* Logged in state badge */}
-          {isLoggedIn && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.4rem 1rem',
-                borderRadius: 'var(--lp-radius-full)',
-                backgroundColor: 'var(--lp-dark-elevated)',
-                border: '1px solid var(--lp-dark-border)',
-                fontSize: '0.8125rem',
-                color: 'var(--lp-text-secondary)',
-                marginBottom: '1.5rem',
-              }}
-            >
-              <span>Logged in as</span>
-              <strong style={{ color: 'var(--lp-text-primary)' }}>{userEmail}</strong>
-              <span>•</span>
-              <span style={{ color: 'var(--lp-primary)', fontWeight: 700, textTransform: 'capitalize' }}>
-                {userRole || 'user'}
-              </span>
-              {userRole === 'user' && (
-                <span style={{ opacity: 0.75 }}>(Subscription Required)</span>
-              )}
-            </div>
-          )}
 
           {/* Currency / Provider Selector Pill */}
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem', marginBottom: '2.5rem' }}>
