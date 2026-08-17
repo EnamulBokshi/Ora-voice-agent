@@ -39,3 +39,16 @@ export interface PlatformWebhookInfo {
   events: string[];
   instructions: string;
 }
+
+export interface CrawlStorePayload {
+  domain: string;
+}
+
+export interface CrawlStoreResponse {
+  platform: 'shopify' | 'woocommerce' | 'custom' | string;
+  productsIngested: number;
+  knowledgeDocsIngested: number;
+  htmlCrawlJobsQueued: number;
+  message: string;
+}
+

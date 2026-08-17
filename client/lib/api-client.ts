@@ -60,6 +60,10 @@ export async function apiClient<T>(
       );
     }
 
+    const isUnauthorized =
+      res.status === 401 ||
+      (json.success === false && json.error?.code === 'UNAUTHORIZED');
+
     const isForbidden =
       res.status === 403 ||
       (json.success === false && json.error?.code === 'Forbidden');

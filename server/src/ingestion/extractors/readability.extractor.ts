@@ -21,7 +21,7 @@ export class ReadabilityExtractor {
   extract(
     html: string,
     sourceUrl: string,
-    kind: Extract<DiscoveredUrlKind, 'policy' | 'faq' | 'page'>,
+    kind: DiscoveredUrlKind = 'page',
   ): ExtractedKnowledgeDoc | null {
     try {
       const { JSDOM } = require('jsdom');
@@ -54,7 +54,7 @@ export class ReadabilityExtractor {
 
   private categorizeContent(
     url: string,
-    kind: Extract<DiscoveredUrlKind, 'policy' | 'faq' | 'page'>,
+    kind?: DiscoveredUrlKind,
     title?: string,
   ): 'policy' | 'faq' | 'general' | 'services' | 'pricing' {
     const combined = `${url} ${title || ''}`.toLowerCase();

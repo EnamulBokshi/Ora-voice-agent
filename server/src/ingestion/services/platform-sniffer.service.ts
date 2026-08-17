@@ -16,11 +16,12 @@ export class PlatformSnifferService {
 
   async detect(domain: string): Promise<PlatformDetectionResult> {
     const normalizedDomain = UrlNormalizer.normalizeDomain(domain);
+    const proto = UrlNormalizer.getProtocol(domain);
 
-    const shopify = await this.probeShopify(normalizedDomain);
+    const shopify = await this.probeShopify(normalizedDomain, proto);
     if (shopify) return shopify;
 
-    const woo = await this.probeWooCommerce(normalizedDomain);
+    const woo = await this.probeWooCommerce(normalizedDomain, proto);
     if (woo) return woo;
 
     return {
@@ -31,9 +32,9 @@ export class PlatformSnifferService {
     };
   }
 
-  private async probeShopify(domain: string): Promise<PlatformDetectionResult | null> {
+  private async probeShopify(domain: string, proto: string = 'https'): Promise<PlatformDetectionResult | null> {
     try {
-      const res = await this.fetchWithTimeout(`https://${domain}/products.json?limit=1`);
+      const res = await this.fetchWithTimeout(`${proto}://${domain}/products.json?limit=1`);
       if (!res.ok) return null;
 
       const evidence: string[] = [];
@@ -59,10 +60,10 @@ export class PlatformSnifferService {
     }
   }
 
-  private async probeWooCommerce(domain: string): Promise<PlatformDetectionResult | null> {
+  private async probeWooCommerce(domain: string, proto: string = 'https'): Promise<PlatformDetectionResult | null> {
     try {
       const res = await this.fetchWithTimeout(
-        `https://${domain}/wp-json/wc/store/v1/products?per_page=1`,
+        `${proto}://${domain}/wp-json/wc/store/v1/products?per_page=1`,
       );
       if (!res.ok) return null;
 

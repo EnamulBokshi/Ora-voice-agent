@@ -9,7 +9,7 @@ interface ProductDetailsFeedTabProps {
 export function ProductDetailsFeedTab({ onFed }: ProductDetailsFeedTabProps) {
   return (
     <div className="space-y-4">
-      <ProductCatalogTable />
+      <ProductCatalogTable onFed={onFed} />
     </div>
   );
 }

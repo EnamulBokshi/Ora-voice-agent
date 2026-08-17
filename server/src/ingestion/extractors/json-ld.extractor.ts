@@ -19,7 +19,103 @@ export class JsonLdExtractor {
     const fromJsonLd = this.extractFromJsonLd($, normalizedUrl);
     if (fromJsonLd) return fromJsonLd;
 
-    return this.extractFromOpenGraph($, normalizedUrl);
+    const fromOg = this.extractFromOpenGraph($, normalizedUrl);
+    if (fromOg && fromOg.price !== undefined) return fromOg;
+
+    // Fallback: Semantic HTML / DOM extraction for custom React/Next.js storefronts
+    return this.extractFromHtmlDom($, normalizedUrl);
+  }
+
+  private extractFromHtmlDom($: cheerio.CheerioAPI, sourceUrl: string): ExtractedProduct | null {
+    // 1. Title extraction
+    const title =
+      $('[itemprop="name"]').first().text().trim() ||
+      $('h1').first().text().trim() ||
+      $('.product-title, .product-name, [data-product-title]').first().text().trim() ||
+      $('title').first().text().replace(/\|.*$/, '').trim();
+
+    if (!title || title.length < 2) return null;
+
+    // 2. Price extraction
+    let price: number | undefined;
+    let currency: string | undefined = 'USD';
+
+    const priceText =
+      $('[itemprop="price"]').first().attr('content') ||
+      $('[itemprop="price"]').first().text() ||
+      $('.price, .product-price, [data-price], [data-product-price]').first().text() ||
+      '';
+
+    const priceMatch = (priceText || $('body').text()).match(
+      /(?:(\$|£|€|৳|BDT|USD|EUR|GBP)\s*([\d,]+(?:\.\d{2})?)|([\d,]+(?:\.\d{2})?)\s*(\$|£|€|৳|BDT|USD|EUR|GBP))/i,
+    );
+
+    if (priceMatch) {
+      const symbol = priceMatch[1] || priceMatch[4];
+      const amountStr = (priceMatch[2] || priceMatch[3])?.replace(/,/g, '');
+      if (amountStr) {
+        price = parseFloat(amountStr);
+      }
+      if (symbol) {
+        if (symbol === '$' || symbol.toUpperCase() === 'USD') currency = 'USD';
+        else if (symbol === '৳' || symbol.toUpperCase() === 'BDT') currency = 'BDT';
+        else if (symbol === '€' || symbol.toUpperCase() === 'EUR') currency = 'EUR';
+        else if (symbol === '£' || symbol.toUpperCase() === 'GBP') currency = 'GBP';
+      }
+    }
+
+    // 3. Images
+    const images: string[] = [];
+    $('img').each((_, el) => {
+      const src = $(el).attr('src') || $(el).attr('data-src');
+      if (src && !src.includes('icon') && !src.includes('logo') && !src.startsWith('data:')) {
+        try {
+          const domain = new URL(sourceUrl).host;
+          const canonicalImg = UrlNormalizer.normalizeUrl(src, domain);
+          if (canonicalImg) images.push(canonicalImg);
+        } catch {
+          // ignore invalid image URL
+        }
+      }
+    });
+
+    // 4. Description
+    const description =
+      $('[itemprop="description"]').first().text().trim() ||
+      $('.product-description, .description, #description').first().text().trim() ||
+      $('main p, article p, section p').first().text().trim() ||
+      undefined;
+
+    // 5. Availability
+    const bodyText = $('body').text().toLowerCase();
+    const isOutOfStock = bodyText.includes('out of stock') || bodyText.includes('sold out');
+    const availability = isOutOfStock ? 'out_of_stock' : 'in_stock';
+
+    // 6. External ID / SKU
+    const externalId =
+      $('[itemprop="sku"]').first().text().trim() ||
+      sourceUrl.split('/').filter(Boolean).pop();
+
+    const contentHash = ContentHasher.hashProduct({
+      name: title,
+      description,
+      price,
+      currency,
+      availability,
+      images,
+    });
+
+    return {
+      sourceUrl,
+      externalId,
+      title,
+      description,
+      price: price ?? 0,
+      currency,
+      images: images.slice(0, 5),
+      availability,
+      contentHash,
+    };
   }
 
   private extractFromJsonLd($: cheerio.CheerioAPI, sourceUrl: string): ExtractedProduct | null {

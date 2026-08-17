@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   X,
+  Globe,
   UploadCloud,
   FileSpreadsheet,
   Rss,
@@ -15,22 +16,46 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
-import { uploadProductFileApi, ingestFeedApi } from '@/services/ingestion-service';
+import {
+  uploadProductFileApi,
+  ingestFeedApi,
+  crawlStoreApi,
+} from '@/services/ingestion-service';
 import { batchSyncProductsApi } from '@/services/products-service';
-import { IngestionSummary } from '@/types/ingestion';
+import { IngestionSummary, CrawlStoreResponse } from '@/types/ingestion';
 import { ProductAvailability, SourceTier } from '@/types/product';
 
 interface ProductUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialTab?: IngestionTab;
 }
 
-type IngestionTab = 'file' | 'feed' | 'manual' | 'webhooks';
+export type IngestionTab = 'website' | 'file' | 'feed' | 'manual' | 'webhooks';
 
-export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUploadModalProps) {
-  const [activeTab, setActiveTab] = useState<IngestionTab>('file');
+export function ProductUploadModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialTab = 'website',
+}: ProductUploadModalProps) {
+  const [activeTab, setActiveTab] = useState<IngestionTab>(initialTab);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
+  // Website Crawl State
+  const [websiteDomain, setWebsiteDomain] = useState('');
+  const [isCrawling, setIsCrawling] = useState(false);
+  const [crawlResult, setCrawlResult] = useState<CrawlStoreResponse | null>(null);
+  const [crawlError, setCrawlError] = useState<string | null>(null);
 
   // File Upload State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -59,6 +84,28 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
   const [manualError, setManualError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleCrawlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!websiteDomain.trim()) {
+      setCrawlError('Please enter a valid website URL or domain (e.g. store.com).');
+      return;
+    }
+
+    setIsCrawling(true);
+    setCrawlError(null);
+    setCrawlResult(null);
+
+    try {
+      const res = await crawlStoreApi({ domain: websiteDomain.trim() });
+      setCrawlResult(res);
+      onSuccess();
+    } catch (err) {
+      setCrawlError(err instanceof Error ? err.message : 'Failed to crawl store website.');
+    } finally {
+      setIsCrawling(false);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -163,14 +210,14 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
         <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
-              <UploadCloud size={18} />
+              <Sparkles size={18} />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-foreground">
-                Product Catalog Ingestion Engine
+                Storefront Ingestion & Intelligence Sync
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Bulk upload files, connect XML/CSV feeds, or configure store webhooks.
+                Auto-crawl website URL, bulk upload spreadsheets, or connect live platform webhooks.
               </p>
             </div>
           </div>
@@ -186,6 +233,18 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
         {/* Ingestion Tabs */}
         <div className="flex items-center border-b border-border bg-surface-lowest px-6 overflow-x-auto no-scrollbar">
           <button
+            onClick={() => setActiveTab('website')}
+            className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
+              activeTab === 'website'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Globe size={14} />
+            <span>Sync from Website URL (1-Click)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('file')}
             className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
               activeTab === 'file'
@@ -194,7 +253,7 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
             }`}
           >
             <FileSpreadsheet size={14} />
-            <span>File Upload (CSV/XLSX/PDF)</span>
+            <span>File Upload (CSV/XLSX)</span>
           </button>
 
           <button
@@ -218,7 +277,7 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
             }`}
           >
             <PlusCircle size={14} />
-            <span>Manual SKU Entry</span>
+            <span>Manual SKU</span>
           </button>
 
           <button
@@ -230,9 +289,131 @@ export function ProductUploadModal({ isOpen, onClose, onSuccess }: ProductUpload
             }`}
           >
             <Webhook size={14} />
-            <span>Platform Webhooks</span>
+            <span>Webhooks</span>
           </button>
         </div>
+
+        {/* Tab 0: Sync from Website URL */}
+        {activeTab === 'website' && (
+          <form onSubmit={handleCrawlSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-foreground">
+                  Store Website URL or Domain
+                </label>
+                <span className="text-[10px] font-semibold text-primary uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                  Zero Manual Entry
+                </span>
+              </div>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                  <Globe size={15} />
+                </div>
+                <input
+                  type="text"
+                  value={websiteDomain}
+                  onChange={(e) => setWebsiteDomain(e.target.value)}
+                  placeholder="e.g. https://mystore.com or store.myshopify.com"
+                  disabled={isCrawling}
+                  className="w-full rounded-lg border border-border bg-surface-low pl-9 pr-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none font-mono"
+                  required
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                ORA automatically probes your website, detects the platform, and ingests public products, prices, variants, stock, return/refund policies, and FAQs into vector search.
+              </p>
+            </div>
+
+            {/* Platform Detection Highlights */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div className="p-2.5 rounded-lg border border-border bg-surface-low flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>Shopify Fast-Path</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  Instant public catalog JSON & policies API sync.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border bg-surface-low flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <span className="w-2 h-2 rounded-full bg-purple-400" />
+                  <span>WooCommerce API</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  Syncs Store API products & WordPress pages.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg border border-border bg-surface-low flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span>Custom & Sitemaps</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  Sitemap discovery, JSON-LD, & text cleaning.
+                </span>
+              </div>
+            </div>
+
+            {crawlError && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{crawlError}</span>
+              </div>
+            )}
+
+            {crawlResult && (
+              <div className="rounded-xl border border-border bg-surface-low p-4 space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                    <CheckCircle2 size={16} className="text-primary" />
+                    <span>Store Ingestion Completed</span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase font-mono px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                    {crawlResult.platform.toUpperCase()} DETECTED
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Products</span>
+                    <p className="text-base font-bold text-primary font-mono mt-0.5">{crawlResult.productsIngested}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Policies & Docs</span>
+                    <p className="text-base font-bold text-foreground font-mono mt-0.5">{crawlResult.knowledgeDocsIngested}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Crawler Jobs</span>
+                    <p className="text-base font-bold text-foreground font-mono mt-0.5">{crawlResult.htmlCrawlJobsQueued}</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground leading-relaxed bg-surface-lowest p-2.5 rounded-lg border border-border">
+                  {crawlResult.message}
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Sparkles size={13} className="text-primary" />
+                <span>SHA-256 deduplicated & vectorized for live AI voice.</span>
+              </div>
+              <button
+                type="submit"
+                disabled={isCrawling || !websiteDomain.trim()}
+                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 shadow-xs"
+              >
+                {isCrawling ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
+                {isCrawling ? 'Probing & Syncing Storefront...' : 'Start 1-Click Sync'}
+              </button>
+            </div>
+          </form>
+        )}
+
 
         {/* Tab 1: File Upload */}
         {activeTab === 'file' && (

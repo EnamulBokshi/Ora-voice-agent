@@ -63,6 +63,14 @@ describe('SitemapCrawler & Ingestion Suite', () => {
       expect(cleanUrl).toBe('https://example.com/products/item-1');
     });
 
+    it('UrlNormalizer should preserve localhost HTTP URLs and port numbers', () => {
+      const localUrl = 'http://localhost:777/products/item-1?utm_source=test';
+      const cleanUrl = UrlNormalizer.normalizeUrl(localUrl);
+      expect(cleanUrl).toBe('http://localhost:777/products/item-1');
+      expect(UrlNormalizer.isLocalDomain('localhost:777')).toBe(true);
+      expect(UrlNormalizer.getProtocol('http://localhost:777')).toBe('http');
+    });
+
     it('ContentHasher should generate consistent hashes for identical payloads', () => {
       const hash1 = ContentHasher.hashText('Refund Policy text 123');
       const hash2 = ContentHasher.hashText('Refund Policy text 123');
@@ -115,6 +123,30 @@ describe('SitemapCrawler & Ingestion Suite', () => {
       expect(result.knowledgeDocsIngested).toBe(1);
       expect(mockProductsService.batchSync).toHaveBeenCalled();
       expect(mockKnowledgeService.upsertExtractedDoc).toHaveBeenCalled();
+    });
+  });
+
+  describe('Generic Sitemap & Custom Store Crawl', () => {
+    it('should queue HTML crawl jobs for discovered URLs on custom storefronts', async () => {
+      mockSniffer.detect.mockResolvedValue({
+        platform: 'custom',
+        domain: 'localhost:777',
+        confidence: 'low',
+      });
+
+      mockDiscovery.discover.mockResolvedValue([
+        { url: 'http://localhost:777/products/1', kind: 'product' },
+        { url: 'http://localhost:777/blog/policy', kind: 'policy' },
+      ]);
+
+      const result = await service.syncFromWebsite({
+        businessId: 'biz_123',
+        domain: 'http://localhost:777',
+      });
+
+      expect(result.platform).toBe('custom');
+      expect(result.htmlCrawlJobsQueued).toBe(2);
+      expect(mockQueue.addBulk).toHaveBeenCalled();
     });
   });
 });

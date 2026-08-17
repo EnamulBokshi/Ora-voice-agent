@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   Zap,
   Trash2,
+  Globe,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   getProductsApi,
@@ -31,7 +33,7 @@ import {
 } from '@/types/product';
 import { ProductOverrideModal } from './product-override-modal';
 import { ProductDetailDrawer } from './product-detail-drawer';
-import { ProductUploadModal } from './product-upload-modal';
+import { ProductUploadModal, IngestionTab } from './product-upload-modal';
 
 const AVAILABILITY_BADGES: Record<
   ProductAvailability,
@@ -86,7 +88,11 @@ const SOURCE_TIER_BADGES: Record<SourceTier, { label: string; bg: string; text: 
   },
 };
 
-export function ProductCatalogTable() {
+interface ProductCatalogTableProps {
+  onFed?: () => void;
+}
+
+export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
   const [products, setProducts] = useState<ProductDocument[]>([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
@@ -96,6 +102,7 @@ export function ProductCatalogTable() {
 
   // Modals & Drawers
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadInitialTab, setUploadInitialTab] = useState<IngestionTab>('website');
   const [overrideProduct, setOverrideProduct] = useState<ProductDocument | null>(null);
   const [detailProduct, setDetailProduct] = useState<ProductDocument | null>(null);
 
@@ -253,14 +260,30 @@ export function ProductCatalogTable() {
             </button>
           </div>
 
-          {/* Upload / Ingestion CTA */}
-          <button
-            onClick={() => setIsUploadModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover shrink-0 shadow-xs"
-          >
-            <UploadCloud size={14} />
-            <span>Ingest Products</span>
-          </button>
+          {/* Action CTAs */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                setUploadInitialTab('website');
+                setIsUploadModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover shadow-xs"
+            >
+              <Globe size={14} />
+              <span>Sync from Website</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setUploadInitialTab('file');
+                setIsUploadModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-lowest px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-surface-high"
+            >
+              <UploadCloud size={14} />
+              <span>Upload / Feed</span>
+            </button>
+          </div>
         </div>
 
         {/* Data Table */}
@@ -291,19 +314,38 @@ export function ProductCatalogTable() {
                 ) : products.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-16 text-center text-muted-foreground">
-                      <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-                        <Package size={28} className="text-muted-foreground/40 mb-1" />
-                        <p className="font-semibold text-foreground text-sm">No products in catalog</p>
-                        <p className="text-xs">
-                          Upload a product file (CSV, XLSX, PDF) or connect a feed to populate ORA's live product catalog.
-                        </p>
-                        <button
-                          onClick={() => setIsUploadModalOpen(true)}
-                          className="mt-2 flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary-hover shadow-xs"
-                        >
-                          <UploadCloud size={13} />
-                          Ingest Products Now
-                        </button>
+                      <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto py-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                          <Globe size={24} />
+                        </div>
+                        <div className="space-y-1 text-center">
+                          <p className="font-bold text-foreground text-sm">No products in catalog yet</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            Sync your storefront URL directly to ingest products, prices, variants, stock, and return policies with zero manual entry.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2.5 pt-1">
+                          <button
+                            onClick={() => {
+                              setUploadInitialTab('website');
+                              setIsUploadModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary-hover shadow-xs"
+                          >
+                            <Globe size={13} />
+                            Sync from Website (1-Click)
+                          </button>
+                          <button
+                            onClick={() => {
+                              setUploadInitialTab('file');
+                              setIsUploadModalOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-low px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface-high"
+                          >
+                            <FileSpreadsheet size={13} />
+                            Upload CSV/Spreadsheet
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -493,10 +535,11 @@ export function ProductCatalogTable() {
       {/* Product Upload / Ingestion Modal */}
       <ProductUploadModal
         isOpen={isUploadModalOpen}
+        initialTab={uploadInitialTab}
         onClose={() => setIsUploadModalOpen(false)}
         onSuccess={() => {
           loadProducts();
-          setIsUploadModalOpen(false);
+          onFed?.();
         }}
       />
 
