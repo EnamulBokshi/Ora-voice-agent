@@ -21,9 +21,13 @@ export async function getSubscriptionApi(): Promise<SubscriptionDetailsResponse>
 export async function subscribePlanApi(
   payload: SubscribePayload,
 ): Promise<SubscribeResponseData> {
+  const body = {
+    planId: payload.planId,
+    billingProvider: payload.billingProvider || payload.provider || 'stripe',
+  };
   return apiClient<SubscribeResponseData>('/billing/subscribe', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 
@@ -32,3 +36,26 @@ export async function cancelSubscriptionApi(): Promise<{ message: string }> {
     method: 'POST',
   });
 }
+
+export async function executeBkashAgreementApi(payload: {
+  paymentID: string;
+  planId?: string;
+}): Promise<{
+  success: boolean;
+  agreementID: string;
+  subscription: any;
+  transaction: any;
+  invoice: any;
+}> {
+  return apiClient<{
+    success: boolean;
+    agreementID: string;
+    subscription: any;
+    transaction: any;
+    invoice: any;
+  }>('/billing/bkash/execute-agreement', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+

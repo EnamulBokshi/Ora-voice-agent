@@ -4,11 +4,15 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { AdminRole } from '../users/enums/admin-role.enum';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('customers')
-@UseGuards(JwtAuthGuard, TenantScopeGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+@Roles(AdminRole.OWNER, AdminRole.ADMIN, AdminRole.STAFF)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 

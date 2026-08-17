@@ -17,7 +17,7 @@ export class Business {
   @Prop()
   apiKeyHash?: string;
 
-  @Prop({ default: 'active', enum: ['active', 'suspended', 'pending'] })
+  @Prop({ default: 'pending', enum: ['active', 'suspended', 'pending'] })
   status: string;
 
   /**

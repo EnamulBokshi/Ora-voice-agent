@@ -20,7 +20,7 @@ export class VoiceSessionController {
   constructor(
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
-  ) {}
+  ) { }
 
   /**
    * POST /api/v1/voice/session/bootstrap

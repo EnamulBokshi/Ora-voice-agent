@@ -62,15 +62,20 @@ export async function apiClient<T>(
 
     const isUnauthorized =
       res.status === 401 ||
-      (json.success === false && json.error?.code === 'Unauthorized');
+      (json.success === false && json.error?.code === 'UNAUTHORIZED');
 
-    // Auto-refresh access token if 401 Unauthorized occurs and token rotation is possible
-    if (
-      isUnauthorized &&
+    const isForbidden =
+      res.status === 403 ||
+      (json.success === false && json.error?.code === 'Forbidden');
+
+    const shouldAttemptRefresh =
+      (isUnauthorized || isForbidden) &&
       !isRetry &&
       !endpoint.includes('/auth/refresh') &&
-      !endpoint.includes('/auth/login')
-    ) {
+      !endpoint.includes('/auth/login');
+
+    // Auto-refresh access token if Unauthorized or Forbidden occurs (e.g. role upgrade)
+    if (shouldAttemptRefresh) {
       try {
         const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
@@ -85,6 +90,10 @@ export async function apiClient<T>(
         if (refreshRes.ok && newToken) {
           if (typeof window !== 'undefined') {
             localStorage.setItem('accessToken', newToken);
+            if (refreshJson.data?.role) {
+              const isProd = process.env.NODE_ENV === 'production';
+              document.cookie = `userRole=${refreshJson.data.role}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
+            }
           }
           headers['Authorization'] = `Bearer ${newToken}`;
           return apiClient<T>(endpoint, { ...options, headers }, true);

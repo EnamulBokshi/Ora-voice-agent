@@ -8,21 +8,53 @@ import { getMeApi } from '@/services/auth-service';
 export function MarketingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    if (typeof window !== 'undefined' && localStorage.getItem('accessToken')) {
-      getMeApi()
-        .then((data) => {
-          if (data?.user) setIsLoggedIn(true);
-        })
-        .catch(() => setIsLoggedIn(false));
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        getMeApi(token)
+          .then((data) => {
+            if (data?.user) {
+              setIsLoggedIn(true);
+              setUserRole(data.user.role);
+            } else {
+              setIsLoggedIn(false);
+              setUserRole(null);
+            }
+          })
+          .catch(() => {
+            setIsLoggedIn(false);
+            setUserRole(null);
+          });
+      } else {
+        setIsLoggedIn(false);
+        setUserRole(null);
+      }
     }
 
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const getCtaLink = () => {
+    if (!isLoggedIn) return '/auth';
+    if (userRole === 'admin' || userRole === 'super_admin') return '/admin';
+    if (userRole === 'owner' || userRole === 'staff') return '/dashboard';
+    if (userRole === 'user') return '/pricing';
+    return '/auth';
+  };
+
+  const getCtaLabel = () => {
+    if (!isLoggedIn) return 'Get Started';
+    if (userRole === 'admin' || userRole === 'super_admin') return 'Admin Portal';
+    if (userRole === 'owner' || userRole === 'staff') return 'Dashboard';
+    if (userRole === 'user') return 'Choose Plan';
+    return 'Get Started';
+  };
 
   return (
     <header className={`lp-navbar${scrolled ? ' scrolled' : ''}`} role="banner">
@@ -43,10 +75,10 @@ export function MarketingNavbar() {
         {/* Desktop nav */}
         <nav aria-label="Main navigation">
           <ul className="lp-nav-links">
-            <li><Link href="#features">Features</Link></li>
-            <li><Link href="#solutions">Solutions</Link></li>
-            <li><Link href="#pricing">Pricing</Link></li>
-            <li><Link href="#docs">Docs</Link></li>
+            <li><Link href="/#features">Features</Link></li>
+            <li><Link href="/#solutions">Solutions</Link></li>
+            <li><Link href="/pricing">Pricing</Link></li>
+            <li><Link href="/#docs">Docs</Link></li>
           </ul>
         </nav>
 
@@ -54,11 +86,11 @@ export function MarketingNavbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ThemeToggle />
           <Link
-            href={isLoggedIn ? '/dashboard' : '/auth'}
+            href={getCtaLink()}
             className="lp-btn-primary lp-nav-cta"
             id="nav-get-started-cta"
           >
-            {isLoggedIn ? 'Dashboard' : 'Get Started'}
+            {getCtaLabel()}
           </Link>
         </div>
       </div>

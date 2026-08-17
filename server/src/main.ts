@@ -7,7 +7,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { VoiceProxyGateway } from './ai-voice/voice-proxy.gateway';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
@@ -30,7 +30,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-publishable-key', 'X-Publishable-Key'],
   });
 
   const port = process.env.PORT || 5000;

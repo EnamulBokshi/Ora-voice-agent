@@ -28,6 +28,9 @@ import { PassiveIngestDto } from './dto/passive-ingest.dto';
 import { ManualIngestDto } from './dto/manual-ingest.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { AdminRole } from '../users/enums/admin-role.enum';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
@@ -51,7 +54,8 @@ export class IngestionController {
    * Uploads merchant product file, normalizes items, batch-syncs to MongoDB,
    * and auto-embeds into the VectorIndex RAG store in a single flow.
    */
-  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.OK)
@@ -164,7 +168,8 @@ export class IngestionController {
   }
 
   // Tier 2 Catalog Feed Ingestion
-  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('feed')
   @HttpCode(HttpStatus.OK)
   async ingestFeed(
@@ -188,8 +193,30 @@ export class IngestionController {
     );
   }
 
+  /**
+   * Sync from Website URL / Deep Storefront Crawler Endpoint.
+   * Auto-detects platform, fast-syncs catalog/policies, and crawls public sitemaps.
+   */
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
+  @Post('crawl-store')
+  @HttpCode(HttpStatus.OK)
+  async crawlStore(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: { domain: string },
+  ) {
+    if (!dto.domain) {
+      throw new BadRequestException('A valid website domain or URL is required.');
+    }
+    return this.sitemapCrawlerService.syncFromWebsite({
+      businessId: user.businessId,
+      domain: dto.domain,
+    });
+  }
+
   // Tier 4 Custom Endpoint Field Mapping
-  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('manual')
   @HttpCode(HttpStatus.OK)
   async manualMapping(
@@ -202,3 +229,4 @@ export class IngestionController {
     );
   }
 }
+

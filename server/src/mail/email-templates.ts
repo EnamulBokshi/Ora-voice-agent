@@ -56,6 +56,13 @@ export interface WelcomeEmailData {
   dashboardUrl: string;
 }
 
+export interface CongratulationsEmailData {
+  recipientName: string;
+  storeName: string;
+  planName: string;
+  dashboardUrl: string;
+}
+
 export interface SecurityAlertData {
   recipientName: string;
   eventName: string;
@@ -159,7 +166,17 @@ export function renderWelcomeTemplate(data: WelcomeEmailData): string {
 }
 
 /**
- * 6. SECURITY ALERT (EJS Render)
+ * 6. CONGRATULATIONS ON SUBSCRIPTION (EJS Render)
+ */
+export function renderCongratulationsTemplate(data: CongratulationsEmailData): string {
+  return renderEjsTemplate('congratulations-subscription', data, {
+    title: `🎉 Subscription Confirmed — ${data.storeName}`,
+    preheader: `Congratulations! Your subscription to ${data.planName} is active. Welcome as Store Owner.`,
+  });
+}
+
+/**
+ * 7. SECURITY ALERT (EJS Render)
  */
 export function renderSecurityAlertTemplate(data: SecurityAlertData): string {
   return renderEjsTemplate('security-alert', data, {

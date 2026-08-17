@@ -115,26 +115,128 @@ export interface AdminBusinessesResponse {
   };
 }
 
+export interface AdminUserSubscription {
+  planId: string;
+  planName: string;
+  billingProvider: 'stripe' | 'bkash' | string;
+  status: 'active' | 'trialing' | 'past_due' | 'suspended' | 'canceled' | string;
+  isSubscriber: boolean;
+  currentPeriodEnd: string | null;
+}
+
 export interface AdminUserItem {
   id: string;
   name: string;
   email: string;
-  role: 'super_admin' | 'owner' | 'admin' | 'staff';
+  role: 'super_admin' | 'owner' | 'admin' | 'staff' | 'user';
   emailVerified: boolean;
   businessName: string;
+  businessDomain?: string;
   businessId: string | null;
   businessStatus: string;
+  connectedPlatform?: string;
+  subscription?: AdminUserSubscription;
+  metrics?: {
+    conversationsCount: number;
+    ordersCount: number;
+  };
   createdAt: string;
+}
+
+export interface AdminUserStats {
+  totalUsers: number;
+  totalUsersTrend: string;
+  activeSubscribers: number;
+  activeSubscribersTrend: string;
+  activeUsers: number;
+  pendingVerification: number;
+  planDistribution: {
+    free: number;
+    growth: number;
+    scale: number;
+  };
+  roleDistribution: {
+    superAdmin: number;
+    owner: number;
+    admin: number;
+    staff: number;
+    user: number;
+  };
 }
 
 export interface AdminUsersResponse {
   users: AdminUserItem[];
+  stats: AdminUserStats;
   pagination: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
   };
+}
+
+export interface AdminUserDetail {
+  id: string;
+  name: string;
+  email: string;
+  role: 'super_admin' | 'owner' | 'admin' | 'staff' | 'user';
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  business: {
+    id: string;
+    name: string;
+    domain: string;
+    publishableKey: string;
+    status: string;
+    connectedPlatform: string;
+    createdAt: string;
+  } | null;
+  subscription: {
+    planId: string;
+    planName: string;
+    billingProvider: string;
+    status: string;
+    isSubscriber: boolean;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  };
+  metrics: {
+    productsCount: number;
+    conversationsCount: number;
+    voiceMinutes: number;
+    ordersCount: number;
+    totalGmv: number;
+  };
+  recentConversations: {
+    id: string;
+    sessionId: string;
+    customerIdentifier: string;
+    status: string;
+    turnCount: number;
+    createdAt: string;
+  }[];
+}
+
+export interface CreatePlatformUserPayload {
+  name: string;
+  email: string;
+  password: string;
+  role: 'super_admin' | 'owner' | 'admin' | 'staff' | 'user';
+  businessId?: string;
+  businessName?: string;
+}
+
+export interface UpdateAdminUserPayload {
+  name?: string;
+  email?: string;
+  role?: 'super_admin' | 'owner' | 'admin' | 'staff' | 'user';
+  emailVerified?: boolean;
+}
+
+export interface AdminUserActionPayload {
+  action: 'suspend' | 'activate' | 'resend_otp' | 'revoke_sessions' | 'delete';
 }
 
 export interface VoiceSessionItem {

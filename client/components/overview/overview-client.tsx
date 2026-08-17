@@ -13,6 +13,8 @@ import {
   Radio,
   TrendingUp,
   DollarSign,
+  Globe,
+  Sparkles,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
@@ -217,6 +219,39 @@ export function OverviewClient() {
             {getGreeting()}{firstName ? `, ${firstName}` : ''}
           </h1>
         </div>
+
+        {/* ── Zero-State 1-Click Store Onboarding Banner ──────────────── */}
+        {stats.productTotal === 0 && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <Globe size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-foreground">
+                    1-Click Storefront Intelligence Onboarding
+                  </h3>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Provide your store website URL (Shopify, WooCommerce, or Custom) to automatically crawl products, stock, prices, and policies.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/agent?tab=products"
+              className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 shrink-0 shadow-xs"
+            >
+              <Sparkles size={13} />
+              <span>Sync Store Website</span>
+              <ArrowRight size={13} />
+            </Link>
+          </div>
+        )}
 
         {/* ── Row 1: Hero Store Status Card ───────────────────────────── */}
         <HeroStatusCard

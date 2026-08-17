@@ -9,14 +9,14 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionId = request.cookies.get('sessionId')?.value;
   const refreshToken = request.cookies.get('refreshToken')?.value;
+  const userRole = request.cookies.get('userRole')?.value;
   const isAuthenticated = Boolean(sessionId || refreshToken);
 
   const isAuthRoute = pathname.startsWith('/auth');
 
-  // All protected dashboard and command center routes
-  const isProtectedRoute =
+  // Merchant dashboard routes
+  const isDashboardRoute =
     pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/admin') ||
     pathname.startsWith('/agent') ||
     pathname.startsWith('/live-desk') ||
     pathname.startsWith('/customers') ||
@@ -24,22 +24,54 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/billing') ||
     pathname.startsWith('/profile');
 
-  // 1. Unauthenticated user attempting to access dashboard -> Redirect to /auth
+  // Admin command center routes
+  const isAdminRoute = pathname.startsWith('/admin');
+
+  const isProtectedRoute = isDashboardRoute || isAdminRoute;
+
+  // 1. Unauthenticated user attempting to access protected route -> Redirect to /auth
   if (isProtectedRoute && !isAuthenticated) {
     const authUrl = new URL('/auth', request.url);
     authUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(authUrl);
   }
 
-  // 2. Authenticated user attempting to access /auth -> Redirect to /dashboard
-  // If the request contains a 'from' query parameter (e.g. redirected from client auth failure),
-  // do not redirect back to /dashboard to avoid an infinite loop.
-  const hasFromParam = request.nextUrl.searchParams.has('from');
-  if (isAuthRoute && isAuthenticated && !hasFromParam) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // 2. Role-based route isolation for authenticated sessions
+  if (isAuthenticated && userRole) {
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+    const isMerchant = userRole === 'owner' || userRole === 'staff';
+    const isRegularUser = userRole === 'user';
+
+    // Regular 'user' role without active subscription cannot access /admin, /dashboard, or merchant routes
+    if (isRegularUser && (isAdminRoute || isDashboardRoute)) {
+      return NextResponse.redirect(new URL('/pricing', request.url));
+    }
+
+    // Admin & SuperAdmin can ONLY access /admin
+    if (isAdmin && isDashboardRoute) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+
+    // Merchant (owner & staff) can ONLY access /dashboard
+    if (isMerchant && isAdminRoute) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
   }
 
-  // 3. Proxy /api requests to NestJS backend on port 5000
+  // 3. Authenticated user attempting to access /auth -> Redirect active roles (admin/owner/staff)
+  const hasFromParam = request.nextUrl.searchParams.has('from');
+  const hasModeParam = request.nextUrl.searchParams.has('mode');
+  if (isAuthRoute && isAuthenticated && !hasFromParam && !hasModeParam) {
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    if (userRole === 'owner' || userRole === 'staff') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    // Unsubscribed 'user' role is allowed to view /auth (e.g. to sign up, sign in, or switch accounts)
+  }
+
+  // 4. Proxy /api requests to NestJS backend on port 5000
   if (pathname.startsWith('/api/')) {
     const backendUrl = process.env.NESTJS_BACKEND_URL || 'http://localhost:5000';
     const destination = new URL(pathname, backendUrl);

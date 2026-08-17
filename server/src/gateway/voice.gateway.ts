@@ -77,7 +77,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     if (!business) {
-      client.emit('voice-error', { message: 'Invalid or revoked publishable key. No active store found.' });
+      this.logger.warn(
+        `[VoiceGateway] Connection rejected: invalid or inactive publishable key '${publishableKey}' for session ${sessionId}`,
+      );
+      client.emit('voice-error', {
+        message: 'Invalid or inactive publishable key. Access denied.',
+      });
       return;
     }
 

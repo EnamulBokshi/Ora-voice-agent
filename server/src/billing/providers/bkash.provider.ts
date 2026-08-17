@@ -4,6 +4,7 @@ import {
   PaymentProvider,
   ProviderSubscriptionRef,
   ChargeResult,
+  CustomerBillingDetails,
 } from './payment-provider.interface';
 import { DomainException } from '../../common/exceptions/domain.exception';
 
@@ -48,7 +49,7 @@ export class BkashProvider implements PaymentProvider {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/tokenized/bKash/grant-token`,
+        `${this.baseUrl}/tokenized/checkout/token/grant`,
         {
           method: 'POST',
           headers: {
@@ -104,7 +105,7 @@ export class BkashProvider implements PaymentProvider {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/tokenized/bKash/create-agreement`,
+        `${this.baseUrl}/tokenized/checkout/create`,
         {
           method: 'POST',
           headers: {
@@ -116,6 +117,10 @@ export class BkashProvider implements PaymentProvider {
             mode: '0000',
             payerReference: businessId,
             callbackURL: callbackUrl,
+            amount: '1',
+            currency: 'BDT',
+            intent: 'sale',
+            merchantInvoiceNumber: `AGR-${Date.now()}`,
           }),
         },
       );
@@ -157,7 +162,7 @@ export class BkashProvider implements PaymentProvider {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/tokenized/bKash/execute-agreement`,
+        `${this.baseUrl}/tokenized/checkout/execute`,
         {
           method: 'POST',
           headers: {
@@ -210,7 +215,7 @@ export class BkashProvider implements PaymentProvider {
 
     // Step 1: Create Payment with Agreement
     const createRes = await fetch(
-      `${this.baseUrl}/tokenized/bKash/payment/create`,
+      `${this.baseUrl}/tokenized/checkout/create`,
       {
         method: 'POST',
         headers: {
@@ -246,7 +251,7 @@ export class BkashProvider implements PaymentProvider {
 
     // Step 2: Execute Payment
     const executeRes = await fetch(
-      `${this.baseUrl}/tokenized/bKash/payment/execute`,
+      `${this.baseUrl}/tokenized/checkout/execute`,
       {
         method: 'POST',
         headers: {
@@ -280,10 +285,11 @@ export class BkashProvider implements PaymentProvider {
   async createSubscription(
     businessId: string,
     planId: string,
+    customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef> {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const callbackUrl = `${frontendUrl}/billing/bkash/callback`;
+    const callbackUrl = `${frontendUrl}/billing/bkash/callback?planId=${planId}`;
 
     const agreement = await this.createAgreement(businessId, callbackUrl);
 
@@ -315,7 +321,7 @@ export class BkashProvider implements PaymentProvider {
     const token = await this.getGrantToken();
     try {
       const response = await fetch(
-        `${this.baseUrl}/tokenized/bKash/agreement/cancel`,
+        `${this.baseUrl}/tokenized/checkout/agreement/cancel`,
         {
           method: 'POST',
           headers: {

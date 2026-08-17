@@ -5,6 +5,7 @@ import {
   PaymentProvider,
   ProviderSubscriptionRef,
   ChargeResult,
+  CustomerBillingDetails,
 } from './payment-provider.interface';
 
 @Injectable()
@@ -30,22 +31,45 @@ export class StripeProvider implements PaymentProvider {
   async createSubscription(
     businessId: string,
     planId: string,
+    customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef> {
     this.logger.log(
-      `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId})`,
+      `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId}, email: ${customerDetails?.email || 'unspecified'})`,
     );
 
     if (this.stripe) {
       try {
-        const customer = await this.stripe.customers.create({
-          metadata: { businessId },
-        });
+        let customer: Stripe.Customer | undefined;
+
+        // 1. Search for existing Stripe customer by email if provided
+        if (customerDetails?.email) {
+          const existing = await this.stripe.customers.list({
+            email: customerDetails.email,
+            limit: 1,
+          });
+          if (existing.data && existing.data.length > 0) {
+            customer = existing.data[0];
+          }
+        }
+
+        // 2. Create customer with email, name, and business metadata if not found
+        if (!customer) {
+          customer = await this.stripe.customers.create({
+            email: customerDetails?.email,
+            name: customerDetails?.name,
+            metadata: { businessId },
+          });
+        }
 
         const frontendUrl =
           this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
         const session = await this.stripe.checkout.sessions.create({
           customer: customer.id,
+          customer_update: {
+            name: 'auto',
+            address: 'auto',
+          },
           payment_method_types: ['card'],
           mode: 'subscription',
           line_items: [
@@ -61,14 +85,14 @@ export class StripeProvider implements PaymentProvider {
               quantity: 1,
             },
           ],
-          success_url: `${frontendUrl}/billing?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${frontendUrl}/billing`,
+          success_url: `${frontendUrl}/pricing?session_id={CHECKOUT_SESSION_ID}&status=success`,
+          cancel_url: `${frontendUrl}/pricing?canceled=true`,
           metadata: { businessId, planId },
         });
 
         return {
           subscriptionId: session.id,
-          providerRef: session.id,
+          providerRef: session.url || session.id,
         };
       } catch (err: any) {
         this.logger.error(`[StripeProvider] Stripe API error: ${err.message}`);
@@ -111,24 +135,41 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
-  verifyWebhookSignature(
-    rawBody: Buffer,
+  constructWebhookEvent(
+    rawBody: Buffer | string | any,
     headers: Record<string, string>,
-  ): boolean {
+    fallbackBody?: any,
+  ): Stripe.Event | null {
     const signature = headers['stripe-signature'];
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
 
-    if (!webhookSecret || webhookSecret.includes('replace_with') || !signature || !this.stripe) {
-      return true; // Bypass signature verification in local development mode
+    if (!this.stripe) {
+      this.logger.warn('[StripeProvider] Stripe SDK is not initialized, using fallback body.');
+      return fallbackBody || (typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody);
+    }
+
+    if (!webhookSecret || webhookSecret.includes('replace_with') || !signature) {
+      return fallbackBody || (Buffer.isBuffer(rawBody) ? JSON.parse(rawBody.toString('utf8')) : rawBody);
     }
 
     try {
-      this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-      return true;
+      const payload = Buffer.isBuffer(rawBody)
+        ? rawBody
+        : typeof rawBody === 'string'
+        ? rawBody
+        : Buffer.from(JSON.stringify(rawBody));
+      return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
     } catch (err: any) {
       this.logger.error(`[StripeProvider] Webhook signature verification failed: ${err.message}`);
-      return false;
+      return null;
     }
+  }
+
+  verifyWebhookSignature(
+    rawBody: Buffer | string | any,
+    headers: Record<string, string>,
+  ): boolean {
+    return this.constructWebhookEvent(rawBody, headers) !== null;
   }
 
   async handleWebhookEvent(payload: any): Promise<void> {

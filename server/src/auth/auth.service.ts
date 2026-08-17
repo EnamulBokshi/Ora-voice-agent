@@ -20,6 +20,7 @@ import { AdminRole } from '../users/enums/admin-role.enum';
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+  role?: string;
 }
 
 @Injectable()
@@ -146,6 +147,14 @@ export class AuthService {
         'BUSINESS_NOT_FOUND',
         'Store business not found.',
         HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!business.publishableKey) {
+      throw new DomainException(
+        'SUBSCRIPTION_REQUIRED',
+        'An active subscription is required before widget credentials can be generated and sent.',
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -304,7 +313,10 @@ export class AuthService {
       ip: reqInfo.ip || session.ip,
     });
 
-    return newTokens;
+    return {
+      ...newTokens,
+      role: activeRole,
+    };
   }
 
   async logout(sessionId: string) {

@@ -19,7 +19,7 @@
   var publishableKey =
     _cfg.key ||
     (scriptEl && scriptEl.getAttribute('data-ora-key')) ||
-    'biz_live_mock_key_12345';
+    '';
 
   var apiBase = _cfg.api || (scriptEl && scriptEl.getAttribute('data-ora-api')) || null;
   if (!apiBase) {
@@ -146,6 +146,95 @@
     }
     return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ '/g, "'");
   }
+
+  // ─── Storefront DOM & JSON-LD Extractor ────────────────────────────────────
+  function extractPageContext() {
+    try {
+      var context = {
+        url: window.location.href,
+        title: document.title,
+        pathname: window.location.pathname,
+        isProductPage: false,
+        product: null
+      };
+
+      // 1. Check Schema.org JSON-LD
+      var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var i = 0; i < ldScripts.length; i++) {
+        try {
+          var parsed = JSON.parse(ldScripts[i].innerText || '{}');
+          var items = Array.isArray(parsed) ? parsed : [parsed];
+          var flattened = items.flatMap(function(x) { return x && x['@graph'] ? x['@graph'] : [x]; });
+          var prod = flattened.find(function(node) {
+            return node && node['@type'] && (node['@type'] === 'Product' || (Array.isArray(node['@type']) && node['@type'].includes('Product')));
+          });
+          if (prod) {
+            var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
+            context.isProductPage = true;
+            context.product = {
+              name: prod.name || document.title,
+              price: offer && offer.price ? Number(offer.price) : null,
+              currency: offer && offer.priceCurrency ? offer.priceCurrency : 'USD',
+              availability: offer && /instock/i.test(offer.availability || '') ? 'in_stock' : 'unknown',
+              sku: prod.sku || null
+            };
+            break;
+          }
+        } catch (e) {}
+      }
+
+      // 2. OpenGraph / Meta Fallback
+      if (!context.product) {
+        var ogTitle = document.querySelector('meta[property="og:title"]');
+        var ogPrice = document.querySelector('meta[property="og:price:amount"]') || document.querySelector('meta[property="product:price:amount"]');
+        var ogCurrency = document.querySelector('meta[property="og:price:currency"]') || document.querySelector('meta[property="product:price:currency"]');
+        if (ogTitle && ogPrice) {
+          context.isProductPage = true;
+          context.product = {
+            name: ogTitle.getAttribute('content') || document.title,
+            price: Number(ogPrice.getAttribute('content')),
+            currency: ogCurrency ? ogCurrency.getAttribute('content') : 'USD',
+            availability: 'in_stock'
+          };
+        }
+      }
+
+      return context;
+    } catch (err) {
+      return { url: window.location.href, title: document.title };
+    }
+  }
+
+  function triggerPassiveStorefrontSync() {
+    try {
+      var ctx = extractPageContext();
+      if (!ctx || !ctx.product) return;
+      var cacheKey = '__ora_synced_' + ctx.url;
+      if (window.sessionStorage && window.sessionStorage.getItem(cacheKey)) return;
+
+      if (window.sessionStorage) window.sessionStorage.setItem(cacheKey, '1');
+
+      if (apiBase) {
+        fetch(apiBase + '/api/v1/ingestion/passive', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-publishable-key': publishableKey,
+          },
+          body: JSON.stringify({
+            nativeProductId: ctx.product.sku || 'dom_' + Math.abs(ctx.url.split('').reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(36),
+            name: ctx.product.name,
+            description: (document.querySelector('meta[name="description"]') && document.querySelector('meta[name="description"]').getAttribute('content')) || '',
+            price: ctx.product.price || 0,
+            category: 'General',
+            attributes: { sourceUrl: ctx.url, currency: ctx.product.currency }
+          })
+        }).catch(function() {});
+      }
+    } catch (e) {}
+  }
+
+  // (Passive sync is triggered only after key verification inside mountWidget)
 
   // ─── Inject CSS ─────────────────────────────────────────────────────────────
   const styleEl = document.createElement('style');
@@ -531,70 +620,134 @@
       animation: ora-w-spin 0.8s linear infinite;
     }
   `;
-  document.head.appendChild(styleEl);
+  // ─── DOM Element References ────────────────────────────────────────────────
+  let root = null;
+  let orbBtn = null;
+  let waveWrapper = null;
+  let connectingSpinner = null;
+  let statusChip = null;
+  let statusDot = null;
+  let statusLabel = null;
+  let reactiveAura = null;
+  let transcriptBox = null;
+  let transcriptText = null;
+  let controlsBar = null;
+  let muteBtn = null;
+  let closeBtn = null;
 
-  // ─── Assemble DOM ──────────────────────────────────────────────────────────
-  const root = document.createElement('div');
-  root.className = 'ora-w-root pos-' + position;
+  // ─── Mount DOM (Executed ONLY after key validation) ────────────────────────
+  function mountWidget() {
+    if (root) return;
 
-  root.innerHTML = `
-    <div id="oraWTranscript" class="ora-w-transcript-pill" style="display:none;">
-      <span id="oraWTranscriptText"></span>
-    </div>
+    document.head.appendChild(styleEl);
 
-    <div id="oraWControls" class="ora-w-controls-row" style="display:none;">
-      <button id="oraWMuteBtn" class="ora-w-ctrl-btn" title="Mute Microphone" type="button" aria-label="Mute">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-      </button>
-      <button id="oraWCloseBtn" class="ora-w-ctrl-btn" title="End Voice Conversation" type="button" aria-label="End call">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-      </button>
-    </div>
+    root = document.createElement('div');
+    root.className = 'ora-w-root pos-' + position;
 
-    <div id="oraWStatusChip" class="ora-w-status-chip">
-      <span id="oraWDot" class="ora-w-status-dot idle"></span>
-      <span id="oraWStatusLabel">Talk with ORA</span>
-    </div>
+    root.innerHTML = `
+      <div id="oraWTranscript" class="ora-w-transcript-pill" style="display:none;">
+        <span id="oraWTranscriptText"></span>
+      </div>
 
-    <div id="oraWReactiveAura" class="ora-w-reactive-aura" style="display:none;"></div>
+      <div id="oraWControls" class="ora-w-controls-row" style="display:none;">
+        <button id="oraWMuteBtn" class="ora-w-ctrl-btn" title="Mute Microphone" type="button" aria-label="Mute">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button id="oraWCloseBtn" class="ora-w-ctrl-btn" title="End Voice Conversation" type="button" aria-label="End call">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
+      </div>
 
-    <div class="ora-w-orb-container">
-      <div class="ora-w-floor-reflection"></div>
-      <button id="oraWOrbBtn" class="ora-w-glass-sphere" type="button" aria-label="Talk with ORA Voice AI">
-        <div class="ora-w-top-highlight"></div>
-        <div class="ora-w-inner-rim-light"></div>
-        <div class="ora-w-ambient-aura"></div>
-        <div id="oraWWaveWrapper" class="ora-w-wave-wrapper">
-          <img
-            alt="ORA AI voice energy orb"
-            class="ora-w-wave-img"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiiHohwyyA_AYKIz0FqIi4lPhglG4dGwSbGydUlHEFcCUM5D4yOQD-RJduetkXycHsfXCpjKD1V6i1Ek4Zmm0SOmvvLn_3yXdEptG2uCrTB1O6TgxzJRmH_pj3OAdpkvd7RoFK6hGg_wsyBjWnmR1a58wAIhaVAeWaiT5787U3fMOsKHQRqRt7z_RXy7bLI8nl0AFq-er2vKD0G1eZAhCcOPbFtAiT0mFdoN1yorZVMMmgRuw7D7j-PbK4xBOs2NjWnzA"
-          />
-        </div>
-        <div id="oraWConnectingSpinner" class="ora-w-connecting-overlay" style="display:none;">
-          <div class="ora-w-spinner"></div>
-        </div>
-      </button>
-    </div>
-  `;
-  document.body.appendChild(root);
+      <div id="oraWStatusChip" class="ora-w-status-chip">
+        <span id="oraWDot" class="ora-w-status-dot idle"></span>
+        <span id="oraWStatusLabel">Talk with ORA</span>
+      </div>
 
-  // Element refs
-  const orbBtn = document.getElementById('oraWOrbBtn');
-  const waveWrapper = document.getElementById('oraWWaveWrapper');
-  const connectingSpinner = document.getElementById('oraWConnectingSpinner');
-  const statusChip = document.getElementById('oraWStatusChip');
-  const statusDot = document.getElementById('oraWDot');
-  const statusLabel = document.getElementById('oraWStatusLabel');
-  const reactiveAura = document.getElementById('oraWReactiveAura');
-  const transcriptBox = document.getElementById('oraWTranscript');
-  const transcriptText = document.getElementById('oraWTranscriptText');
-  const controlsBar = document.getElementById('oraWControls');
-  const muteBtn = document.getElementById('oraWMuteBtn');
-  const closeBtn = document.getElementById('oraWCloseBtn');
+      <div id="oraWReactiveAura" class="ora-w-reactive-aura" style="display:none;"></div>
+
+      <div class="ora-w-orb-container">
+        <div class="ora-w-floor-reflection"></div>
+        <button id="oraWOrbBtn" class="ora-w-glass-sphere" type="button" aria-label="Talk with ORA Voice AI">
+          <div class="ora-w-top-highlight"></div>
+          <div class="ora-w-inner-rim-light"></div>
+          <div class="ora-w-ambient-aura"></div>
+          <div id="oraWWaveWrapper" class="ora-w-wave-wrapper">
+            <img
+              alt="ORA AI voice energy orb"
+              class="ora-w-wave-img"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiiHohwyyA_AYKIz0FqIi4lPhglG4dGwSbGydUlHEFcCUM5D4yOQD-RJduetkXycHsfXCpjKD1V6i1Ek4Zmm0SOmvvLn_3yXdEptG2uCrTB1O6TgxzJRmH_pj3OAdpkvd7RoFK6hGg_wsyBjWnmR1a58wAIhaVAeWaiT5787U3fMOsKHQRqRt7z_RXy7bLI8nl0AFq-er2vKD0G1eZAhCcOPbFtAiT0mFdoN1yorZVMMmgRuw7D7j-PbK4xBOs2NjWnzA"
+            />
+          </div>
+          <div id="oraWConnectingSpinner" class="ora-w-connecting-overlay" style="display:none;">
+            <div class="ora-w-spinner"></div>
+          </div>
+        </button>
+      </div>
+    `;
+    document.body.appendChild(root);
+
+    // Element refs
+    orbBtn = document.getElementById('oraWOrbBtn');
+    waveWrapper = document.getElementById('oraWWaveWrapper');
+    connectingSpinner = document.getElementById('oraWConnectingSpinner');
+    statusChip = document.getElementById('oraWStatusChip');
+    statusDot = document.getElementById('oraWDot');
+    statusLabel = document.getElementById('oraWStatusLabel');
+    reactiveAura = document.getElementById('oraWReactiveAura');
+    transcriptBox = document.getElementById('oraWTranscript');
+    transcriptText = document.getElementById('oraWTranscriptText');
+    controlsBar = document.getElementById('oraWControls');
+    muteBtn = document.getElementById('oraWMuteBtn');
+    closeBtn = document.getElementById('oraWCloseBtn');
+
+    // Event Listeners
+    orbBtn.addEventListener('click', function () {
+      if (voiceState === 'idle' || voiceState === 'error') {
+        startVoiceSession();
+      } else {
+        teardown();
+      }
+    });
+
+    statusChip.addEventListener('click', function () {
+      if (voiceState === 'idle' || voiceState === 'error') {
+        startVoiceSession();
+      } else {
+        teardown();
+      }
+    });
+
+    muteBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      isMuted = !isMuted;
+      if (isMuted && recognition) {
+        try { recognition.abort(); } catch (e) {}
+      } else if (!isMuted && recognition) {
+        try { recognition.start(); } catch (e) {}
+      }
+      render();
+    });
+
+    closeBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      teardown();
+    });
+
+    render();
+
+    // Trigger passive storefront context sync once verified
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(function () { triggerPassiveStorefrontSync(); });
+      } else {
+        setTimeout(triggerPassiveStorefrontSync, 1500);
+      }
+    }
+  }
 
   // ─── Render UI State ───────────────────────────────────────────────────────
   function render() {
+    if (!root || !orbBtn) return;
     const isActive = voiceState === 'active' || voiceState === 'ora-speaking';
     const isConnecting = voiceState === 'connecting';
     const isSpeaking = voiceState === 'ora-speaking';
@@ -907,6 +1060,13 @@
 
       ws.onopen = function () {
         console.log('[ORA Widget] ⚡ Connected to ORA Voice Proxy.');
+        try {
+          var pageCtx = extractPageContext();
+          ws.send(JSON.stringify({
+            type: 'page_context',
+            data: pageCtx
+          }));
+        } catch (e) {}
       };
 
       ws.onmessage = async function (event) {
@@ -966,6 +1126,13 @@
             errorMsg = msg.message || 'Voice error. Please retry.';
             voiceState = 'error';
             teardown();
+            if (msg.message && msg.message.toLowerCase().includes('invalid')) {
+              console.warn('[ORA Widget] ' + msg.message);
+              if (root && root.parentNode) {
+                root.parentNode.removeChild(root);
+                root = null;
+              }
+            }
             return;
           }
 
@@ -985,7 +1152,14 @@
         teardown();
       };
 
-      ws.onclose = function () {
+      ws.onclose = function (ev) {
+        if (ev && ev.code === 1008) {
+          console.warn('[ORA Widget] Access denied by server (invalid publishable key).');
+          if (root && root.parentNode) {
+            root.parentNode.removeChild(root);
+            root = null;
+          }
+        }
         if (voiceState !== 'idle') teardown();
       };
 
@@ -995,36 +1169,38 @@
     }
   }
 
-  // ─── Event Listeners ─────────────────────────────────────────────────────────
-  orbBtn.addEventListener('click', function () {
-    if (voiceState === 'idle' || voiceState === 'error') {
-      startVoiceSession();
-    } else {
-      teardown();
+  // ─── Verification & Initialization ──────────────────────────────────────────
+  function initWidget() {
+    if (!publishableKey) {
+      console.warn('[ORA Widget] Disabled: "data-ora-key" attribute or window.ORA_CONFIG.key is required.');
+      return;
     }
-  });
 
-  statusChip.addEventListener('click', function () {
-    if (voiceState === 'idle' || voiceState === 'error') {
-      startVoiceSession();
-    } else {
-      teardown();
-    }
-  });
+    // Two-stage bootstrap: verify key and active store status with server before mounting
+    fetch(apiBase + '/api/v1/voice/session/bootstrap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publishableKey: publishableKey }),
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          console.warn('[ORA Widget] Invalid or inactive publishable key ("' + publishableKey + '"). Storefront widget is disabled.');
+          return null;
+        }
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data) return;
+        mountWidget();
+      })
+      .catch(function (err) {
+        console.warn('[ORA Widget] Key verification check failed:', err);
+      });
+  }
 
-  muteBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    isMuted = !isMuted;
-    if (isMuted && recognition) {
-      try { recognition.abort(); } catch (e) {}
-    } else if (!isMuted && recognition) {
-      try { recognition.start(); } catch (e) {}
-    }
-    render();
-  });
-
-  closeBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    teardown();
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWidget);
+  } else {
+    initWidget();
+  }
 })();

@@ -20,6 +20,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
+import { AdminRole } from '../users/enums/admin-role.enum';
+
 @Controller('billing')
 export class BillingController {
   constructor(
@@ -39,18 +41,21 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
-  @Roles('owner' as any, 'admin' as any)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
   @Post('subscribe')
   @HttpCode(HttpStatus.OK)
   async subscribe(
     @CurrentUser() user: JwtPayloadUser,
     @Body() dto: SubscribeDto,
   ) {
-    return this.billingService.subscribe(user.businessId, dto);
+    return this.billingService.subscribe(user.businessId, dto, {
+      email: user.email,
+      userId: user.sub,
+    });
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
-  @Roles('owner' as any, 'admin' as any)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
   @Post('bkash/execute-agreement')
   @HttpCode(HttpStatus.OK)
   async executeBkashAgreement(
@@ -65,7 +70,7 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
-  @Roles('owner' as any, 'admin' as any)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('process-renewals')
   @HttpCode(HttpStatus.OK)
   async processRenewals() {
@@ -86,10 +91,10 @@ export class BillingController {
     @Req() req: Request,
     @Headers() headers: Record<string, string>,
   ) {
-    const rawBody = req.body;
-    const isValid = this.stripeProvider.verifyWebhookSignature(rawBody, headers);
-    if (isValid) {
-      await this.stripeProvider.handleWebhookEvent(rawBody);
+    const rawBody = (req as any).rawBody || req.body;
+    const event = this.stripeProvider.constructWebhookEvent(rawBody, headers, req.body);
+    if (event) {
+      await this.billingService.handleStripeWebhookEvent(event);
     }
     return { received: true };
   }

@@ -31,7 +31,7 @@ export class VoiceProxyGateway {
     private readonly businessModel: Model<BusinessDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Invalidate in-memory cached business mapping for a publishable key
@@ -126,7 +126,10 @@ export class VoiceProxyGateway {
     }
 
     if (!businessId) {
-      sendToClient({ type: 'error', message: 'Invalid or revoked publishable key. No active store found.' });
+      this.logger.warn(
+        `[VoiceProxyGateway] Connection rejected: invalid or inactive publishable key '${publishableKey}' for session ${sessionId}`,
+      );
+      sendToClient({ type: 'error', message: 'Invalid or inactive publishable key. Access denied.' });
       clientWs.close(1008, 'Invalid publishable key');
       return;
     }
@@ -149,7 +152,7 @@ export class VoiceProxyGateway {
       this.sessions.delete(sessionId);
       try {
         session.sessionControls?.closeSession();
-      } catch {}
+      } catch { }
       this.logger.log(`[VoiceProxyGateway] Session ${sessionId} cleaned up.`);
     };
 

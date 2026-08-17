@@ -8,6 +8,7 @@ interface AdminHeaderProps {
   description?: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  children?: React.ReactNode;
 }
 
 export function AdminHeader({
@@ -15,6 +16,7 @@ export function AdminHeader({
   description,
   onRefresh,
   isRefreshing = false,
+  children,
 }: AdminHeaderProps) {
   return (
     <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border bg-surface-lowest px-6 py-4">
@@ -32,6 +34,9 @@ export function AdminHeader({
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Custom Header Actions */}
+        {children}
+
         {/* System Pulse Indicator */}
         <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-container px-3 py-1.5 text-xs">
           <Activity size={14} className="text-primary animate-pulse" />
