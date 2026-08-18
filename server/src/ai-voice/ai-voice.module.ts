@@ -5,6 +5,7 @@ import { GeminiVoiceService } from './gemini-voice.service';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { VoiceSessionController } from './voice-session.controller';
 import { VoiceProxyGateway } from './voice-proxy.gateway';
+import { BootstrapRateLimitGuard } from './guards/bootstrap-rate-limit.guard';
 import { ProductsModule } from '../products/products.module';
 import { RagModule } from '../rag/rag.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
@@ -31,7 +32,12 @@ import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
     OrdersModule,
   ],
   controllers: [VoiceSessionController],
-  providers: [GeminiVoiceService, AiToolsExecutor, VoiceProxyGateway],
+  providers: [
+    GeminiVoiceService,
+    AiToolsExecutor,
+    VoiceProxyGateway,
+    BootstrapRateLimitGuard,
+  ],
   exports: [GeminiVoiceService, AiToolsExecutor, VoiceProxyGateway],
 })
 export class AiVoiceModule {}

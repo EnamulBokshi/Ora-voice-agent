@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ORA Widget Test Harness — Storefront Simulation</title>
+
+  <!-- Schema.org JSON-LD (For Passive Context Sync Testing) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": "ORA Lumina Smart Sunglasses",
+    "image": "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600&q=80",
+    "description": "High-fidelity audio sunglasses with built-in voice AI assistant.",
+    "sku": "LUM-SUN-001",
+    "offers": {
+      "@type": "Offer",
+      "priceCurrency": "USD",
+      "price": "189.00",
+      "availability": "https://schema.org/InStock"
+    }
+  }
+  </script>
+
+  <style>
+    /* ── Hostile CSS Reset to test Shadow DOM isolation ── */
+    * {
+      box-sizing: content-box !important;
+      font-family: serif !important;
+    }
+    button {
+      all: unset !important;
+      display: inline-block !important;
+      background: yellow !important;
+      color: red !important;
+      padding: 10px !important;
+      border: 3px dashed red !important;
+    }
+
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 700px;
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      box-sizing: border-box !important;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      color: #38bdf8;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+
+    p, li {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(200, 240, 49, 0.15);
+      color: #c8f031;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .product-card {
+      display: flex;
+      gap: 20px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+      box-sizing: border-box !important;
+    }
+
+    .product-img {
+      width: 140px;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .product-info h3 {
+      margin: 0 0 8px 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+
+    .price {
+      font-size: 20px;
+      font-weight: bold;
+      color: #c8f031;
+    }
+
+    .logs-panel {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace !important;
+      font-size: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <span class="badge">ORA Storefront Test Harness</span>
+    <h1>Lumina Audio — Storefront Simulation</h1>
+    <p>This test page includes <strong>aggressive host CSS resets</strong> (such as yellow dashed <code>button { all: unset !important; }</code>) to verify that the ORA Widget is 100% immune via <strong>Shadow DOM</strong>.</p>
+
+    <!-- Simulated Product -->
+    <div class="product-card">
+      <img
+        class="product-img"
+        src="https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600&q=80"
+        alt="ORA Lumina Smart Sunglasses"
+      />
+      <div class="product-info">
+        <h3>ORA Lumina Smart Sunglasses</h3>
+        <p style="margin: 0 0 10px 0;">High-fidelity audio sunglasses with built-in voice AI sales assistant.</p>
+        <div class="price">$189.00 USD</div>
+      </div>
+    </div>
+
+    <!-- Host Button to prove hostile CSS affects page but not widget -->
+    <p>Standard Storefront Button (Notice yellow/red hostile styling):</p>
+    <button type="button">Store Add to Cart Button</button>
+
+    <h3>What to Test:</h3>
+    <ol>
+      <li><strong>Shadow DOM Isolation:</strong> Look at the floating 3D Orb at the bottom. It should have pristine glass styling and zero yellow/red borders.</li>
+      <li><strong>Two-Stage Loader:</strong> Open DevTools Network Tab: Notice <code>ora-widget.js</code> loads first (~1KB), fetches <code>latest.json</code>, then injects <code>widget.v4_5_lumina.js</code>.</li>
+      <li><strong>Live Voice:</strong> Click the Orb, allow microphone access, and ask: <em>"What product is on this page?"</em> ORA will read the $189 Lumina Sunglasses from Schema.org JSON-LD.</li>
+      <li><strong>10s Idle Suspend:</strong> Stay silent for 10s. The widget will emit an idle suspend and switch to <em>"Paused • Tap to resume"</em>.</li>
+    </ol>
+  </div>
+
+  <!-- ─── ORA Storefront Script Embed ─── -->
+  <script 
+    src="/widget/ora-widget.js" 
+    data-ora-key="biz_live_mock_key_12345" 
+    data-ora-api="http://localhost:5000"
+    defer>
+  </script>
+
+</body>
+</html>

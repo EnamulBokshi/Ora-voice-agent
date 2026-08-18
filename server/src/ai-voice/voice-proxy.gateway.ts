@@ -7,6 +7,7 @@ import * as url from 'url';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { GeminiVoiceService } from './gemini-voice.service';
+import { RedisService } from '../common/redis/redis.service';
 
 interface ProxySession {
   clientWs: WebSocket;
@@ -31,6 +32,7 @@ export class VoiceProxyGateway {
     private readonly businessModel: Model<BusinessDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) { }
 
   /**
@@ -138,6 +140,22 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] Resolved business ${businessId} (${businessName}) for session ${sessionId}`,
     );
 
+    const resumptionToken = parsedUrl.query.resumptionToken as string;
+    if (resumptionToken) {
+      try {
+        const redis = this.redisService.getClient();
+        const savedState = await redis.get(`conversation:session:${sessionId}:suspended`);
+        if (savedState) {
+          this.logger.log(
+            `[VoiceProxyGateway] 🔄 Resuming suspended session ${sessionId} with token ${resumptionToken}`,
+          );
+          sendToClient({ type: 'session_resumed', sessionId });
+        }
+      } catch (err: any) {
+        this.logger.warn(`[VoiceProxyGateway] Error checking resumption state: ${err.message}`);
+      }
+    }
+
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {
       clientWs,
@@ -231,10 +249,27 @@ export class VoiceProxyGateway {
     );
 
     // ── Route incoming messages from client → Google ──────────────────────────
-    clientWs.on('message', (data: WebSocket.Data) => {
+    clientWs.on('message', async (data: WebSocket.Data) => {
       if (session.closed) return;
       try {
         const msg = JSON.parse(data.toString());
+
+        if (msg.type === 'client_idle_suspend') {
+          this.logger.log(`[VoiceProxyGateway] Session ${sessionId} suspended on client idle.`);
+          const rToken = `res_${sessionId}_${Date.now()}`;
+          try {
+            const redis = this.redisService.getClient();
+            await redis.set(
+              `conversation:session:${sessionId}:suspended`,
+              JSON.stringify({ businessId, suspendedAt: Date.now(), resumptionToken: rToken }),
+              'EX',
+              86400,
+            );
+          } catch (e) {}
+          sendToClient({ type: 'session_suspended', resumptionToken: rToken });
+          cleanup();
+          return;
+        }
 
         if (msg.type === 'audio' && msg.data) {
           sessionControls.sendAudioChunk(msg.data as string);
