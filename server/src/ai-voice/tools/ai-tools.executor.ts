@@ -275,24 +275,52 @@ export class AiToolsExecutor {
     const product = await this.productsService.verifyLive(businessId, args.productId);
     const quantity = args.quantity || 1;
 
+    // Retrieve active customer bound to this session
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
     const redisKey = `cart:conv:${sessionId}`;
     const rawCart = await this.redisService.getClient().get(redisKey);
     const cart = rawCart ? JSON.parse(rawCart) : { items: [] };
 
-    cart.items.push({
-      productId: product._id.toString(),
-      name: product.name,
-      price: product.price,
-      quantity,
-    });
+    // Update quantity if item exists, or push new
+    const existingItem = cart.items.find((i: any) => i.productId === product._id.toString());
+    if (existingItem) {
+      existingItem.quantity += quantity;
+    } else {
+      cart.items.push({
+        productId: product._id.toString(),
+        name: product.name,
+        price: product.price,
+        quantity,
+      });
+    }
+    cart.updatedAt = Date.now();
 
-    await this.redisService
-      .getClient()
-      .set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60);
+    const saveOps = [
+      this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),
+    ];
+    if (customerId) {
+      cart.customerId = customerId;
+      saveOps.push(
+        this.redisService
+          .getClient()
+          .set(`cart:customer:${customerId}`, JSON.stringify(cart), 'EX', 7 * 24 * 60 * 60),
+      );
+    }
+    await Promise.all(saveOps);
 
     // Log CART_UPDATED event
     await this.eventsService.logEvent(businessId, EventType.CART_UPDATED, {
       sessionId,
+      customerId,
       productId: product._id.toString(),
       quantity,
     });
@@ -309,6 +337,17 @@ export class AiToolsExecutor {
     sessionId: string,
     args: Record<string, any>,
   ) {
+    // Retrieve active customer bound to this session
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
     const redisKey = `cart:conv:${sessionId}`;
     const rawCart = await this.redisService.getClient().get(redisKey);
     const cart = rawCart ? JSON.parse(rawCart) : { items: [] };
@@ -325,7 +364,7 @@ export class AiToolsExecutor {
       0,
     );
 
-    const order = await this.ordersService.create(businessId, {
+    const orderPayload: any = {
       items: cart.items,
       totalAmount,
       currency: 'USD',
@@ -334,10 +373,19 @@ export class AiToolsExecutor {
         ? { addressLine1: args.shippingAddress }
         : {},
       metadata: { sessionId, placedVia: 'voice_agent' },
-    });
+    };
+    if (customerId) {
+      orderPayload.customerId = customerId;
+    }
+
+    const order = await this.ordersService.create(businessId, orderPayload);
 
     // Clear cart in Redis after order completion
-    await this.redisService.getClient().del(redisKey);
+    const delOps = [this.redisService.getClient().del(redisKey)];
+    if (customerId) {
+      delOps.push(this.redisService.getClient().del(`cart:customer:${customerId}`));
+    }
+    await Promise.all(delOps);
 
     return {
       success: true,
@@ -347,6 +395,7 @@ export class AiToolsExecutor {
       message: `Order ${order.orderNumber} placed successfully!`,
     };
   }
+
 
   private async handleRedirectToCheckout(businessId: string, sessionId: string) {
     return {

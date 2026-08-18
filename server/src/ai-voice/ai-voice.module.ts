@@ -16,6 +16,8 @@ import { OrdersModule } from '../orders/orders.module';
 import { Business, BusinessSchema } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 
+import { CustomersModule } from '../customers/customers.module';
+
 @Module({
   imports: [
     ConfigModule,
@@ -30,8 +32,10 @@ import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
     EventsModule,
     AgentConfigModule,
     OrdersModule,
+    CustomersModule,
   ],
   controllers: [VoiceSessionController],
+
   providers: [
     GeminiVoiceService,
     AiToolsExecutor,

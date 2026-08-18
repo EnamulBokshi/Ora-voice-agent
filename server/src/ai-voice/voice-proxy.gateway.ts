@@ -9,6 +9,8 @@ import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { GeminiVoiceService } from './gemini-voice.service';
 import { RedisService } from '../common/redis/redis.service';
 
+import { CustomersService } from '../customers/customers.service';
+
 interface ProxySession {
   clientWs: WebSocket;
   sessionControls: {
@@ -17,6 +19,8 @@ interface ProxySession {
     closeSession: () => void;
   };
   businessId: string;
+  customerId: string;
+  isAnonymous: boolean;
   closed: boolean;
 }
 
@@ -33,7 +37,9 @@ export class VoiceProxyGateway {
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly customersService: CustomersService,
   ) { }
+
 
   /**
    * Invalidate in-memory cached business mapping for a publishable key
@@ -140,6 +146,45 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] Resolved business ${businessId} (${businessName}) for session ${sessionId}`,
     );
 
+    // ── Resolve Customer Identity (Tier 1 HMAC / Tier 2 Device ID / Tier 3 Ghost) ──
+    const customerIdParam = parsedUrl.query.customerId as string;
+    const customerTsParam = parsedUrl.query.customerTimestamp as string;
+    const customerSigParam = parsedUrl.query.customerSignature as string;
+    const deviceIdParam = parsedUrl.query.deviceId as string;
+
+    let customerToken: { customerId: string; timestamp: number; signature: string } | undefined = undefined;
+    if (customerIdParam && customerTsParam && customerSigParam) {
+      customerToken = {
+        customerId: customerIdParam,
+        timestamp: Number(customerTsParam),
+        signature: customerSigParam,
+      };
+    }
+
+    const { customer: activeCustomer } = await this.customersService.resolveOrCreateCustomer(businessId, {
+      customerToken,
+      deviceId: deviceIdParam,
+      sessionId,
+    });
+
+    // Store active session customer mapping in Redis
+    try {
+      const redis = this.redisService.getClient();
+      await redis.set(
+        `session:${sessionId}:customer`,
+        JSON.stringify({
+          customerId: activeCustomer.id,
+          isAnonymous: activeCustomer.isAnonymous,
+          name: activeCustomer.name,
+          businessId,
+        }),
+        'EX',
+        86400,
+      );
+    } catch (err: any) {
+      this.logger.warn(`[VoiceProxyGateway] Redis session customer binding notice: ${err.message}`);
+    }
+
     const resumptionToken = parsedUrl.query.resumptionToken as string;
     if (resumptionToken) {
       try {
@@ -161,6 +206,8 @@ export class VoiceProxyGateway {
       clientWs,
       sessionControls: null as any, // filled after createVoiceSession resolves
       businessId,
+      customerId: activeCustomer.id,
+      isAnonymous: activeCustomer.isAnonymous,
       closed: false,
     };
 
@@ -243,9 +290,16 @@ export class VoiceProxyGateway {
     this.sessions.set(sessionId, session);
 
     // ── Notify client that session is ready ───────────────────────────────────
-    sendToClient({ type: 'setup_complete' });
+    sendToClient({
+      type: 'setup_complete',
+      customer: {
+        id: activeCustomer.id,
+        isAnonymous: activeCustomer.isAnonymous,
+        name: activeCustomer.name,
+      },
+    });
     this.logger.log(
-      `[VoiceProxyGateway] ✅ Session ${sessionId} is live. Active sessions: ${this.sessions.size}`,
+      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (Customer: ${activeCustomer.id}, Anon: ${activeCustomer.isAnonymous}). Active sessions: ${this.sessions.size}`,
     );
 
     // ── Route incoming messages from client → Google ──────────────────────────
@@ -253,6 +307,53 @@ export class VoiceProxyGateway {
       if (session.closed) return;
       try {
         const msg = JSON.parse(data.toString());
+
+        if (msg.type === 'client_identify') {
+          // Dynamic identity update (e.g. user logged in mid-session or passed auth token)
+          this.logger.log(`[VoiceProxyGateway] Runtime identity update received for session ${sessionId}`);
+          try {
+            const token = msg.customerToken;
+            if (token && token.customerId && token.signature) {
+              const { customer: newCustomer } = await this.customersService.resolveOrCreateCustomer(
+                businessId,
+                { customerToken: token, sessionId },
+              );
+              if (!newCustomer.isAnonymous && session.customerId !== newCustomer.id) {
+                await this.customersService.stitchCustomerAccounts(
+                  businessId,
+                  session.customerId,
+                  newCustomer.id,
+                  sessionId,
+                  'runtime_client_identify',
+                );
+                session.customerId = newCustomer.id;
+                session.isAnonymous = false;
+
+                const redis = this.redisService.getClient();
+                await redis.set(
+                  `session:${sessionId}:customer`,
+                  JSON.stringify({
+                    customerId: newCustomer.id,
+                    isAnonymous: false,
+                    name: newCustomer.name,
+                    businessId,
+                  }),
+                  'EX',
+                  86400,
+                );
+
+                sendToClient({
+                  type: 'customer_identified',
+                  customerId: newCustomer.id,
+                  name: newCustomer.name,
+                });
+              }
+            }
+          } catch (e: any) {
+            this.logger.warn(`[VoiceProxyGateway] Runtime identification failed: ${e.message}`);
+          }
+          return;
+        }
 
         if (msg.type === 'client_idle_suspend') {
           this.logger.log(`[VoiceProxyGateway] Session ${sessionId} suspended on client idle.`);
@@ -282,6 +383,7 @@ export class VoiceProxyGateway {
         );
       }
     });
+
 
     // ── Handle client disconnect ──────────────────────────────────────────────
     clientWs.on('close', () => {

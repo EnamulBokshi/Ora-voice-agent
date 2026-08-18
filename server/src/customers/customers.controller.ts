@@ -48,4 +48,14 @@ export class CustomersController {
   ) {
     return this.customersService.update(user.businessId, id, dto);
   }
+
+  @Post(':id/erasure')
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
+  async shopperErasure(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+  ) {
+    return this.customersService.shopperErasure(user.businessId, id);
+  }
 }
+
