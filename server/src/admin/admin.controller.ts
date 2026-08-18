@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -51,6 +52,23 @@ export class AdminController {
     @Body('status') status: string,
   ) {
     return this.adminService.updateBusinessStatus(id, status);
+  }
+
+  @Delete('businesses/:id/publishable-key')
+  async revokeBusinessPublishableKey(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const adminUserId = req?.user?.adminUserId || req?.user?.sub;
+    return this.adminService.revokeBusinessPublishableKey(id, adminUserId);
+  }
+
+  @Patch('businesses/:id/key-status')
+  async updateBusinessKeyStatus(
+    @Param('id') id: string,
+    @Body('keyStatus') keyStatus: string,
+  ) {
+    return this.adminService.updateBusinessKeyStatus(id, keyStatus);
   }
 
   @Get('users')

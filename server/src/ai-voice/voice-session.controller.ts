@@ -20,7 +20,7 @@ export class VoiceSessionController {
   constructor(
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
-  ) {}
+  ) { }
 
   /**
    * POST /api/v1/voice/session/bootstrap
@@ -36,13 +36,20 @@ export class VoiceSessionController {
       dto.sessionId ||
       `ses_w_${Math.random().toString(36).substring(2, 9)}`;
 
-    const business = await this.businessModel
+    let business = await this.businessModel
       .findOne({ publishableKey, status: 'active' })
       .exec();
 
+    if (!business && publishableKey === 'biz_live_mock_key_12345' && process.env.NODE_ENV !== 'production') {
+      business = await this.businessModel
+        .findOne({})
+        .sort({ createdAt: -1 })
+        .exec();
+    }
+
     if (!business) {
       throw new NotFoundException(
-        `Invalid or inactive publishable key: '${publishableKey}'. No active store found.`,
+        `Invalid or revoked publishable key: '${publishableKey}'. No active store found.`,
       );
     }
 

@@ -64,11 +64,30 @@ export interface PlatformStatsData {
   activityTimeline: ActivityTimelinePoint[];
 }
 
+export interface DetectedOriginItem {
+  origin: string;
+  domain: string;
+  lastSeen: string;
+  sessionCount: number;
+  isMismatch: boolean;
+}
+
+export interface KeyAnomalyFlags {
+  isMultiSite: boolean;
+  hasMismatch: boolean;
+  activeOriginsCount: number;
+}
+
 export interface AdminBusinessItem {
   id: string;
   name: string;
   domain: string;
-  publishableKey: string;
+  publishableKey?: string | null;
+  keyStatus?: 'active' | 'suspended' | 'revoked' | 'none';
+  detectedOrigins?: DetectedOriginItem[];
+  anomalyFlags?: KeyAnomalyFlags;
+  keyRevokedAt?: string;
+  keyRevokedBy?: string;
   status: 'active' | 'suspended' | 'pending';
   connectedPlatform: string;
   ownerEmail: string;
@@ -81,7 +100,12 @@ export interface AdminBusinessDetail {
   id: string;
   name: string;
   domain: string;
-  publishableKey: string;
+  publishableKey?: string | null;
+  keyStatus?: 'active' | 'suspended' | 'revoked' | 'none';
+  detectedOrigins?: DetectedOriginItem[];
+  anomalyFlags?: KeyAnomalyFlags;
+  keyRevokedAt?: string;
+  keyRevokedBy?: string;
   status: 'active' | 'suspended' | 'pending';
   connectedPlatform: string;
   owner: {

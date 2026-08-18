@@ -59,9 +59,9 @@ COPY --chown=node:node --from=builder /app/package.json ./package.json
 EXPOSE 5000
 
 # Health check against the health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5000/api/v1/health || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5000/api/v1/health || exit 1
 
 # Launch using dumb-init for graceful shutdown of WebSocket & DB connections
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]

@@ -46,7 +46,19 @@ interface ErrorEnvelope {
 
 ---
 
-## 3. Phase 2: Product Ingestion Engine & Knowledge Base (`/api/v1/products`, `/api/v1/knowledge`, `/api/v1/ingestion`)
+## 3. Merchant Business & Key Management (`/api/v1/business`)
+
+### Summary
+
+| Endpoint | Method | Auth Guard | Roles | Description |
+|---|---|---|---|---|
+| `/api/v1/business/current` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch current merchant store profile, registered domain, and active publishable key status. |
+| `/api/v1/business/publishable-key` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | **Single-Key Generation**: Generate an active publishable widget key (`biz_live_xxxx`). Replaces and invalidates any previous key. |
+| `/api/v1/business/publishable-key` | `DELETE` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | **Key Revocation & Deletion**: Instantly revokes and deletes the merchant's publishable key, severing all active widget connections across websites. |
+
+---
+
+## 4. Phase 2: Product Ingestion Engine & Knowledge Base (`/api/v1/products`, `/api/v1/knowledge`, `/api/v1/ingestion`)
 
 ### Summary
 
@@ -71,7 +83,7 @@ interface ErrorEnvelope {
 
 ---
 
-## 4. Phase 3: RAG & Vector Store Pipeline (`/api/v1/rag`)
+## 5. Phase 3: RAG & Vector Store Pipeline (`/api/v1/rag`)
 
 ### Summary
 
@@ -82,7 +94,7 @@ interface ErrorEnvelope {
 | `/api/v1/rag/search` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Combined hybrid semantic search across products and store rules. |
 | `/api/v1/rag/reindex-tenant` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Owner, Admin | Trigger bulk vector re-indexing for tenant catalog and knowledge base. |
 
-### 4.1 RAG Engine Configuration & Fallback Taxonomy
+### 5.1 RAG Engine Configuration & Fallback Taxonomy
 
 #### Configurable Similarity Thresholds (Environment Variables)
 - `RAG_PRODUCT_CONFIDENCE_THRESHOLD` (default `0.65`): Minimum cosine similarity score for candidate product vectors.
@@ -97,7 +109,7 @@ When vector search returns zero results or candidates below confidence threshold
 
 ---
 
-## 5. Phase 4: Order Audit & Performance Analytics (`/api/v1/orders`)
+## 6. Phase 4: Order Audit & Performance Analytics (`/api/v1/orders`)
 
 ### Summary
 
@@ -111,7 +123,7 @@ Orders are created **internally** by `AiToolsExecutor.place_order` when an AI vo
 
 ---
 
-## 6. Phase 5: Customer, Agent Config & Voice/Conversation Gateways (`/api/v1/customers`, `/api/v1/agent-config`, `/api/v1/conversations`)
+## 7. Phase 5: Customer, Agent Config, Voice Session & Conversations (`/api/v1/customers`, `/api/v1/agent-config`, `/api/v1/voice`, `/api/v1/conversations`)
 
 ### Summary
 
@@ -120,13 +132,14 @@ Orders are created **internally** by `AiToolsExecutor.place_order` when an AI vo
 | `/api/v1/customers` | `POST` / `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Manage end-shopper profiles with AES-256 field-level PII encryption. |
 | `/api/v1/customers/:id` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Fetch or update customer PII & preferences. |
 | `/api/v1/agent-config` | `GET` / `PATCH` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve or update brand voice, voice IDs, and sales playbook settings (`mentionLowStockUrgency`). |
+| `/api/v1/voice/session/bootstrap` | `POST` | Public | **Safe Voice Session Bootstrap**: Validates publishable key and returns session identifier and secure WebSocket route path (`{ sessionId, wsPath: '/ws/voice' }`). |
 | `/api/v1/conversations` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | List merchant customer conversation sessions with pagination. |
 | `/api/v1/conversations/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | Retrieve transcript with full message history and tool calls. |
 | `/api/v1/conversations/:id/close` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | Mark conversation session closed. |
 | `ws://<host>/conversations` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Text chat conversation gateway with verified product lookup parity (`AiToolsExecutor.find_products` + `ProductsService.verifyLive`). |
-| `ws://<host>/voice` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Real-time bidirectional audio streaming & tool execution powered by Gemini 2.5 (`GEMINI_MODEL=models/gemini-2.5-flash`). |
+| `ws://<host>/voice` | `WebSocket` | Publishable Key (`biz_live_xxxx`) | Real-time bidirectional audio streaming & tool execution powered by Gemini 2.5 (`GEMINI_MODEL=models/gemini-2.5-flash`). Enforces key status and logs origin telemetry. |
 
-### 6.1 Gemini Real-Time Voice & Text Chat AI Agent Tools
+### 7.1 Gemini Real-Time Voice & Text Chat AI Agent Tools
 
 #### Channel Verification Parity
 Both the **Voice Gateway** (`ws://<host>/voice`) and the **Text Chat Gateway** (`ws://<host>/conversations`) route product discovery requests through the unified `AiToolsExecutor.find_products` path. Every price and stock value returned to a shopper is verified in real-time via `ProductsService.verifyLive()`.
@@ -140,167 +153,128 @@ Both the **Voice Gateway** (`ws://<host>/voice`) and the **Text Chat Gateway** (
 - `get_store_policy`: Searches knowledge base for FAQs and policies.
 
 #### Low-Stock Urgency Signal (`isLowStock` & `urgencyHint`)
-- Threshold: Configured via `LOW_STOCK_THRESHOLD` (default `5` units).
-- Derived State: `isLowStock = (availability === 'in_stock' && stockQuantity <= LOW_STOCK_THRESHOLD)`. Computed dynamically at response time; never stored statically.
-- Sales Playbook Wiring: When `SalesPlaybook.mentionLowStockUrgency` is enabled for the business, `find_products` attaches an `urgencyHint` ("Only X left in stock!") and the Gemini system prompt instructs the AI voice agent to naturally communicate limited availability.
+When a candidate product has stock `<= 5` (or merchant threshold) AND `business.agentConfig.mentionLowStockUrgency === true`:
+- Tool payload sets `isLowStock: true`.
+- Tool payload returns `urgencyHint: "Only {N} left in stock - mention to customer to encourage quick purchase"`.
+- AI voice agent organically weaves scarcity urgency into voice response.
 
 ---
 
-## 7. Phase 6: Payment Billing & Invoicing Engine (`/api/v1/billing`, `/api/v1/invoices`)
+## 8. Phase 6: Payment Billing & Invoicing Engine (`/api/v1/billing`, `/api/v1/invoices`)
 
 ### Summary
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
-| `/api/v1/billing/plans` | `GET` | Public | All Roles | List available pricing plans (`Free`, `Growth`, `Scale`). |
-| `/api/v1/billing/subscription` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch active business subscription and current Redis usage counters. |
-| `/api/v1/billing/subscribe` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Subscribe or upgrade business plan tier via Stripe or initiate bKash Tokenized agreement redirect. |
-| `/api/v1/billing/bkash/execute-agreement` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Execute bKash Tokenized Checkout agreement and complete initial subscription payment. |
-| `/api/v1/billing/process-renewals` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Trigger active renewal execution for expiring bKash subscriptions. |
-| `/api/v1/billing/cancel` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner | Cancel active business subscription at period end. |
-| `/api/v1/billing/webhooks/stripe` | `POST` | Public (Stripe Signature) | N/A | Public webhook handler for Stripe events. |
-| `/api/v1/invoices` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | List merchant invoices with pagination. |
-| `/api/v1/invoices/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch single invoice details by ID. |
-| `/api/v1/invoices/:id/pdf` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Stream or view server-side rendered HTML/PDF invoice document. |
-| `/api/v1/invoices/:id/resend` | `POST` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Manually resend invoice PDF email and audit log delivery attempt. |
+| `/api/v1/billing/plans` | `GET` | Public | All | Retrieve tier definitions (Free, Growth, Scale) with pricing, voice minute caps, product limits, and features. |
+| `/api/v1/billing/subscription` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Fetch current merchant subscription, usage counters (voice minutes used/cap, products count/limit), and renewal dates. |
+| `/api/v1/billing/subscribe` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | User, Owner, Admin | Initiate subscription checkout via Stripe (USD checkout session URL) or bKash (BDT tokenized agreement create URL). |
+| `/api/v1/billing/bkash/execute-agreement` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | User, Owner, Admin | Finalize bKash Tokenized Checkout agreement execution after customer OTP confirmation. |
+| `/api/v1/billing/process-renewals` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Trigger bKash renewal processor (`billing:bkash-renewal`). |
+| `/api/v1/billing/cancel` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner | Cancel auto-renewing subscription at end of current billing period. |
+| `/api/v1/billing/webhooks/stripe` | `POST` | Public (Stripe Signature) | N/A | Stripe webhook listener (`customer.subscription.updated`, `invoice.payment_succeeded`, `invoice.payment_failed`). |
+| `/api/v1/invoices` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | List historical tenant invoices with pagination, billing provider, amount, and payment status. |
+| `/api/v1/invoices/:id` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Fetch single invoice details. |
+| `/api/v1/invoices/:id/pdf` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Download printable HTML/PDF invoice receipt. |
+| `/api/v1/invoices/:id/resend` | `POST` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin | Re-send invoice receipt to merchant owner email. |
 
 ---
 
-## 8. Phase 7: Store Performance & Overview Analytics (`/api/v1/dashboard`)
+## 9. Phase 7: Store Performance & Overview Analytics (`/api/v1/dashboard`)
 
 ### Summary
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
-| `/api/v1/dashboard/stats` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | **Primary Overview Metrics**: Aggregates catalog totals, order counts, conversation volume, live active sessions, total revenue, weekly trends, revenue timeseries (daily/weekly), sales funnel stages, and recent activity. |
-| `/api/v1/dashboard/revenue-analytics` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Time-bucketed daily (last 7 days) and weekly (last 4 weeks) revenue timeseries with growth rate calculation. |
-| `/api/v1/dashboard/funnel-analytics` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | 4-stage customer conversion funnel (*Shopper Inquiries → Products Recommended → Items Added to Cart → Orders Completed*) and overall conversion percentage. |
+| `/api/v1/dashboard/stats` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Global overview KPIs aggregating revenue, orders, voice minutes, and agent performance. |
+| `/api/v1/dashboard/revenue-analytics` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Time-series revenue chart data comparing ORA Agent GMV vs direct store GMV. |
+| `/api/v1/dashboard/funnel-analytics` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Conversion funnel metrics (Sessions → Product Views → Cart Adds → Completed Orders). |
 
-### 8.1 Overview Response Envelope Example (`GET /api/v1/dashboard/stats`)
-
+### 9.1 Overview Response Envelope Example (`GET /api/v1/dashboard/stats`)
 ```json
 {
   "success": true,
   "data": {
-    "productTotal": 412,
-    "orderTotal": 236,
-    "conversationTotal": 1284,
-    "activeChats": 12,
-    "activeVoiceCalls": 3,
-    "totalRevenue": 24820,
-    "revenueTrend": "+18.4%",
-    "ordersTrend": "+12.4%",
-    "conversationsTrend": "+8.1%",
-    "planName": "Growth",
-    "planStatus": "active",
-    "revenueTimeseries": {
-      "daily": [
-        { "label": "Mon", "date": "2026-08-09", "value": 2400 },
-        { "label": "Tue", "date": "2026-08-10", "value": 3100 },
-        { "label": "Wed", "date": "2026-08-11", "value": 2800 },
-        { "label": "Thu", "date": "2026-08-12", "value": 4200 },
-        { "label": "Fri", "date": "2026-08-13", "value": 3900 },
-        { "label": "Sat", "date": "2026-08-14", "value": 5100 },
-        { "label": "Sun", "date": "2026-08-15", "value": 4820 }
-      ],
-      "weekly": [
-        { "label": "Week 1", "value": 14200 },
-        { "label": "Week 2", "value": 18500 },
-        { "label": "Week 3", "value": 21900 },
-        { "label": "Week 4", "value": 24820 }
-      ],
-      "growthRate": "+18.4%",
-      "totalRevenue": 24820
+    "kpis": {
+      "totalRevenue": 45280.50,
+      "revenueChange": 14.2,
+      "oraSalesPercentage": 68.5,
+      "oraOrdersCount": 342,
+      "totalOrdersCount": 498,
+      "ordersChange": 8.7,
+      "voiceConversationsCount": 1250,
+      "voiceConversationsChange": 23.4,
+      "totalVoiceMinutes": 2890,
+      "voiceMinutesLimit": 5000,
+      "avgCallDurationSeconds": 138,
+      "avgCallDurationChange": -4.2,
+      "conversionRate": 27.36,
+      "conversionRateChange": 3.1
     },
-    "funnel": [
-      { "label": "Shopper Inquiries", "count": 1284, "pct": 100 },
-      { "label": "Products Recommended", "count": 892, "pct": 69.5 },
-      { "label": "Items Added to Cart", "count": 340, "pct": 26.5 },
-      { "label": "Orders Completed", "count": 236, "pct": 18.4, "isLast": true }
+    "planUsage": {
+      "tier": "growth",
+      "voiceMinutesUsed": 2890,
+      "voiceMinutesLimit": 5000,
+      "voiceMinutesPercent": 57.8,
+      "productsCount": 842,
+      "productsLimit": 2500,
+      "productsPercent": 33.68
+    },
+    "topProducts": [
+      {
+        "id": "60d5ec49f1b2c8b1f8e4e1a1",
+        "title": "Air Zoom Alpha",
+        "price": 149.99,
+        "unitsSoldByAgent": 86,
+        "revenueGenerated": 12899.14
+      }
     ],
-    "overallConversion": 18.4,
-    "recentOrders": [],
-    "recentConversations": []
+    "channelBreakdown": {
+      "voiceSales": 31017.14,
+      "textSales": 14263.36,
+      "voicePercentage": 68.5,
+      "textPercentage": 31.5
+    }
   }
 }
 ```
 
 ---
 
-## 9. Phase 8: Real-Time Live Desk & Telemetry Command Center (`/api/v1/live-desk`)
+## 10. Phase 8: Real-Time Live Desk & Telemetry Command Center (`/api/v1/live-desk`)
 
 ### Summary
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
-| `/api/v1/live-desk/stats` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | **Real-Time Counters**: Active chat sessions, active voice calls, and rolling 1-hour metrics (product searches, cart actions, orders influenced) with calculated period deltas. |
-| `/api/v1/live-desk/activity-feed` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Live streaming shopper activity feed with auto-classified intent states, latest customer query, and verified product snapshots. Supports `?limit=10`. |
-| `/api/v1/live-desk/voice-sessions` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Active bidirectional voice calls with caller identity, action label, and dynamic elapsed duration (`mm:ss`). |
-| `/api/v1/live-desk/sales-conversions` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Rolling 1-hour conversion progression (*Recommendations → Upsells → Cart Additions → Checkout Assisted → Orders Placed Live*). |
-| `/api/v1/live-desk/system-health` | `GET` | `JwtAuthGuard`, `TenantScopeGuard` | All Roles | Measured round-trip ping latencies and operational status for Redis session gateway, MongoDB catalog engine, and BullMQ worker pipelines. |
+| `/api/v1/live-desk/stats` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Live active sessions, concurrency gauge, today's sales, and conversion rate. |
+| `/api/v1/live-desk/activity-feed` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Real-time stream of shopper intent transitions (`DISCOVERY`, `RECOMMENDATION`, `CART_UPDATE`, `CHECKOUT`, `SUPPORT`). |
+| `/api/v1/live-desk/voice-sessions` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Currently active live voice calls with duration, current intent state, and shopper details. |
+| `/api/v1/live-desk/sales-conversions` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Recent closed deals directly attributed to AI voice/text agents. |
+| `/api/v1/live-desk/system-health` | `GET` | `JwtAuthGuard`, `TenantScopeGuard`, `RolesGuard` | Owner, Admin, Staff | Microservice telemetry (Voice stream engine, chat gateway, RAG index, and auto-sync). |
 
-### 9.1 Intent State Classification Taxonomy (`stateType`)
-
-When returning shopper activity in `/api/v1/live-desk/activity-feed`, the engine inspects the latest message's content, tool calls, and event triggers to classify the customer's current state:
-
-| State Type | State Label | Trigger Conditions | Border & Chip Styling |
-|---|---|---|---|
-| `searching` | Searching | Customer query mentions keywords ("find", "looking for") or AI calls `find_products` tool. | Primary Accent (Lime tint) |
-| `comparing` | Comparing | Customer asks for comparisons, differences, or alternatives. | Tertiary Accent (White/Secondary tint) |
-| `cart` | Adding to cart | Customer asks to buy/reserve or AI calls `add_to_cart` tool. | Success Green (`--status-online`) |
-| `checking` | Checking stock | Customer asks for availability, sizes, delivery eligibility, or AI calls `get_product_details`. | Info Gray (`--chart-4`) |
-| `idle` | Active / Responding | Store policy FAQs, general inquiries, or resolved conversations. | Surface Ghost Border |
-
-### 9.2 Real-Time Telemetry Response Examples
-
-#### Live Stats (`GET /api/v1/live-desk/stats`)
-```json
-{
-  "success": true,
-  "data": {
-    "activeConvos": 12,
-    "activeVoiceCalls": 3,
-    "productSearches": 34,
-    "productSearchesDelta": "+12",
-    "cartActions": 17,
-    "cartActionsDelta": "+5",
-    "ordersInfluenced": 6,
-    "ordersInfluencedDelta": "+2"
-  }
-}
-```
-
-#### System Health Diagnostics (`GET /api/v1/live-desk/system-health`)
-```json
-{
-  "success": true,
-  "data": {
-    "allOnline": true,
-    "services": [
-      { "name": "Store Chat Gateway", "latency": "12ms", "status": "Operational" },
-      { "name": "Voice Stream Engine", "latency": "12ms", "status": "Operational" },
-      { "name": "Conversation Runtime", "latency": "18ms", "status": "Operational" },
-      { "name": "Search & Catalog Index", "latency": "18ms", "status": "Operational" },
-      { "name": "Catalog Auto-Sync", "latency": "Active", "status": "Operational" },
-      { "name": "Webhook & Order Relay", "latency": "Active", "status": "Operational" }
-    ]
-  }
-}
-```
-
+### 10.1 Intent State Classification Taxonomy (`stateType`)
+The live desk classifies customer intent transitions in real-time:
+- **`DISCOVERY`**: Shopper browsing, inquiring about categories, or asking general catalog questions.
+- **`RECOMMENDATION`**: AI agent comparing items, offering suggestions, and pitching product options.
+- **`CART_UPDATE`**: Shopper adding, modifying, or removing items from active cart.
+- **`CHECKOUT`**: High-intent shopper initiating order placement or proceeding to payment.
+- **`SUPPORT`**: Customer inquiring about store policies, shipping rates, or returns.
 
 ---
 
-## 8. Phase 7: SuperAdmin Platform Command Center & Users/Subscribers Management (`/api/v1/admin`)
+## 11. SuperAdmin Platform Command Center & Moderation (`/api/v1/admin`)
 
 ### Summary
 
 | Endpoint | Method | Auth Guard | Roles | Description |
 |---|---|---|---|---|
 | `/api/v1/admin/stats` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Platform Command Overview**: Global telemetry aggregating platform MRR/ARR, plan distribution, active/suspended merchant stores, AI voice minutes, total GMV, 7D/30D activity time-series, and infrastructure health. |
-| `/api/v1/admin/businesses` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Merchants & Stores Directory**: Paginated tenant list with query filters (`page`, `limit`, `search`, `status`), enriched with store owner details, connected platform, and conversation counts. |
-| `/api/v1/admin/businesses/:id` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Merchant Tenant Inspection**: Detailed drilldown of single store tenant (profile, subscription state, product count, total orders, recent activity). |
+| `/api/v1/admin/businesses` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Merchants Directory & Key Telemetry**: Paginated tenant list with query filters (`page`, `limit`, `search`, `status`), enriched with owner details, key status, detected origins, and anomaly flags (`isMultiSite`, `hasMismatch`). |
+| `/api/v1/admin/businesses/:id` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Merchant Tenant Inspection**: Detailed drilldown of single store tenant (profile, key telemetry, subscription state, product count, total orders, recent activity). |
 | `/api/v1/admin/businesses/:id/status` | `PATCH` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Tenant Lifecycle Control**: Update store operational status (`active`, `suspended`, `pending`). Suspended stores immediately halt AI widget sessions. |
+| `/api/v1/admin/businesses/:id/publishable-key` | `DELETE` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **SuperAdmin Key Revocation**: Permanently destroys and invalidates a merchant's publishable key, severing all live voice/chat widget sessions. |
+| `/api/v1/admin/businesses/:id/key-status` | `PATCH` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Key Suspension / Reactivation**: Toggles key operational status between `'active'` and `'suspended'`. Suspended keys reject all connection handshakes. |
 | `/api/v1/admin/users` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Global Users & Subscribers Registry**: Cross-tenant user directory enriched with subscriber metadata (`planId`, `planName`, `billingProvider`, `isSubscriber`), executive KPI statistics, and multi-facet filters (`search`, `role`, `plan`, `status`, `billingProvider`). |
 | `/api/v1/admin/users/:id` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **User & Store Drilldown**: Comprehensive inspection of single user identity, attached merchant tenant, subscription status, AI store metrics, and recent conversation logs. |
 | `/api/v1/admin/users` | `POST` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Provision Platform User**: Direct creation of platform SuperAdmin operators or merchant store staff accounts. |
@@ -309,84 +283,13 @@ When returning shopper activity in `/api/v1/live-desk/activity-feed`, the engine
 | `/api/v1/admin/voice-sessions` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **AI Voice Telemetry & Monitor**: Live and recent real-time Gemini voice conversation sessions across all stores with turn counts, duration, caller identifier, and status. |
 | `/api/v1/admin/system/health` | `GET` | `JwtAuthGuard`, `RolesGuard` | SuperAdmin | **Infrastructure Diagnostics**: Real-time health pulse of Node process runtime, memory heap/RSS allocations, MongoDB connection pool, and Redis latency. |
 
-### 8.1 SuperAdmin Role Enforcement & Actor Security
+### 11.1 SuperAdmin Role Enforcement & Actor Security
 All `/api/v1/admin/*` endpoints strictly require:
 1. `JwtAuthGuard` validating an active, non-expired AdminUser session.
-2. `RolesGuard` enforcing `@Roles(AdminRole.SUPER_ADMIN)`. Any request by `owner`, `admin`, or `staff` returns `403 Forbidden` (`FORBIDDEN_RESOURCE`).
+2. `RolesGuard` enforcing `@Roles(AdminRole.SUPER_ADMIN, AdminRole.ADMIN)`. Any unauthorized access returns `403 Forbidden` (`FORBIDDEN_RESOURCE`).
 3. Cross-Tenant Aggregation: Unlike merchant endpoints, `/api/v1/admin/*` operates without `TenantScopeGuard`, querying cross-business platform telemetry while strictly excluding internal system tenants (`name: { $ne: 'ORA Platform' }`).
 
-### 8.2 Platform Overview Statistics (`GET /api/v1/admin/stats`)
-- **Query Parameters**:
-  - `period` (optional, string): Timeframe for trend aggregation (`7d`, `30d`, `all`, default `30d`).
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "overview": {
-      "totalBusinesses": 42,
-      "activeBusinesses": 40,
-      "suspendedBusinesses": 2,
-      "pendingBusinesses": 0,
-      "totalUsers": 58,
-      "totalConversations": 14250,
-      "voiceConversationsCount": 5120,
-      "textConversationsCount": 9130,
-      "totalVoiceMinutes": 12288,
-      "totalCustomers": 9820,
-      "totalOrders": 1450,
-      "totalGmv": 128450.00,
-      "oraAgentOrders": 890,
-      "oraAgentGmv": 78200.00,
-      "totalProducts": 18450,
-      "platformMRR": 3490,
-      "platformARR": 41880,
-      "planDistribution": {
-        "free": 12,
-        "growth": 24,
-        "scale": 6
-      },
-      "growth": {
-        "mrrTrend": "+18.4%",
-        "storeTrend": "+12.5%",
-        "voiceTrend": "+31.2%"
-      }
-    },
-    "system": {
-      "serverUptimeSeconds": 184520,
-      "nodeMemoryUsageMB": 142,
-      "nodeMemoryTotalMB": 256,
-      "redisStatus": "healthy",
-      "redisLatencyMs": 2,
-      "mongoStatus": "connected",
-      "environment": "production",
-      "nodeVersion": "v20.11.0"
-    },
-    "recentSignups": [
-      {
-        "id": "60d5ec49f1b2c8b1f8e4e1a1",
-        "name": "Aura Silk & Fashion",
-        "domain": "aurasilk.com",
-        "publishableKey": "biz_live_aurasilk_8f91a2c3",
-        "status": "active",
-        "connectedPlatform": "shopify",
-        "createdAt": "2026-08-14T10:30:00.000Z"
-      }
-    ],
-    "activityTimeline": [
-      {
-        "date": "2026-08-14",
-        "conversations": 480,
-        "voiceMinutes": 395,
-        "newStores": 2,
-        "gmv": 4200.00
-      }
-    ]
-  }
-}
-```
-
-### 8.3 Merchants & Stores Directory (`GET /api/v1/admin/businesses`)
+### 11.2 Merchants Directory with Key Telemetry (`GET /api/v1/admin/businesses`)
 - **Query Parameters**:
   - `page` (optional, number, default `1`)
   - `limit` (optional, number, default `15`, max `100`)
@@ -403,6 +306,21 @@ All `/api/v1/admin/*` endpoints strictly require:
         "name": "Apex Footwear Store",
         "domain": "apexfootwear.com",
         "publishableKey": "biz_live_apex_3b4c5d6e",
+        "keyStatus": "active",
+        "detectedOrigins": [
+          {
+            "origin": "https://apexfootwear.com",
+            "domain": "apexfootwear.com",
+            "lastSeen": "2026-08-17T19:50:00.000Z",
+            "sessionCount": 420,
+            "isMismatch": false
+          }
+        ],
+        "anomalyFlags": {
+          "isMultiSite": false,
+          "hasMismatch": false,
+          "activeOriginsCount": 1
+        },
         "status": "active",
         "connectedPlatform": "shopify",
         "ownerEmail": "merchant@apex.com",
@@ -421,12 +339,27 @@ All `/api/v1/admin/*` endpoints strictly require:
 }
 ```
 
-### 8.4 Update Merchant Status (`PATCH /api/v1/admin/businesses/:id/status`)
+### 11.3 Revoke Publishable Key (`DELETE /api/v1/admin/businesses/:id/publishable-key`)
+- **Path Parameter**: `id` — Target business MongoDB ObjectId.
+- **Response Payload Envelope**:
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "Publishable key for \"Apex Footwear Store\" has been revoked and invalidated.",
+    "businessId": "60d5ec49f1b2c8b1f8e4e1a1",
+    "keyStatus": "revoked"
+  }
+}
+```
+
+### 11.4 Update Key Status (`PATCH /api/v1/admin/businesses/:id/key-status`)
 - **Path Parameter**: `id` — Target business MongoDB ObjectId.
 - **Request Body DTO**:
 ```json
 {
-  "status": "suspended" // "active" | "suspended" | "pending"
+  "keyStatus": "suspended" // "active" | "suspended"
 }
 ```
 - **Response Payload Envelope**:
@@ -434,194 +367,15 @@ All `/api/v1/admin/*` endpoints strictly require:
 {
   "success": true,
   "data": {
-    "id": "60d5ec49f1b2c8b1f8e4e1a1",
-    "name": "Apex Footwear Store",
-    "status": "suspended",
-    "message": "Business status successfully updated to \"suspended\"."
+    "success": true,
+    "message": "Publishable key status for \"Apex Footwear Store\" updated to suspended.",
+    "businessId": "60d5ec49f1b2c8b1f8e4e1a1",
+    "keyStatus": "suspended"
   }
 }
 ```
 
-### 8.5 Global Users & Subscribers Registry (`GET /api/v1/admin/users`)
-- **Query Parameters**:
-  - `page` (optional, number, default `1`)
-  - `limit` (optional, number, default `20`, max `100`)
-  - `search` (optional, string): Search across user name, user email, store name, or store domain.
-  - `role` (optional, string): Filter by `super_admin`, `owner`, `admin`, `staff`, `user`.
-  - `plan` (optional, string): Filter by `subscriber` (any paid subscriber), `growth`, `scale`, `free`.
-  - `status` (optional, string): Filter by `active`, `suspended`, `unverified`.
-  - `billingProvider` (optional, string): Filter by `stripe`, `bkash`.
-  - `sortBy` (optional, string): Sort field (`createdAt`, `name`, `email`, default `createdAt`).
-  - `sortOrder` (optional, string): `asc` or `desc` (default `desc`).
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "users": [
-      {
-        "id": "60d5ec49f1b2c8b1f8e4e999",
-        "name": "Sarah Jenkins",
-        "email": "sarah@apexfootwear.com",
-        "role": "owner",
-        "emailVerified": true,
-        "businessId": "60d5ec49f1b2c8b1f8e4e1a1",
-        "businessName": "Apex Footwear Store",
-        "businessDomain": "apexfootwear.com",
-        "businessStatus": "active",
-        "connectedPlatform": "shopify",
-        "subscription": {
-          "planId": "growth",
-          "planName": "Growth",
-          "billingProvider": "stripe",
-          "status": "active",
-          "isSubscriber": true,
-          "currentPeriodEnd": "2026-09-15T00:00:00.000Z"
-        },
-        "metrics": {
-          "conversationsCount": 1840,
-          "ordersCount": 142
-        },
-        "createdAt": "2026-07-10T08:00:00.000Z"
-      }
-    ],
-    "stats": {
-      "totalUsers": 58,
-      "totalUsersTrend": "+14.2%",
-      "activeSubscribers": 30,
-      "activeSubscribersTrend": "+21.5%",
-      "activeUsers": 52,
-      "pendingVerification": 6,
-      "planDistribution": {
-        "free": 12,
-        "growth": 24,
-        "scale": 6
-      },
-      "roleDistribution": {
-        "superAdmin": 2,
-        "owner": 35,
-        "admin": 10,
-        "staff": 6,
-        "user": 5
-      }
-    },
-    "pagination": {
-      "page": 1,
-      "limit": 20,
-      "total": 58,
-      "totalPages": 3
-    }
-  }
-}
-```
-
-### 8.6 User & Store Drilldown (`GET /api/v1/admin/users/:id`)
-- **Path Parameter**: `id` — Target user MongoDB ObjectId.
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "60d5ec49f1b2c8b1f8e4e999",
-      "name": "Sarah Jenkins",
-      "email": "sarah@apexfootwear.com",
-      "role": "owner",
-      "emailVerified": true,
-      "createdAt": "2026-07-10T08:00:00.000Z",
-      "updatedAt": "2026-08-15T12:00:00.000Z",
-      "business": {
-        "id": "60d5ec49f1b2c8b1f8e4e1a1",
-        "name": "Apex Footwear Store",
-        "domain": "apexfootwear.com",
-        "publishableKey": "biz_live_apex_3b4c5d6e",
-        "status": "active",
-        "connectedPlatform": "shopify",
-        "createdAt": "2026-07-10T08:00:00.000Z"
-      },
-      "subscription": {
-        "planId": "growth",
-        "planName": "Growth",
-        "billingProvider": "stripe",
-        "status": "active",
-        "isSubscriber": true,
-        "currentPeriodStart": "2026-08-15T00:00:00.000Z",
-        "currentPeriodEnd": "2026-09-15T00:00:00.000Z",
-        "cancelAtPeriodEnd": false
-      },
-      "metrics": {
-        "productsCount": 412,
-        "conversationsCount": 1840,
-        "voiceMinutes": 1520,
-        "ordersCount": 142,
-        "totalGmv": 18450.00
-      },
-      "recentConversations": [
-        {
-          "id": "60d5ec49f1b2c8b1f8e4e777",
-          "sessionId": "sess_live_voice_99a8b7",
-          "customerIdentifier": "Shopper (+8801712345678)",
-          "status": "closed",
-          "turnCount": 8,
-          "createdAt": "2026-08-15T10:12:00.000Z"
-        }
-      ]
-    }
-  }
-}
-```
-
-### 8.7 Provision Platform User (`POST /api/v1/admin/users`)
-- **Request Body DTO**:
-```json
-{
-  "name": "Operations Lead",
-  "email": "ops@ora.ai",
-  "password": "SecurePassword123!",
-  "role": "super_admin" // "super_admin" | "owner" | "admin" | "staff" | "user"
-}
-```
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "60d5ec49f1b2c8b1f8e4e888",
-    "name": "Operations Lead",
-    "email": "ops@ora.ai",
-    "role": "super_admin",
-    "emailVerified": true,
-    "message": "User account created successfully."
-  }
-}
-```
-
-### 8.8 Update User Profile & Role (`PATCH /api/v1/admin/users/:id`)
-- **Path Parameter**: `id` — Target user MongoDB ObjectId.
-- **Request Body DTO**:
-```json
-{
-  "name": "Sarah Jenkins (Updated)",
-  "role": "admin", // "super_admin" | "owner" | "admin" | "staff" | "user"
-  "emailVerified": true
-}
-```
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "60d5ec49f1b2c8b1f8e4e999",
-    "name": "Sarah Jenkins (Updated)",
-    "email": "sarah@apexfootwear.com",
-    "role": "admin",
-    "emailVerified": true,
-    "message": "User profile successfully updated."
-  }
-}
-```
-
-### 8.9 Account Action Dispatcher (`POST /api/v1/admin/users/:id/action`)
+### 11.5 Account Action Dispatcher (`POST /api/v1/admin/users/:id/action`)
 - **Path Parameter**: `id` — Target user MongoDB ObjectId.
 - **Request Body DTO**:
 ```json
@@ -638,52 +392,3 @@ All `/api/v1/admin/*` endpoints strictly require:
   }
 }
 ```
-
-### 8.10 Voice Sessions Monitor (`GET /api/v1/admin/voice-sessions`)
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "sessions": [
-      {
-        "id": "60d5ec49f1b2c8b1f8e4e777",
-        "sessionId": "sess_live_voice_99a8b7",
-        "businessName": "Apex Footwear Store",
-        "customerIdentifier": "Shopper (+8801712345678)",
-        "status": "active",
-        "turnCount": 8,
-        "createdAt": "2026-08-15T10:12:00.000Z",
-        "updatedAt": "2026-08-15T10:14:32.000Z"
-      }
-    ]
-  }
-}
-```
-
-### 8.11 System Health Diagnostics (`GET /api/v1/admin/system/health`)
-- **Response Payload Envelope**:
-```json
-{
-  "success": true,
-  "data": {
-    "status": "operational",
-    "timestamp": "2026-08-15T11:15:00.000Z",
-    "database": {
-      "status": "connected",
-      "driver": "mongoose"
-    },
-    "redis": {
-      "status": "healthy",
-      "latencyMs": 2
-    },
-    "process": {
-      "uptimeSeconds": 184520,
-      "memoryUsedMB": 142,
-      "totalMemoryMB": 256,
-      "nodeVersion": "v20.11.0"
-    }
-  }
-}
-```
-

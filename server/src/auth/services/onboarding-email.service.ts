@@ -9,7 +9,7 @@ export interface OnboardingEmailPayload {
   toEmail: string;
   merchantName: string;
   storeName: string;
-  publishableKey: string;
+  publishableKey?: string | null;
 }
 
 @Injectable()
