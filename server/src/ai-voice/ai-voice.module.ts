@@ -16,15 +16,19 @@ import { OrdersModule } from '../orders/orders.module';
 import { Business, BusinessSchema } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 
+import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
 import { CustomersModule } from '../customers/customers.module';
 
 @Module({
+
   imports: [
     ConfigModule,
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
       { name: AdminUser.name, schema: AdminUserSchema },
+      { name: Customer.name, schema: CustomerSchema },
     ]),
+
     ProductsModule,
     RagModule,
     KnowledgeModule,

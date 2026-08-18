@@ -228,8 +228,11 @@ export class VoiceProxyGateway {
       sessionControls = await this.geminiVoiceService.createVoiceSession({
         businessId,
         sessionId,
+        customerId: activeCustomer.id,
+        deviceId: deviceIdParam,
 
         // Google → client: audio response
+
         onAudioData: (base64AudioPcm) => {
           sendToClient({ type: 'audio', data: base64AudioPcm });
         },

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ProductsService } from '../../products/products.service';
 import { RagService } from '../../rag/services/rag.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
@@ -8,6 +8,7 @@ import { EventType } from '../../events/schemas/event.schema';
 import { OrdersService } from '../../orders/orders.service';
 import { OrderSource } from '../../orders/schemas/order.schema';
 import { AgentConfigService } from '../../agent-config/agent-config.service';
+import { CustomersService } from '../../customers/customers.service';
 
 @Injectable()
 export class AiToolsExecutor {
@@ -21,6 +22,8 @@ export class AiToolsExecutor {
     private readonly eventsService: EventsService,
     private readonly ordersService: OrdersService,
     private readonly agentConfigService: AgentConfigService,
+    @Optional()
+    private readonly customersService?: CustomersService,
   ) {}
 
   async executeTool(
@@ -52,6 +55,9 @@ export class AiToolsExecutor {
         case 'get_business_info':
         case 'get_store_policy':
           return await this.handleSearchKnowledge(businessId, args);
+        case 'update_customer_profile':
+        case 'save_customer_name':
+          return await this.handleUpdateCustomerProfile(businessId, sessionId, args);
         default:
           return { error: `Unknown tool: ${toolName}` };
       }
@@ -59,7 +65,7 @@ export class AiToolsExecutor {
       this.logger.error(
         `[AiToolsExecutor] Error executing tool ${toolName}: ${err.message}`,
       );
-      return { error: err.message };
+      return { error: err.message || 'Internal tool execution error.' };
     }
   }
 
@@ -420,4 +426,56 @@ export class AiToolsExecutor {
       results: res.results,
     };
   }
+
+  private async handleUpdateCustomerProfile(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ) {
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
+    if (!customerId || !this.customersService) {
+      return { success: false, message: 'No active customer found for this session.' };
+    }
+
+    const updates: Record<string, any> = {};
+    if (args.name) updates.name = args.name;
+    if (args.preferences) updates.extractedPreferences = args.preferences;
+
+    if (args.email || args.phone) {
+      // Store unverified spoken claims in metadata (Zero-Leak isolation)
+      updates.metadata = {
+        unverifiedSpokenClaims: {
+          email: args.email,
+          phone: args.phone,
+          capturedAt: new Date(),
+        },
+      };
+    }
+
+    const updated = await this.customersService.update(businessId, customerId, updates as any);
+
+    // Also update Redis session customer cache so subsequent turns know the customer's name immediately
+    try {
+      const redis = this.redisService.getClient();
+      const existing = await redis.get(`session:${sessionId}:customer`);
+      const parsed = existing ? JSON.parse(existing) : {};
+      parsed.name = updated.name;
+      await redis.set(`session:${sessionId}:customer`, JSON.stringify(parsed), 'EX', 86400);
+    } catch {}
+
+    return {
+      success: true,
+      message: `Customer profile successfully saved with name: ${updated.name}`,
+    };
+  }
 }
+
