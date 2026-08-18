@@ -921,18 +921,19 @@
     } else if (isSpeaking) {
       statusDot.className = 'ora-w-status-dot speaking';
       statusLabel.innerText = 'ORA is speaking…';
-    } else if (isWaitingForAi) {
-      statusDot.className = 'ora-w-status-dot connecting';
-      statusLabel.innerText = 'ORA is thinking…';
-    } else if (isActive && !isMuted) {
-      statusDot.className = 'ora-w-status-dot listening';
-      statusLabel.innerText = 'Listening… Speak now';
     } else if (isActive && isMuted) {
       statusDot.className = 'ora-w-status-dot muted';
       statusLabel.innerText = 'Microphone muted';
+    } else if (isWaitingForAi) {
+      statusDot.className = 'ora-w-status-dot connecting';
+      statusLabel.innerText = 'ORA is thinking…';
+    } else if (isActive) {
+      statusDot.className = 'ora-w-status-dot listening';
+      statusLabel.innerText = 'Listening… Speak now';
     } else if (isStandby) {
       statusDot.className = 'ora-w-status-dot standby';
       statusLabel.innerText = 'Paused • Tap to resume';
+
     } else if (voiceState === 'error') {
       statusDot.className = 'ora-w-status-dot error';
       statusLabel.innerText = errorMsg ? errorMsg.slice(0, 26) : 'Retry conversation';
@@ -1108,11 +1109,15 @@
         const cleanText = (finalTranscript + ' ' + interimTranscript).trim();
         if (cleanText) {
           cancelIdleTimer();
-          isWaitingForAi = true;
           lastSpeaker = 'user';
           liveSpeaker = 'user';
           liveUtterance = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
           showTranscript = true;
+
+          // Only set thinking state when a final phrase has been uttered
+          if (event.results[event.results.length - 1] && event.results[event.results.length - 1].isFinal) {
+            isWaitingForAi = true;
+          }
           render();
         }
       };
@@ -1131,6 +1136,8 @@
   }
 
   // ─── Microphone Capture (16 kHz PCM) ────────────────────────────────────────
+  let userSpeechSilenceTimeout = null;
+
   async function startMicCapture() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
@@ -1178,9 +1185,13 @@
       const rms = Math.sqrt(sum / rawInput.length);
       userMicLevel = Math.min(100, Math.floor(rms * 400));
 
-      if (rms > 0.04) {
+      // Voice Activity Detection (VAD)
+      if (rms > 0.06) {
         cancelIdleTimer();
-        isWaitingForAi = true;
+        if (userSpeechSilenceTimeout) {
+          clearTimeout(userSpeechSilenceTimeout);
+          userSpeechSilenceTimeout = null;
+        }
       }
 
       const pcm16 = floatTo16BitPCM(inputData);
@@ -1190,6 +1201,7 @@
 
     startSpeechRecognition();
   }
+
 
   // ─── Start Voice Session (with Resumption Support) ───────────────────────────
   async function startVoiceSession(resumeToken) {
@@ -1273,8 +1285,10 @@
             isWaitingForAi = false;
             audioQueueTime = 0;
             armIdleTimer();
+            render();
             return;
           }
+
 
           if (msg.type === 'session_suspended') {
             activeResumptionToken = msg.resumptionToken || sessionId;
