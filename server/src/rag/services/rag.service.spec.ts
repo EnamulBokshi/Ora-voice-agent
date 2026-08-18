@@ -10,9 +10,10 @@ import { Business } from '../../users/schemas/business.schema';
 
 describe('RagService', () => {
   let service: RagService;
+  let moduleRef: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    moduleRef = await Test.createTestingModule({
       providers: [
         RagService,
         {
@@ -61,10 +62,20 @@ describe('RagService', () => {
       ],
     }).compile();
 
-    service = module.get<RagService>(RagService);
+    service = moduleRef.get<RagService>(RagService);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('should generate embedding once and return combined search results', async () => {
+    const embeddingService = moduleRef.get<EmbeddingService>(EmbeddingService);
+    const res = await service.searchCombined('biz_123', 'headphones');
+    expect(res.query).toBe('headphones');
+    expect(res.products).toBeDefined();
+    expect(res.knowledge).toBeDefined();
+    // Embedding should only be generated once for searchCombined
+    expect(embeddingService.generateEmbedding).toHaveBeenCalledTimes(1);
   });
 });

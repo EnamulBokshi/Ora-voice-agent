@@ -13,12 +13,14 @@ import { EventsModule } from '../events/events.module';
 import { AgentConfigModule } from '../agent-config/agent-config.module';
 import { OrdersModule } from '../orders/orders.module';
 import { Business, BusinessSchema } from '../users/schemas/business.schema';
+import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 
 @Module({
   imports: [
     ConfigModule,
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
+      { name: AdminUser.name, schema: AdminUserSchema },
     ]),
     ProductsModule,
     RagModule,

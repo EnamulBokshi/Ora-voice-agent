@@ -18,6 +18,8 @@ import {
   uploadKnowledgeFileApi,
 } from '@/services/knowledge-service';
 import { DocType } from '@/types/knowledge';
+import { Globe } from 'lucide-react';
+import { ProductUploadModal } from '../products/product-upload-modal';
 
 interface DocumentsFeedTabProps {
   onFed: () => void;
@@ -72,6 +74,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeCategory =
@@ -157,7 +160,31 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
   };
 
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <>
+      {/* 1-Click Fast Sync Option for Portfolios & Web Apps */}
+      <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-primary/10 border border-primary/20 p-2 text-primary shrink-0 mt-0.5">
+            <Globe size={18} />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-foreground">Sync Knowledge Directly from Website URL</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Crawl your portfolio, SaaS app, bio, projects, or docs URL in 1-click. Auto-extracted & vectorized.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsSyncModalOpen(true)}
+          className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary-hover transition-colors shadow-xs shrink-0"
+        >
+          <Globe size={13} />
+          <span>Sync from Website</span>
+        </button>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-4">
       {/* Mode Selector & Category */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
@@ -338,5 +365,17 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         </div>
       </div>
     </form>
+
+      {/* 1-Click Website Crawl Modal */}
+      <ProductUploadModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSuccess={() => {
+          setIsSyncModalOpen(false);
+          onFed();
+        }}
+        initialTab="website"
+      />
+    </>
   );
 }

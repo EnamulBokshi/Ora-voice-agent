@@ -78,6 +78,21 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'search_knowledge_base',
+    description:
+      'Search website knowledge base, portfolio details, creator bio, projects, services, pricing, FAQs, contact info, and policies.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: {
+          type: 'STRING',
+          description: 'Search query or question about the portfolio, projects, bio, company, services, or policies.',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'get_store_policy',
     description: 'Lookup store policies, FAQs, shipping rules, return procedures, or brand information.',
     parameters: {

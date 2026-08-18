@@ -93,12 +93,21 @@ export class UrlNormalizer {
       }
 
       const isLocal = this.isLocalDomain(parsed.hostname);
-      if (!isLocal && parsed.protocol === 'http:') {
+      if (!isLocal && parsed.protocol === 'http:' && !baseDomain) {
         // Standardize public domain protocol to https
         parsed.protocol = 'https:';
       }
 
-      parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+      // If crawling a local environment (e.g. localhost:3001), rewrite sitemap production URLs to target local host & port
+      if (baseDomain && this.isLocalDomain(baseDomain)) {
+        const targetClean = baseDomain.trim().toLowerCase().replace(/^https?:\/\//i, '').split('/')[0];
+        const [targetHost, targetPort] = targetClean.split(':');
+        parsed.protocol = this.getProtocol(baseDomain) + ':';
+        parsed.hostname = targetHost;
+        parsed.port = targetPort || '';
+      } else {
+        parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+      }
 
       // Remove default ports
       if ((parsed.protocol === 'http:' && parsed.port === '80') || (parsed.protocol === 'https:' && parsed.port === '443')) {

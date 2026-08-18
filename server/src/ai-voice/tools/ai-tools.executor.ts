@@ -48,8 +48,10 @@ export class AiToolsExecutor {
           return await this.handlePlaceOrder(businessId, sessionId, args);
         case 'redirect_to_checkout':
           return await this.handleRedirectToCheckout(businessId, sessionId);
+        case 'search_knowledge_base':
+        case 'get_business_info':
         case 'get_store_policy':
-          return await this.handleGetStorePolicy(businessId, args);
+          return await this.handleSearchKnowledge(businessId, args);
         default:
           return { error: `Unknown tool: ${toolName}` };
       }
@@ -76,45 +78,57 @@ export class AiToolsExecutor {
       // Non-fatal: proceed without urgency hints
     }
 
-    // 3. Batch live-verify price and stock for each candidate in parallel
-    const verifyPromises = ragRes.products.map(async (prod) => {
-      const targetId =
-        (prod as any).entityId ||
-        (prod as any).id ||
-        (prod as any)._id ||
-        ((prod as any).data && (prod as any).data._id);
-      if (!targetId) return null;
+    // 3. Batch live-verify price and stock for each candidate in a single roundtrip
+    const candidateIds = ragRes.products
+      .map((prod) => {
+        const targetId =
+          (prod as any).entityId ||
+          (prod as any).id ||
+          (prod as any)._id ||
+          ((prod as any).data && (prod as any).data._id);
+        return targetId ? targetId.toString() : null;
+      })
+      .filter(Boolean) as string[];
 
+    let verifiedList: any[] = [];
+    if (candidateIds.length > 0) {
       try {
-        const live = await this.productsService.verifyLive(businessId, targetId.toString());
-        if (live) {
-          const entry: Record<string, any> = {
-            id: live._id.toString(),
-            name: live.name,
-            price: live.price,
-            currency: live.currency,
-            availability: live.availability,
-            stockQuantity: live.stockQuantity,
-            category: live.category,
-            sourceTier: live.sourceTier,
-            confidenceScore: live.confidenceScore,
-            isLowStock: (live as any).isLowStock ?? false,
-          };
-
-          if (mentionLowStockUrgency && (live as any).isLowStock) {
-            entry.urgencyHint = `Only ${live.stockQuantity} left in stock — selling fast!`;
-          }
-
-          return entry;
+        if (typeof this.productsService.verifyLiveBatch === 'function') {
+          verifiedList = await this.productsService.verifyLiveBatch(businessId, candidateIds);
         }
-      } catch {
-        // Product may have been live-found via Gap B but not yet in Mongo — skip
+        if (verifiedList.length === 0 && typeof this.productsService.verifyLive === 'function') {
+          const individual = await Promise.all(
+            candidateIds.map((id) =>
+              this.productsService.verifyLive(businessId, id).catch(() => null),
+            ),
+          );
+          verifiedList = individual.filter(Boolean);
+        }
+      } catch (err: any) {
+        this.logger.warn(`[AiToolsExecutor] Batch verification notice: ${err.message}`);
       }
-      return null;
-    });
+    }
 
-    const verifiedResults = await Promise.all(verifyPromises);
-    const liveVerifiedProducts = verifiedResults.filter(Boolean) as Record<string, any>[];
+    const liveVerifiedProducts: Record<string, any>[] = verifiedList.map((live) => {
+      const entry: Record<string, any> = {
+        id: live._id ? live._id.toString() : (live.id || live.nativeProductId),
+        name: live.name,
+        price: live.price,
+        currency: live.currency || 'USD',
+        availability: live.availability,
+        stockQuantity: live.stockQuantity,
+        category: live.category,
+        sourceTier: live.sourceTier,
+        confidenceScore: live.confidenceScore || 0.9,
+        isLowStock: live.isLowStock ?? false,
+      };
+
+      if (mentionLowStockUrgency && live.isLowStock) {
+        entry.urgencyHint = `Only ${live.stockQuantity} left in stock — selling fast!`;
+      }
+
+      return entry;
+    });
 
     // 4. If RAG returned Gap B live results (not in Mongo yet), surface them directly
     //    They're already live-verified (sourced fresh from the platform)
@@ -342,19 +356,19 @@ export class AiToolsExecutor {
     };
   }
 
-  private async handleGetStorePolicy(businessId: string, args: Record<string, any>) {
-    const query = (args && args.query) ? String(args.query) : 'store policy return refund shipping';
+  private async handleSearchKnowledge(businessId: string, args: Record<string, any>) {
+    const query = args && args.query ? String(args.query) : 'about projects bio services contact faq policy';
     const res = await this.ragService.searchKnowledge(businessId, query, {
       limit: 5,
     });
 
-    const policySnippets = res.results.map((r) => r.text).join('\n\n');
+    const snippets = res.results.map((r) => r.text).join('\n\n');
     return {
       success: true,
       query,
-      foundPolicies: res.results.length,
-      policyDetails: policySnippets || 'Standard store policy: 14-day return in original condition.',
-      policies: res.results,
+      foundItems: res.results.length,
+      details: snippets || 'No relevant knowledge document found for this specific query.',
+      results: res.results,
     };
   }
 }

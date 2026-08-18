@@ -10,6 +10,9 @@ import { HTML_CRAWL_QUEUE } from './sitemap-crawler.processor';
 import { UrlNormalizer } from '../utils/url-normalizer.util';
 import { ContentHasher } from '../utils/content-hasher.util';
 
+import { JsonLdExtractor } from '../extractors/json-ld.extractor';
+import { ReadabilityExtractor } from '../extractors/readability.extractor';
+
 describe('SitemapCrawler & Ingestion Suite', () => {
   let service: SitemapCrawlerService;
 
@@ -40,6 +43,20 @@ describe('SitemapCrawler & Ingestion Suite', () => {
     addBulk: jest.fn().mockResolvedValue([]),
   };
 
+  const mockJsonLd = {
+    extractProduct: jest.fn().mockReturnValue(null),
+  };
+
+  const mockReadability = {
+    extract: jest.fn().mockReturnValue({
+      sourceUrl: 'https://example.com/about',
+      category: 'general',
+      title: 'About Us',
+      markdown: 'We build awesome software.',
+      contentHash: 'hash_123',
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +66,8 @@ describe('SitemapCrawler & Ingestion Suite', () => {
         { provide: PlatformSnifferService, useValue: mockSniffer },
         { provide: PlatformFastPathService, useValue: mockFastPath },
         { provide: SitemapDiscoveryService, useValue: mockDiscovery },
+        { provide: JsonLdExtractor, useValue: mockJsonLd },
+        { provide: ReadabilityExtractor, useValue: mockReadability },
         { provide: getQueueToken(HTML_CRAWL_QUEUE), useValue: mockQueue },
       ],
     }).compile();
@@ -127,17 +146,20 @@ describe('SitemapCrawler & Ingestion Suite', () => {
   });
 
   describe('Generic Sitemap & Custom Store Crawl', () => {
-    it('should queue HTML crawl jobs for discovered URLs on custom storefronts', async () => {
+    it('should process priority URLs inline and queue excess URLs in background', async () => {
       mockSniffer.detect.mockResolvedValue({
         platform: 'custom',
         domain: 'localhost:777',
         confidence: 'low',
       });
 
-      mockDiscovery.discover.mockResolvedValue([
-        { url: 'http://localhost:777/products/1', kind: 'product' },
-        { url: 'http://localhost:777/blog/policy', kind: 'policy' },
-      ]);
+      // 16 URLs: first 15 inline, 16th queued
+      const urls = Array.from({ length: 16 }, (_, i) => ({
+        url: `http://localhost:777/page/${i + 1}`,
+        kind: 'page' as const,
+      }));
+
+      mockDiscovery.discover.mockResolvedValue(urls);
 
       const result = await service.syncFromWebsite({
         businessId: 'biz_123',
@@ -145,7 +167,7 @@ describe('SitemapCrawler & Ingestion Suite', () => {
       });
 
       expect(result.platform).toBe('custom');
-      expect(result.htmlCrawlJobsQueued).toBe(2);
+      expect(result.htmlCrawlJobsQueued).toBe(1);
       expect(mockQueue.addBulk).toHaveBeenCalled();
     });
   });
