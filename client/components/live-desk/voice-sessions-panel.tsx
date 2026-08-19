@@ -11,11 +11,11 @@ export function VoiceSessionsPanel({ sessions }: VoiceSessionsPanelProps) {
   const activeCount = sessions?.length ?? 0;
 
   return (
-    <div className="rounded-md border border-border bg-surface-container overflow-hidden">
+    <div className="overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Mic size={14} className="text-[color:var(--chart-2)]" />
+          <Mic size={14} className="text-muted-foreground" />
           <h3 className="text-[12px] font-semibold text-foreground">Active Voice Calls</h3>
         </div>
         <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-surface-high text-muted-foreground border border-border">

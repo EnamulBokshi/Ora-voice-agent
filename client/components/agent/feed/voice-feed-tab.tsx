@@ -449,21 +449,16 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
 
   return (
     <div className="space-y-6">
-      {/* ── Top Visualizer & Interactive Microphone Orb ── */}
-      <div className="relative overflow-hidden rounded-md border border-border bg-surface-container p-8 flex flex-col items-center justify-center text-center">
-        {/* Background ambient lighting */}
+      {/* ── Mic orb — no outer card ── */}
+      <div className="relative flex flex-col items-center justify-center text-center py-10">
+        {/* Ambient glow — very subtle */}
         <div
-          className={cn(
-            'absolute inset-0 pointer-events-none transition-opacity duration-700',
-            isActive ? 'opacity-20' : 'opacity-5',
-          )}
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-700 rounded-xl ${isActive ? 'opacity-10' : 'opacity-0'}`}
           style={{
             background:
               status === 'speaking'
                 ? 'radial-gradient(circle at center, var(--primary) 0%, transparent 70%)'
-                : status === 'listening'
-                ? 'radial-gradient(circle at center, var(--status-warning) 0%, transparent 70%)'
-                : 'radial-gradient(circle at center, var(--primary) 0%, transparent 60%)',
+                : 'radial-gradient(circle at center, var(--status-warning) 0%, transparent 70%)',
           }}
         />
 
@@ -528,19 +523,16 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
           </button>
         </div>
 
-        {/* Status Callout & Quick Instructions */}
-        <div className="relative z-10 mt-2 space-y-1">
-          <h3 className="text-sm font-semibold text-foreground">
+        {/* Status text */}
+        <div className="relative z-10 mt-2">
+          <p className="text-[12.5px] font-medium text-muted-foreground">
             {status === 'speaking'
-              ? 'ORA is responding with store context'
+              ? 'Responding...'
               : status === 'listening'
-              ? 'Listening to your voice... Speak naturally'
+              ? 'Listening...'
               : status === 'connecting'
-              ? 'Establishing secure audio stream...'
-              : 'Click the microphone to start talking with ORA'}
-          </h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Test product questions, store policies, discounts, or provide instructions directly via voice.
+              ? 'Connecting...'
+              : 'Click the microphone to start'}
           </p>
         </div>
 
@@ -583,15 +575,15 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
         )}
       </div>
 
-      {/* ── Live Conversation Transcript Feed ── */}
-      <div className="rounded-md border border-border bg-surface-container overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border bg-surface-low/60 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Radio size={14} className={isActive ? 'text-primary animate-pulse' : 'text-muted-foreground'} />
-            <h4 className="text-xs font-semibold text-foreground">
-              Conversation Transcript ({transcripts.length})
-            </h4>
-          </div>
+      {/* ── Transcript ── */}
+      <div>
+        <div className="flex items-center justify-between pb-2 border-b border-border">
+          <span className="text-[12.5px] font-medium text-foreground">
+            Transcript
+            {transcripts.length > 0 && (
+              <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">({transcripts.length})</span>
+            )}
+          </span>
 
           <div className="flex items-center gap-2">
             {transcripts.some((t) => t.sender === 'user' || t.sender === 'agent') && (
@@ -623,8 +615,8 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
           </div>
         </div>
 
-        {/* Transcript Message Scroll Area */}
-        <div className="p-4 space-y-3 min-h-[220px] max-h-[360px] overflow-y-auto">
+        {/* Transcript scroll area */}
+        <div className="space-y-3 min-h-[200px] max-h-[360px] overflow-y-auto pt-3">
           {transcripts.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
               <p>No conversation yet.</p>

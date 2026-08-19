@@ -1,16 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Settings2, ArrowRight, Radio } from 'lucide-react';
+import { ArrowRight, Radio, Settings2 } from 'lucide-react';
 import Link from 'next/link';
-import { buttonVariants } from '@/components/ui/button';
-import { LiveTopBar } from './live-top-bar';
-import { LiveStatsBar } from './live-stats-bar';
+import { TopHeader } from '@/components/dashboard/top-header';
 import { ActivityFeed } from './activity-feed';
 import { OraStatusPanel } from './ora-status-panel';
 import { VoiceSessionsPanel } from './voice-sessions-panel';
 import { SalesActionsPanel } from './sales-actions-panel';
-import { DetailDrawer } from './detail-drawer';
+import { SessionDetailPanel } from './session-detail-panel';
 import {
   getLiveStatsApi,
   getActivityFeedApi,
@@ -23,158 +21,207 @@ import {
   type LiveSalesAction,
   type SystemHealthResponse,
 } from '@/services/live-desk-service';
+import {
+  demoLiveStats,
+  demoLiveFeed,
+  demoLiveVoiceSessions,
+  demoLiveSalesActions,
+  demoSystemHealth,
+} from '@/lib/demo-live-desk';
+import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
+
+const USE_DEMO_DATA = DEMO_MODE_ENABLED;
 
 export function LiveDeskClient() {
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused]               = useState(false);
   const [activeSession, setActiveSession] = useState<LiveFeedSession | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const [stats, setStats] = useState<LiveStatsResponse | null>(null);
-  const [feed, setFeed] = useState<LiveFeedSession[]>([]);
+  const [stats, setStats]                 = useState<LiveStatsResponse | null>(null);
+  const [feed, setFeed]                   = useState<LiveFeedSession[]>([]);
   const [voiceSessions, setVoiceSessions] = useState<LiveVoiceSession[]>([]);
-  const [salesActions, setSalesActions] = useState<LiveSalesAction[]>([]);
-  const [health, setHealth] = useState<SystemHealthResponse | null>(null);
+  const [salesActions, setSalesActions]   = useState<LiveSalesAction[]>([]);
+  const [health, setHealth]               = useState<SystemHealthResponse | null>(null);
 
   const fetchTelemetry = useCallback(async () => {
     try {
       const [statsRes, feedRes, voiceRes, salesRes, healthRes] =
         await Promise.allSettled([
           getLiveStatsApi(),
-          getActivityFeedApi(10),
+          getActivityFeedApi(20),
           getVoiceSessionsApi(),
           getSalesConversionsApi(),
           getSystemHealthApi(),
         ]);
 
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
-      if (feedRes.status === 'fulfilled') setFeed(feedRes.value);
-      if (voiceRes.status === 'fulfilled') setVoiceSessions(voiceRes.value);
-      if (salesRes.status === 'fulfilled') setSalesActions(salesRes.value);
-      if (healthRes.status === 'fulfilled') setHealth(healthRes.value);
+      // ── Process Feed ───────────────────────────────────────────────────────
+      const rawFeed = feedRes.status === 'fulfilled' ? feedRes.value : [];
+      const effectiveFeed =
+        USE_DEMO_DATA && (!rawFeed || rawFeed.length === 0)
+          ? demoLiveFeed
+          : rawFeed;
+      setFeed(effectiveFeed);
+
+      // Auto-select first session if none is selected yet
+      setActiveSession((prev) => {
+        if (prev) return prev;
+        return effectiveFeed.length > 0 ? effectiveFeed[0] : null;
+      });
+
+      // ── Process Stats ──────────────────────────────────────────────────────
+      const rawStats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+      const effectiveStats =
+        USE_DEMO_DATA && (!rawStats || rawStats.activeConvos === 0)
+          ? demoLiveStats
+          : rawStats;
+      setStats(effectiveStats);
+
+      // ── Process Voice Sessions ─────────────────────────────────────────────
+      const rawVoice = voiceRes.status === 'fulfilled' ? voiceRes.value : [];
+      const effectiveVoice =
+        USE_DEMO_DATA && (!rawVoice || rawVoice.length === 0)
+          ? demoLiveVoiceSessions
+          : rawVoice;
+      setVoiceSessions(effectiveVoice);
+
+      // ── Process Sales Conversions ──────────────────────────────────────────
+      const rawSales = salesRes.status === 'fulfilled' ? salesRes.value : [];
+      const effectiveSales =
+        USE_DEMO_DATA && (!rawSales || rawSales.length === 0)
+          ? demoLiveSalesActions
+          : rawSales;
+      setSalesActions(effectiveSales);
+
+      // ── Process Health ─────────────────────────────────────────────────────
+      const rawHealth = healthRes.status === 'fulfilled' ? healthRes.value : null;
+      const effectiveHealth =
+        USE_DEMO_DATA && (!rawHealth || !rawHealth.services?.length)
+          ? demoSystemHealth
+          : rawHealth;
+      setHealth(effectiveHealth);
+
     } catch {
-      // Background polling fails gracefully without disrupting UI
+      // In error state, fall back to demo data if enabled
+      if (USE_DEMO_DATA) {
+        setFeed(demoLiveFeed);
+        setStats(demoLiveStats);
+        setVoiceSessions(demoLiveVoiceSessions);
+        setSalesActions(demoLiveSalesActions);
+        setHealth(demoSystemHealth);
+        setActiveSession((prev) => prev ?? demoLiveFeed[0]);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    fetchTelemetry();
-  }, [fetchTelemetry]);
+  useEffect(() => { fetchTelemetry(); }, [fetchTelemetry]);
 
   useEffect(() => {
     if (paused) return;
-    const interval = setInterval(() => {
-      fetchTelemetry();
-    }, 4000);
+    const interval = setInterval(fetchTelemetry, 4000);
     return () => clearInterval(interval);
   }, [paused, fetchTelemetry]);
 
-  function handleSelectSession(session: LiveFeedSession) {
-    setActiveSession(session);
-    setDrawerOpen(true);
-  }
-
   return (
     <div className="flex-1 flex flex-col min-h-0 h-full overflow-hidden bg-background">
-      {/* ── Top Bar with Live Indicator & Controls ── */}
-      <LiveTopBar
-        paused={paused}
-        onTogglePause={() => setPaused((prev) => !prev)}
-      />
 
-      {/* ── Main Scrollable Canvas ── */}
-      <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6 max-w-[1440px] w-full mx-auto">
-
-        {/* Page Heading & Quick Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-[color:var(--status-online)] flex items-center gap-1.5">
-                <Radio size={13} className="text-[color:var(--status-online)] animate-pulse" />
-                Live Desk
+      {/* ── Top Header ── */}
+      <TopHeader
+        title="Live Desk"
+        badge={
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)] animate-pulse-ring" />
+            Live Stream
+          </span>
+        }
+        actions={
+          <div className="flex items-center gap-4 text-[12px]">
+            {/* Inline live metrics — no box pills */}
+            <div className="hidden md:flex items-center gap-3 text-muted-foreground">
+              <span>
+                <strong className="font-semibold text-foreground font-mono">{stats?.activeConvos ?? 0}</strong> active
+              </span>
+              <span className="text-border">·</span>
+              <span>
+                <strong className="font-semibold text-foreground font-mono">{stats?.activeVoiceCalls ?? 0}</strong> voice
+              </span>
+              <span className="text-border">·</span>
+              <span>
+                <strong className="font-semibold text-foreground font-mono">{stats?.ordersInfluenced ?? 0}</strong> orders
               </span>
             </div>
-            <h1 className="text-xl font-bold text-foreground tracking-tight leading-tight">
-              Real-Time Customer Activity
-            </h1>
-            <p className="text-[13px] text-muted-foreground mt-1">
-              Live shopper conversations, voice calls, product inquiries, and assisted checkouts.
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Link
-              href="/conversations"
-              className={buttonVariants({
-                variant: 'outline',
-                size: 'sm',
-                className: 'gap-1.5 text-[12px] border-border bg-surface-container hover:bg-surface-high',
-              })}
+            <div className="hidden md:block h-4 w-px bg-border" />
+
+            {/* Pause / Resume */}
+            <button
+              id="live-activity-pause-toggle"
+              onClick={() => setPaused((p) => !p)}
+              className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
             >
-              All Conversations
-              <ArrowRight size={13} />
-            </Link>
+              {paused ? (
+                <>
+                  <Radio size={12} className="text-primary" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                  Pause
+                </>
+              )}
+            </button>
+
             <Link
               href="/agent"
-              className={buttonVariants({
-                variant: 'default',
-                size: 'sm',
-                className: 'gap-1.5 text-[12px] bg-primary text-primary-foreground hover:bg-primary-hover font-semibold',
-              })}
+              className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
             >
-              <Settings2 size={13} />
-              Configure Agent
+              <Settings2 size={12} />
+              Configure
+            </Link>
+          </div>
+        }
+      />
+
+      {/* ── 3-Column Full-Height Workspace ── */}
+      <div className="flex-1 flex min-h-0 overflow-hidden divide-x divide-border">
+
+        {/* ── Col 1: Activity Feed (300px fixed) ── */}
+        <div className="w-[300px] flex-shrink-0 flex flex-col overflow-hidden bg-background">
+          <ActivityFeed
+            paused={paused}
+            sessions={feed}
+            activeSessionId={activeSession?.id}
+            onSelectSession={setActiveSession}
+          />
+          {/* Footer link */}
+          <div className="px-4 py-2.5 border-t border-border flex-shrink-0">
+            <Link
+              href="/conversations"
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+            >
+              View conversation history
+              <ArrowRight size={11} />
             </Link>
           </div>
         </div>
 
-        {/* ── Row 1: Real-Time Dynamic Stat Counters ── */}
-        <LiveStatsBar stats={stats} />
+        {/* ── Col 2: Session Detail — inline panel (flex-1) ── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+          <SessionDetailPanel session={activeSession} />
+        </div>
 
-        {/* ── Row 2: Two-Column Live Activity Workspace ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Live Customer Activity Feed (8 Cols) */}
-          <div className="xl:col-span-8 space-y-4">
-            <ActivityFeed
-              paused={paused}
-              sessions={feed}
-              activeSessionId={activeSession?.id}
-              onSelectSession={handleSelectSession}
-            />
+        {/* ── Col 3: Right sidebar — System + Voice + Sales (260px fixed) ── */}
+        <div className="w-[260px] flex-shrink-0 flex flex-col overflow-y-auto no-scrollbar bg-background divide-y divide-border">
+          {/* System services */}
+          <OraStatusPanel health={health} />
 
-            <div className="flex items-center justify-between px-2 text-[12px] text-muted-foreground">
-              <span>Click on any active shopper session to inspect live transcript & verification.</span>
-              <Link
-                href="/conversations"
-                className="text-primary hover:underline underline-offset-4 font-medium inline-flex items-center gap-1"
-              >
-                View full history
-                <ArrowRight size={12} />
-              </Link>
-            </div>
-          </div>
+          {/* Voice sessions */}
+          <VoiceSessionsPanel sessions={voiceSessions} />
 
-          {/* Right Column: Live Telemetry Panels (4 Cols) */}
-          <div className="xl:col-span-4 flex flex-col gap-4">
-            {/* Active Voice Calls with 7-bar audio waveform */}
-            <VoiceSessionsPanel sessions={voiceSessions} />
-
-            {/* AI Sales Conversion Actions */}
-            <SalesActionsPanel actions={salesActions} />
-
-            {/* System Status Indicators */}
-            <OraStatusPanel health={health} />
-          </div>
+          {/* Sales conversions */}
+          <SalesActionsPanel actions={salesActions} />
         </div>
 
       </div>
-
-      {/* ── Slide-in Interactive Session Detail Drawer ── */}
-      <DetailDrawer
-        open={drawerOpen}
-        session={activeSession}
-        onClose={() => setDrawerOpen(false)}
-      />
     </div>
   );
 }
-

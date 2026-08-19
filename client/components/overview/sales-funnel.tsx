@@ -1,7 +1,5 @@
 'use client';
 
-import { Filter } from 'lucide-react';
-
 export interface FunnelStep {
   label: string;
   count: number;
@@ -25,35 +23,35 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
   const steps = funnel && funnel.length > 0 ? funnel : DEFAULT_FUNNEL;
 
   return (
-    <div className="rounded-md border border-border bg-surface-container p-5 flex flex-col justify-between h-full">
-      {/* Header */}
-      <div className="pb-4 border-b border-border flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Filter size={15} className="text-primary" />
-            <h3 className="text-[13px] font-semibold text-foreground">Conversation → Sales Funnel</h3>
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Conversion stages across customer sessions
-          </p>
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Sub-section header row */}
+      <div className="flex items-center justify-between pt-5 pb-4 border-b border-border">
+        <span className="text-[13px] font-semibold text-foreground">
+          Conversion Funnel
+        </span>
+        <div className="flex items-center gap-2 text-[12px]">
+          <span className="text-muted-foreground">Overall conversion:</span>
+          <span className="font-bold text-foreground font-mono tabular-nums text-[13px]">
+            {overallConversion}%
+          </span>
         </div>
       </div>
 
       {/* Funnel Progress Steps */}
-      <div className="py-4 space-y-3.5">
+      <div className="py-5 space-y-4 max-w-2xl">
         {steps.map((step) => (
           <div key={step.label} className="space-y-1.5">
-            <div className="flex justify-between items-center text-[12px]">
-              <span className="text-muted-foreground font-medium">{step.label}</span>
-              <div className="flex items-center gap-2 font-mono">
+            <div className="flex justify-between items-center text-[12.5px]">
+              <span className="text-foreground font-medium">{step.label}</span>
+              <div className="flex items-center gap-2 font-mono text-[12px]">
                 <span className="text-foreground font-semibold tabular-nums">
                   {step.count.toLocaleString()}
                 </span>
                 <span
                   className={
                     step.isLast
-                      ? 'text-primary font-bold text-[11px]'
-                      : 'text-muted-foreground text-[11px]'
+                      ? 'text-primary font-semibold'
+                      : 'text-muted-foreground'
                   }
                 >
                   ({step.pct}%)
@@ -62,7 +60,7 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
             </div>
 
             {/* Step Bar */}
-            <div className="h-2 w-full rounded-full bg-surface-low overflow-hidden border border-border/60">
+            <div className="h-1.5 w-full rounded-full bg-surface-high overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
@@ -74,15 +72,6 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
           </div>
         ))}
       </div>
-
-      {/* Summary Footer */}
-      <div className="pt-3 border-t border-border flex items-center justify-between">
-        <span className="text-[12px] text-muted-foreground">Overall Funnel Conversion</span>
-        <span className="text-[14px] font-bold text-primary tabular-nums">
-          {overallConversion}%
-        </span>
-      </div>
     </div>
   );
 }
-

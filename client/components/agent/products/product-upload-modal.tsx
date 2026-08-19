@@ -7,17 +7,11 @@ import {
   UploadCloud,
   FileSpreadsheet,
   Rss,
-  PlusCircle,
+  Plus,
   Webhook,
   Loader2,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Sparkles,
-  Layers,
-  ArrowRight,
-  ExternalLink,
-  ShieldCheck,
 } from 'lucide-react';
 import {
   uploadProductFileApi,
@@ -36,6 +30,14 @@ interface ProductUploadModalProps {
 }
 
 export type IngestionTab = 'website' | 'file' | 'feed' | 'manual' | 'webhooks';
+
+const TABS: { id: IngestionTab; label: string; icon: typeof Globe }[] = [
+  { id: 'website', label: 'Website URL', icon: Globe },
+  { id: 'file', label: 'File Upload', icon: FileSpreadsheet },
+  { id: 'feed', label: 'Feed URL', icon: Rss },
+  { id: 'manual', label: 'Manual Entry', icon: Plus },
+  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
+];
 
 export function ProductUploadModal({
   isOpen,
@@ -88,7 +90,7 @@ export function ProductUploadModal({
   const handleCrawlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!websiteDomain.trim()) {
-      setCrawlError('Please enter a valid website URL or domain (e.g. store.com).');
+      setCrawlError('Please enter a valid website URL or domain.');
       return;
     }
 
@@ -101,7 +103,7 @@ export function ProductUploadModal({
       setCrawlResult(res);
       onSuccess();
     } catch (err) {
-      setCrawlError(err instanceof Error ? err.message : 'Failed to crawl store website.');
+      setCrawlError(err instanceof Error ? err.message : 'Failed to crawl website.');
     } finally {
       setIsCrawling(false);
     }
@@ -117,7 +119,7 @@ export function ProductUploadModal({
 
   const handleFileUpload = async () => {
     if (!selectedFile) {
-      setFileError('Please choose a product file to upload.');
+      setFileError('Please choose a file to upload.');
       return;
     }
 
@@ -130,7 +132,7 @@ export function ProductUploadModal({
       setUploadSummary(summary);
       onSuccess();
     } catch (err) {
-      setFileError(err instanceof Error ? err.message : 'Failed to parse and ingest product file.');
+      setFileError(err instanceof Error ? err.message : 'Failed to parse file.');
     } finally {
       setIsUploading(false);
     }
@@ -139,7 +141,7 @@ export function ProductUploadModal({
   const handleFeedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedUrl.trim()) {
-      setFeedError('Please enter a valid catalog feed URL.');
+      setFeedError('Please enter a valid feed URL.');
       return;
     }
 
@@ -149,13 +151,11 @@ export function ProductUploadModal({
 
     try {
       const res = await ingestFeedApi({ feedUrl: feedUrl.trim() });
-      setFeedSuccess(
-        `Successfully synced ${res.ingested || 0} products from feed. Auto-embedded into Gemini vector index.`,
-      );
+      setFeedSuccess(`Synced ${res.ingested || 0} products from feed.`);
       setFeedUrl('');
       onSuccess();
     } catch (err) {
-      setFeedError(err instanceof Error ? err.message : 'Failed to parse catalog feed.');
+      setFeedError(err instanceof Error ? err.message : 'Failed to parse feed.');
     } finally {
       setIsFeedLoading(false);
     }
@@ -164,7 +164,7 @@ export function ProductUploadModal({
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualSku.trim() || !manualName.trim()) {
-      setManualError('Product SKU and name are required.');
+      setManualError('SKU and product name are required.');
       return;
     }
 
@@ -189,7 +189,7 @@ export function ProductUploadModal({
         ],
       });
 
-      setManualSuccess(`Product SKU "${manualSku}" added to catalog and embedded for AI voice discovery.`);
+      setManualSuccess(`Product "${manualSku}" added.`);
       setManualSku('');
       setManualName('');
       setManualDesc('');
@@ -204,562 +204,397 @@ export function ProductUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Storefront Ingestion & Intelligence Sync
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Auto-crawl website URL, bulk upload spreadsheets, or connect live platform webhooks.
-              </p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-lg border border-border bg-surface-lowest shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+
+        {/* ── Modal Header ── */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground">
+              Import Catalog & Knowledge
+            </h2>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              Sync products and store policies into ORA.
+            </p>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close product ingestion modal"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground"
+            aria-label="Close"
+            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
-        {/* Ingestion Tabs */}
-        <div className="flex items-center border-b border-border bg-surface-lowest px-6 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab('website')}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-              activeTab === 'website'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Globe size={14} />
-            <span>Sync from Website URL (1-Click)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('file')}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-              activeTab === 'file'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <FileSpreadsheet size={14} />
-            <span>File Upload (CSV/XLSX)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('feed')}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-              activeTab === 'feed'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Rss size={14} />
-            <span>Feed URL (XML/RSS)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('manual')}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-              activeTab === 'manual'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <PlusCircle size={14} />
-            <span>Manual SKU</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('webhooks')}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors shrink-0 ${
-              activeTab === 'webhooks'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Webhook size={14} />
-            <span>Webhooks</span>
-          </button>
+        {/* ── Tabs — Intercom style underline ── */}
+        <div className="flex items-center border-b border-border px-6 overflow-x-auto no-scrollbar -mb-px">
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative flex items-center gap-1.5 py-2.5 px-3 text-[12.5px] font-medium transition-colors shrink-0 ${
+                  isActive
+                    ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Icon size={13} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tab 0: Sync from Website URL */}
-        {activeTab === 'website' && (
-          <form onSubmit={handleCrawlSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-foreground">
-                  Store Website URL or Domain
+        {/* ── Content Area ── */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+
+          {/* ── Tab 0: Website URL ── */}
+          {activeTab === 'website' && (
+            <form onSubmit={handleCrawlSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Store Website URL
                 </label>
-                <span className="text-[10px] font-semibold text-primary uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                  Zero Manual Entry
-                </span>
-              </div>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                  <Globe size={15} />
-                </div>
-                <input
-                  type="text"
-                  value={websiteDomain}
-                  onChange={(e) => setWebsiteDomain(e.target.value)}
-                  placeholder="e.g. https://mystore.com or store.myshopify.com"
-                  disabled={isCrawling}
-                  className="w-full rounded-lg border border-border bg-surface-low pl-9 pr-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none font-mono"
-                  required
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                ORA automatically probes your website, detects the platform, and ingests public products, prices, variants, stock, return/refund policies, and FAQs into vector search.
-              </p>
-            </div>
-
-            {/* Platform Detection Highlights */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              <div className="p-2.5 rounded-lg border border-border bg-surface-low flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span>Shopify Fast-Path</span>
-                </div>
-                <span className="text-[10px] text-muted-foreground leading-tight">
-                  Instant public catalog JSON & policies API sync.
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded-lg border border-border bg-surface-low flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <span className="w-2 h-2 rounded-full bg-purple-400" />
-                  <span>WooCommerce API</span>
-                </div>
-                <span className="text-[10px] text-muted-foreground leading-tight">
-                  Syncs Store API products & WordPress pages.
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded-lg border border-border bg-surface-low flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <span className="w-2 h-2 rounded-full bg-blue-400" />
-                  <span>Custom & Sitemaps</span>
-                </div>
-                <span className="text-[10px] text-muted-foreground leading-tight">
-                  Sitemap discovery, JSON-LD, & text cleaning.
-                </span>
-              </div>
-            </div>
-
-            {crawlError && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{crawlError}</span>
-              </div>
-            )}
-
-            {crawlResult && (
-              <div className="rounded-xl border border-border bg-surface-low p-4 space-y-3 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                    <CheckCircle2 size={16} className="text-primary" />
-                    <span>Store Ingestion Completed</span>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                    <Globe size={14} />
                   </div>
-                  <span className="text-[10px] font-bold uppercase font-mono px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                    {crawlResult.platform.toUpperCase()} DETECTED
-                  </span>
+                  <input
+                    type="text"
+                    value={websiteDomain}
+                    onChange={(e) => setWebsiteDomain(e.target.value)}
+                    placeholder="https://mystore.com or store.myshopify.com"
+                    disabled={isCrawling}
+                    className="w-full rounded-md border border-border bg-transparent pl-9 pr-3 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none font-mono"
+                    required
+                  />
                 </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Products</span>
-                    <p className="text-base font-bold text-primary font-mono mt-0.5">{crawlResult.productsIngested}</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Policies & Docs</span>
-                    <p className="text-base font-bold text-foreground font-mono mt-0.5">{crawlResult.knowledgeDocsIngested}</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Crawler Jobs</span>
-                    <p className="text-base font-bold text-foreground font-mono mt-0.5">{crawlResult.htmlCrawlJobsQueued}</p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground leading-relaxed bg-surface-lowest p-2.5 rounded-lg border border-border">
-                  {crawlResult.message}
+                <p className="text-[11.5px] text-muted-foreground">
+                  Extracts products, variants, prices, policies, and FAQs automatically.
                 </p>
               </div>
-            )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Sparkles size={13} className="text-primary" />
-                <span>SHA-256 deduplicated & vectorized for live AI voice.</span>
-              </div>
-              <button
-                type="submit"
-                disabled={isCrawling || !websiteDomain.trim()}
-                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 shadow-xs"
-              >
-                {isCrawling ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
-                {isCrawling ? 'Probing & Syncing Storefront...' : 'Start 1-Click Sync'}
-              </button>
-            </div>
-          </form>
-        )}
-
-
-        {/* Tab 1: File Upload */}
-        {activeTab === 'file' && (
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            <label className="flex min-h-44 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface-low px-6 py-8 text-center transition-colors hover:border-primary/50 hover:bg-surface-high/50 cursor-pointer">
-              <FileSpreadsheet size={36} className="mb-2 text-primary" />
-              <span className="text-xs font-semibold text-foreground">
-                {selectedFile ? selectedFile.name : 'Click to select or drag & drop product catalog file'}
-              </span>
-              <span className="mt-1 text-[11px] text-muted-foreground">
-                Supports CSV, XLSX, TSV, JSON, TXT, or PDF tables (up to 10,000 SKUs)
-              </span>
-              {selectedFile && (
-                <span className="mt-2 text-[10px] font-mono text-primary font-bold">
-                  {(selectedFile.size / 1024).toFixed(1)} KB ready
-                </span>
+              {crawlError && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[12px]">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{crawlError}</span>
+                </div>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls,.tsv,.json,.txt,.pdf,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/pdf"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </label>
 
-            {fileError && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{fileError}</span>
-              </div>
-            )}
-
-            {uploadSummary && (
-              <div className="rounded-xl border border-border bg-surface-low p-4 space-y-3 animate-in fade-in">
-                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                  <CheckCircle2 size={16} className="text-primary" />
-                  <span>Ingestion Completed Successfully</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Parsed</span>
-                    <p className="text-base font-bold text-foreground font-mono mt-0.5">{uploadSummary.totalParsed}</p>
+              {crawlResult && (
+                <div className="p-4 rounded-md bg-surface-high/40 border border-border space-y-3">
+                  <div className="flex items-center justify-between text-[12.5px]">
+                    <span className="font-medium text-foreground flex items-center gap-1.5">
+                      <CheckCircle2 size={14} className="text-emerald-400" />
+                      Sync Completed
+                    </span>
+                    <span className="text-[11px] font-mono text-muted-foreground uppercase">
+                      {crawlResult.platform}
+                    </span>
                   </div>
-                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Synced to DB</span>
-                    <p className="text-base font-bold text-primary font-mono mt-0.5">{uploadSummary.ingested}</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-surface-lowest p-2.5">
-                    <span className="text-[10px] uppercase font-semibold text-muted-foreground">Vector Embedded</span>
-                    <p className="text-base font-bold text-foreground font-mono mt-0.5">{uploadSummary.embedded}</p>
-                  </div>
-                </div>
 
-                {uploadSummary.detectedMapping && Object.keys(uploadSummary.detectedMapping).length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[11px] font-semibold text-muted-foreground">Detected Column Mappings:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {Object.entries(uploadSummary.detectedMapping).map(([field, col]) => (
-                        <span
-                          key={field}
-                          className="rounded-md border border-border bg-surface-lowest px-2 py-0.5 text-[10px] font-mono text-muted-foreground"
-                        >
-                          <strong className="text-foreground">{field}</strong> &larr; {col}
-                        </span>
-                      ))}
+                  <div className="grid grid-cols-2 gap-2 text-center text-[12px]">
+                    <div className="p-2 rounded bg-surface-lowest border border-border">
+                      <span className="text-muted-foreground block text-[11px]">Products</span>
+                      <span className="font-semibold text-foreground font-mono">{crawlResult.productsIngested}</span>
+                    </div>
+                    <div className="p-2 rounded bg-surface-lowest border border-border">
+                      <span className="text-muted-foreground block text-[11px]">Policies</span>
+                      <span className="font-semibold text-foreground font-mono">{crawlResult.knowledgeDocsIngested}</span>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {uploadSummary.errors && uploadSummary.errors.length > 0 && (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] text-amber-400 space-y-1">
-                    <p className="font-semibold">Row Warnings ({uploadSummary.errors.length}):</p>
-                    <ul className="list-disc list-inside space-y-0.5 max-h-24 overflow-y-auto">
-                      {uploadSummary.errors.map((err, i) => (
-                        <li key={i}>{err}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Sparkles size={13} className="text-primary" />
-                <span>Auto-normalized and embedded into Gemini VectorIndex.</span>
-              </div>
-              <button
-                onClick={handleFileUpload}
-                disabled={!selectedFile || isUploading}
-                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 shadow-xs"
-              >
-                {isUploading ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
-                {isUploading ? 'Parsing & Indexing...' : 'Upload & Sync Products'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Feed URL */}
-        {activeTab === 'feed' && (
-          <form onSubmit={handleFeedSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-foreground">
-                Catalog Feed URL (RSS / Atom / Google Merchant XML / CSV)
-              </label>
-              <input
-                type="url"
-                value={feedUrl}
-                onChange={(e) => setFeedUrl(e.target.value)}
-                placeholder="https://example.com/feeds/products.xml"
-                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                required
-              />
-              <p className="text-[11px] text-muted-foreground">
-                ORA fetches XML product feeds and synchronizes catalog stock & prices with a confidence score of 70%.
-              </p>
-            </div>
-
-            {feedError && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{feedError}</span>
-              </div>
-            )}
-
-            {feedSuccess && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 p-3 text-xs text-primary">
-                <CheckCircle2 size={15} className="shrink-0" />
-                <span>{feedSuccess}</span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end pt-2 border-t border-border">
-              <button
-                type="submit"
-                disabled={isFeedLoading || !feedUrl.trim()}
-                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 shadow-xs"
-              >
-                {isFeedLoading && <Loader2 size={13} className="animate-spin" />}
-                {isFeedLoading ? 'Fetching Feed...' : 'Sync Catalog Feed'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Tab 3: Manual SKU Entry */}
-        {activeTab === 'manual' && (
-          <form onSubmit={handleManualSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Native SKU / Product ID
-                </label>
-                <input
-                  type="text"
-                  value={manualSku}
-                  onChange={(e) => setManualSku(e.target.value)}
-                  placeholder="e.g. SKU-10024"
-                  className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={manualCategory}
-                  onChange={(e) => setManualCategory(e.target.value)}
-                  placeholder="e.g. Apparel, Shoes"
-                  className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Product Title / Name
-              </label>
-              <input
-                type="text"
-                value={manualName}
-                onChange={(e) => setManualName(e.target.value)}
-                placeholder="e.g. Premium Wool Blend Overcoat"
-                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-medium text-foreground focus:border-primary focus:outline-none"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Price
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={manualPrice}
-                  onChange={(e) => setManualPrice(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Stock Units
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={manualStock}
-                  onChange={(e) => setManualStock(parseInt(e.target.value, 10) || 0)}
-                  className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Availability
-                </label>
-                <select
-                  value={manualAvail}
-                  onChange={(e) => setManualAvail(e.target.value as ProductAvailability)}
-                  className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-medium text-foreground focus:border-primary focus:outline-none"
+              <div className="flex items-center justify-end pt-3 border-t border-border">
+                <button
+                  type="submit"
+                  disabled={isCrawling || !websiteDomain.trim()}
+                  className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors"
                 >
-                  <option value={ProductAvailability.IN_STOCK}>In Stock</option>
-                  <option value={ProductAvailability.OUT_OF_STOCK}>Out of Stock</option>
-                  <option value={ProductAvailability.PREORDER}>Pre-Order</option>
-                  <option value={ProductAvailability.DISCONTINUED}>Discontinued</option>
-                </select>
+                  {isCrawling && <Loader2 size={13} className="animate-spin" />}
+                  <span>{isCrawling ? 'Syncing…' : 'Start Sync'}</span>
+                </button>
               </div>
-            </div>
+            </form>
+          )}
 
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Description & Sizing Specs
+          {/* ── Tab 1: File Upload ── */}
+          {activeTab === 'file' && (
+            <div className="space-y-4">
+              <label className="flex min-h-32 flex-col items-center justify-center rounded-md border border-dashed border-border bg-transparent px-6 py-6 text-center hover:border-foreground/30 hover:bg-surface-high/20 cursor-pointer transition-colors">
+                <FileSpreadsheet size={24} className="mb-2 text-muted-foreground" />
+                <span className="text-[13px] font-medium text-foreground">
+                  {selectedFile ? selectedFile.name : 'Drop product file or browse'}
+                </span>
+                <span className="text-[11px] text-muted-foreground mt-0.5">
+                  CSV, XLSX, TSV, JSON, PDF
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls,.tsv,.json,.txt,.pdf,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,application/pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               </label>
-              <textarea
-                value={manualDesc}
-                onChange={(e) => setManualDesc(e.target.value)}
-                rows={3}
-                placeholder="Product description, sizing chart notes, materials..."
-                className="w-full rounded-lg border border-border bg-surface-low p-3 text-xs text-foreground focus:border-primary focus:outline-none resize-none"
-              />
-            </div>
 
-            {manualError && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
-                <AlertCircle size={15} className="shrink-0" />
-                <span>{manualError}</span>
-              </div>
-            )}
-
-            {manualSuccess && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 p-3 text-xs text-primary">
-                <CheckCircle2 size={15} className="shrink-0" />
-                <span>{manualSuccess}</span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end pt-2 border-t border-border">
-              <button
-                type="submit"
-                disabled={isManualSaving}
-                className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 shadow-xs"
-              >
-                {isManualSaving && <Loader2 size={13} className="animate-spin" />}
-                {isManualSaving ? 'Adding SKU...' : 'Add SKU to Catalog'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Tab 4: Platform Webhooks */}
-        {activeTab === 'webhooks' && (
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Tier 1 Real-Time E-Commerce Connectors
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Connect your Shopify or WooCommerce store directly. Any product creation, stock update, or price change is pushed live to ORA within seconds and verified at 100% confidence.
-              </p>
-            </div>
-
-            {/* Shopify Webhook Box */}
-            <div className="rounded-xl border border-border bg-surface-low p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold font-mono">
-                    S
-                  </span>
-                  <span className="text-xs font-bold text-foreground">Shopify Webhook Listener</span>
+              {fileError && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[12px]">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{fileError}</span>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-high border border-border text-muted-foreground">
-                  HMAC Verified
-                </span>
-              </div>
+              )}
 
-              <div className="space-y-1 text-xs">
-                <span className="text-muted-foreground">Endpoint URL:</span>
-                <p className="rounded-lg bg-surface-lowest p-2.5 font-mono text-[11px] text-foreground border border-border select-all">
-                  https://ora.hypecorps.com/api/v1/ingestion/webhooks/shopify
-                </p>
-              </div>
-
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Subscribe to topics: <code className="text-primary font-mono">products/create</code>, <code className="text-primary font-mono">products/update</code>, <code className="text-primary font-mono">inventory_levels/update</code>.
-              </p>
-            </div>
-
-            {/* WooCommerce Webhook Box */}
-            <div className="rounded-xl border border-border bg-surface-low p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-md bg-purple-500/10 text-purple-400 flex items-center justify-center text-xs font-bold font-mono">
-                    W
-                  </span>
-                  <span className="text-xs font-bold text-foreground">WooCommerce Webhook Listener</span>
+              {uploadSummary && (
+                <div className="p-4 rounded-md bg-surface-high/40 border border-border space-y-2">
+                  <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-foreground">
+                    <CheckCircle2 size={14} className="text-emerald-400" />
+                    <span>Upload Completed</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-center text-[12px]">
+                    <div className="p-2 rounded bg-surface-lowest border border-border">
+                      <span className="text-muted-foreground block text-[11px]">Total Parsed</span>
+                      <span className="font-semibold text-foreground font-mono">{uploadSummary.totalParsed}</span>
+                    </div>
+                    <div className="p-2 rounded bg-surface-lowest border border-border">
+                      <span className="text-muted-foreground block text-[11px]">Synced to Catalog</span>
+                      <span className="font-semibold text-foreground font-mono">{uploadSummary.ingested}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-high border border-border text-muted-foreground">
-                  Signature Verified
-                </span>
-              </div>
+              )}
 
-              <div className="space-y-1 text-xs">
-                <span className="text-muted-foreground">Endpoint URL:</span>
-                <p className="rounded-lg bg-surface-lowest p-2.5 font-mono text-[11px] text-foreground border border-border select-all">
-                  https://ora.hypecorps.com/api/v1/ingestion/webhooks/woocommerce
-                </p>
+              <div className="flex items-center justify-end pt-3 border-t border-border">
+                <button
+                  onClick={handleFileUpload}
+                  disabled={!selectedFile || isUploading}
+                  className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                >
+                  {isUploading ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
+                  <span>{isUploading ? 'Uploading…' : 'Upload File'}</span>
+                </button>
               </div>
-
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Topic events: <code className="text-primary font-mono">product.created</code>, <code className="text-primary font-mono">product.updated</code>.
-              </p>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* ── Tab 2: Feed URL ── */}
+          {activeTab === 'feed' && (
+            <form onSubmit={handleFeedSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Feed URL (XML / RSS / CSV)
+                </label>
+                <input
+                  type="url"
+                  value={feedUrl}
+                  onChange={(e) => setFeedUrl(e.target.value)}
+                  placeholder="https://example.com/feeds/products.xml"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-[12.5px] font-mono text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                  required
+                />
+              </div>
+
+              {feedError && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[12px]">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{feedError}</span>
+                </div>
+              )}
+
+              {feedSuccess && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-surface-high border border-border text-foreground text-[12.5px]">
+                  <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                  <span>{feedSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end pt-3 border-t border-border">
+                <button
+                  type="submit"
+                  disabled={isFeedLoading || !feedUrl.trim()}
+                  className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                >
+                  {isFeedLoading && <Loader2 size={13} className="animate-spin" />}
+                  <span>{isFeedLoading ? 'Syncing…' : 'Sync Feed'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ── Tab 3: Manual SKU ── */}
+          {activeTab === 'manual' && (
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                    SKU / ID
+                  </label>
+                  <input
+                    type="text"
+                    value={manualSku}
+                    onChange={(e) => setManualSku(e.target.value)}
+                    placeholder="e.g. SKU-10024"
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-mono text-foreground focus:border-foreground/30 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    placeholder="e.g. Apparel"
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] text-foreground focus:border-foreground/30 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                  Product Name
+                </label>
+                <input
+                  type="text"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  placeholder="e.g. Wool Overcoat"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] text-foreground focus:border-foreground/30 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                    Price
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={manualPrice}
+                    onChange={(e) => setManualPrice(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-mono text-foreground focus:border-foreground/30 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                    Stock
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={manualStock}
+                    onChange={(e) => setManualStock(parseInt(e.target.value, 10) || 0)}
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-mono text-foreground focus:border-foreground/30 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={manualAvail}
+                    onChange={(e) => setManualAvail(e.target.value as ProductAvailability)}
+                    className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-[12px] text-foreground focus:border-foreground/30 focus:outline-none"
+                  >
+                    <option value={ProductAvailability.IN_STOCK}>In Stock</option>
+                    <option value={ProductAvailability.OUT_OF_STOCK}>Out of Stock</option>
+                    <option value={ProductAvailability.PREORDER}>Pre-Order</option>
+                    <option value={ProductAvailability.DISCONTINUED}>Discontinued</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={manualDesc}
+                  onChange={(e) => setManualDesc(e.target.value)}
+                  rows={2}
+                  placeholder="Details, materials, sizing notes..."
+                  className="w-full rounded-md border border-border bg-transparent p-2.5 text-[12.5px] text-foreground focus:border-foreground/30 focus:outline-none resize-none"
+                />
+              </div>
+
+              {manualError && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-[12px]">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span>{manualError}</span>
+                </div>
+              )}
+
+              {manualSuccess && (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-surface-high border border-border text-foreground text-[12.5px]">
+                  <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                  <span>{manualSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end pt-3 border-t border-border">
+                <button
+                  type="submit"
+                  disabled={isManualSaving}
+                  className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                >
+                  {isManualSaving && <Loader2 size={13} className="animate-spin" />}
+                  <span>{isManualSaving ? 'Adding…' : 'Add Product'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ── Tab 4: Webhooks ── */}
+          {activeTab === 'webhooks' && (
+            <div className="space-y-4 text-[12.5px]">
+              <p className="text-muted-foreground">
+                Connect your e-commerce platform webhook to sync product creation, price updates, and inventory changes automatically.
+              </p>
+
+              <div className="space-y-3">
+                {/* Shopify */}
+                <div className="p-3.5 rounded-md border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground">Shopify Webhook</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">HMAC</span>
+                  </div>
+                  <div className="font-mono text-[11px] text-muted-foreground bg-surface-high/50 p-2 rounded select-all break-all">
+                    https://ora.hypecorps.com/api/v1/ingestion/webhooks/shopify
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Subscribe to: <code className="font-mono">products/create</code>, <code className="font-mono">products/update</code>, <code className="font-mono">inventory_levels/update</code>.
+                  </p>
+                </div>
+
+                {/* WooCommerce */}
+                <div className="p-3.5 rounded-md border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground">WooCommerce Webhook</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">Signature</span>
+                  </div>
+                  <div className="font-mono text-[11px] text-muted-foreground bg-surface-high/50 p-2 rounded select-all break-all">
+                    https://ora.hypecorps.com/api/v1/ingestion/webhooks/woocommerce
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Subscribe to: <code className="font-mono">product.created</code>, <code className="font-mono">product.updated</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   );

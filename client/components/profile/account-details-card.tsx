@@ -1,6 +1,5 @@
 'use client';
 
-import { Mail, User as UserIcon, ShieldCheck } from 'lucide-react';
 import { User } from '@/types/auth';
 
 interface AccountDetailsCardProps {
@@ -9,36 +8,39 @@ interface AccountDetailsCardProps {
 
 export function AccountDetailsCard({ user }: AccountDetailsCardProps) {
   return (
-    <div className="rounded-lg border border-border bg-surface-container p-5">
-      <h2 className="text-sm font-semibold text-foreground mb-4">Account</h2>
+    <div className="pt-2">
+      <div className="pb-3 border-b border-border">
+        <h2 className="text-[13.5px] font-semibold text-foreground">User Account</h2>
+      </div>
 
-      <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-[13px]">
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground font-medium mb-1">
-            <UserIcon size={13} /> Name
-          </dt>
-          <dd className="text-foreground font-medium">{user.name}</dd>
+      <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border border-b border-border py-4">
+        <div className="py-2 md:py-0 md:pr-6 space-y-1">
+          <span className="text-[11.5px] font-medium text-muted-foreground block">Full Name</span>
+          <p className="text-[14px] font-medium text-foreground">{user.name}</p>
         </div>
 
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground font-medium mb-1">
-            <Mail size={13} /> Email
-          </dt>
-          <dd className="text-foreground font-medium">{user.email}</dd>
+        <div className="py-2 md:py-0 md:px-6 space-y-1">
+          <span className="text-[11.5px] font-medium text-muted-foreground block">Email Address</span>
+          <p className="text-[14px] font-medium text-foreground">{user.email}</p>
         </div>
 
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground font-medium mb-1">Role</dt>
-          <dd className="text-foreground font-medium capitalize">{user.role}</dd>
+        <div className="py-2 md:py-0 md:px-6 space-y-1">
+          <span className="text-[11.5px] font-medium text-muted-foreground block">Role</span>
+          <p className="text-[14px] font-medium text-foreground capitalize">{user.role}</p>
         </div>
 
-        <div>
-          <dt className="flex items-center gap-1.5 text-muted-foreground font-medium mb-1">
-            <ShieldCheck size={13} /> Email verified
-          </dt>
-          <dd className="text-foreground font-medium">{user.emailVerified ? 'Yes' : 'No'}</dd>
+        <div className="py-2 md:py-0 md:pl-6 space-y-1">
+          <span className="text-[11.5px] font-medium text-muted-foreground block">Email Verified</span>
+          <p className="text-[14px] font-medium text-foreground flex items-center gap-1.5">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                user.emailVerified ? 'bg-[color:var(--status-online)]' : 'bg-amber-400'
+              }`}
+            />
+            {user.emailVerified ? 'Verified' : 'Pending'}
+          </p>
         </div>
-      </dl>
+      </div>
     </div>
   );
 }

@@ -3,31 +3,37 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Loader2,
-  Package,
   ShoppingCart,
-  MessageSquareText,
-  CreditCard,
-  ArrowRight,
-  BookOpen,
-  Radio,
-  TrendingUp,
   DollarSign,
+  MessageSquareText,
+  Package,
+  Percent,
+  Radio,
+  BookOpen,
+  TrendingUp,
   Globe,
-  Sparkles,
+  ArrowRight,
+  X,
+  Loader2,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
   DashboardStatsResponse,
 } from '@/services/dashboard-service';
-import { demoOrders, demoConversations, demoProfile } from '@/lib/demo-data';
+import { demoOrders, demoConversations, demoProfile, demoDashboardStats } from '@/lib/demo-data';
+import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
-import { HeroStatusCard } from './hero-status-card';
-import { RevenueChart } from './revenue-chart';
-import { SalesFunnel } from './sales-funnel';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ── Reusable components ──────────────────────────────────────────────────────
+import { TopHeader }              from '@/components/dashboard/top-header';
+import { StatusStrip }            from './status-strip';
+import { AnalyticsPanel }         from './analytics-panel';
+import { RecentActivityPanel }    from './recent-activity-panel';
+import { QuickActionsBar, QuickAction } from './quick-actions-bar';
+import { KpiCardDef }             from './kpi-strip';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -36,452 +42,239 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
-function channelLabel(raw: string): string {
-  return raw.replace('widget_', '').replace(/_/g, ' ');
-}
-
-const orderStatusConfig: Record<string, { bg: string; text: string }> = {
-  confirmed:  { bg: 'bg-[color:var(--status-online)]/10',   text: 'text-[color:var(--status-online)]' },
-  pending:    { bg: 'bg-[color:var(--status-warning)]/10',  text: 'text-[color:var(--status-warning)]' },
-  shipped:    { bg: 'bg-[color:var(--status-processing)]/10', text: 'text-[color:var(--status-processing)]' },
-  delivered:  { bg: 'bg-[color:var(--status-active)]/10',   text: 'text-[color:var(--status-active)]' },
-  canceled:   { bg: 'bg-[color:var(--status-error)]/10',    text: 'text-[color:var(--status-error)]' },
-};
-
-const convStatusConfig: Record<string, { bg: string; text: string; label: string }> = {
-  active:     { bg: 'bg-[color:var(--status-active)]/10',   text: 'text-[color:var(--status-active)]',   label: 'Active' },
-  ended:      { bg: 'bg-surface-high',                       text: 'text-muted-foreground',               label: 'Ended' },
-  escalated:  { bg: 'bg-[color:var(--status-error)]/10',    text: 'text-[color:var(--status-error)]',    label: 'Escalated' },
-  idle:       { bg: 'bg-surface-high',                       text: 'text-muted-foreground',               label: 'Idle' },
-};
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function OverviewClient() {
-  const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>('');
+  const [stats, setStats]           = useState<DashboardStatsResponse>(demoDashboardStats);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [userName, setUserName]     = useState<string>(demoProfile.user.name);
+  const [refreshing, setRefreshing] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (quiet) setRefreshing(true);
     setError(null);
+
     try {
       const [data, me] = await Promise.allSettled([
         getDashboardStatsApi(),
         getMeApi(),
       ]);
 
-      if (me.status === 'fulfilled') {
-        setUserName(me.value?.user?.name ?? demoProfile.user.name);
-      } else {
+      if (me.status === 'fulfilled' && me.value?.user?.name) {
+        setUserName(me.value.user.name);
+      } else if (DEMO_MODE_ENABLED) {
         setUserName(demoProfile.user.name);
       }
 
-      if (data.status === 'fulfilled') {
+      if (data.status === 'fulfilled' && data.value) {
         const d = data.value;
-        setStats({
-          productTotal: d.productTotal ?? 0,
-          orderTotal: d.orderTotal ?? 0,
-          conversationTotal: d.conversationTotal ?? 0,
-          activeChats: d.activeChats ?? 0,
-          activeVoiceCalls: d.activeVoiceCalls ?? 0,
-          totalRevenue: d.totalRevenue ?? 0,
-          revenueTrend: d.revenueTrend ?? '+0.0%',
-          ordersTrend: d.ordersTrend ?? '+0.0%',
-          conversationsTrend: d.conversationsTrend ?? '+0.0%',
-          planName: d.planName ?? null,
-          planStatus: d.planStatus ?? null,
-          revenueTimeseries: d.revenueTimeseries ?? {
-            daily: [],
-            weekly: [],
-            growthRate: '+0.0%',
-            totalRevenue: 0,
-          },
-          funnel: d.funnel ?? [],
-          overallConversion: d.overallConversion ?? 0,
-          recentOrders: d.recentOrders?.length > 0 ? d.recentOrders : demoOrders,
-          recentConversations:
-            d.recentConversations?.length > 0 ? d.recentConversations : demoConversations,
-        });
+        const isBackendEmpty = (!d.totalRevenue || d.totalRevenue === 0) && (!d.orderTotal || d.orderTotal === 0);
+
+        if (DEMO_MODE_ENABLED && isBackendEmpty) {
+          setStats(demoDashboardStats);
+        } else {
+          setStats({
+            productTotal: d.productTotal ?? (DEMO_MODE_ENABLED ? demoDashboardStats.productTotal : 0),
+            orderTotal: d.orderTotal ?? (DEMO_MODE_ENABLED ? demoDashboardStats.orderTotal : 0),
+            conversationTotal: d.conversationTotal ?? (DEMO_MODE_ENABLED ? demoDashboardStats.conversationTotal : 0),
+            activeChats: d.activeChats ?? (DEMO_MODE_ENABLED ? demoDashboardStats.activeChats : 0),
+            activeVoiceCalls: d.activeVoiceCalls ?? (DEMO_MODE_ENABLED ? demoDashboardStats.activeVoiceCalls : 0),
+            totalRevenue: d.totalRevenue ?? (DEMO_MODE_ENABLED ? demoDashboardStats.totalRevenue : 0),
+            revenueTrend: d.revenueTrend || (DEMO_MODE_ENABLED ? demoDashboardStats.revenueTrend : '+0.0%'),
+            ordersTrend: d.ordersTrend || (DEMO_MODE_ENABLED ? demoDashboardStats.ordersTrend : '+0.0%'),
+            conversationsTrend: d.conversationsTrend || (DEMO_MODE_ENABLED ? demoDashboardStats.conversationsTrend : '+0.0%'),
+            planName: d.planName ?? (DEMO_MODE_ENABLED ? demoDashboardStats.planName : null),
+            planStatus: d.planStatus ?? (DEMO_MODE_ENABLED ? demoDashboardStats.planStatus : null),
+            revenueTimeseries: (d.revenueTimeseries?.daily?.length)
+              ? d.revenueTimeseries
+              : (DEMO_MODE_ENABLED ? demoDashboardStats.revenueTimeseries : { daily: [], weekly: [], growthRate: '+0.0%', totalRevenue: 0 }),
+            funnel: (d.funnel?.length)
+              ? d.funnel
+              : (DEMO_MODE_ENABLED ? demoDashboardStats.funnel : []),
+            overallConversion: d.overallConversion ?? (DEMO_MODE_ENABLED ? demoDashboardStats.overallConversion : 0),
+            recentOrders: (d.recentOrders?.length)
+              ? d.recentOrders
+              : (DEMO_MODE_ENABLED ? demoOrders : []),
+            recentConversations: (d.recentConversations?.length)
+              ? d.recentConversations
+              : (DEMO_MODE_ENABLED ? demoConversations : []),
+          });
+        }
+      } else if (DEMO_MODE_ENABLED) {
+        setStats(demoDashboardStats);
       } else {
-        throw new Error('Could not load overview');
+        throw new Error('Could not load overview stats');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load overview');
+      if (DEMO_MODE_ENABLED) {
+        setStats(demoDashboardStats);
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : 'Could not load overview');
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-primary" size={20} />
-          <span className="text-sm font-medium">Loading overview...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-sm text-muted-foreground px-6">
-        {error ?? 'Overview unavailable.'}
-      </div>
-    );
-  }
+  useEffect(() => { load(); }, [load]);
 
   const firstName = userName.split(' ')[0] || userName;
 
-  const statCards = [
+  // ── KPI metric definitions matching Live Desk typography ───────────────────
+
+  const kpiCards: KpiCardDef[] = [
     {
+      id: 'orders',
       label: 'Assisted Orders',
       value: stats.orderTotal.toLocaleString(),
-      icon: <ShoppingCart size={16} />,
+      icon: <ShoppingCart size={14} />,
       trend: stats.ordersTrend,
       meta: 'Converted orders',
       href: '/live-desk',
     },
     {
+      id: 'revenue',
       label: 'Revenue Influenced',
       value: formatCurrency(stats.totalRevenue),
-      icon: <DollarSign size={16} />,
+      icon: <DollarSign size={14} />,
       trend: stats.revenueTrend,
       meta: 'Direct checkout sales',
       href: '/billing',
     },
     {
+      id: 'conversations',
       label: 'Conversations',
       value: stats.conversationTotal.toLocaleString(),
-      icon: <MessageSquareText size={16} />,
+      icon: <MessageSquareText size={14} />,
       trend: stats.conversationsTrend,
       meta: 'Customer interactions',
       href: '/conversations',
     },
     {
+      id: 'catalog',
       label: 'Catalog Items',
       value: stats.productTotal.toLocaleString(),
-      icon: <Package size={16} />,
-      meta: 'Available products',
-      href: '/agent',
+      icon: <Package size={14} />,
+      meta: 'Active products in sync',
+      href: '/agent?tab=products',
     },
     {
-      label: 'Plan Tier',
-      value: stats.planName ?? 'Growth',
-      icon: <CreditCard size={16} />,
-      meta: stats.planStatus
-        ? stats.planStatus.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-        : 'Active Subscription',
-      href: '/billing',
+      id: 'conversion',
+      label: 'Conversion Rate',
+      value: `${stats.overallConversion}%`,
+      icon: <Percent size={14} />,
+      meta: 'Funnel completion',
+      href: '/live-desk',
     },
   ];
 
-  const quickActions = [
+  // ── Quick action definitions for Setup block ───────────────────────────────
+
+  const quickActions: QuickAction[] = [
     {
       id: 'qa-live',
-      icon: <Radio size={16} />,
+      icon: <Radio size={15} />,
       label: 'Live Desk',
-      description: 'Monitor active conversations and voice sessions in real time.',
+      description: 'Monitor active conversations and voice calls in real time.',
       href: '/live-desk',
     },
     {
       id: 'qa-train',
-      icon: <BookOpen size={16} />,
-      label: 'Store & Catalog Setup',
-      description: 'Manage store policies, products, and support guidelines.',
+      icon: <BookOpen size={15} />,
+      label: 'Store Knowledge & Catalog',
+      description: 'Manage store policies, documents, and product catalog.',
       href: '/agent',
     },
     {
-      id: 'qa-growth',
-      icon: <TrendingUp size={16} />,
+      id: 'qa-history',
+      icon: <TrendingUp size={15} />,
       label: 'Conversation History',
-      description: 'Review transcripts, customer questions, and responses.',
+      description: 'Review past customer transcripts and sales signals.',
       href: '/conversations',
     },
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full bg-background">
-      <div className="max-w-[1440px] mx-auto space-y-6">
+    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+      {/* Top Header */}
+      <TopHeader
+        title={`${getGreeting()}${firstName ? `, ${firstName}` : ''}`}
+        badge={
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-surface-high text-muted-foreground border border-border select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
+            Overview
+          </span>
+        }
+        onRefresh={() => load(true)}
+        isRefreshing={refreshing}
+      />
 
-        {/* ── Top Header ──────────────────────────────────────────────── */}
-        <div className="pb-2 border-b border-border">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
-            Store Performance
-          </p>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">
-            {getGreeting()}{firstName ? `, ${firstName}` : ''}
-          </h1>
+      {/* Onboarding banner — full-width strip, dismissible */}
+      {stats.productTotal === 0 && !bannerDismissed && (
+        <div className="flex items-center justify-between gap-4 px-6 py-2.5 bg-surface-high/60 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Globe size={13} className="text-muted-foreground flex-shrink-0" />
+            <span className="text-[12.5px] text-foreground font-medium truncate">
+              Your store has no products yet —{' '}
+              <Link
+                href="/agent?tab=products"
+                className="font-semibold text-foreground hover:underline inline-flex items-center gap-1"
+              >
+                Import your product catalog
+                <ArrowRight size={11} />
+              </Link>
+            </span>
+          </div>
+          <button
+            onClick={() => setBannerDismissed(true)}
+            aria-label="Dismiss banner"
+            className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X size={14} />
+          </button>
         </div>
+      )}
 
-        {/* ── Zero-State 1-Click Store Onboarding Banner ──────────────── */}
-        {stats.productTotal === 0 && (
-          <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
-            <div className="flex items-start sm:items-center gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                <Globe size={20} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-foreground">
-                    1-Click Storefront Intelligence Onboarding
-                  </h3>
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">
-                    Recommended
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Provide your store website URL (Shopify, WooCommerce, or Custom) to automatically crawl products, stock, prices, and policies.
-                </p>
-              </div>
-            </div>
+      {/* Main Canvas */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-[1400px] mx-auto px-6 lg:px-8 py-6 space-y-6">
 
-            <Link
-              href="/agent?tab=products"
-              className="px-4 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 shrink-0 shadow-xs"
-            >
-              <Sparkles size={13} />
-              <span>Sync Store Website</span>
-              <ArrowRight size={13} />
-            </Link>
-          </div>
-        )}
+          {/* ── Status Bar ── */}
+          <StatusStrip
+            activeConversations={stats.activeChats}
+            voiceSessions={stats.activeVoiceCalls}
+            productsCount={stats.productTotal}
+          />
 
-        {/* ── Row 1: Hero Store Status Card ───────────────────────────── */}
-        <HeroStatusCard
-          activeConversations={stats.activeChats}
-          voiceSessions={stats.activeVoiceCalls}
-          productsCount={stats.productTotal}
-        />
+          {/* ── Unified Block 1: Store Performance (Metrics + Chart) ── */}
+          <AnalyticsPanel
+            kpiCards={kpiCards}
+            revenueProps={{
+              daily: stats.revenueTimeseries?.daily,
+              weekly: stats.revenueTimeseries?.weekly,
+              growthRate: stats.revenueTrend,
+              totalRevenue: stats.totalRevenue,
+            }}
+            funnelProps={{
+              funnel: stats.funnel,
+              overallConversion: stats.overallConversion,
+            }}
+          />
 
-        {/* ── Row 2: Key Metric Cards ──────────────────────────────────── */}
-        <section className="grid grid-cols-2 lg:grid-cols-5 gap-3.5" aria-label="Key performance indicators">
-          {statCards.map((card) => (
-            <Link
-              key={card.label}
-              href={card.href}
-              className="group rounded-md border border-border bg-surface-container p-4 hover:border-border/80 hover:bg-surface-high transition-colors block"
-            >
-              <div className="flex items-center justify-between text-muted-foreground mb-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground group-hover:text-foreground transition-colors">
-                  {card.label}
-                </span>
-                <span className="text-muted-foreground group-hover:text-primary transition-colors">
-                  {card.icon}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                  {card.value}
-                </p>
-                {card.trend && (
-                  <span
-                    className={`text-[10px] font-bold ${
-                      card.trend.startsWith('-')
-                        ? 'text-[color:var(--status-error)]'
-                        : 'text-[color:var(--status-online)]'
-                    }`}
-                  >
-                    {card.trend}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-2 truncate">{card.meta}</p>
-            </Link>
-          ))}
-        </section>
+          {/* ── Unified Block 2: Recent Customer Activity (Split 2-col) ── */}
+          <RecentActivityPanel
+            orders={stats.recentOrders}
+            conversations={stats.recentConversations}
+          />
 
-        {/* ── Row 3: Revenue & Funnel Analytics ────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
-          {/* Revenue Chart (7 cols) */}
-          <div className="xl:col-span-7">
-            <RevenueChart
-              daily={stats.revenueTimeseries?.daily}
-              weekly={stats.revenueTimeseries?.weekly}
-              growthRate={stats.revenueTrend}
-              totalRevenue={stats.totalRevenue}
-            />
-          </div>
-
-          {/* Sales Funnel (5 cols) */}
-          <div className="xl:col-span-5">
-            <SalesFunnel
-              funnel={stats.funnel}
-              overallConversion={stats.overallConversion}
-            />
-          </div>
-        </div>
-
-        {/* ── Row 4: Quick Action Shortcuts ───────────────────────────── */}
-        <section aria-label="Quick actions" className="space-y-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {quickActions.map((action) => (
-
-              <Link
-                key={action.id}
-                id={action.id}
-                href={action.href}
-                className="group flex items-start gap-3.5 rounded-md border border-border bg-surface-container p-4 hover:bg-surface-high hover:border-primary/40 transition-all"
-              >
-                <div className="p-2 rounded-md bg-surface-low border border-border/80 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0">
-                  {action.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {action.label}
-                  </p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
-                    {action.description}
-                  </p>
-                </div>
-                <ArrowRight
-                  size={14}
-                  className="ml-auto flex-shrink-0 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all mt-1"
-                />
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Row 5: Recent Sales & Conversations ─────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-          {/* Recent Orders Table */}
-          <section aria-label="Recent sales" className="rounded-md border border-border bg-surface-container overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShoppingCart size={15} className="text-primary" />
-                <h2 className="text-[13px] font-semibold text-foreground">Recent Orders</h2>
-              </div>
-              <Link
-                href="/live-desk"
-                className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-              >
-                Live desk <ArrowRight size={11} />
-              </Link>
-            </div>
-
-            {stats.recentOrders.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-xs">
-                No orders yet. Recent orders will appear here.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Order</th>
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Status</th>
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px] text-right">Amount</th>
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px] text-right">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.recentOrders.slice(0, 5).map((order) => {
-                      const sc = orderStatusConfig[order.status] ?? orderStatusConfig.pending;
-                      return (
-                        <tr
-                          key={order._id}
-                          className="border-b border-border last:border-0 hover:bg-surface-high/60 transition-colors"
-                        >
-                          <td className="px-4 py-2.5 font-medium text-foreground font-mono">
-                            {order.orderNumber}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-semibold capitalize ${sc.bg} ${sc.text}`}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums text-foreground font-semibold">
-                            {formatCurrency(order.totalAmount, order.currency)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-muted-foreground font-mono text-[11px]">
-                            {new Date(order.createdAt).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          {/* Recent Conversations Table */}
-          <section aria-label="Recent conversations" className="rounded-md border border-border bg-surface-container overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageSquareText size={15} className="text-primary" />
-                <h2 className="text-[13px] font-semibold text-foreground">Recent Conversations</h2>
-              </div>
-              <Link
-                href="/conversations"
-                className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-              >
-                All sessions <ArrowRight size={11} />
-              </Link>
-            </div>
-
-            {stats.recentConversations.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-xs">
-                No conversations yet. Customer sessions will appear here.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Session</th>
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Channel</th>
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px]">Status</th>
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wider text-[10px] text-right">Activity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.recentConversations.slice(0, 5).map((conv) => {
-                      const cs = convStatusConfig[conv.status] ?? convStatusConfig.ended;
-                      return (
-                        <tr
-                          key={conv._id}
-                          className="border-b border-border last:border-0 hover:bg-surface-high/60 transition-colors"
-                        >
-                          <td className="px-4 py-2.5 font-mono text-[11px] text-foreground">
-                            {conv.sessionId.slice(0, 10)}…
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <span className="inline-block rounded px-2 py-0.5 text-[10px] font-medium bg-surface-high text-muted-foreground capitalize">
-                              {channelLabel(conv.channel)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${cs.bg} ${cs.text}`}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
-                              {cs.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-muted-foreground font-mono text-[11px]">
-                            {new Date(conv.lastActivityAt || conv.createdAt).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+          {/* ── Unified Block 3: Store & Assistant Setup ── */}
+          <QuickActionsBar actions={quickActions} />
 
         </div>
-
       </div>
     </div>
   );
