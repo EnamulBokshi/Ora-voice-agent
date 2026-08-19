@@ -142,7 +142,7 @@ const getSocketUrl = (): string => {
   return `http://${hostname}:5000`;
 };
 
-const PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
+const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_ORA_KEY || 'biz_live_ora_platform_system';
 
 /**
  * FloatingOrbWidget — Siri/Gemini Live style interactive voice assistant on the landing page.

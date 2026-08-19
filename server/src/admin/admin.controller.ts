@@ -19,6 +19,7 @@ import { AdminUserQueryDto } from './dto/admin-user-query.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
+import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -112,6 +113,16 @@ export class AdminController {
   @Get('system/health')
   async getSystemHealth() {
     return this.adminService.getSystemHealth();
+  }
+
+  @Get('platform-agent')
+  async getPlatformAgent() {
+    return this.adminService.getPlatformAgentConfig();
+  }
+
+  @Patch('platform-agent')
+  async updatePlatformAgent(@Body() dto: UpdatePlatformAgentDto) {
+    return this.adminService.updatePlatformAgentConfig(dto);
   }
 }
 

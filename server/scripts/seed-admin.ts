@@ -174,6 +174,45 @@ async function seedSuperAdmin(): Promise<void> {
       console.log(`✔ SuperAdmin user created with ID: ${adminUser._id}`);
     }
 
+    // 4. Create or update AgentConfig for ORA Platform
+    const AgentConfigSchema = new Schema(
+      {
+        businessId: { type: Schema.Types.ObjectId, ref: 'Business', required: true, unique: true },
+        brandVoiceDescription: { type: String, default: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.' },
+        language: { type: String, default: 'en' },
+        businessArchetype: { type: String, default: 'saas' },
+        businessSummary: { type: String, default: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.' },
+        customDirectives: { type: String, default: 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.' },
+        idleTimeoutSeconds: { type: Number, default: 10 },
+        discountFloorPercent: { type: Number, default: 10 },
+        alwaysOfferProductIds: { type: [String], default: [] },
+        isActive: { type: Boolean, default: true },
+      },
+      { timestamps: true, collection: 'agentconfigs' },
+    );
+
+    const AgentConfigModel =
+      mongoose.models.AgentConfig ||
+      mongoose.model('AgentConfig', AgentConfigSchema);
+
+    let agentConfig = await AgentConfigModel.findOne({ businessId: systemBusiness._id }).exec();
+    if (agentConfig) {
+      agentConfig.businessArchetype = 'saas';
+      agentConfig.businessSummary = 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.';
+      agentConfig.customDirectives = 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.';
+      await agentConfig.save();
+      console.log(`✔ AgentConfig updated for ORA Platform (Archetype: saas).`);
+    } else {
+      await AgentConfigModel.create({
+        businessId: systemBusiness._id,
+        businessArchetype: 'saas',
+        businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
+        brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
+        customDirectives: 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.',
+      });
+      console.log(`✔ AgentConfig created for ORA Platform (Archetype: saas).`);
+    }
+
     console.log('---------------------------------------------------------');
     console.log('🎉 SUPERADMIN PROVISIONED SUCCESSFULLY');
     console.log(`  Email:    ${adminEmail}`);
@@ -181,6 +220,7 @@ async function seedSuperAdmin(): Promise<void> {
     console.log(`  Role:     ${AdminRole.SUPER_ADMIN}`);
     console.log(`  Name:     ${adminName}`);
     console.log(`  Tenant:   ${systemBusiness.name} (${systemBusiness._id})`);
+    console.log(`  Archetype: saas`);
     console.log(`  Verified: true`);
     console.log('---------------------------------------------------------');
   } catch (error: any) {

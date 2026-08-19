@@ -12,6 +12,7 @@ import { Customer, CustomerDocument } from '../customers/schemas/customer.schema
 import { Subscription, SubscriptionDocument, SubscriptionStatus, BillingProvider } from '../billing/schemas/subscription.schema';
 import { Order, OrderDocument, OrderSource } from '../orders/schemas/order.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { AgentConfig, AgentConfigDocument } from '../agent-config/schemas/agent-config.schema';
 import { RedisService } from '../common/redis/redis.service';
 import { MailService } from '../mail/mail.service';
 import { DomainException } from '../common/exceptions/domain.exception';
@@ -19,6 +20,7 @@ import { AdminUserQueryDto } from './dto/admin-user-query.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
+import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 
 @Injectable()
 export class AdminService {
@@ -39,6 +41,8 @@ export class AdminService {
     private readonly orderModel: Model<OrderDocument>,
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    @InjectModel(AgentConfig.name)
+    private readonly agentConfigModel: Model<AgentConfigDocument>,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
@@ -1084,6 +1088,78 @@ export class AdminService {
         totalMemoryMB: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         nodeVersion: process.version,
       },
+    };
+  }
+
+  /**
+   * Retrieves ORA Platform (System Tenant) identity, publishable key, and AgentConfig.
+   */
+  async getPlatformAgentConfig() {
+    let platformBiz = await this.businessModel.findOne({
+      $or: [{ name: 'ORA Platform' }, { publishableKey: 'biz_live_ora_platform_system' }],
+    }).exec();
+
+    if (!platformBiz) {
+      platformBiz = await this.businessModel.create({
+        name: 'ORA Platform',
+        domain: 'ora.ai',
+        publishableKey: 'biz_live_ora_platform_system',
+        keyStatus: 'active',
+        status: 'active',
+        connectedPlatform: 'none',
+      });
+    }
+
+    let agentConfig = await this.agentConfigModel.findOne({ businessId: platformBiz._id }).exec();
+    if (!agentConfig) {
+      agentConfig = await this.agentConfigModel.create({
+        businessId: platformBiz._id,
+        businessArchetype: 'saas',
+        businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
+        brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
+        customDirectives: 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.',
+        language: 'en',
+        isActive: true,
+      });
+    }
+
+    return {
+      business: {
+        id: platformBiz._id,
+        name: platformBiz.name,
+        domain: platformBiz.domain,
+        publishableKey: platformBiz.publishableKey,
+        keyStatus: platformBiz.keyStatus,
+        status: platformBiz.status,
+      },
+      agentConfig,
+    };
+  }
+
+  /**
+   * Updates ORA Platform (System Tenant) AgentConfig and brand directives.
+   */
+  async updatePlatformAgentConfig(dto: UpdatePlatformAgentDto) {
+    const platformData = await this.getPlatformAgentConfig();
+    const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id }).exec();
+
+    if (!config) {
+      throw new DomainException('Platform AgentConfig not found.', HttpStatus.NOT_FOUND);
+    }
+
+    if (dto.brandVoiceDescription !== undefined) config.brandVoiceDescription = dto.brandVoiceDescription;
+    if (dto.businessArchetype !== undefined) config.businessArchetype = dto.businessArchetype;
+    if (dto.businessSummary !== undefined) config.businessSummary = dto.businessSummary;
+    if (dto.customDirectives !== undefined) config.customDirectives = dto.customDirectives;
+    if (dto.language !== undefined) config.language = dto.language;
+    if (dto.isActive !== undefined) config.isActive = dto.isActive;
+
+    await config.save();
+
+    return {
+      success: true,
+      business: platformData.business,
+      agentConfig: config,
     };
   }
 }

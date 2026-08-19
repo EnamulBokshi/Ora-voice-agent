@@ -297,3 +297,37 @@ export interface SystemHealthData {
   };
 }
 
+export interface PlatformAgentConfigData {
+  business: {
+    id: string;
+    name: string;
+    domain: string;
+    publishableKey: string;
+    keyStatus: string;
+    status: string;
+  };
+  agentConfig: {
+    _id: string;
+    businessId: string;
+    brandVoiceDescription: string;
+    businessArchetype: string;
+    businessSummary: string;
+    customDirectives: string;
+    language: string;
+    isActive: boolean;
+    idleTimeoutSeconds?: number;
+    discountFloorPercent?: number;
+    updatedAt?: string;
+  };
+}
+
+export interface UpdatePlatformAgentPayload {
+  brandVoiceDescription?: string;
+  businessArchetype?: string;
+  businessSummary?: string;
+  customDirectives?: string;
+  language?: string;
+  isActive?: boolean;
+}
+
+
