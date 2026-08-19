@@ -17,6 +17,7 @@ import {
   Mic,
   FileText,
   Package,
+  Key,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -44,9 +45,10 @@ const navGroups: NavGroupDef[] = [
         href: '/agent',
         icon: <Bot size={15} />,
         subItems: [
-          { id: 'agent-voice',     label: 'Talk to ORA',    href: '/agent?tab=voice',      icon: <Mic size={13} />,      tabKey: 'voice' },
-          { id: 'agent-documents', label: 'Documents',      href: '/agent?tab=documents',  icon: <FileText size={13} />, tabKey: 'documents' },
-          { id: 'agent-products',  label: 'Product Details',href: '/agent?tab=products',   icon: <Package size={13} />,  tabKey: 'products' },
+          { id: 'agent-voice',       label: 'Talk to ORA',       href: '/agent?tab=voice',       icon: <Mic size={13} />,      tabKey: 'voice' },
+          { id: 'agent-documents',   label: 'Documents',         href: '/agent?tab=documents',   icon: <FileText size={13} />, tabKey: 'documents' },
+          { id: 'agent-products',    label: 'Product Catalog',   href: '/agent?tab=products',    icon: <Package size={13} />,  tabKey: 'products' },
+          { id: 'agent-integration', label: 'Integration',       href: '/agent?tab=integration', icon: <Key size={13} />,      tabKey: 'integration' },
         ],
       },
     ],

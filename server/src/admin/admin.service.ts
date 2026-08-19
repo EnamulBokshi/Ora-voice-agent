@@ -46,7 +46,7 @@ export class AdminService {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Aggregates high-level platform-wide statistics for the SuperAdmin command center.
@@ -392,19 +392,19 @@ export class AdminService {
         connectedPlatform: business.connectedPlatform || 'none',
         owner: owner
           ? {
-              name: owner.name,
-              email: owner.email,
-              role: owner.role,
-              createdAt: (owner as any).createdAt,
-            }
+            name: owner.name,
+            email: owner.email,
+            role: owner.role,
+            createdAt: (owner as any).createdAt,
+          }
           : null,
         subscription: subscription
           ? {
-              planId: subscription.planId,
-              status: subscription.status,
-              billingProvider: subscription.billingProvider,
-              currentPeriodEnd: subscription.currentPeriodEnd,
-            }
+            planId: subscription.planId,
+            status: subscription.status,
+            billingProvider: subscription.billingProvider,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+          }
           : null,
         metrics: {
           productsCount,
@@ -794,11 +794,11 @@ export class AdminService {
       ]) : [],
       bId
         ? this.conversationModel
-            .find({ businessId: bId as any })
-            .populate('customerId', 'name phone email')
-            .sort({ updatedAt: -1 })
-            .limit(5)
-            .lean()
+          .find({ businessId: bId as any })
+          .populate('customerId', 'name phone email')
+          .sort({ updatedAt: -1 })
+          .limit(5)
+          .lean()
         : [],
     ]);
 
@@ -819,14 +819,14 @@ export class AdminService {
         updatedAt: (user as any).updatedAt,
         business: business
           ? {
-              id: (business as any)._id.toString(),
-              name: business.name,
-              domain: business.domain || 'N/A',
-              publishableKey: business.publishableKey,
-              status: business.status || 'active',
-              connectedPlatform: business.connectedPlatform || 'none',
-              createdAt: (business as any).createdAt,
-            }
+            id: (business as any)._id.toString(),
+            name: business.name,
+            domain: business.domain || 'N/A',
+            publishableKey: business.publishableKey,
+            status: business.status || 'active',
+            connectedPlatform: business.connectedPlatform || 'none',
+            createdAt: (business as any).createdAt,
+          }
           : null,
         subscription: {
           planId,
