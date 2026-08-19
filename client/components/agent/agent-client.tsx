@@ -1,15 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
-  Mic,
-  FileText,
-  Package,
-  Key,
-  ChevronRight,
   Database,
   Radio,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TopHeader } from '@/components/dashboard/top-header';
@@ -28,93 +25,6 @@ import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AgentSection = 'voice' | 'documents' | 'products' | 'integration';
-
-// ─── Left sub-nav definition ──────────────────────────────────────────────────
-
-interface NavEntry {
-  id: AgentSection;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-const NAV_ITEMS: NavEntry[] = [
-  {
-    id: 'voice',
-    label: 'Talk to ORA',
-    description: 'Real-time voice assistant',
-    icon: <Mic size={15} />,
-  },
-  {
-    id: 'documents',
-    label: 'Documents',
-    description: 'Policies, FAQs, manuals',
-    icon: <FileText size={15} />,
-  },
-  {
-    id: 'products',
-    label: 'Product Catalog',
-    description: 'SKUs, pricing, variants',
-    icon: <Package size={15} />,
-  },
-];
-
-const INTEGRATION_ITEM: NavEntry = {
-  id: 'integration',
-  label: 'Integration',
-  description: 'API keys & widget embed',
-  icon: <Key size={15} />,
-};
-
-// ─── Sub-nav link ─────────────────────────────────────────────────────────────
-
-function SubNavLink({
-  item,
-  isActive,
-  onClick,
-}: {
-  item: NavEntry;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-left transition-colors group',
-        isActive
-          ? 'bg-surface-high text-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
-      )}
-    >
-      {/* Active indicator */}
-      <span
-        className={cn(
-          'mt-0.5 flex-shrink-0 transition-colors',
-          isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground',
-        )}
-      >
-        {item.icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span
-          className={cn(
-            'block text-[13px] font-medium leading-tight',
-            isActive ? 'text-foreground' : '',
-          )}
-        >
-          {item.label}
-        </span>
-        <span className="block text-[11px] text-muted-foreground mt-0.5 leading-tight truncate">
-          {item.description}
-        </span>
-      </span>
-      {isActive && (
-        <ChevronRight size={13} className="flex-shrink-0 mt-0.5 text-muted-foreground" />
-      )}
-    </button>
-  );
-}
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
@@ -141,7 +51,6 @@ function SectionHeader({
 // ─── Main content ─────────────────────────────────────────────────────────────
 
 function AgentClientContent() {
-  const router       = useRouter();
   const searchParams = useSearchParams();
   const rawTab       = searchParams.get('tab') as AgentSection;
   const activeSection: AgentSection =
@@ -161,10 +70,6 @@ function AgentClientContent() {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [docs, setDocs]             = useState<KnowledgeDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
-
-  const navigate = (section: AgentSection) => {
-    router.push(`/agent?tab=${section}`);
-  };
 
   const loadDocs = useCallback(() => {
     getKnowledgeDocsApi()
@@ -195,7 +100,7 @@ function AgentClientContent() {
   const hasKey = Boolean(publishableKey);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
 
       {/* ── Top Header ── */}
       <TopHeader
@@ -219,142 +124,117 @@ function AgentClientContent() {
         }
       />
 
-      {/* ── 2-Column Layout: left sub-nav + right content ── */}
-      <div className="flex-1 flex min-h-0 overflow-hidden divide-x divide-border">
+      {/* ── Widget Active Status Strip (Shown across all Agent tabs) ── */}
+      <div className="flex items-center justify-between px-6 lg:px-8 py-2.5 bg-surface-high/40 border-b border-border text-[12px] flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'w-1.5 h-1.5 rounded-full flex-shrink-0',
+                hasKey
+                  ? 'bg-[color:var(--status-online)] animate-pulse-ring'
+                  : 'bg-[color:var(--status-error)]',
+              )}
+            />
+            <span className="font-semibold text-foreground">
+              {hasKey ? 'Widget Active' : 'No Active Key'}
+            </span>
+          </div>
+          <span className="text-border">·</span>
+          <span className="text-muted-foreground font-mono font-medium">
+            {businessName}
+          </span>
+        </div>
 
-        {/* ── Left: Sub-nav (220px) ── */}
-        <nav
-          className="w-[220px] flex-shrink-0 flex flex-col overflow-y-auto no-scrollbar bg-surface-lowest py-3 px-2"
-          aria-label="Agent sections"
-        >
-          {/* Content sections */}
-          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-            Knowledge
-          </p>
-          <div className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((item) => (
-              <SubNavLink
-                key={item.id}
-                item={item}
-                isActive={activeSection === item.id}
-                onClick={() => navigate(item.id)}
+        {activeSection !== 'integration' && (
+          <Link
+            href="/agent?tab=integration"
+            className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+          >
+            <span>Widget Embed & API Keys</span>
+            <ExternalLink size={11} />
+          </Link>
+        )}
+      </div>
+
+      {/* ── Full-Width Content Area ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar bg-background">
+        <div className="max-w-[1400px] w-full mx-auto px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+          {/* ── Voice section ── */}
+          {activeSection === 'voice' && (
+            <>
+              <SectionHeader
+                title="Talk to ORA"
+                description="Real-time bidirectional voice assistant. Ask product questions or speak store knowledge directly into ORA's memory."
               />
-            ))}
-          </div>
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                <div className="xl:col-span-7">
+                  <VoiceFeedTab
+                    publishableKey={publishableKey || undefined}
+                    onFed={loadDocs}
+                  />
+                </div>
+                <div className="xl:col-span-5">
+                  <KnowledgeFeedList
+                    docs={docs}
+                    loading={docsLoading}
+                    onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
-          {/* Divider */}
-          <div className="my-3 h-px bg-border mx-2" />
-
-          {/* Integration section */}
-          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-            Setup
-          </p>
-          <SubNavLink
-            item={INTEGRATION_ITEM}
-            isActive={activeSection === 'integration'}
-            onClick={() => navigate('integration')}
-          />
-
-          {/* Key status indicator */}
-          <div className="mt-4 mx-2 px-3 py-2.5 rounded-md bg-surface-high border border-border">
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  'w-1.5 h-1.5 rounded-full flex-shrink-0',
-                  hasKey
-                    ? 'bg-[color:var(--status-online)] animate-pulse-ring'
-                    : 'bg-[color:var(--status-error)]',
-                )}
+          {/* ── Documents section ── */}
+          {activeSection === 'documents' && (
+            <>
+              <SectionHeader
+                title="Store & Policy Documents"
+                description="Upload store policies, return conditions, warranty guidelines, FAQs, and reference documents. ORA indexes these to answer customer questions accurately."
               />
-              <span className="text-[11px] font-medium text-foreground">
-                {hasKey ? 'Widget Active' : 'No Active Key'}
-              </span>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-              {businessName}
-            </p>
-          </div>
-        </nav>
-
-        {/* ── Right: Content Area ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar bg-background">
-          <div className="max-w-[1200px] w-full mx-auto px-6 lg:px-8 py-6 flex flex-col gap-6">
-
-            {/* ── Voice section ── */}
-            {activeSection === 'voice' && (
-              <>
-                <SectionHeader
-                  title="Talk to ORA"
-                  description="Real-time bidirectional voice assistant. Ask product questions or speak store knowledge directly into ORA's memory."
-                />
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                  <div className="xl:col-span-7">
-                    <VoiceFeedTab
-                      publishableKey={publishableKey || undefined}
-                      onFed={loadDocs}
-                    />
-                  </div>
-                  <div className="xl:col-span-5">
-                    <KnowledgeFeedList
-                      docs={docs}
-                      loading={docsLoading}
-                      onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
-                    />
-                  </div>
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                <div className="xl:col-span-7">
+                  <DocumentsFeedTab onFed={loadDocs} />
                 </div>
-              </>
-            )}
-
-            {/* ── Documents section ── */}
-            {activeSection === 'documents' && (
-              <>
-                <SectionHeader
-                  title="Store & Policy Documents"
-                  description="Upload store policies, return conditions, warranty guidelines, FAQs, and reference documents. ORA indexes these to answer customer questions accurately."
-                />
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                  <div className="xl:col-span-7">
-                    <DocumentsFeedTab onFed={loadDocs} />
-                  </div>
-                  <div className="xl:col-span-5">
-                    <KnowledgeFeedList
-                      docs={docs}
-                      loading={docsLoading}
-                      onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
-                    />
-                  </div>
+                <div className="xl:col-span-5">
+                  <KnowledgeFeedList
+                    docs={docs}
+                    loading={docsLoading}
+                    onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
+                  />
                 </div>
-              </>
-            )}
+              </div>
+            </>
+          )}
 
-            {/* ── Products section ── */}
-            {activeSection === 'products' && (
-              <>
-                <SectionHeader
-                  title="Product Catalog"
-                  description="View and manage items synced from your storefront or uploaded files."
-                />
-                <ProductDetailsFeedTab onFed={loadDocs} />
-              </>
-            )}
+          {/* ── Products section ── */}
+          {activeSection === 'products' && (
+            <>
+              <SectionHeader
+                title="Product Catalog"
+                description="View and manage items synced from your storefront or uploaded files."
+              />
+              <ProductDetailsFeedTab onFed={loadDocs} />
+            </>
+          )}
 
-            {/* ── Integration section ── */}
-            {activeSection === 'integration' && (
-              <>
-                <SectionHeader
-                  title="Integration & API Keys"
-                  description="Manage your publishable widget key and embed ORA on your storefront. Copy the snippet for HTML, Shopify, WooCommerce, or React."
-                />
-                <MerchantCredentialsCard
-                  businessName={businessName}
-                  publishableKey={publishableKey}
-                  onKeyChange={(newKey) => setPublishableKey(newKey)}
-                  onOpenTestModal={() => setIsVoiceModalOpen(true)}
-                />
-              </>
-            )}
+          {/* ── Integration section ── */}
+          {activeSection === 'integration' && (
+            <>
+              <SectionHeader
+                title="Integration & API Keys"
+                description="Manage your publishable widget key and embed ORA on your storefront. Copy the snippet for HTML, Shopify, WooCommerce, or React."
+              />
+              <MerchantCredentialsCard
+                businessName={businessName}
+                publishableKey={publishableKey}
+                onKeyChange={(newKey) => setPublishableKey(newKey)}
+                onOpenTestModal={() => setIsVoiceModalOpen(true)}
+              />
+            </>
+          )}
 
-          </div>
         </div>
       </div>
 

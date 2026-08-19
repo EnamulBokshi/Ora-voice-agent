@@ -1110,10 +1110,10 @@ export class AdminService {
       });
     }
 
-    let agentConfig = await this.agentConfigModel.findOne({ businessId: platformBiz._id }).exec();
+    let agentConfig = await this.agentConfigModel.findOne({ businessId: platformBiz._id as any }).exec();
     if (!agentConfig) {
       agentConfig = await this.agentConfigModel.create({
-        businessId: platformBiz._id,
+        businessId: platformBiz._id as any,
         businessArchetype: 'saas',
         businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
         brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
@@ -1141,10 +1141,10 @@ export class AdminService {
    */
   async updatePlatformAgentConfig(dto: UpdatePlatformAgentDto) {
     const platformData = await this.getPlatformAgentConfig();
-    const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id }).exec();
+    const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id as any }).exec();
 
     if (!config) {
-      throw new DomainException('Platform AgentConfig not found.', HttpStatus.NOT_FOUND);
+      throw new DomainException('PLATFORM_CONFIG_NOT_FOUND', 'Platform AgentConfig not found.', HttpStatus.NOT_FOUND);
     }
 
     if (dto.brandVoiceDescription !== undefined) config.brandVoiceDescription = dto.brandVoiceDescription;
