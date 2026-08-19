@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as http from 'http';
 import * as url from 'url';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
+import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
 import { GeminiVoiceService, GeminiVoiceSessionControls } from './gemini-voice.service';
 import { RedisService } from '../common/redis/redis.service';
 
@@ -30,8 +32,11 @@ export class VoiceProxyGateway {
   constructor(
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    @InjectModel(AdminUser.name)
+    private readonly adminUserModel: Model<AdminUserDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
   ) { }
@@ -142,6 +147,32 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] Resolved business ${businessId} (${businessName}) for session ${sessionId}`,
     );
 
+    // ── Check for Authenticated AdminUser / Merchant Token ────────────────────
+    const authTokenParam = parsedUrl.query.authToken as string;
+    let authenticatedUser: { id: string; name: string; email: string; role: string } | undefined = undefined;
+
+    if (authTokenParam) {
+      try {
+        const decoded = await this.jwtService.verifyAsync(authTokenParam);
+        if (decoded && decoded.sub) {
+          const userDoc = await this.adminUserModel.findById(decoded.sub).exec();
+          if (userDoc) {
+            authenticatedUser = {
+              id: (userDoc._id as any).toString(),
+              name: userDoc.name || 'Merchant User',
+              email: userDoc.email,
+              role: userDoc.role || 'owner',
+            };
+            this.logger.log(
+              `[VoiceProxyGateway] 👤 Authenticated user connected: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}) for session ${sessionId}`,
+            );
+          }
+        }
+      } catch (authErr: any) {
+        this.logger.warn(`[VoiceProxyGateway] Auth token verification notice for session ${sessionId}: ${authErr.message}`);
+      }
+    }
+
     // ── Resolve Customer Identity (Tier 1 HMAC / Tier 2 Device ID / Tier 3 Ghost) ──
     const customerIdParam = parsedUrl.query.customerId as string;
     const customerTsParam = parsedUrl.query.customerTimestamp as string;
@@ -163,6 +194,9 @@ export class VoiceProxyGateway {
       sessionId,
     });
 
+    const isUserAnon = authenticatedUser ? false : activeCustomer.isAnonymous;
+    const resolvedName = authenticatedUser?.name || activeCustomer.name;
+
     // Store active session customer mapping in Redis
     try {
       const redis = this.redisService.getClient();
@@ -170,8 +204,10 @@ export class VoiceProxyGateway {
         `session:${sessionId}:customer`,
         JSON.stringify({
           customerId: activeCustomer.id,
-          isAnonymous: activeCustomer.isAnonymous,
-          name: activeCustomer.name,
+          isAnonymous: isUserAnon,
+          name: resolvedName,
+          email: authenticatedUser?.email,
+          role: authenticatedUser?.role,
           businessId,
         }),
         'EX',
@@ -216,7 +252,7 @@ export class VoiceProxyGateway {
       sessionControls: null as any, // filled after createVoiceSession resolves
       businessId,
       customerId: activeCustomer.id,
-      isAnonymous: activeCustomer.isAnonymous,
+      isAnonymous: isUserAnon,
       closed: false,
     };
 
@@ -240,9 +276,9 @@ export class VoiceProxyGateway {
         customerId: activeCustomer.id,
         deviceId: deviceIdParam,
         clientContext: initialClientContext,
+        authenticatedUser,
 
         // Google → client: audio response
-
         onAudioData: (base64AudioPcm) => {
           sendToClient({ type: 'audio', data: base64AudioPcm });
         },
@@ -310,14 +346,15 @@ export class VoiceProxyGateway {
     // ── Notify client that session is ready ───────────────────────────────────
     sendToClient({
       type: 'setup_complete',
+      user: authenticatedUser || null,
       customer: {
         id: activeCustomer.id,
-        isAnonymous: activeCustomer.isAnonymous,
-        name: activeCustomer.name,
+        isAnonymous: isUserAnon,
+        name: resolvedName,
       },
     });
     this.logger.log(
-      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (Customer: ${activeCustomer.id}, Anon: ${activeCustomer.isAnonymous}). Active sessions: ${this.sessions.size}`,
+      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}). Active sessions: ${this.sessions.size}`,
     );
 
     // ── Route incoming messages from client → Google ──────────────────────────

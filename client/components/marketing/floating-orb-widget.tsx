@@ -288,11 +288,13 @@ export function FloatingOrbWidget() {
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     const apiBaseUrl = getApiUrl();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     try {
       const client = new GeminiLiveClient({
         publishableKey: PUBLISHABLE_KEY,
         sessionId,
         apiBaseUrl,
+        authToken: token || undefined,
         clientContext: {
           currentPath: pathname || '/',
           title: typeof document !== 'undefined' ? document.title : '',

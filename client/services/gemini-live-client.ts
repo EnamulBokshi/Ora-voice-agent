@@ -21,6 +21,7 @@ export interface LiveClientOptions {
   publishableKey: string;
   sessionId: string;
   apiBaseUrl?: string;
+  authToken?: string;
   clientContext?: {
     currentPath?: string;
     title?: string;
@@ -79,6 +80,7 @@ export class GeminiLiveClient {
       publishableKey,
       sessionId,
       apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
+      authToken,
       onStatusChange,
       onTranscript,
       onError,
@@ -92,9 +94,16 @@ export class GeminiLiveClient {
       const startTime = performance.now();
 
       // ── 1. Bootstrap: obtain sessionId + wsPath from ORA server ──────────────
+      const bootstrapHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (authToken) {
+        bootstrapHeaders['Authorization'] = `Bearer ${authToken}`;
+      }
+
       const bootstrapRes = await fetch(`${apiBaseUrl}/api/v1/voice/session/bootstrap`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: bootstrapHeaders,
         body: JSON.stringify({ publishableKey, sessionId }),
       });
 
@@ -116,7 +125,8 @@ export class GeminiLiveClient {
       const contextParams = ctx
         ? `&currentPath=${encodeURIComponent(ctx.currentPath || '/')}&pageTitle=${encodeURIComponent(ctx.title || '')}&history=${encodeURIComponent((ctx.history || []).join(','))}&activeSection=${encodeURIComponent(ctx.activeSection || '')}`
         : '';
-      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${contextParams}`;
+      const authParam = authToken ? `&authToken=${encodeURIComponent(authToken)}` : '';
+      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${authParam}${contextParams}`;
 
       const ws = new WebSocket(wsUrl);
       this.ws = ws;

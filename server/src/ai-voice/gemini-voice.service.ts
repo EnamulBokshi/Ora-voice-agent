@@ -17,6 +17,12 @@ export interface GeminiVoiceSessionOptions {
   sessionId: string;
   customerId?: string;
   deviceId?: string;
+  authenticatedUser?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
   clientContext?: {
     currentPath?: string;
     title?: string;
@@ -105,6 +111,7 @@ export class GeminiVoiceService {
       options.customerId,
       options.deviceId,
       options.clientContext,
+      options.authenticatedUser,
     );
 
     const agentConfig = await this.agentConfigService.getConfig(options.businessId).catch(() => null);
@@ -388,6 +395,12 @@ export class GeminiVoiceService {
       history?: string[];
       activeSection?: string;
     },
+    authenticatedUser?: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+    },
   ): Promise<string> {
     let baseInstruction = '';
     const cached = this.instructionCache.get(businessId);
@@ -582,35 +595,44 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
       });
     }
 
-    // 2. Dynamically Inject Active Customer Context (Per-Session)
+    // 2. Dynamically Inject Active User / Recognition Context (Per-Session)
     let customerContext = '';
-    if (this.customerModel && customerId) {
+    if (authenticatedUser) {
+      customerContext = `
+ACTIVE USER & RECOGNITION CONTEXT (Authenticated Logged-In User):
+- User / Account Name: ${authenticatedUser.name || 'Merchant User'}
+- Email Address: ${authenticatedUser.email}
+- Account Role: ${authenticatedUser.role || 'owner'}
+- Authentication Status: Authenticated Logged-In Account
+
+* INTERACTION RULES FOR AUTHENTICATED USER:
+1. Warmly recognize and greet them by name ("Welcome back, ${authenticatedUser.name || ''}!").
+2. When the user asks "who am I?", "what is my email?", "do you know me?", or "what is my role/account?", answer IMMEDIATELY and accurately from the authenticated user context above with 100% confidence.
+3. Help them manage their store, configure their voice agent, check analytics, or view their subscription plans.`;
+    } else if (this.customerModel && customerId) {
       try {
         const cust = await this.customerModel.findById(customerId).exec();
-        if (cust) {
-          const isKnownName = cust.name && cust.name !== 'Guest Shopper';
-          const prefs =
-            cust.extractedPreferences && Object.keys(cust.extractedPreferences).length > 0
-              ? JSON.stringify(cust.extractedPreferences)
-              : null;
+        const isKnownName = cust && cust.name && cust.name !== 'Guest Shopper';
+        const prefs =
+          cust?.extractedPreferences && Object.keys(cust.extractedPreferences).length > 0
+            ? JSON.stringify(cust.extractedPreferences)
+            : null;
 
-          const devId = deviceId || (cust.deviceIds && cust.deviceIds[0]) || null;
+        const devId = deviceId || (cust?.deviceIds && cust.deviceIds[0]) || null;
 
-          customerContext = `
-ACTIVE CUSTOMER & RECOGNITION CONTEXT (Who you are currently speaking with):
-- Customer Name: ${isKnownName ? cust.name : 'Guest Visitor (Ask for their name naturally if appropriate)'}
-- Account Status: ${cust.isAnonymous ? 'Guest Visitor (Device recognized)' : 'Registered Customer'}
+        customerContext = `
+ACTIVE USER & RECOGNITION CONTEXT (Guest Visitor):
+- Customer Name: ${isKnownName ? cust!.name : 'Guest Visitor (Unauthenticated)'}
+- Account Status: Guest Visitor (Unauthenticated)
 - Device ID: ${devId || 'Active Browser Session'}
-${prefs ? `- Saved Customer Preferences: ${prefs}` : ''}
-${cust.pastOrderIds && cust.pastOrderIds.length > 0 ? `- Past Orders Count: ${cust.pastOrderIds.length}` : ''}
+${prefs ? `- Saved Preferences: ${prefs}` : ''}
 
-* MEMORY & CUSTOMER INTERACTION RULES:
-1. If the visitor asks "do you know me?", "who am I?", or greets you:
-   - If their name is known ("${isKnownName ? cust.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust.name : ''}. Great to see you again!").
-   - If unknown, say: "You are visiting as a guest. What is your name?".
-2. If the visitor asks for their device ID, answer directly: "Your device ID is ${devId || 'active session'}".
-3. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "call me X") or shares preferences, IMMEDIATELY call the update_customer_profile tool to save their details into memory so you remember them next time!`;
-        }
+* GUEST DISCOVERY & INFORMATION GATHERING PLAYBOOK:
+1. If the visitor asks "do you know me?" or "who am I?":
+   - If their name is known ("${isKnownName ? cust!.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust!.name : ''}. Great to see you again!").
+   - If unknown, answer naturally: "You are visiting as a guest right now! May I have your name and email so I can assist you better?"
+2. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their personal details (such as Name, Email, Phone number, Store/Company URL, or specific business requirements).
+3. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "my email is ...") or shares contact details/preferences, IMMEDIATELY call the update_customer_profile or capture_sales_lead tool in the background so you remember them!`;
       } catch (err: any) {
         this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
       }
