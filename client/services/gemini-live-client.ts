@@ -21,10 +21,17 @@ export interface LiveClientOptions {
   publishableKey: string;
   sessionId: string;
   apiBaseUrl?: string;
+  clientContext?: {
+    currentPath?: string;
+    title?: string;
+    history?: string[];
+    activeSection?: string;
+  };
   onStatusChange?: (status: 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error') => void;
   onTranscript?: (sender: 'user' | 'agent' | 'system', text: string) => void;
   onAudioLevel?: (level: number) => void;
   onLatency?: (rttMs: number) => void;
+  onAction?: (action: { type: string; destination: string; reason?: string }) => void;
   onError?: (errMessage: string) => void;
 }
 
@@ -39,6 +46,7 @@ export class GeminiLiveClient {
   private nextPlayTime: number = 0;
   private activeSources: AudioBufferSourceNode[] = [];
   private isMuted: boolean = false;
+  private isAgentSpeaking: boolean = false;
   private options: LiveClientOptions;
   private setupConfirmed: boolean = false;
 
@@ -48,6 +56,22 @@ export class GeminiLiveClient {
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+  }
+
+  public sendContextUpdate(context: {
+    currentPath?: string;
+    title?: string;
+    history?: string[];
+    activeSection?: string;
+  }) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'client_context_update',
+          ...context,
+        }),
+      );
+    }
   }
 
   public async start(): Promise<void> {
@@ -88,7 +112,11 @@ export class GeminiLiveClient {
       // ── 2. Open WebSocket to ORA Proxy (not Google) ───────────────────────────
       const wsBase = apiBaseUrl.replace(/^http/, 'ws');
       const wsPath = bootstrap.wsPath || '/ws/voice';
-      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}`;
+      const ctx = this.options.clientContext;
+      const contextParams = ctx
+        ? `&currentPath=${encodeURIComponent(ctx.currentPath || '/')}&pageTitle=${encodeURIComponent(ctx.title || '')}&history=${encodeURIComponent((ctx.history || []).join(','))}&activeSection=${encodeURIComponent(ctx.activeSection || '')}`
+        : '';
+      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${contextParams}`;
 
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
@@ -142,7 +170,8 @@ export class GeminiLiveClient {
         this.workletNode = workletNode;
 
         workletNode.port.onmessage = (event) => {
-          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed) return;
+          // Suppress mic transmission if muted, disconnected, or if agent is actively speaking (prevents self-echo)
+          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed || this.isAgentSpeaking) return;
           const { pcm16Data } = event.data;
           if (pcm16Data) {
             const base64Audio = this.arrayBufferToBase64(pcm16Data);
@@ -151,7 +180,7 @@ export class GeminiLiveClient {
         };
 
         source.connect(workletNode);
-        workletNode.connect(audioCtx.destination);
+        // Note: Do NOT connect workletNode to audioCtx.destination — mic input should NEVER loop back to speakers!
         workletLoaded = true;
       } catch (workletErr) {
         console.warn('[GeminiLiveClient] AudioWorklet not available, falling back to ScriptProcessor:', workletErr);
@@ -161,13 +190,17 @@ export class GeminiLiveClient {
         const processor = audioCtx.createScriptProcessor(2048, 1, 1);
         this.scriptProcessor = processor;
         processor.onaudioprocess = (e) => {
-          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed) return;
+          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed || this.isAgentSpeaking) return;
           const input = e.inputBuffer.getChannelData(0);
           const base64Pcm = this.float32ToInt16Base64(input);
           this.sendAudioChunk(base64Pcm);
         };
         source.connect(processor);
-        processor.connect(audioCtx.destination);
+        // Create zero-gain sink node so ScriptProcessor is not garbage collected, without sending mic to speakers
+        const silentGain = audioCtx.createGain();
+        silentGain.gain.value = 0;
+        processor.connect(silentGain);
+        silentGain.connect(audioCtx.destination);
       }
 
       // ── 7. WebSocket Event Handlers ───────────────────────────────────────────
@@ -214,6 +247,9 @@ export class GeminiLiveClient {
             case 'tool_result':
               // UI hint only — actual tool execution happened on the server
               onTranscript?.('system', `⚡ ORA executed: ${message.toolName}`);
+              if (message.action) {
+                this.options.onAction?.(message.action);
+              }
               break;
 
             case 'error':
@@ -295,11 +331,13 @@ export class GeminiLiveClient {
       this.nextPlayTime = startTime + audioBuffer.duration;
 
       this.activeSources.push(sourceNode);
+      this.isAgentSpeaking = true;
       this.options.onStatusChange?.('speaking');
 
       sourceNode.onended = () => {
         this.activeSources = this.activeSources.filter((s) => s !== sourceNode);
-        if (this.audioCtx && this.audioCtx.currentTime >= this.nextPlayTime - 0.05) {
+        if (this.activeSources.length === 0 || (this.audioCtx && this.audioCtx.currentTime >= this.nextPlayTime - 0.05)) {
+          this.isAgentSpeaking = false;
           this.options.onStatusChange?.('listening');
         }
       };
@@ -309,6 +347,7 @@ export class GeminiLiveClient {
   }
 
   private flushPlaybackQueue() {
+    this.isAgentSpeaking = false;
     for (const source of this.activeSources) {
       try {
         source.stop();
@@ -323,6 +362,7 @@ export class GeminiLiveClient {
 
   public stop() {
     this.setupConfirmed = false;
+    this.isAgentSpeaking = false;
     this.flushPlaybackQueue();
 
     if (this.workletNode) {

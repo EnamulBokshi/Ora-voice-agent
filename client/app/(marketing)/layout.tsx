@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { FloatingOrbWidget } from '@/components/marketing/floating-orb-widget';
 import './marketing.css';
 
 export const metadata: Metadata = {
@@ -20,6 +21,9 @@ export default function MarketingLayout({
 }) {
   return (
     // lp-root scopes all Stitch/Lumina CSS tokens — does not affect the dashboard theme
-    <div className="lp-root">{children}</div>
+    <div className="lp-root relative min-h-screen">
+      {children}
+      <FloatingOrbWidget />
+    </div>
   );
 }

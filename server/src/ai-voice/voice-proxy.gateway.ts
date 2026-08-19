@@ -6,18 +6,14 @@ import * as http from 'http';
 import * as url from 'url';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
-import { GeminiVoiceService } from './gemini-voice.service';
+import { GeminiVoiceService, GeminiVoiceSessionControls } from './gemini-voice.service';
 import { RedisService } from '../common/redis/redis.service';
 
 import { CustomersService } from '../customers/customers.service';
 
 interface ProxySession {
   clientWs: WebSocket;
-  sessionControls: {
-    sendAudioChunk: (base64Pcm16k: string) => void;
-    sendTextMessage: (text: string) => void;
-    closeSession: () => void;
-  };
+  sessionControls: GeminiVoiceSessionControls;
   businessId: string;
   customerId: string;
   isAnonymous: boolean;
@@ -201,6 +197,19 @@ export class VoiceProxyGateway {
       }
     }
 
+    // ── Extract Live Client Context from Query ───────────────────────────────
+    const currentPathParam = (parsedUrl.query.currentPath as string) || '/';
+    const pageTitleParam = (parsedUrl.query.pageTitle as string) || '';
+    const historyParam = (parsedUrl.query.history as string) || '';
+    const activeSectionParam = (parsedUrl.query.activeSection as string) || '';
+
+    const initialClientContext = {
+      currentPath: currentPathParam,
+      title: pageTitleParam,
+      history: historyParam ? historyParam.split(',') : [currentPathParam],
+      activeSection: activeSectionParam,
+    };
+
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {
       clientWs,
@@ -230,6 +239,7 @@ export class VoiceProxyGateway {
         sessionId,
         customerId: activeCustomer.id,
         deviceId: deviceIdParam,
+        clientContext: initialClientContext,
 
         // Google → client: audio response
 
@@ -377,6 +387,17 @@ export class VoiceProxyGateway {
           } catch (e) {}
           sendToClient({ type: 'session_suspended', resumptionToken: rToken });
           cleanup();
+          return;
+        }
+
+        if (msg.type === 'client_context_update') {
+          this.logger.log(`[VoiceProxyGateway] Context update for session ${sessionId}: page="${msg.currentPath || '/'}" title="${msg.title || ''}"`);
+          sessionControls.sendContextUpdate({
+            currentPath: msg.currentPath,
+            title: msg.title,
+            history: msg.history,
+            activeSection: msg.activeSection,
+          });
           return;
         }
 

@@ -80,7 +80,7 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'search_knowledge_base',
     description:
-      'Search website knowledge base, portfolio details, creator bio, projects, services, pricing, FAQs, contact info, and policies.',
+      'Search external knowledge base for specific technical or company documentation NOT already present in your preloaded memory. If the information is in memory, answer immediately without calling this tool.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -135,7 +135,7 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'get_pricing_plans',
     description:
-      'Retrieve active subscription tiers, pricing in USD and BDT, voice minutes, and feature limits from the database. Call this whenever a visitor asks about pricing, cost, plans, or subscription options.',
+      'Retrieve subscription tiers from database. NOTE: If pricing plans ($29 Starter, $99 Growth, $299 Scale) are already in your preloaded memory, speak them directly without calling this tool to maintain sub-400ms latency.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -149,13 +149,30 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'navigate_to_page',
     description:
-      'Direct or scroll the visitor’s browser to a specific page or section (e.g. "/pricing", "/register", "#features", "#stats", "#cta", or demo section). Use this when guiding a visitor or when they ask to see a feature, pricing, or start registration.',
+      'Direct or scroll the visitor’s browser to a specific valid page or section from the application sitemap. Use this when the visitor asks to view pricing, create an account, log in, view features, or go home.',
     parameters: {
       type: 'OBJECT',
       properties: {
         destination: {
           type: 'STRING',
-          description: 'The URL path (e.g. "/pricing", "/register", "/auth") or anchor hash (e.g. "#features", "#pricing", "#stats", "#cta").',
+          description: 'The target route path or anchor hash. Must be one of the enumerated valid application routes.',
+          enum: [
+            '/',
+            '/pricing',
+            '/auth?mode=register',
+            '/auth?mode=login',
+            '/dashboard',
+            '/live-desk',
+            '/conversations',
+            '/agent',
+            '/customers',
+            '/billing',
+            '/profile',
+            '/admin',
+            '#features',
+            '#stats',
+            '#cta',
+          ],
         },
         reason: {
           type: 'STRING',
@@ -240,13 +257,13 @@ export function getToolsForArchetype(archetype?: string) {
   if (archetype === 'portfolio' || archetype === 'agency_services' || archetype === 'consulting') {
     // Exclude e-commerce shopping cart and direct order placement tools on non-e-commerce sites
     return ORA_TOOL_DECLARATIONS.filter(
-      (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout'].includes(t.name),
+      (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout', 'find_products', 'get_product_details'].includes(t.name),
     );
   }
   if (archetype === 'saas') {
-    // For SaaS and platform sites, provide all SaaS tools and omit physical e-commerce cart
+    // For SaaS platform sites, exclude physical ecommerce catalog and checkout tools
     return ORA_TOOL_DECLARATIONS.filter(
-      (t) => !['add_to_cart', 'place_order'].includes(t.name),
+      (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout', 'find_products', 'get_product_details', 'get_store_policy'].includes(t.name),
     );
   }
   return ORA_TOOL_DECLARATIONS;

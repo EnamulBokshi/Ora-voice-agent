@@ -1144,7 +1144,7 @@ export class AdminService {
     const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id }).exec();
 
     if (!config) {
-      throw new DomainException('Platform AgentConfig not found.', HttpStatus.NOT_FOUND);
+      throw new DomainException('PLATFORM_AGENT_NOT_FOUND', 'Platform AgentConfig not found.', HttpStatus.NOT_FOUND);
     }
 
     if (dto.brandVoiceDescription !== undefined) config.brandVoiceDescription = dto.brandVoiceDescription;
