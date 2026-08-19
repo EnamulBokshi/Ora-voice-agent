@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { Business } from '../../users/schemas/business.schema';
 
 export type AgentConfigDocument = AgentConfig & Document;
@@ -14,7 +14,7 @@ export class AgentConfig {
     required: true,
     index: true,
   })
-  businessId: MongooseSchema.Types.ObjectId;
+  businessId: Types.ObjectId;
 
   @Prop({ default: 'Helpful, professional, and friendly sales assistant.' })
   brandVoiceDescription: string;
@@ -58,7 +58,7 @@ export class VoiceSettings {
     required: true,
     index: true,
   })
-  businessId: MongooseSchema.Types.ObjectId;
+  businessId: Types.ObjectId;
 
   @Prop({ default: 'alloy' })
   voiceId: string;
@@ -77,7 +77,7 @@ export class SalesPlaybook {
     required: true,
     index: true,
   })
-  businessId: MongooseSchema.Types.ObjectId;
+  businessId: Types.ObjectId;
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   upsellCategories: Record<string, any>;

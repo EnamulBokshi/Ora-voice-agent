@@ -4,6 +4,7 @@ import {
   ProfileResponseData,
   OtpResponseData,
   RefreshResponseData,
+  User,
 } from '@/types/auth';
 
 export async function registerApi(payload: {
@@ -50,6 +51,38 @@ export async function getMeApi(accessToken?: string): Promise<ProfileResponseDat
   return apiClient<ProfileResponseData>('/auth/me', {
     method: 'GET',
     headers,
+  });
+}
+
+export async function updateProfileApi(
+  data: { name?: string; phone?: string },
+  accessToken?: string,
+): Promise<{ message: string; user: User }> {
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  return apiClient<{ message: string; user: User }>('/users/profile', {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function changePasswordApi(
+  payload: { currentPassword: string; newPassword: string },
+  accessToken?: string,
+): Promise<{ message: string }> {
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  return apiClient<{ message: string }>('/users/change-password', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
   });
 }
 

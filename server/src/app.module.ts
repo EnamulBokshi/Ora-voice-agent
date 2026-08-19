@@ -26,6 +26,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
 import { DashboardModule } from './dashboard/dashboard.module';
 import { LiveDeskModule } from './live-desk/live-desk.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { AdminModule } from './admin/admin.module';
     DashboardModule,
     LiveDeskModule,
     AdminModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

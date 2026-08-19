@@ -1,6 +1,16 @@
 import { apiClient } from '@/lib/api-client';
 import { Business } from '@/types/auth';
 
+export interface UpdateBusinessInput {
+  name?: string;
+  domain?: string;
+  shopifyStoreUrl?: string;
+  woocommerceStoreUrl?: string;
+  currency?: string;
+  timezone?: string;
+  supportEmail?: string;
+}
+
 export async function getCurrentBusinessApi(accessToken?: string): Promise<Business | null> {
   const headers: Record<string, string> = {};
   if (accessToken) {
@@ -10,6 +20,22 @@ export async function getCurrentBusinessApi(accessToken?: string): Promise<Busin
   return apiClient<Business | null>('/business/current', {
     method: 'GET',
     headers,
+  });
+}
+
+export async function updateBusinessApi(
+  data: UpdateBusinessInput,
+  accessToken?: string,
+): Promise<{ message: string; business: Business }> {
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  return apiClient<{ message: string; business: Business }>('/business/current', {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(data),
   });
 }
 

@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
@@ -15,13 +15,19 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
-  async getStats(@CurrentUser() user: JwtPayloadUser) {
-    return this.dashboardService.getStats(user.businessId);
+  async getStats(
+    @CurrentUser() user: JwtPayloadUser,
+    @Query('period') period?: string,
+  ) {
+    return this.dashboardService.getStats(user.businessId, period);
   }
 
   @Get('revenue-analytics')
-  async getRevenueAnalytics(@CurrentUser() user: JwtPayloadUser) {
-    return this.dashboardService.getRevenueAnalytics(user.businessId);
+  async getRevenueAnalytics(
+    @CurrentUser() user: JwtPayloadUser,
+    @Query('period') period?: string,
+  ) {
+    return this.dashboardService.getRevenueAnalytics(user.businessId, period);
   }
 
   @Get('funnel-analytics')

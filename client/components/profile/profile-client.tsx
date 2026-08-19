@@ -57,8 +57,18 @@ export function ProfileClient() {
   return (
     <div className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-[1200px] mx-auto w-full space-y-8 bg-background">
       <ProfileHeader />
-      <BusinessDetailsCard business={profile.business} />
-      <AccountDetailsCard user={profile.user} />
+      <BusinessDetailsCard
+        business={profile.business}
+        onBusinessUpdated={(updated) =>
+          setProfile((prev) => (prev ? { ...prev, business: updated } : prev))
+        }
+      />
+      <AccountDetailsCard
+        user={profile.user}
+        onUserUpdated={(updated) =>
+          setProfile((prev) => (prev ? { ...prev, user: updated } : prev))
+        }
+      />
     </div>
   );
 }

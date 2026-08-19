@@ -8,11 +8,14 @@ import {
   Loader2,
   AlertTriangle,
   X,
+  Edit2,
+  Save,
 } from 'lucide-react';
 import { Business } from '@/types/auth';
 import {
   deletePublishableKeyApi,
   generatePublishableKeyApi,
+  updateBusinessApi,
 } from '@/services/business-service';
 
 interface BusinessDetailsCardProps {
@@ -31,6 +34,12 @@ export function BusinessDetailsCard({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Edit store details states
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [storeName, setStoreName] = useState(business?.name || '');
+  const [storeDomain, setStoreDomain] = useState(business?.domain || '');
+
   const [localKey, setLocalKey] = useState<string | null | undefined>(
     business?.publishableKey,
   );
@@ -47,6 +56,27 @@ export function BusinessDetailsCard({
       </div>
     );
   }
+
+  const handleSaveStoreDetails = async () => {
+    setIsSavingDetails(true);
+    setErrorMessage(null);
+    try {
+      const res = await updateBusinessApi({
+        name: storeName.trim(),
+        domain: storeDomain.trim(),
+      });
+      setIsEditingDetails(false);
+      setSuccessMessage('Store details updated successfully.');
+      if (res?.business && onBusinessUpdated) {
+        onBusinessUpdated(res.business);
+      }
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update store details.');
+    } finally {
+      setIsSavingDetails(false);
+    }
+  };
 
   const handleCopyKey = () => {
     if (!localKey) return;
@@ -122,29 +152,87 @@ export function BusinessDetailsCard({
 
         {/* ── Section 1: Store Information ── */}
         <div>
-          <div className="pb-3 border-b border-border">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
             <h2 className="text-[13.5px] font-semibold text-foreground">Store Details</h2>
+            {isEditingDetails ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDetails(false)}
+                  className="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveStoreDetails}
+                  disabled={isSavingDetails}
+                  className="px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded flex items-center gap-1"
+                >
+                  {isSavingDetails ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                  Save
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setStoreName(business.name);
+                  setStoreDomain(business.domain || '');
+                  setIsEditingDetails(true);
+                }}
+                className="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded flex items-center gap-1"
+              >
+                <Edit2 size={11} />
+                Edit
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border border-b border-border py-4">
-            <div className="py-2 md:py-0 md:pr-6 space-y-1">
-              <span className="text-[11.5px] font-medium text-muted-foreground block">Store Name</span>
-              <p className="text-[14px] font-medium text-foreground">{business.name}</p>
+          {isEditingDetails ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 border-b border-border">
+              <div className="space-y-1">
+                <label className="text-[11.5px] font-medium text-muted-foreground block">Store Name</label>
+                <input
+                  type="text"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  className="w-full h-8 px-3 text-xs bg-surface-high border border-border rounded text-foreground focus:outline-none focus:border-primary"
+                  placeholder="e.g. Acme Fashion"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11.5px] font-medium text-muted-foreground block">Store Domain / URL</label>
+                <input
+                  type="text"
+                  value={storeDomain}
+                  onChange={(e) => setStoreDomain(e.target.value)}
+                  className="w-full h-8 px-3 text-xs bg-surface-high border border-border rounded text-foreground focus:outline-none focus:border-primary font-mono"
+                  placeholder="e.g. acmefashion.com"
+                />
+              </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border border-b border-border py-4">
+              <div className="py-2 md:py-0 md:pr-6 space-y-1">
+                <span className="text-[11.5px] font-medium text-muted-foreground block">Store Name</span>
+                <p className="text-[14px] font-medium text-foreground">{business.name}</p>
+              </div>
 
-            <div className="py-2 md:py-0 md:px-6 space-y-1">
-              <span className="text-[11.5px] font-medium text-muted-foreground block">Store Domain</span>
-              <p className="text-[14px] font-mono text-foreground">{business.domain || '—'}</p>
-            </div>
+              <div className="py-2 md:py-0 md:px-6 space-y-1">
+                <span className="text-[11.5px] font-medium text-muted-foreground block">Store Domain</span>
+                <p className="text-[14px] font-mono text-foreground">{business.domain || '—'}</p>
+              </div>
 
-            <div className="py-2 md:py-0 md:pl-6 space-y-1">
-              <span className="text-[11.5px] font-medium text-muted-foreground block">Status</span>
-              <p className="text-[14px] font-medium text-foreground flex items-center gap-1.5 capitalize">
-                <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
-                {business.status || 'Active'}
-              </p>
+              <div className="py-2 md:py-0 md:pl-6 space-y-1">
+                <span className="text-[11.5px] font-medium text-muted-foreground block">Status</span>
+                <p className="text-[14px] font-medium text-foreground flex items-center gap-1.5 capitalize">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
+                  {business.status || 'Active'}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Section 2: Storefront Widget Key ── */}
