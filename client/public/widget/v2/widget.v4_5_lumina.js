@@ -241,9 +241,97 @@
     } catch (e) {}
   }
 
+  // ─── Customer Identity & Fail-Closed Consent Resolution ─────────────────────
+  function getOrCreateDeviceId() {
+    var consentAllowed = false;
+    if (_cfg && _cfg.consent !== undefined) {
+      consentAllowed = _cfg.consent === true;
+    } else if (window.Shopify && window.Shopify.customerPrivacy && typeof window.Shopify.customerPrivacy.userCanBeTracked === 'function') {
+      consentAllowed = window.Shopify.customerPrivacy.userCanBeTracked() === true;
+    }
+
+    // Fail-Closed: Any state other than strict true uses memory-only ephemeral ID
+    if (consentAllowed !== true) {
+      if (!window.__oraEphemeralDeviceId) {
+        window.__oraEphemeralDeviceId = 'ephem_' + Math.random().toString(36).substring(2, 15);
+      }
+      return window.__oraEphemeralDeviceId;
+    }
+
+    try {
+      var deviceId = localStorage.getItem('ora_device_id');
+      if (!deviceId) {
+        deviceId = 'dev_' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15));
+        localStorage.setItem('ora_device_id', deviceId);
+      }
+      return deviceId;
+    } catch (e) {
+      return 'ephem_' + Math.random().toString(36).substring(2, 15);
+    }
+  }
+
+  function normalizeCustomerData(raw) {
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) {
+        if (raw.includes('@')) return { email: raw };
+        return { id: raw };
+      }
+    }
+    if (typeof raw !== 'object') return null;
+
+    var id = raw.id || raw._id || raw.userId || raw.user_id || raw.customerId || raw.customer_id || (raw.user && (raw.user.id || raw.user._id)) || null;
+    var email = raw.email || raw.userEmail || raw.user_email || (raw.user && raw.user.email) || null;
+    var name = raw.name || raw.fullName || raw.full_name || (raw.firstName ? (raw.firstName + ' ' + (raw.lastName || '')).trim() : null) || (raw.user && raw.user.name) || null;
+
+    if (!id && !email && !name) return null;
+    return { id: id ? String(id) : null, email: email, name: name };
+  }
+
+  function resolveCustomerPayload() {
+    var deviceId = getOrCreateDeviceId();
+    var customerToken = _cfg.customerToken || null;
+    var identified = window._oraActiveCustomer || normalizeCustomerData(_cfg.customer || _cfg.user);
+
+    return {
+      deviceId: deviceId,
+      customerToken: customerToken,
+      identified: identified,
+    };
+  }
+
+  // Expose global ORA SDK methods
+  window.ORA = window.ORA || {};
+  window.ORA.identify = function (userData) {
+    var normalized = normalizeCustomerData(userData);
+    if (normalized) {
+      window._oraActiveCustomer = normalized;
+      if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+        geminiWs.send(JSON.stringify({
+          type: 'client_identify',
+          customerToken: _cfg.customerToken,
+          userData: normalized,
+        }));
+      }
+    }
+  };
+
+  window.ORA.setCustomerToken = function (token) {
+    if (token && token.customerId && token.signature) {
+      _cfg.customerToken = token;
+      if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+        geminiWs.send(JSON.stringify({
+          type: 'client_identify',
+          customerToken: token,
+        }));
+      }
+    }
+  };
+
   // ─── Shadow DOM CSS ────────────────────────────────────────────────────────
   const styleEl = document.createElement('style');
   styleEl.textContent = `
+
     :host {
       all: initial;
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
@@ -833,18 +921,19 @@
     } else if (isSpeaking) {
       statusDot.className = 'ora-w-status-dot speaking';
       statusLabel.innerText = 'ORA is speaking…';
-    } else if (isWaitingForAi) {
-      statusDot.className = 'ora-w-status-dot connecting';
-      statusLabel.innerText = 'ORA is thinking…';
-    } else if (isActive && !isMuted) {
-      statusDot.className = 'ora-w-status-dot listening';
-      statusLabel.innerText = 'Listening… Speak now';
     } else if (isActive && isMuted) {
       statusDot.className = 'ora-w-status-dot muted';
       statusLabel.innerText = 'Microphone muted';
+    } else if (isWaitingForAi) {
+      statusDot.className = 'ora-w-status-dot connecting';
+      statusLabel.innerText = 'ORA is thinking…';
+    } else if (isActive) {
+      statusDot.className = 'ora-w-status-dot listening';
+      statusLabel.innerText = 'Listening… Speak now';
     } else if (isStandby) {
       statusDot.className = 'ora-w-status-dot standby';
       statusLabel.innerText = 'Paused • Tap to resume';
+
     } else if (voiceState === 'error') {
       statusDot.className = 'ora-w-status-dot error';
       statusLabel.innerText = errorMsg ? errorMsg.slice(0, 26) : 'Retry conversation';
@@ -1020,11 +1109,15 @@
         const cleanText = (finalTranscript + ' ' + interimTranscript).trim();
         if (cleanText) {
           cancelIdleTimer();
-          isWaitingForAi = true;
           lastSpeaker = 'user';
           liveSpeaker = 'user';
           liveUtterance = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
           showTranscript = true;
+
+          // Only set thinking state when a final phrase has been uttered
+          if (event.results[event.results.length - 1] && event.results[event.results.length - 1].isFinal) {
+            isWaitingForAi = true;
+          }
           render();
         }
       };
@@ -1043,6 +1136,8 @@
   }
 
   // ─── Microphone Capture (16 kHz PCM) ────────────────────────────────────────
+  let userSpeechSilenceTimeout = null;
+
   async function startMicCapture() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
@@ -1090,9 +1185,13 @@
       const rms = Math.sqrt(sum / rawInput.length);
       userMicLevel = Math.min(100, Math.floor(rms * 400));
 
-      if (rms > 0.04) {
+      // Voice Activity Detection (VAD)
+      if (rms > 0.06) {
         cancelIdleTimer();
-        isWaitingForAi = true;
+        if (userSpeechSilenceTimeout) {
+          clearTimeout(userSpeechSilenceTimeout);
+          userSpeechSilenceTimeout = null;
+        }
       }
 
       const pcm16 = floatTo16BitPCM(inputData);
@@ -1102,6 +1201,7 @@
 
     startSpeechRecognition();
   }
+
 
   // ─── Start Voice Session (with Resumption Support) ───────────────────────────
   async function startVoiceSession(resumeToken) {
@@ -1137,9 +1237,17 @@
         sessionId = 'ses_w_' + Math.random().toString(36).substring(2, 9);
       }
       const wsBase = apiBase.replace(/^http/, 'ws');
+      const custPayload = resolveCustomerPayload();
       let wsUri = wsBase + '/ws/voice' +
         '?publishableKey=' + encodeURIComponent(publishableKey) +
-        '&sessionId=' + encodeURIComponent(sessionId);
+        '&sessionId=' + encodeURIComponent(sessionId) +
+        '&deviceId=' + encodeURIComponent(custPayload.deviceId);
+
+      if (custPayload.customerToken && custPayload.customerToken.customerId) {
+        wsUri += '&customerId=' + encodeURIComponent(custPayload.customerToken.customerId) +
+          '&customerTimestamp=' + encodeURIComponent(custPayload.customerToken.timestamp) +
+          '&customerSignature=' + encodeURIComponent(custPayload.customerToken.signature);
+      }
 
       if (resumeToken) {
         wsUri += '&resumptionToken=' + encodeURIComponent(resumeToken);
@@ -1156,8 +1264,16 @@
             type: 'page_context',
             data: pageCtx
           }));
+          if (custPayload.identified) {
+            ws.send(JSON.stringify({
+              type: 'client_identify',
+              customerToken: custPayload.customerToken,
+              userData: custPayload.identified
+            }));
+          }
         } catch (e) {}
       };
+
 
       ws.onmessage = async function (event) {
         try {
@@ -1169,8 +1285,10 @@
             isWaitingForAi = false;
             audioQueueTime = 0;
             armIdleTimer();
+            render();
             return;
           }
+
 
           if (msg.type === 'session_suspended') {
             activeResumptionToken = msg.resumptionToken || sessionId;

@@ -106,4 +106,31 @@ export const ORA_TOOL_DECLARATIONS = [
       required: ['query'],
     },
   },
+  {
+    name: 'update_customer_profile',
+    description:
+      'Save or update the customer name, email, phone, or extracted preferences (e.g. name, favorite color, size, budget) into persistent memory whenever the customer introduces themselves or shares preferences.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: {
+          type: 'STRING',
+          description: 'The full name or first name of the customer (e.g. "Enamul").',
+        },
+        email: {
+          type: 'STRING',
+          description: 'The email address of the customer if provided.',
+        },
+        phone: {
+          type: 'STRING',
+          description: 'The phone number of the customer if provided.',
+        },
+        preferences: {
+          type: 'OBJECT',
+          description: 'Key-value preferences or interests extracted from conversation.',
+        },
+      },
+    },
+  },
 ];
+
