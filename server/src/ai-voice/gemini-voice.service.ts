@@ -512,18 +512,20 @@ export class GeminiVoiceService {
 
       // ─── Adaptive Archetype Persona Construction ───────────────────────────
       let persona = '';
-      if (businessArchetype === 'portfolio') {
-        persona = `You are ORA, ${ownerName ? `${ownerName}'s` : 'the creator\'s'} personal AI assistant and representative for this website and portfolio. Your primary mission is to warmly introduce visitors, recruiters, and clients to ${ownerName || 'the engineer'}'s background, featured projects, tech stack, and achievements, and help them get in touch or book a technical consultation.`;
-      } else if (businessArchetype === 'agency_services') {
-        persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
-      } else if (businessArchetype === 'saas') {
-        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for ORA (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans.
+      const isOraPlatform = (siteName || '').toLowerCase().includes('ora') || businessArchetype === 'saas';
+
+      if (isOraPlatform) {
+        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans.
 
 PLANS & PRICING (Preloaded in memory — answer immediately without tool delay):
 • Free Tier: $0 USD/mo (৳0 BDT) — 100 Voice Minutes, 20 Tier-1 Orders, 1 Connected Store, Basic RAG Search.
 • Growth Plan: $49 USD/mo (৳5,500 BDT) — 2,000 Voice Minutes, 500 Tier-1 Orders, 3 Connected Stores, 5 Staff Seats, Full RAG Vector Search, Webhook Sync, Custom Brand Voice Directives.
 • Scale Plan: $199 USD/mo (৳22,000 BDT) — Unlimited Voice Minutes, Unlimited Orders, 99 Connected Stores, 99 Seats, Dedicated SLA, Priority Support.
 We support instant online checkout with Stripe (USD cards) and bKash (BDT tokenized checkout). When a visitor asks how to buy or see plans, explain the options directly in voice. If they are not already on the pricing page, invoke navigate_to_page with "/pricing". If they are ALREADY on /pricing, refer to the pricing options right in front of them without asking to navigate there.`;
+      } else if (businessArchetype === 'portfolio') {
+        persona = `You are ORA, ${ownerName ? `${ownerName}'s` : 'the creator\'s'} personal AI assistant and representative for this website and portfolio. Your primary mission is to warmly introduce visitors, recruiters, and clients to ${ownerName || 'the engineer'}'s background, featured projects, tech stack, and achievements, and help them get in touch or book a technical consultation.`;
+      } else if (businessArchetype === 'agency_services') {
+        persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
       } else if (businessArchetype === 'ecommerce' || hasProducts) {
         persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, availability, and guide them through checkout.`;
       } else {
@@ -537,26 +539,42 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
   - "/pricing" : Transparent Multimodal AI Pricing ($0 Free, $49 Growth, $199 Scale, Stripe & bKash checkout).
   - "/auth?mode=register" : Merchant Account Registration / Sign Up / Create Account.
   - "/auth?mode=login" : Merchant Login / Sign In.
-• Merchant Dashboard Routes (for registered store owners):
-  - "/dashboard" : Merchant Command Center & Store Overview.
+  - "/auth?mode=login&from=/dashboard" : Merchant Login with direct redirect to Dashboard.
+  - "/auth?mode=register&from=/dashboard" : Merchant Registration with direct redirect to Dashboard.
+• Merchant Dashboard Routes (for registered store owners and operators):
+  - "/dashboard" : Merchant Command Center, Real-Time Revenue, AI Performance & Store Overview.
   - "/live-desk" : Live Shopper Voice & Chat Monitor.
-  - "/conversations" : Past Conversation History & Audio Logs.
+  - "/conversations" : Past Conversation History, Transcripts & Audio Logs.
   - "/agent" : Voice Agent Configuration, Brand Voice Directives, and Widget Embed Script.
   - "/customers" : Customer CRM & Shopper Identity Profiles.
   - "/billing" : Subscription Management, Payment Methods, and Invoices.
   - "/profile" : Merchant Store Profile & Settings.
+• Platform Admin Routes:
+  - "/admin" : SuperAdmin Command Center & Platform Control Plane.
 • In-Page Section Anchors (on Landing Page):
   - "#features" : Platform Features & Zero-Config Capabilities.
   - "#stats" : Real-Time Performance Stats & Sub-400ms Metrics.
   - "#cta" : Call to Action Section.
 
-* NAVIGATION RULES:
-1. When a user asks to register, sign up, create an account, or get started -> call navigate_to_page with destination "/auth?mode=register". NEVER use "/register" or "/signup"!
-2. When a user asks to log in or sign in -> call navigate_to_page with destination "/auth?mode=login".
-3. When a user asks to see pricing, cost, or plans -> call navigate_to_page with destination "/pricing".
-4. When a user asks to go home or landing page -> call navigate_to_page with destination "/".
-5. When a user asks to view features -> call navigate_to_page with destination "#features".
-6. If the visitor is ALREADY on the requested destination, do NOT navigate or ask to navigate—acknowledge that they are looking at it right now!`;
+* DASHBOARD & AUTHENTICATION NAVIGATION RULES:
+1. AUTHENTICATED USER ASKS FOR DASHBOARD:
+   - When an authenticated logged-in user asks to "go to dashboard", "open dashboard", "show store metrics", "view my store", or "open command center":
+     * If user role is "owner" or "staff": Respond verbally in 1 short sentence ("Taking you to your dashboard now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/dashboard".
+     * If user role is "admin" or "super_admin": Respond verbally in 1 short sentence ("Taking you to the admin command center now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/admin".
+     * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, profile): Call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/profile").
+
+2. UNAUTHENTICATED GUEST USER ASKS FOR DASHBOARD:
+   - When an unauthenticated guest visitor asks to "go to dashboard", "open my dashboard", "log in", "sign in", "create account", "register", or "access merchant portal":
+     * Inform them warmly in 1 short sentence: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
+     * IMMEDIATELY call navigate_to_page with destination "/auth?mode=login&from=/dashboard" (or "/auth?mode=register&from=/dashboard" if they asked to register/create account).
+
+3. GENERAL NAVIGATION:
+   - When a user asks to see pricing, cost, or plans -> call navigate_to_page with destination "/pricing".
+   - When a user asks to go home or landing page -> call navigate_to_page with destination "/".
+   - When a user asks to view features -> call navigate_to_page with destination "#features".
+   - When a user asks to register or sign up -> call navigate_to_page with destination "/auth?mode=register".
+   - When a user asks to log in -> call navigate_to_page with destination "/auth?mode=login".
+   - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now!`;
 
       baseInstruction = [
         persona,
@@ -576,7 +594,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
         '5. WHEN TO USE TOOLS (WHILE SPEAKING):',
         businessArchetype === 'ecommerce' || hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above.' : '',
         businessArchetype === 'ecommerce' || hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
-        '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/pricing", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
+        '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
         '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
         '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
         '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
@@ -599,16 +617,17 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
     let customerContext = '';
     if (authenticatedUser) {
       customerContext = `
-ACTIVE USER & RECOGNITION CONTEXT (Authenticated Logged-In User):
-- User / Account Name: ${authenticatedUser.name || 'Merchant User'}
+ACTIVE VISITOR CONTEXT (Authenticated Logged-In User):
+- Visitor Name: ${authenticatedUser.name || 'Merchant User'}
 - Email Address: ${authenticatedUser.email}
 - Account Role: ${authenticatedUser.role || 'owner'}
-- Authentication Status: Authenticated Logged-In Account
+- Authentication Status: Authenticated Logged-In User
 
 * INTERACTION RULES FOR AUTHENTICATED USER:
 1. Warmly recognize and greet them by name ("Welcome back, ${authenticatedUser.name || ''}!").
 2. When the user asks "who am I?", "what is my email?", "do you know me?", or "what is my role/account?", answer IMMEDIATELY and accurately from the authenticated user context above with 100% confidence.
-3. Help them manage their store, configure their voice agent, check analytics, or view their subscription plans.`;
+3. When the user asks to go to dashboard or open command center, IMMEDIATELY call navigate_to_page with "/dashboard" (or "/admin" if admin/super_admin) while confirming verbally.
+4. You are ORA. Answer their questions about the platform, features, pricing, or their merchant store operations.`;
     } else if (this.customerModel && customerId) {
       try {
         const cust = await this.customerModel.findById(customerId).exec();
@@ -631,8 +650,11 @@ ${prefs ? `- Saved Preferences: ${prefs}` : ''}
 1. If the visitor asks "do you know me?" or "who am I?":
    - If their name is known ("${isKnownName ? cust!.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust!.name : ''}. Great to see you again!").
    - If unknown, answer naturally: "You are visiting as a guest right now! May I have your name and email so I can assist you better?"
-2. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their personal details (such as Name, Email, Phone number, Store/Company URL, or specific business requirements).
-3. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "my email is ...") or shares contact details/preferences, IMMEDIATELY call the update_customer_profile or capture_sales_lead tool in the background so you remember them!`;
+2. When a guest asks to access or go to the dashboard:
+   - Tell them: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
+   - Call navigate_to_page with "/auth?mode=login&from=/dashboard".
+3. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their personal details (such as Name, Email, Phone number, Store/Company URL, or specific business requirements).
+4. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "my email is ...") or shares contact details/preferences, IMMEDIATELY call the update_customer_profile or capture_sales_lead tool in the background so you remember them!`;
       } catch (err: any) {
         this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
       }

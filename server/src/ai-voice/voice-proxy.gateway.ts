@@ -27,6 +27,7 @@ export class VoiceProxyGateway {
   private readonly logger = new Logger(VoiceProxyGateway.name);
   private readonly sessions = new Map<string, ProxySession>();
   private readonly businessCache = new Map<string, { businessId: string; name: string; expiresAt: number }>();
+  private readonly userCache = new Map<string, { user: { id: string; name: string; email: string; role: string; businessId?: string }; expiresAt: number }>();
   private wss: WebSocketServer | null = null;
 
   constructor(
@@ -52,7 +53,8 @@ export class VoiceProxyGateway {
       this.logger.log(`[VoiceProxyGateway] Cache invalidated for key: ${publishableKey.substring(0, 16)}...`);
     } else {
       this.businessCache.clear();
-      this.logger.log('[VoiceProxyGateway] All cached business keys cleared.');
+      this.userCache.clear();
+      this.logger.log('[VoiceProxyGateway] All cached business and user keys cleared.');
     }
   }
 
@@ -107,7 +109,46 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] New connection — session: ${sessionId}, key: ${publishableKey.substring(0, 16)}...`,
     );
 
-    // ── Resolve business from publishable key (with memory cache) ──────────────
+    // ── Check for Authenticated AdminUser / Merchant Token First ──────────────
+    const authTokenParam = parsedUrl.query.authToken as string;
+    let authenticatedUser: { id: string; name: string; email: string; role: string; businessId?: string } | undefined = undefined;
+
+    if (authTokenParam) {
+      try {
+        const decoded = await this.jwtService.verifyAsync(authTokenParam);
+        if (decoded && decoded.sub) {
+          const cached = this.userCache.get(decoded.sub);
+          if (cached && cached.expiresAt > Date.now()) {
+            authenticatedUser = cached.user;
+          } else {
+            const userDoc = await this.adminUserModel.findById(decoded.sub).exec();
+            if (userDoc) {
+              const uBizId = userDoc.businessId ? (userDoc.businessId as any).toString() : undefined;
+              authenticatedUser = {
+                id: (userDoc._id as any).toString(),
+                name: userDoc.name || 'Merchant User',
+                email: userDoc.email,
+                role: userDoc.role || 'owner',
+                businessId: uBizId,
+              };
+              this.userCache.set(decoded.sub, {
+                user: authenticatedUser,
+                expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
+              });
+            }
+          }
+          if (authenticatedUser) {
+            this.logger.log(
+              `[VoiceProxyGateway] 👤 Authenticated user connected: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}, biz: ${authenticatedUser.businessId}) for session ${sessionId}`,
+            );
+          }
+        }
+      } catch (authErr: any) {
+        this.logger.warn(`[VoiceProxyGateway] Auth token verification notice for session ${sessionId}: ${authErr.message}`);
+      }
+    }
+
+    // ── Resolve Host Business from Publishable Key (Single Source of Truth) ───
     let businessId: string | null = null;
     let businessName: string = '';
 
@@ -118,8 +159,12 @@ export class VoiceProxyGateway {
     } else {
       let business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
-      if (!business && publishableKey === 'biz_live_mock_key_12345' && process.env.NODE_ENV !== 'production') {
-        business = await this.businessModel.findOne({}).sort({ createdAt: -1 }).exec();
+      // Safe fallback for platform / demo / mock keys in development: look for ORA platform business
+      if (!business && (publishableKey === 'biz_live_mock_key_12345' || publishableKey === 'biz_live_demo' || publishableKey === 'biz_live_ora_platform_system') && process.env.NODE_ENV !== 'production') {
+        business = await this.businessModel.findOne({ name: { $regex: /ora/i } }).exec();
+        if (!business) {
+          business = await this.businessModel.findOne({}).sort({ createdAt: 1 }).exec();
+        }
       }
 
       if (business) {
@@ -146,32 +191,6 @@ export class VoiceProxyGateway {
     this.logger.log(
       `[VoiceProxyGateway] Resolved business ${businessId} (${businessName}) for session ${sessionId}`,
     );
-
-    // ── Check for Authenticated AdminUser / Merchant Token ────────────────────
-    const authTokenParam = parsedUrl.query.authToken as string;
-    let authenticatedUser: { id: string; name: string; email: string; role: string } | undefined = undefined;
-
-    if (authTokenParam) {
-      try {
-        const decoded = await this.jwtService.verifyAsync(authTokenParam);
-        if (decoded && decoded.sub) {
-          const userDoc = await this.adminUserModel.findById(decoded.sub).exec();
-          if (userDoc) {
-            authenticatedUser = {
-              id: (userDoc._id as any).toString(),
-              name: userDoc.name || 'Merchant User',
-              email: userDoc.email,
-              role: userDoc.role || 'owner',
-            };
-            this.logger.log(
-              `[VoiceProxyGateway] 👤 Authenticated user connected: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}) for session ${sessionId}`,
-            );
-          }
-        }
-      } catch (authErr: any) {
-        this.logger.warn(`[VoiceProxyGateway] Auth token verification notice for session ${sessionId}: ${authErr.message}`);
-      }
-    }
 
     // ── Resolve Customer Identity (Tier 1 HMAC / Tier 2 Device ID / Tier 3 Ghost) ──
     const customerIdParam = parsedUrl.query.customerId as string;
@@ -245,6 +264,20 @@ export class VoiceProxyGateway {
       history: historyParam ? historyParam.split(',') : [currentPathParam],
       activeSection: activeSectionParam,
     };
+
+    // ── Terminate any existing session with the same sessionId ───────────────
+    const existingSession = this.sessions.get(sessionId);
+    if (existingSession) {
+      this.logger.log(`[VoiceProxyGateway] Cleaning up previous session with same sessionId: ${sessionId}`);
+      try {
+        existingSession.closed = true;
+        existingSession.sessionControls?.closeSession();
+        if (existingSession.clientWs.readyState === WebSocket.OPEN) {
+          existingSession.clientWs.close(1000, 'Replaced by new session');
+        }
+      } catch {}
+      this.sessions.delete(sessionId);
+    }
 
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {

@@ -7,7 +7,7 @@ import { GeminiLiveClient } from '@/services/gemini-live-client';
 /**
  * Voice session states — matching the NestJS VoiceProxyGateway & Gemini Live state machine
  */
-export type VoiceState = 'idle' | 'connecting' | 'active' | 'ora-speaking' | 'error';
+export type VoiceState = 'idle' | 'connecting' | 'active' | 'thinking' | 'ora-speaking' | 'error';
 
 // ─── Socket / API URL Resolution ──────────────────────────────────────────────
 const getApiUrl = (): string => {
@@ -56,25 +56,32 @@ function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
       const baseRadius = 40;
       const isIdle = voiceState === 'idle';
       const isConnecting = voiceState === 'connecting';
+      const isThinking = voiceState === 'thinking';
       const isSpeaking = voiceState === 'ora-speaking';
-      const isActive = voiceState === 'active' || isSpeaking;
+      const isActive = voiceState === 'active' || isSpeaking || isThinking;
 
       // Audio reactive amplitude
       const amp = isSpeaking
         ? 6 + (energyLevel / 100) * 14
+        : isThinking
+        ? 5
         : isActive
         ? 3 + (energyLevel / 100) * 8
         : isConnecting
         ? 4
         : 1.5;
 
-      const speedMult = isSpeaking ? 1.8 : isConnecting ? 1.5 : 1.0;
+      const speedMult = isSpeaking ? 1.8 : isThinking ? 1.6 : isConnecting ? 1.5 : 1.0;
 
       // ── Draw Outer Fluid Glow ──
       const outerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.4, cx, cy, baseRadius * 1.5);
       if (isSpeaking) {
         outerGlow.addColorStop(0, 'rgba(200, 240, 49, 0.45)'); // Electric Lime Center
         outerGlow.addColorStop(0.5, 'rgba(0, 229, 255, 0.25)'); // Cyan Edge
+        outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      } else if (isThinking) {
+        outerGlow.addColorStop(0, 'rgba(180, 120, 255, 0.45)'); // Purple / Violet Thinking
+        outerGlow.addColorStop(0.6, 'rgba(0, 210, 255, 0.30)');
         outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       } else if (isActive) {
         outerGlow.addColorStop(0, 'rgba(0, 210, 255, 0.40)'); // Cyan Active
@@ -302,6 +309,7 @@ export function FloatingOrbWidget() {
         },
         onStatusChange: (status) => {
           if (status === 'connecting') setVoiceState('connecting');
+          else if (status === 'thinking') setVoiceState('thinking');
           else if (status === 'listening' || status === 'connected') setVoiceState('active');
           else if (status === 'speaking') setVoiceState('ora-speaking');
           else if (status === 'error') setVoiceState('error');
@@ -327,7 +335,7 @@ export function FloatingOrbWidget() {
         },
         onAction: (action) => {
           if (action?.type === 'navigate' && action.destination) {
-            let dest = action.destination;
+            let dest = action.destination.trim();
             if (dest === '/register' || dest === '/signup' || dest === '/auth/register') {
               dest = '/auth?mode=register';
             } else if (dest === '/login' || dest === '/signin' || dest === '/auth/login') {
@@ -342,8 +350,11 @@ export function FloatingOrbWidget() {
                 el.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }
             } else if (dest.startsWith('/')) {
-              if (typeof window !== 'undefined' && window.location.pathname !== dest) {
-                router.push(dest);
+              if (typeof window !== 'undefined') {
+                const currentFull = window.location.pathname + window.location.search;
+                if (currentFull !== dest) {
+                  router.push(dest);
+                }
               }
             }
           }
@@ -401,9 +412,10 @@ export function FloatingOrbWidget() {
     }
   };
 
-  const isActive = voiceState === 'active' || voiceState === 'ora-speaking';
+  const isThinking = voiceState === 'thinking';
   const isConnecting = voiceState === 'connecting';
   const isSpeaking = voiceState === 'ora-speaking';
+  const isActive = voiceState === 'active' || isSpeaking || isThinking;
 
   // Dynamic visual reactivity level
   const energyLevel = isSpeaking ? speakingLevel : userMicLevel;
@@ -449,16 +461,24 @@ export function FloatingOrbWidget() {
           )}
 
           {isActive && (
-            <div className={`lp-orb-island-pill active ${isSpeaking ? 'speaking' : ''}`}>
+            <div className={`lp-orb-island-pill active ${isSpeaking ? 'speaking' : voiceState === 'thinking' ? 'thinking' : ''}`}>
               <div className="lp-orb-island-status">
                 <span
                   className={`lp-orb-status-dot ${
-                    isSpeaking ? 'speaking' : isMuted ? 'muted' : 'listening'
+                    isSpeaking
+                      ? 'speaking'
+                      : voiceState === 'thinking'
+                      ? 'thinking'
+                      : isMuted
+                      ? 'muted'
+                      : 'listening'
                   }`}
                 />
                 <span className="lp-orb-island-status-text">
                   {isSpeaking
                     ? 'ORA is speaking…'
+                    : voiceState === 'thinking'
+                    ? 'Thinking…'
                     : isMuted
                     ? 'Microphone muted'
                     : 'Listening… Speak now'}

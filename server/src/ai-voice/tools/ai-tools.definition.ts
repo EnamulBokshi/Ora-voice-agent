@@ -149,7 +149,7 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'navigate_to_page',
     description:
-      'Direct or scroll the visitor’s browser to a specific valid page or section from the application sitemap. Use this when the visitor asks to view pricing, create an account, log in, view features, or go home.',
+      'Direct or scroll the visitor’s browser to a specific valid page or section from the application sitemap. Use this when the visitor asks to navigate to dashboard, pricing, create an account, log in, view features, or go home.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -161,6 +161,8 @@ export const ORA_TOOL_DECLARATIONS = [
             '/pricing',
             '/auth?mode=register',
             '/auth?mode=login',
+            '/auth?mode=login&from=/dashboard',
+            '/auth?mode=register&from=/dashboard',
             '/dashboard',
             '/live-desk',
             '/conversations',
