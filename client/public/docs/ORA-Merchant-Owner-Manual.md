@@ -71,9 +71,9 @@ Copy your unique widget code snippet from **Dashboard &rarr; Agent Credentials**
 ```html
 <!-- ORA Voice AI Sales Assistant Widget -->
 <script 
-  src="https://cdn.ora.ai/widget/v2/ora-widget.js" 
+  src="https://cdn.ora.ai/widget/ora-widget.js" 
   data-ora-key="biz_live_YOUR_PUBLISHABLE_KEY" 
-  defer>
+  async>
 </script>
 ```
 
@@ -82,7 +82,7 @@ Copy your unique widget code snippet from **Dashboard &rarr; Agent Credentials**
 #### Shopify:
 1. In Shopify Admin, go to **Online Store &rarr; Themes**.
 2. Click **... &rarr; Edit Code**.
-3. Open `layout/theme.liquid` and paste the snippet directly before the closing `</body>` tag.
+3. Open `layout/theme.liquid` and paste the snippet directly before the closing `</head>` or `</body>` tag.
 4. Click **Save**.
 
 #### WordPress / WooCommerce:
@@ -101,7 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <Script
-          src="https://cdn.ora.ai/widget/v2/ora-widget.js"
+          src="https://cdn.ora.ai/widget/ora-widget.js"
           data-ora-key="biz_live_YOUR_PUBLISHABLE_KEY"
           strategy="afterInteractive"
         />

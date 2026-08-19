@@ -48,7 +48,7 @@ export class OnboardingEmailService {
       this.configService.get<string>('RESEND_FROM_EMAIL') ||
       'ORA Sales AI <onboarding@noreply.magicfunnel.io>';
 
-    const widgetScriptTag = `&lt;!-- ORA Voice AI Sales Assistant Widget --&gt;\n&lt;script \n  src="${frontendUrl}/widget/ora-widget.js" \n  data-ora-key="${payload.publishableKey}" \n  defer&gt;\n&lt;/script&gt;`;
+    const widgetScriptTag = `&lt;!-- ORA Voice AI Sales Assistant Widget --&gt;\n&lt;script \n  src="${frontendUrl}/widget/ora-widget.js" \n  data-ora-key="${payload.publishableKey}" \n  async&gt;\n&lt;/script&gt;`;
 
     const htmlContent = `
 <!DOCTYPE html>

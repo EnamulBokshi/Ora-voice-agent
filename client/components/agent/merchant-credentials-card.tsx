@@ -79,13 +79,13 @@ export function MerchantCredentialsCard({
 
     switch (platform) {
       case 'html':
-        return `<!-- ORA Voice AI Sales Assistant Widget -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`;
+        return `<!-- ORA Voice AI Sales Assistant Widget -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  async>\n</script>`;
       case 'shopify':
-        return `<!-- 1. In Shopify Admin, go to Online Store > Themes > Edit Code -->\n<!-- 2. Open layout/theme.liquid and paste before </body> -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`;
+        return `<!-- 1. In Shopify Admin, go to Online Store > Themes > Edit Code -->\n<!-- 2. Open layout/theme.liquid and paste before </head> or </body> -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  async>\n</script>`;
       case 'woocommerce':
-        return `<!-- Paste in your WordPress Header/Footer scripts or footer.php -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`;
+        return `<!-- Paste in your WordPress Header/Footer scripts or footer.php -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  async>\n</script>`;
       case 'react':
-        return `// layout.tsx (or any component where you want the widget)\nimport Script from 'next/script';\n\nexport default function StoreLayout({ children }) {\n  return (\n    <>\n      {children}\n\n      {/* Step 1: set ORA config BEFORE loading the widget */}\n      <script\n        dangerouslySetInnerHTML={{\n          __html: \`window.ORA_CONFIG={key:"${publishableKey}",api:"${apiOrigin}"};\`\n        }}\n      />\n\n      {/* Step 2: load the widget */}\n      <Script\n        src="${origin}/widget/ora-widget.js"\n        strategy="afterInteractive"\n      />\n    </>\n  );\n}`;
+        return `// In your root app/layout.tsx (Next.js App Router) or index.html\nimport Script from 'next/script';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        {children}\n\n        {/* ORA Voice AI Assistant — Single-Tag Next-Gen Embed */}\n        <Script\n          src="${origin}/widget/ora-widget.js"\n          data-ora-key="${publishableKey}"\n          data-ora-api="${apiOrigin}"\n          strategy="afterInteractive"\n        />\n      </body>\n    </html>\n  );\n}`;
     }
   };
 
