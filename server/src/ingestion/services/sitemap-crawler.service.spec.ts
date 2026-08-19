@@ -10,6 +10,9 @@ import { HTML_CRAWL_QUEUE } from './sitemap-crawler.processor';
 import { UrlNormalizer } from '../utils/url-normalizer.util';
 import { ContentHasher } from '../utils/content-hasher.util';
 
+import { JsonLdExtractor } from '../extractors/json-ld.extractor';
+import { ReadabilityExtractor } from '../extractors/readability.extractor';
+
 describe('SitemapCrawler & Ingestion Suite', () => {
   let service: SitemapCrawlerService;
 
@@ -40,6 +43,20 @@ describe('SitemapCrawler & Ingestion Suite', () => {
     addBulk: jest.fn().mockResolvedValue([]),
   };
 
+  const mockJsonLd = {
+    extractProduct: jest.fn().mockReturnValue(null),
+  };
+
+  const mockReadability = {
+    extract: jest.fn().mockReturnValue({
+      sourceUrl: 'https://example.com/about',
+      category: 'general',
+      title: 'About Us',
+      markdown: 'We build awesome software.',
+      contentHash: 'hash_123',
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +66,8 @@ describe('SitemapCrawler & Ingestion Suite', () => {
         { provide: PlatformSnifferService, useValue: mockSniffer },
         { provide: PlatformFastPathService, useValue: mockFastPath },
         { provide: SitemapDiscoveryService, useValue: mockDiscovery },
+        { provide: JsonLdExtractor, useValue: mockJsonLd },
+        { provide: ReadabilityExtractor, useValue: mockReadability },
         { provide: getQueueToken(HTML_CRAWL_QUEUE), useValue: mockQueue },
       ],
     }).compile();
@@ -61,6 +80,14 @@ describe('SitemapCrawler & Ingestion Suite', () => {
       const dirtyUrl = 'https://www.example.com/products/item-1/?utm_source=google&fbclid=12345#overview';
       const cleanUrl = UrlNormalizer.normalizeUrl(dirtyUrl);
       expect(cleanUrl).toBe('https://example.com/products/item-1');
+    });
+
+    it('UrlNormalizer should preserve localhost HTTP URLs and port numbers', () => {
+      const localUrl = 'http://localhost:777/products/item-1?utm_source=test';
+      const cleanUrl = UrlNormalizer.normalizeUrl(localUrl);
+      expect(cleanUrl).toBe('http://localhost:777/products/item-1');
+      expect(UrlNormalizer.isLocalDomain('localhost:777')).toBe(true);
+      expect(UrlNormalizer.getProtocol('http://localhost:777')).toBe('http');
     });
 
     it('ContentHasher should generate consistent hashes for identical payloads', () => {
@@ -115,6 +142,33 @@ describe('SitemapCrawler & Ingestion Suite', () => {
       expect(result.knowledgeDocsIngested).toBe(1);
       expect(mockProductsService.batchSync).toHaveBeenCalled();
       expect(mockKnowledgeService.upsertExtractedDoc).toHaveBeenCalled();
+    });
+  });
+
+  describe('Generic Sitemap & Custom Store Crawl', () => {
+    it('should process priority URLs inline and queue excess URLs in background', async () => {
+      mockSniffer.detect.mockResolvedValue({
+        platform: 'custom',
+        domain: 'localhost:777',
+        confidence: 'low',
+      });
+
+      // 16 URLs: first 15 inline, 16th queued
+      const urls = Array.from({ length: 16 }, (_, i) => ({
+        url: `http://localhost:777/page/${i + 1}`,
+        kind: 'page' as const,
+      }));
+
+      mockDiscovery.discover.mockResolvedValue(urls);
+
+      const result = await service.syncFromWebsite({
+        businessId: 'biz_123',
+        domain: 'http://localhost:777',
+      });
+
+      expect(result.platform).toBe('custom');
+      expect(result.htmlCrawlJobsQueued).toBe(1);
+      expect(mockQueue.addBulk).toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EmbeddingService } from './embedding.service';
+import { RedisService } from '../common/redis/redis.service';
 
 describe('EmbeddingService', () => {
   let service: EmbeddingService;
@@ -85,5 +86,33 @@ describe('EmbeddingService', () => {
         }),
       }),
     );
+  });
+
+  it('should return cached embedding from Redis when available', async () => {
+    const mockRedis = {
+      getClient: jest.fn().mockReturnValue({
+        get: jest.fn().mockResolvedValue(
+          JSON.stringify({
+            vector: [0.5, 0.5],
+            embeddingModel: 'cached-model',
+            embeddingVersion: 'gemini-v1',
+          }),
+        ),
+        set: jest.fn().mockResolvedValue('OK'),
+      }),
+    };
+
+    const cachedModule = await Test.createTestingModule({
+      providers: [
+        EmbeddingService,
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: RedisService, useValue: mockRedis },
+      ],
+    }).compile();
+
+    const cachedService = cachedModule.get<EmbeddingService>(EmbeddingService);
+    const res = await cachedService.generateEmbedding('hello cached world');
+    expect(res.embeddingModel).toBe('cached-model');
+    expect(res.vector).toEqual([0.5, 0.5]);
   });
 });

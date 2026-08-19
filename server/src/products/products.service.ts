@@ -204,6 +204,30 @@ export class ProductsService {
     return product;
   }
 
+  async findManyByIds(businessId: string, ids: string[]): Promise<ProductDocument[]> {
+    if (!ids || ids.length === 0) return [];
+
+    const validObjectIds = ids
+      .filter((id) => Types.ObjectId.isValid(id) && id.length === 24)
+      .map((id) => new Types.ObjectId(id));
+
+    const orClauses: any[] = [];
+    if (validObjectIds.length > 0) {
+      orClauses.push({ _id: { $in: validObjectIds } });
+    }
+    if (ids.length > 0) {
+      orClauses.push({ nativeProductId: { $in: ids } });
+    }
+
+    const query: any = {
+      businessId: new Types.ObjectId(businessId),
+      isActive: true,
+      $or: orClauses,
+    };
+
+    return this.productModel.find(query).exec();
+  }
+
   async update(
     businessId: string,
     id: string,
@@ -376,6 +400,68 @@ export class ProductsService {
     }
 
     return Object.assign(saved, { isLowStock });
+  }
+
+  async verifyLiveBatch(businessId: string, ids: string[]): Promise<any[]> {
+    if (!ids || ids.length === 0) return [];
+
+    const products = await this.findManyByIds(businessId, ids);
+    if (products.length === 0) return [];
+
+    const lowStockThreshold = parseInt(
+      this.configService.get<string>('LOW_STOCK_THRESHOLD') ?? '5',
+      10,
+    );
+
+    const verifiedList = await Promise.all(
+      products.map(async (product) => {
+        const prodId = product._id.toString();
+        const cacheKey = `live_stock:${businessId}:${prodId}`;
+        let liveStockData: any = null;
+
+        if (this.redisService) {
+          try {
+            const cached = await this.redisService.getClient().get(cacheKey);
+            if (cached) {
+              liveStockData = JSON.parse(cached);
+            }
+          } catch {
+            // non-fatal
+          }
+        }
+
+        const price = liveStockData?.price ?? product.price;
+        const stockQuantity = liveStockData?.stockQuantity ?? product.stockQuantity;
+        const availability = liveStockData?.availability ?? product.availability;
+        const isLowStock =
+          liveStockData?.isLowStock ??
+          (availability === ProductAvailability.IN_STOCK && stockQuantity <= lowStockThreshold);
+
+        // Async write-through to Redis cache if not already cached
+        if (this.redisService && !liveStockData) {
+          const cacheValue = JSON.stringify({
+            price,
+            stockQuantity,
+            availability,
+            isLowStock,
+          });
+          this.redisService
+            .getClient()
+            .set(cacheKey, cacheValue, 'EX', 900)
+            .catch(() => {});
+        }
+
+        const baseObj = typeof (product as any).toObject === 'function' ? (product as any).toObject() : product;
+        return Object.assign(baseObj, {
+          price,
+          stockQuantity,
+          availability,
+          isLowStock,
+        });
+      }),
+    );
+
+    return verifiedList;
   }
 
   async incrementAgentMetrics(

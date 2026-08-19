@@ -14,6 +14,8 @@ import { ShopifyConnectorService } from '../../ingestion/services/shopify-connec
 import { WooCommerceConnectorService } from '../../ingestion/services/woocommerce-connector.service';
 import { ManualConnectorService } from '../../ingestion/services/manual-connector.service';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
+import { RedisService } from '../../common/redis/redis.service';
+import * as crypto from 'crypto';
 
 /** Fallback tier label recorded in the RAG_FALLBACK_TRIGGERED event payload. */
 export type FallbackTier =
@@ -39,6 +41,7 @@ export class RagService {
     @Optional() private readonly shopifyConnector?: ShopifyConnectorService,
     @Optional() private readonly wooCommerceConnector?: WooCommerceConnectorService,
     @Optional() private readonly manualConnector?: ManualConnectorService,
+    @Optional() private readonly redisService?: RedisService,
   ) { }
 
   // ---------------------------------------------------------------------------
@@ -70,6 +73,7 @@ export class RagService {
       brand?: string;
       maxPrice?: number;
       minPrice?: number;
+      queryVector?: number[];
     } = {},
   ) {
     const limit = Math.min(options.limit || 5, 5); // candidate cap: max 5
@@ -78,12 +82,16 @@ export class RagService {
         ? options.confidenceThreshold
         : this.productThreshold;
 
-    // 1. Embed the query (Fix 3: use .vector field)
-    const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+    // 1. Embed the query (or reuse precomputed vector from searchCombined)
+    let queryVector = options.queryVector;
+    if (!queryVector) {
+      const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+      queryVector = embeddingResult.vector;
+    }
 
     const vectorResults = await this.vectorStoreService.searchVectors(
       businessId,
-      embeddingResult.vector,
+      queryVector,
       { entityType: EntityType.PRODUCT, limit, confidenceThreshold: threshold },
     );
 
@@ -92,17 +100,22 @@ export class RagService {
     let finalResults: SearchResultItem[] = [];
 
     if (vectorResults.length > 0) {
-      // --- Fast Path: hydrate vector candidates with live product details ---
-      const hydrated = await Promise.all(
-        vectorResults.map(async (res) => {
-          try {
-            const productData = await this.productsService.findOne(businessId, res.entityId);
-            return { ...res, data: productData };
-          } catch {
-            return res;
-          }
-        }),
-      );
+      // --- Fast Path: single-pass batch hydration with live product details ---
+      const candidateIds = vectorResults.map((r) => r.entityId).filter(Boolean);
+      const fetchedProducts = await this.productsService.findManyByIds(businessId, candidateIds);
+
+      const productMap = new Map<string, any>();
+      for (const p of fetchedProducts) {
+        productMap.set(p._id.toString(), p);
+        if (p.nativeProductId) {
+          productMap.set(p.nativeProductId, p);
+        }
+      }
+
+      const hydrated = vectorResults.map((res) => {
+        const productData = productMap.get(res.entityId) || null;
+        return { ...res, data: productData };
+      });
 
       const filtered = hydrated.filter((res) => {
         const prod = res.data as any;
@@ -238,7 +251,7 @@ export class RagService {
   async searchKnowledge(
     businessId: string,
     queryText: string,
-    options: { limit?: number; confidenceThreshold?: number } = {},
+    options: { limit?: number; confidenceThreshold?: number; queryVector?: number[] } = {},
   ) {
     const limit = options.limit || 5;
     const threshold =
@@ -246,14 +259,59 @@ export class RagService {
         ? options.confidenceThreshold
         : this.knowledgeThreshold;
 
-    // Fix 3: extract .vector from EmbeddingResult
-    const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+    let vectorResults: SearchResultItem[] = [];
+    try {
+      let queryVector = options.queryVector;
+      if (!queryVector) {
+        const embeddingResult = await this.embeddingService.generateEmbedding(queryText);
+        queryVector = embeddingResult.vector;
+      }
+      vectorResults = await this.vectorStoreService.searchVectors(
+        businessId,
+        queryVector,
+        { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
+      );
+    } catch (err: any) {
+      this.logger.warn(`Vector search failed for knowledge query '${queryText}': ${err.message}`);
+    }
 
-    const vectorResults = await this.vectorStoreService.searchVectors(
-      businessId,
-      embeddingResult.vector,
-      { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
-    );
+    // Keyword / MongoDB fallback if vector search returns empty
+    if (vectorResults.length === 0 && this.knowledgeService) {
+      try {
+        const mongoRes = await this.knowledgeService.findAll(
+          businessId,
+          undefined,
+          queryText,
+          { limit },
+        );
+
+        if (mongoRes?.items && mongoRes.items.length > 0) {
+          vectorResults = mongoRes.items.map((doc: any) => ({
+            entityId: doc._id.toString(),
+            entityType: EntityType.KNOWLEDGE_CHUNK,
+            text: `# ${doc.title}\n${doc.content}`,
+            score: 0.75,
+            metadata: { docTitle: doc.title, docType: doc.docType },
+          }));
+        } else {
+          // If query was broad or no direct keyword match, provide top knowledge docs
+          const allDocs = await this.knowledgeService.findAll(businessId, undefined, undefined, {
+            limit: 3,
+          });
+          if (allDocs?.items && allDocs.items.length > 0) {
+            vectorResults = allDocs.items.map((doc: any) => ({
+              entityId: doc._id.toString(),
+              entityType: EntityType.KNOWLEDGE_CHUNK,
+              text: `# ${doc.title}\n${doc.content}`,
+              score: 0.65,
+              metadata: { docTitle: doc.title, docType: doc.docType },
+            }));
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Knowledge fallback search failed: ${err.message}`);
+      }
+    }
 
     return {
       query: queryText,
@@ -274,25 +332,65 @@ export class RagService {
       minPrice?: number;
     } = {},
   ) {
+    const trimmed = (queryText || '').trim();
+    const queryHash = crypto
+      .createHash('sha256')
+      .update(`${businessId}:${trimmed.toLowerCase()}:${JSON.stringify(options)}`)
+      .digest('hex');
+    const cacheKey = `rag:cache:${businessId}:${queryHash}`;
+
+    // 1. Check Redis RAG Result Cache (< 5ms hit)
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.getClient().get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      } catch {
+        // Cache miss or Redis non-fatal
+      }
+    }
+
     const fetchProducts = !options.entityType || options.entityType === EntityType.PRODUCT;
     const fetchKnowledge = !options.entityType || options.entityType === EntityType.KNOWLEDGE_CHUNK;
 
+    // 2. Generate embedding ONCE for both product and knowledge searches
+    let sharedVector: number[] | undefined;
+    if (fetchProducts || fetchKnowledge) {
+      try {
+        const embeddingResult = await this.embeddingService.generateEmbedding(trimmed);
+        sharedVector = embeddingResult.vector;
+      } catch (err: any) {
+        this.logger.warn(`Failed to generate shared embedding for query '${trimmed}': ${err.message}`);
+      }
+    }
+
     const [productsRes, knowledgeRes] = await Promise.all([
       fetchProducts
-        ? this.searchProducts(businessId, queryText, options)
+        ? this.searchProducts(businessId, trimmed, { ...options, queryVector: sharedVector })
         : Promise.resolve({ fallbackTriggered: false, fallbackTier: 'none' as const, results: [] }),
       fetchKnowledge
-        ? this.searchKnowledge(businessId, queryText, options)
+        ? this.searchKnowledge(businessId, trimmed, { ...options, queryVector: sharedVector })
         : Promise.resolve({ results: [] }),
     ]);
 
-    return {
-      query: queryText,
+    const result = {
+      query: trimmed,
       fallbackTriggered: productsRes.fallbackTriggered,
       fallbackTier: productsRes.fallbackTier,
       products: productsRes.results,
       knowledge: knowledgeRes.results,
     };
+
+    // 3. Cache search result in Redis with 10-minute TTL (600s)
+    if (this.redisService && (result.products.length > 0 || result.knowledge.length > 0)) {
+      this.redisService
+        .getClient()
+        .set(cacheKey, JSON.stringify(result), 'EX', 600)
+        .catch(() => {});
+    }
+
+    return result;
   }
 
   async reindexTenant(businessId: string) {

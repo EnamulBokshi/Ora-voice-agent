@@ -11,11 +11,51 @@ export class Business {
   @Prop({ trim: true })
   domain?: string;
 
-  @Prop({ trim: true, unique: true, sparse: true, index: true })
-  publishableKey?: string;
+  @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
+  publishableKey?: string | null;
+
+  @Prop({
+    type: String,
+    enum: ['active', 'suspended', 'revoked', 'none'],
+    default: 'active',
+  })
+  keyStatus?: string;
+
+  /**
+   * Detected web origins and referrers using this publishable key.
+   * Used for multi-site leak detection and domain mismatch telemetry.
+   */
+  @Prop({
+    type: [
+      {
+        origin: { type: String, required: true },
+        domain: { type: String, required: true },
+        lastSeen: { type: Date, default: Date.now },
+        sessionCount: { type: Number, default: 1 },
+        isMismatch: { type: Boolean, default: false },
+      },
+    ],
+    default: [],
+  })
+  detectedOrigins?: Array<{
+    origin: string;
+    domain: string;
+    lastSeen: Date;
+    sessionCount: number;
+    isMismatch: boolean;
+  }>;
+
+  @Prop()
+  keyRevokedAt?: Date;
+
+  @Prop()
+  keyRevokedBy?: string;
 
   @Prop()
   apiKeyHash?: string;
+
+  @Prop({ select: false })
+  apiSecretHash?: string;
 
   @Prop({ default: 'pending', enum: ['active', 'suspended', 'pending'] })
   status: string;

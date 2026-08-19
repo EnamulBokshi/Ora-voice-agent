@@ -4,6 +4,8 @@ import {
   FeedIngestPayload,
   FeedIngestResponse,
   ManualIngestPayload,
+  CrawlStorePayload,
+  CrawlStoreResponse,
 } from '@/types/ingestion';
 
 export async function uploadProductFileApi(
@@ -39,3 +41,13 @@ export async function manualIngestApi(
     body: JSON.stringify(payload),
   });
 }
+
+export async function crawlStoreApi(
+  payload: CrawlStorePayload,
+): Promise<CrawlStoreResponse> {
+  return apiClient<CrawlStoreResponse>('/ingestion/crawl-store', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+

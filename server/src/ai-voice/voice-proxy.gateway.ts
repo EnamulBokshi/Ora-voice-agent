@@ -7,6 +7,9 @@ import * as url from 'url';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { GeminiVoiceService } from './gemini-voice.service';
+import { RedisService } from '../common/redis/redis.service';
+
+import { CustomersService } from '../customers/customers.service';
 
 interface ProxySession {
   clientWs: WebSocket;
@@ -16,6 +19,8 @@ interface ProxySession {
     closeSession: () => void;
   };
   businessId: string;
+  customerId: string;
+  isAnonymous: boolean;
   closed: boolean;
 }
 
@@ -31,7 +36,24 @@ export class VoiceProxyGateway {
     private readonly businessModel: Model<BusinessDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly redisService: RedisService,
+    private readonly customersService: CustomersService,
+  ) { }
+
+
+  /**
+   * Invalidate in-memory cached business mapping for a publishable key
+   * (called when a key is deleted/revoked or updated).
+   */
+  invalidatePublishableKey(publishableKey?: string): void {
+    if (publishableKey) {
+      this.businessCache.delete(publishableKey);
+      this.logger.log(`[VoiceProxyGateway] Cache invalidated for key: ${publishableKey.substring(0, 16)}...`);
+    } else {
+      this.businessCache.clear();
+      this.logger.log('[VoiceProxyGateway] All cached business keys cleared.');
+    }
+  }
 
   /**
    * Mount the raw ws.Server on the NestJS HTTP server's upgrade event.
@@ -93,16 +115,9 @@ export class VoiceProxyGateway {
       businessId = cachedBiz.businessId;
       businessName = cachedBiz.name;
     } else {
-      let business = await this.businessModel.findOne({ publishableKey }).exec();
+      let business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
-      if (!business) {
-        business = await this.businessModel
-          .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
-          .sort({ createdAt: -1 })
-          .exec();
-      }
-
-      if (!business) {
+      if (!business && publishableKey === 'biz_live_mock_key_12345' && process.env.NODE_ENV !== 'production') {
         business = await this.businessModel.findOne({}).sort({ createdAt: -1 }).exec();
       }
 
@@ -119,7 +134,10 @@ export class VoiceProxyGateway {
     }
 
     if (!businessId) {
-      sendToClient({ type: 'error', message: 'Invalid publishable key. No active store found.' });
+      this.logger.warn(
+        `[VoiceProxyGateway] Connection rejected: invalid or inactive publishable key '${publishableKey}' for session ${sessionId}`,
+      );
+      sendToClient({ type: 'error', message: 'Invalid or inactive publishable key. Access denied.' });
       clientWs.close(1008, 'Invalid publishable key');
       return;
     }
@@ -128,11 +146,68 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] Resolved business ${businessId} (${businessName}) for session ${sessionId}`,
     );
 
+    // ── Resolve Customer Identity (Tier 1 HMAC / Tier 2 Device ID / Tier 3 Ghost) ──
+    const customerIdParam = parsedUrl.query.customerId as string;
+    const customerTsParam = parsedUrl.query.customerTimestamp as string;
+    const customerSigParam = parsedUrl.query.customerSignature as string;
+    const deviceIdParam = parsedUrl.query.deviceId as string;
+
+    let customerToken: { customerId: string; timestamp: number; signature: string } | undefined = undefined;
+    if (customerIdParam && customerTsParam && customerSigParam) {
+      customerToken = {
+        customerId: customerIdParam,
+        timestamp: Number(customerTsParam),
+        signature: customerSigParam,
+      };
+    }
+
+    const { customer: activeCustomer } = await this.customersService.resolveOrCreateCustomer(businessId, {
+      customerToken,
+      deviceId: deviceIdParam,
+      sessionId,
+    });
+
+    // Store active session customer mapping in Redis
+    try {
+      const redis = this.redisService.getClient();
+      await redis.set(
+        `session:${sessionId}:customer`,
+        JSON.stringify({
+          customerId: activeCustomer.id,
+          isAnonymous: activeCustomer.isAnonymous,
+          name: activeCustomer.name,
+          businessId,
+        }),
+        'EX',
+        86400,
+      );
+    } catch (err: any) {
+      this.logger.warn(`[VoiceProxyGateway] Redis session customer binding notice: ${err.message}`);
+    }
+
+    const resumptionToken = parsedUrl.query.resumptionToken as string;
+    if (resumptionToken) {
+      try {
+        const redis = this.redisService.getClient();
+        const savedState = await redis.get(`conversation:session:${sessionId}:suspended`);
+        if (savedState) {
+          this.logger.log(
+            `[VoiceProxyGateway] 🔄 Resuming suspended session ${sessionId} with token ${resumptionToken}`,
+          );
+          sendToClient({ type: 'session_resumed', sessionId });
+        }
+      } catch (err: any) {
+        this.logger.warn(`[VoiceProxyGateway] Error checking resumption state: ${err.message}`);
+      }
+    }
+
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {
       clientWs,
       sessionControls: null as any, // filled after createVoiceSession resolves
       businessId,
+      customerId: activeCustomer.id,
+      isAnonymous: activeCustomer.isAnonymous,
       closed: false,
     };
 
@@ -142,7 +217,7 @@ export class VoiceProxyGateway {
       this.sessions.delete(sessionId);
       try {
         session.sessionControls?.closeSession();
-      } catch {}
+      } catch { }
       this.logger.log(`[VoiceProxyGateway] Session ${sessionId} cleaned up.`);
     };
 
@@ -153,8 +228,11 @@ export class VoiceProxyGateway {
       sessionControls = await this.geminiVoiceService.createVoiceSession({
         businessId,
         sessionId,
+        customerId: activeCustomer.id,
+        deviceId: deviceIdParam,
 
         // Google → client: audio response
+
         onAudioData: (base64AudioPcm) => {
           sendToClient({ type: 'audio', data: base64AudioPcm });
         },
@@ -215,16 +293,87 @@ export class VoiceProxyGateway {
     this.sessions.set(sessionId, session);
 
     // ── Notify client that session is ready ───────────────────────────────────
-    sendToClient({ type: 'setup_complete' });
+    sendToClient({
+      type: 'setup_complete',
+      customer: {
+        id: activeCustomer.id,
+        isAnonymous: activeCustomer.isAnonymous,
+        name: activeCustomer.name,
+      },
+    });
     this.logger.log(
-      `[VoiceProxyGateway] ✅ Session ${sessionId} is live. Active sessions: ${this.sessions.size}`,
+      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (Customer: ${activeCustomer.id}, Anon: ${activeCustomer.isAnonymous}). Active sessions: ${this.sessions.size}`,
     );
 
     // ── Route incoming messages from client → Google ──────────────────────────
-    clientWs.on('message', (data: WebSocket.Data) => {
+    clientWs.on('message', async (data: WebSocket.Data) => {
       if (session.closed) return;
       try {
         const msg = JSON.parse(data.toString());
+
+        if (msg.type === 'client_identify') {
+          // Dynamic identity update (e.g. user logged in mid-session or passed auth token)
+          this.logger.log(`[VoiceProxyGateway] Runtime identity update received for session ${sessionId}`);
+          try {
+            const token = msg.customerToken;
+            if (token && token.customerId && token.signature) {
+              const { customer: newCustomer } = await this.customersService.resolveOrCreateCustomer(
+                businessId,
+                { customerToken: token, sessionId },
+              );
+              if (!newCustomer.isAnonymous && session.customerId !== newCustomer.id) {
+                await this.customersService.stitchCustomerAccounts(
+                  businessId,
+                  session.customerId,
+                  newCustomer.id,
+                  sessionId,
+                  'runtime_client_identify',
+                );
+                session.customerId = newCustomer.id;
+                session.isAnonymous = false;
+
+                const redis = this.redisService.getClient();
+                await redis.set(
+                  `session:${sessionId}:customer`,
+                  JSON.stringify({
+                    customerId: newCustomer.id,
+                    isAnonymous: false,
+                    name: newCustomer.name,
+                    businessId,
+                  }),
+                  'EX',
+                  86400,
+                );
+
+                sendToClient({
+                  type: 'customer_identified',
+                  customerId: newCustomer.id,
+                  name: newCustomer.name,
+                });
+              }
+            }
+          } catch (e: any) {
+            this.logger.warn(`[VoiceProxyGateway] Runtime identification failed: ${e.message}`);
+          }
+          return;
+        }
+
+        if (msg.type === 'client_idle_suspend') {
+          this.logger.log(`[VoiceProxyGateway] Session ${sessionId} suspended on client idle.`);
+          const rToken = `res_${sessionId}_${Date.now()}`;
+          try {
+            const redis = this.redisService.getClient();
+            await redis.set(
+              `conversation:session:${sessionId}:suspended`,
+              JSON.stringify({ businessId, suspendedAt: Date.now(), resumptionToken: rToken }),
+              'EX',
+              86400,
+            );
+          } catch (e) {}
+          sendToClient({ type: 'session_suspended', resumptionToken: rToken });
+          cleanup();
+          return;
+        }
 
         if (msg.type === 'audio' && msg.data) {
           sessionControls.sendAudioChunk(msg.data as string);
@@ -237,6 +386,7 @@ export class VoiceProxyGateway {
         );
       }
     });
+
 
     // ── Handle client disconnect ──────────────────────────────────────────────
     clientWs.on('close', () => {

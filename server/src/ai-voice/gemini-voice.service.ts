@@ -1,14 +1,22 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import WebSocket from 'ws';
 import { ORA_TOOL_DECLARATIONS } from './tools/ai-tools.definition';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { AgentConfigService } from '../agent-config/agent-config.service';
 import { ProductsService } from '../products/products.service';
+import { KnowledgeService } from '../knowledge/knowledge.service';
+import { Business, BusinessDocument } from '../users/schemas/business.schema';
+import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
+import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
 
 export interface GeminiVoiceSessionOptions {
   businessId: string;
   sessionId: string;
+  customerId?: string;
+  deviceId?: string;
   onAudioData: (base64AudioPcm: string) => void;
   onTextData?: (text: string) => void;
   /** Called when Gemini signals a barge-in / interruption */
@@ -32,7 +40,19 @@ export class GeminiVoiceService {
     private readonly agentConfigService: AgentConfigService,
     @Optional()
     private readonly productsService?: ProductsService,
+    @Optional()
+    private readonly knowledgeService?: KnowledgeService,
+    @Optional()
+    @InjectModel(Business.name)
+    private readonly businessModel?: Model<BusinessDocument>,
+    @Optional()
+    @InjectModel(AdminUser.name)
+    private readonly adminUserModel?: Model<AdminUserDocument>,
+    @Optional()
+    @InjectModel(Customer.name)
+    private readonly customerModel?: Model<CustomerDocument>,
   ) { }
+
 
   async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<{
     sendAudioChunk: (base64Pcm16k: string) => void;
@@ -73,7 +93,10 @@ export class GeminiVoiceService {
 
     const systemInstructionText = await this.buildSystemInstruction(
       options.businessId,
+      options.customerId,
+      options.deviceId,
     );
+
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
@@ -325,74 +348,176 @@ export class GeminiVoiceService {
     });
   }
 
-  async buildSystemInstruction(businessId: string): Promise<string> {
+  async buildSystemInstruction(
+    businessId: string,
+    customerId?: string,
+    deviceId?: string,
+  ): Promise<string> {
+    let baseInstruction = '';
     const cached = this.instructionCache.get(businessId);
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.instruction;
-    }
-
-    let merchantBrandVoice = '';
-    try {
-      const agentConfig = await this.agentConfigService.getConfig(businessId);
-      if (agentConfig?.config?.brandVoiceDescription) {
-        merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
-      }
-    } catch {
-      // Fallback — no custom brand voice
-    }
-
-    let catalogSummary = '';
-    try {
-      if (this.productsService) {
-        const productsRes = await this.productsService.findAll(businessId, { limit: 15 });
-        if (productsRes && productsRes.items && productsRes.items.length > 0) {
-          const categories = Array.from(
-            new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
-          );
-          const sampleNames = productsRes.items
-            .slice(0, 8)
-            .map((p) => `${p.name} (${p.currency || 'BDT'} ${p.price})`)
-            .join(', ');
-          catalogSummary = `\nStore Catalog Knowledge:\n- Categories Available: ${categories.join(', ')}\n- Featured Inventory Items: ${sampleNames}\n- Total Catalog Size: ${productsRes.pagination.total} items\n- When asked for products or recommendations, search using find_products tool.`;
+      baseInstruction = cached.instruction;
+    } else {
+      let merchantBrandVoice = '';
+      try {
+        const agentConfig = await this.agentConfigService.getConfig(businessId);
+        if (agentConfig?.config?.brandVoiceDescription) {
+          merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
         }
+      } catch {
+        // Fallback — no custom brand voice
       }
-    } catch {
-      // Fallback — proceed without catalog summary
+
+      // 1. Preload Business Identity & Owner Contact Info (Email, Name, Domain)
+      let contactIdentitySummary = '';
+      try {
+        if (this.businessModel) {
+          const biz = await this.businessModel.findById(businessId).exec();
+          let ownerUser: any = null;
+          if (this.adminUserModel) {
+            ownerUser = await this.adminUserModel
+              .findOne({ businessId: businessId as any })
+              .sort({ createdAt: 1 })
+              .exec();
+          }
+
+          const identityLines: string[] = [];
+          if (biz?.name) identityLines.push(`• Entity / Website Name: ${biz.name}`);
+          if (biz?.domain) identityLines.push(`• Website Domain: ${biz.domain}`);
+          if (ownerUser?.name) identityLines.push(`• Creator / Owner Name: ${ownerUser.name}`);
+          if (ownerUser?.email) identityLines.push(`• Official Contact Email: ${ownerUser.email}`);
+
+          if (identityLines.length > 0) {
+            contactIdentitySummary = `\nCONTACT & IDENTITY INFO (Preloaded in your memory):\n${identityLines.join('\n')}\n* Answer contact, email, and creator questions IMMEDIATELY using these details!`;
+          }
+        }
+      } catch {
+        // Fallback — non-fatal
+      }
+
+      let catalogSummary = '';
+      let hasProducts = false;
+      try {
+        if (this.productsService) {
+          const productsRes = await this.productsService.findAll(businessId, { limit: 12 });
+          if (productsRes && productsRes.items && productsRes.items.length > 0) {
+            hasProducts = true;
+            const categories = Array.from(
+              new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
+            );
+            const sampleLines = productsRes.items
+              .map(
+                (p) =>
+                  `  • ${p.name} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`,
+              )
+              .join('\n');
+
+            catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
+          }
+        }
+      } catch {
+        // Fallback — proceed without catalog summary
+      }
+
+      let knowledgeSummary = '';
+      let hasKnowledge = false;
+      try {
+        if (this.knowledgeService) {
+          const docsRes = await this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 8 });
+          if (docsRes && docsRes.items && docsRes.items.length > 0) {
+            hasKnowledge = true;
+            const docSnippets = docsRes.items
+              .map((d: any) => {
+                const cleanSnippet = (d.content || '')
+                  .replace(/\s+/g, ' ')
+                  .slice(0, 250)
+                  .trim();
+                return `  • [${d.title}]: ${cleanSnippet}${cleanSnippet.length >= 250 ? '...' : ''}`;
+              })
+              .join('\n');
+
+            knowledgeSummary = `\nWEBSITE & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without searching!`;
+          }
+        }
+      } catch {
+        // Fallback — proceed without knowledge summary
+      }
+
+      const persona = hasProducts
+        ? 'You are ORA, a friendly, ultra-fast, and professional AI sales representative for this business.'
+        : hasKnowledge
+          ? 'You are ORA, an intelligent, friendly AI representative and personal assistant for this website and portfolio.'
+          : 'You are ORA, a friendly and helpful AI representative for this website and business.';
+
+      baseInstruction = [
+        persona,
+        merchantBrandVoice,
+        contactIdentitySummary,
+        catalogSummary,
+        knowledgeSummary,
+        '',
+        'CRITICAL RULES FOR REAL-TIME VOICE:',
+        '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally like a knowledgeable human assistant.',
+        '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING, not typing.',
+        '3. NEVER output internal reasoning, thought headers, or status messages (e.g. do not say "Searching catalog..." or "Hold on while I check").',
+        '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL): If the visitor asks for contact email, website URL, creator name/bio, what services you offer, policies, or featured items, answer DIRECTLY from your preloaded memory above. NEVER call search tools for basic contact/identity questions.',
+        '5. WHEN TO USE TOOLS:',
+        hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above in your preloaded memory.' : '',
+        hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
+        '   - update_customer_profile: Call whenever the customer shares their name, introduces themselves (e.g. "I am Enamul"), or expresses preferences (size, color, budget).',
+        '   - search_knowledge_base / get_store_policy: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
+        '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
+        '7. If the visitor speaks Bengali or another language, respond naturally in their language.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      // Cache base template for 5 minutes
+      this.instructionCache.set(businessId, {
+        instruction: baseInstruction,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
     }
 
-    const instruction = [
-      'You are ORA, a friendly and professional AI voice sales assistant for an e-commerce store.',
-      merchantBrandVoice,
-      catalogSummary,
-      '',
-      'CRITICAL RULES FOR YOUR BEHAVIOR:',
-      '1. You are speaking out loud in a real-time voice conversation. Keep responses SHORT (1-3 sentences max). Do NOT write essays or long paragraphs.',
-      '2. NEVER output internal reasoning, thinking headers, bold markdown, bullet points, or analysis. Just speak naturally like a human shop assistant would.',
-      '3. NEVER say things like "Initiating search" or "Processing request". Just do it silently and tell the customer the result.',
-      '4. When a tool returns products, mention the product names and prices clearly to the customer.',
-      '5. When a tool returns empty results (products: []), tell the customer: "I don\'t have any matching products in the catalog right now" — do NOT keep re-searching or asking the same question differently.',
-      '6. When asked what we sell or for a general browse, tell the customer about the store categories or search once with find_products.',
-      '7. Do NOT use markdown formatting (no **, no ##, no bullet points). You are SPEAKING, not writing.',
-      '8. Be warm, concise, and helpful. Greet customers naturally. Ask clarifying questions only when genuinely needed.',
-      '9. If the customer speaks Bengali or another language, respond in their language.',
-      '',
-      'TOOLS:',
-      '- Use find_products to search the product catalog. Always use it whenever the customer asks about products, pricing, availability, or recommendations.',
-      '- Use add_to_cart to add items to the shopping cart.',
-      '- Use place_order to complete a purchase from the cart.',
-      '- Use get_store_policy to answer questions about shipping, returns, or store policies.',
-    ].join('\n');
+    // 2. Dynamically Inject Active Customer Context (Per-Session)
+    let customerContext = '';
+    if (this.customerModel && customerId) {
+      try {
+        const cust = await this.customerModel.findById(customerId).exec();
+        if (cust) {
+          const isKnownName = cust.name && cust.name !== 'Guest Shopper';
+          const prefs =
+            cust.extractedPreferences && Object.keys(cust.extractedPreferences).length > 0
+              ? JSON.stringify(cust.extractedPreferences)
+              : null;
 
-    // Cache for 5 minutes
-    this.instructionCache.set(businessId, {
-      instruction,
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    });
+          const devId = deviceId || (cust.deviceIds && cust.deviceIds[0]) || null;
 
-    return instruction;
+          customerContext = `
+ACTIVE CUSTOMER & RECOGNITION CONTEXT (Who you are currently speaking with):
+- Customer Name: ${isKnownName ? cust.name : 'Guest Visitor (Ask for their name naturally if appropriate)'}
+- Account Status: ${cust.isAnonymous ? 'Guest Shopper (Device recognized)' : 'Registered Customer'}
+- Device ID: ${devId || 'Active Browser Session'}
+${prefs ? `- Saved Customer Preferences: ${prefs}` : ''}
+${cust.pastOrderIds && cust.pastOrderIds.length > 0 ? `- Past Orders Count: ${cust.pastOrderIds.length}` : ''}
+
+* MEMORY & CUSTOMER INTERACTION RULES:
+1. If the customer asks "do you know me?", "who am I?", or greets you:
+   - If their name is known ("${isKnownName ? cust.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust.name : ''}. Great to see you again!").
+   - If unknown, say: "You are visiting as a guest shopper. What is your name?".
+2. If the customer asks for their device ID, answer directly: "Your device ID is ${devId || 'active session'}".
+3. When the customer introduces themselves (e.g. "I am Enamul", "My name is Enamul", "call me X") or shares preferences, IMMEDIATELY call the update_customer_profile tool to save their details into memory so you remember them next time!`;
+        }
+      } catch (err: any) {
+        this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
+      }
+    }
+
+    return [baseInstruction, customerContext].filter(Boolean).join('\n\n');
   }
 
   getToolDeclarations() {
+
     return ORA_TOOL_DECLARATIONS;
   }
 }

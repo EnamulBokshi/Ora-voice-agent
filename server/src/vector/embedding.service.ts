@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../common/redis/redis.service';
+import * as crypto from 'crypto';
 
 export interface EmbeddingResult {
   vector: number[];
@@ -13,14 +15,37 @@ export interface EmbeddingResult {
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() private readonly redisService?: RedisService,
+  ) {}
 
   /**
    * Generates 768-dimensional normalized text vector embeddings.
    * Returns the vector alongside the model name and version that produced it.
+   * Checks Redis L1 cache first before issuing external API requests.
    * Fallbacks to deterministic term-hashing vectorizer if API key is unconfigured.
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
+    const trimmed = text.trim();
+    const textHash = crypto
+      .createHash('sha256')
+      .update(trimmed.toLowerCase())
+      .digest('hex');
+    const cacheKey = `embed:cache:${textHash}`;
+
+    // 1. Check Redis Hot Cache first (< 2ms)
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.getClient().get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached) as EmbeddingResult;
+        }
+      } catch (err: any) {
+        // Cache miss or non-fatal Redis error
+      }
+    }
+
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
 
     if (apiKey) {
@@ -41,7 +66,7 @@ export class EmbeddingService {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: fullModel,
-              content: { parts: [{ text }] },
+              content: { parts: [{ text: trimmed }] },
             }),
           },
         );
@@ -49,15 +74,27 @@ export class EmbeddingService {
         if (response.ok) {
           const data: any = await response.json();
           if (data.embedding?.values) {
-            return {
+            const result: EmbeddingResult = {
               vector: this.normalizeVector(data.embedding.values),
               embeddingModel: modelPath,
               embeddingVersion: 'gemini-v1',
             };
+
+            // Cache in Redis with 24-hour TTL (86400 seconds)
+            if (this.redisService) {
+              this.redisService
+                .getClient()
+                .set(cacheKey, JSON.stringify(result), 'EX', 86400)
+                .catch(() => {});
+            }
+
+            return result;
           }
         }
       } catch (err: any) {
-        this.logger.warn(`Gemini Embedding API call failed: ${err.message}. Using fallback vectorizer.`);
+        this.logger.warn(
+          `Gemini Embedding API call failed: ${err.message}. Using fallback vectorizer.`,
+        );
       }
     }
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
+import * as cheerio from 'cheerio';
 import { DiscoveredUrl, DiscoveredUrlKind } from '../types/ingestion.types';
 import { UrlNormalizer } from '../utils/url-normalizer.util';
 
@@ -28,19 +29,67 @@ export class SitemapDiscoveryService {
 
   async discover(domain: string): Promise<DiscoveredUrl[]> {
     const normalizedDomain = UrlNormalizer.normalizeDomain(domain);
-    const candidateSitemaps = [
-      `https://${normalizedDomain}/sitemap.xml`,
-      `https://${normalizedDomain}/sitemap_index.xml`,
-      `https://${normalizedDomain}/sitemap_products_1.xml`,
-      `https://${normalizedDomain}/sitemap_pages_1.xml`,
-    ];
+    const primaryProto = UrlNormalizer.getProtocol(domain);
+    const protocols = primaryProto === 'https' ? ['https', 'http'] : ['http', 'https'];
 
     const seen = new Set<string>();
     const results: DiscoveredUrl[] = [];
 
-    for (const sitemapUrl of candidateSitemaps) {
-      const urls = await this.crawlSitemap(sitemapUrl, 0);
-      for (const rawUrl of urls) {
+    // 1. Candidate sitemap paths across candidate protocols
+    for (const proto of protocols) {
+      const candidateSitemaps = [
+        `${proto}://${normalizedDomain}/sitemap.xml`,
+        `${proto}://${normalizedDomain}/sitemap_index.xml`,
+        `${proto}://${normalizedDomain}/sitemap_products_1.xml`,
+        `${proto}://${normalizedDomain}/sitemap_pages_1.xml`,
+      ];
+
+      for (const sitemapUrl of candidateSitemaps) {
+        const urls = await this.crawlSitemap(sitemapUrl, 0);
+        for (const rawUrl of urls) {
+          const canonical = UrlNormalizer.normalizeUrl(rawUrl, normalizedDomain);
+          if (!canonical || seen.has(canonical)) continue;
+
+          seen.add(canonical);
+          results.push({
+            url: canonical,
+            kind: this.classify(canonical),
+            sourceHint: 'sitemap',
+          });
+
+          if (results.length >= MAX_URLS_PER_DOMAIN) break;
+        }
+        if (results.length > 0) break;
+      }
+      if (results.length > 0) break;
+
+      // 2. Check robots.txt for Sitemap directives
+      const robotsSitemaps = await this.findSitemapsInRobotsTxt(`${proto}://${normalizedDomain}/robots.txt`);
+      for (const sitemapUrl of robotsSitemaps) {
+        const urls = await this.crawlSitemap(sitemapUrl, 0);
+        for (const rawUrl of urls) {
+          const canonical = UrlNormalizer.normalizeUrl(rawUrl, normalizedDomain);
+          if (!canonical || seen.has(canonical)) continue;
+
+          seen.add(canonical);
+          results.push({
+            url: canonical,
+            kind: this.classify(canonical),
+            sourceHint: 'sitemap',
+          });
+
+          if (results.length >= MAX_URLS_PER_DOMAIN) break;
+        }
+        if (results.length > 0) break;
+      }
+      if (results.length > 0) break;
+    }
+
+    // 3. Fallback Homepage Link Spidering (if no sitemap.xml exists)
+    if (results.length === 0) {
+      this.logger.warn(`No valid sitemap discovered for ${domain}; falling back to homepage link spidering`);
+      const homepageUrls = await this.spiderHomepageLinks(normalizedDomain, primaryProto);
+      for (const rawUrl of homepageUrls) {
         const canonical = UrlNormalizer.normalizeUrl(rawUrl, normalizedDomain);
         if (!canonical || seen.has(canonical)) continue;
 
@@ -48,21 +97,75 @@ export class SitemapDiscoveryService {
         results.push({
           url: canonical,
           kind: this.classify(canonical),
-          sourceHint: 'sitemap',
+          sourceHint: 'spider',
         });
 
         if (results.length >= MAX_URLS_PER_DOMAIN) break;
       }
-      if (results.length > 0) break;
     }
 
-    if (results.length === 0) {
-      this.logger.warn(`No valid sitemap discovered for ${domain}; crawler should use homepage fallback`);
-    } else {
-      this.logger.log(`[SitemapDiscovery] Found ${results.length} canonical URLs for ${domain}`);
-    }
-
+    this.logger.log(`[SitemapDiscovery] Found ${results.length} canonical URLs for ${domain}`);
     return results;
+  }
+
+  private async findSitemapsInRobotsTxt(robotsUrl: string): Promise<string[]> {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(robotsUrl, {
+        signal: controller.signal,
+        headers: { 'User-Agent': USER_AGENT },
+      }).finally(() => clearTimeout(timeout));
+
+      if (!res.ok) return [];
+      const text = await res.text();
+      const sitemaps: string[] = [];
+      const lines = text.split('\n');
+      for (const line of lines) {
+        const match = line.match(/^sitemap:\s*(https?:\/\/[^\s#]+)/i);
+        if (match && match[1]) {
+          sitemaps.push(match[1].trim());
+        }
+      }
+      return sitemaps;
+    } catch {
+      return [];
+    }
+  }
+
+  private async spiderHomepageLinks(domain: string, proto: string): Promise<string[]> {
+    const urls: string[] = [];
+    const rootUrl = `${proto}://${domain}`;
+    urls.push(rootUrl);
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(rootUrl, {
+        signal: controller.signal,
+        headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
+      }).finally(() => clearTimeout(timeout));
+
+      if (!res.ok) return urls;
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      $('a[href]').each((_, el) => {
+        const href = $(el).attr('href')?.trim();
+        if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) {
+          return;
+        }
+
+        const canonical = UrlNormalizer.normalizeUrl(href, domain);
+        if (canonical && (canonical.includes(domain) || UrlNormalizer.isLocalDomain(domain))) {
+          urls.push(canonical);
+        }
+      });
+    } catch (err: any) {
+      this.logger.debug(`Homepage spidering failed for ${rootUrl}: ${err.message}`);
+    }
+
+    return Array.from(new Set(urls));
   }
 
   private async crawlSitemap(url: string, depth: number): Promise<string[]> {
@@ -118,3 +221,4 @@ export class SitemapDiscoveryService {
     return 'page';
   }
 }
+

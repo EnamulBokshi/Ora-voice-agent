@@ -23,7 +23,35 @@ export class UrlNormalizer {
   ]);
 
   /**
+   * Checks if domain or host is local development.
+   */
+  static isLocalDomain(domain: string): boolean {
+    if (!domain) return false;
+    const clean = domain.trim().toLowerCase().replace(/^https?:\/\//i, '').split('/')[0];
+    const hostWithoutPort = clean.split(':')[0];
+    return (
+      hostWithoutPort === 'localhost' ||
+      hostWithoutPort === '127.0.0.1' ||
+      hostWithoutPort === '0.0.0.0' ||
+      hostWithoutPort.endsWith('.local') ||
+      hostWithoutPort.endsWith('.test')
+    );
+  }
+
+  /**
+   * Determines protocol for domain (http for local, https for public, or explicit prefix).
+   */
+  static getProtocol(domainOrUrl: string): 'http' | 'https' {
+    if (!domainOrUrl) return 'https';
+    const trimmed = domainOrUrl.trim().toLowerCase();
+    if (trimmed.startsWith('http://')) return 'http';
+    if (trimmed.startsWith('https://')) return 'https';
+    return this.isLocalDomain(trimmed) ? 'http' : 'https';
+  }
+
+  /**
    * Normalizes domain name (e.g. "https://www.MyStore.com/shop/" -> "mystore.com")
+   * Preserves port numbers (e.g. "localhost:777")
    */
   static normalizeDomain(domainOrUrl: string): string {
     if (!domainOrUrl) return '';
@@ -46,8 +74,17 @@ export class UrlNormalizer {
     if (!rawUrl) return null;
     try {
       let resolved = rawUrl.trim();
+
+      // Sanitize accidental "undefined" or "null" base prefix from buggy sitemaps (e.g. "undefined/products/1")
+      if (baseDomain) {
+        resolved = resolved.replace(/^(?:https?:\/\/)?[^/]*undefined\/?/i, '/');
+        resolved = resolved.replace(/^undefined\/?/i, '/');
+        resolved = resolved.replace(/^null\/?/i, '/');
+      }
+
+      const baseProto = baseDomain ? this.getProtocol(baseDomain) : 'https';
       if (!/^https?:\/\//i.test(resolved) && baseDomain) {
-        resolved = `https://${baseDomain.replace(/\/+$/, '')}/${resolved.replace(/^\/+/, '')}`;
+        resolved = `${baseProto}://${baseDomain.replace(/\/+$/, '')}/${resolved.replace(/^\/+/, '')}`;
       }
 
       const parsed = new URL(resolved);
@@ -55,12 +92,25 @@ export class UrlNormalizer {
         return null;
       }
 
-      // Standardize protocol to https
-      parsed.protocol = 'https:';
-      parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+      const isLocal = this.isLocalDomain(parsed.hostname);
+      if (!isLocal && parsed.protocol === 'http:' && !baseDomain) {
+        // Standardize public domain protocol to https
+        parsed.protocol = 'https:';
+      }
+
+      // If crawling a local environment (e.g. localhost:3001), rewrite sitemap production URLs to target local host & port
+      if (baseDomain && this.isLocalDomain(baseDomain)) {
+        const targetClean = baseDomain.trim().toLowerCase().replace(/^https?:\/\//i, '').split('/')[0];
+        const [targetHost, targetPort] = targetClean.split(':');
+        parsed.protocol = this.getProtocol(baseDomain) + ':';
+        parsed.hostname = targetHost;
+        parsed.port = targetPort || '';
+      } else {
+        parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+      }
 
       // Remove default ports
-      if (parsed.port === '80' || parsed.port === '443') {
+      if ((parsed.protocol === 'http:' && parsed.port === '80') || (parsed.protocol === 'https:' && parsed.port === '443')) {
         parsed.port = '';
       }
 
@@ -91,3 +141,4 @@ export class UrlNormalizer {
     }
   }
 }
+

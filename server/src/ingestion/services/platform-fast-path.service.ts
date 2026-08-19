@@ -16,11 +16,12 @@ export class PlatformFastPathService {
 
   async fetchShopifyProducts(domain: string): Promise<ExtractedProduct[]> {
     const all: ExtractedProduct[] = [];
+    const proto = UrlNormalizer.getProtocol(domain);
     let page = 1;
 
     while (page <= 40) {
       // 40 * 250 = 10,000 product hard cap
-      const res = await this.get(`https://${domain}/products.json?limit=${PAGE_SIZE}&page=${page}`);
+      const res = await this.get(`${proto}://${domain}/products.json?limit=${PAGE_SIZE}&page=${page}`);
       if (!res) break;
 
       const body = await res.json().catch(() => null);
@@ -40,7 +41,8 @@ export class PlatformFastPathService {
   }
 
   async fetchShopifyPolicies(domain: string): Promise<ExtractedKnowledgeDoc[]> {
-    const res = await this.get(`https://${domain}/policies.json`);
+    const proto = UrlNormalizer.getProtocol(domain);
+    const res = await this.get(`${proto}://${domain}/policies.json`);
     if (!res) return [];
 
     const body = await res.json().catch(() => null);
@@ -49,7 +51,7 @@ export class PlatformFastPathService {
     return policies
       .filter((p) => p.body && p.title)
       .map((p) => {
-        const sourceUrl = UrlNormalizer.normalizeUrl(p.url, domain) || `https://${domain}/policies`;
+        const sourceUrl = UrlNormalizer.normalizeUrl(p.url, domain) || `${proto}://${domain}/policies`;
         const markdown = this.stripHtml(p.body) || p.body;
         return {
           sourceUrl,
@@ -63,11 +65,12 @@ export class PlatformFastPathService {
 
   async fetchWooCommerceProducts(domain: string): Promise<ExtractedProduct[]> {
     const all: ExtractedProduct[] = [];
+    const proto = UrlNormalizer.getProtocol(domain);
     let page = 1;
 
     while (page <= 40) {
       const res = await this.get(
-        `https://${domain}/wp-json/wc/store/v1/products?per_page=${PAGE_SIZE}&page=${page}`,
+        `${proto}://${domain}/wp-json/wc/store/v1/products?per_page=${PAGE_SIZE}&page=${page}`,
       );
       if (!res) break;
 
@@ -87,7 +90,8 @@ export class PlatformFastPathService {
   }
 
   async fetchWooCommercePages(domain: string): Promise<ExtractedKnowledgeDoc[]> {
-    const res = await this.get(`https://${domain}/wp-json/wp/v2/pages?per_page=100`);
+    const proto = UrlNormalizer.getProtocol(domain);
+    const res = await this.get(`${proto}://${domain}/wp-json/wp/v2/pages?per_page=100`);
     if (!res) return [];
 
     const pages: any[] = await res.json().catch(() => []);
@@ -96,7 +100,7 @@ export class PlatformFastPathService {
     return pages
       .filter((p) => p.content?.rendered)
       .map((p) => {
-        const sourceUrl = UrlNormalizer.normalizeUrl(p.link, domain) || `https://${domain}`;
+        const sourceUrl = UrlNormalizer.normalizeUrl(p.link, domain) || `${proto}://${domain}`;
         const markdown = this.stripHtml(p.content.rendered) || p.content.rendered;
         return {
           sourceUrl,

@@ -12,7 +12,7 @@ export type DiscoveredUrlKind = 'product' | 'policy' | 'faq' | 'page' | 'service
 export interface DiscoveredUrl {
   url: string;
   kind: DiscoveredUrlKind;
-  sourceHint?: 'sitemap' | 'platform-index' | 'nav-link';
+  sourceHint?: 'sitemap' | 'platform-index' | 'nav-link' | 'spider';
 }
 
 export interface ExtractedProduct {

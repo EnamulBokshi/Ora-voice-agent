@@ -14,7 +14,7 @@ export class Customer {
   })
   businessId: MongooseSchema.Types.ObjectId;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ required: true, trim: true, default: 'Guest Shopper' })
   name: string;
 
   @Prop({ trim: true })
@@ -22,6 +22,32 @@ export class Customer {
 
   @Prop({ trim: true })
   phoneEncrypted?: string;
+
+  @Prop({ type: Boolean, default: true, index: true })
+  isAnonymous: boolean;
+
+  @Prop({ type: Boolean, default: false, index: true })
+  isMerged: boolean;
+
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'Customer',
+    default: null,
+    index: true,
+  })
+  mergedIntoCustomerId?: MongooseSchema.Types.ObjectId;
+
+  @Prop({ type: Date, default: null })
+  mergedAt?: Date;
+
+  @Prop({ type: [String], default: [], index: true })
+  deviceIds: string[];
+
+  @Prop({ trim: true, index: true, sparse: true })
+  externalCustomerId?: string;
+
+  @Prop({ default: Date.now, index: true })
+  lastActiveAt: Date;
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   extractedPreferences: Record<string, any>;
@@ -35,3 +61,7 @@ export class Customer {
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
 CustomerSchema.index({ businessId: 1, name: 'text' });
+CustomerSchema.index({ businessId: 1, deviceIds: 1 });
+CustomerSchema.index({ businessId: 1, externalCustomerId: 1 });
+CustomerSchema.index({ businessId: 1, isAnonymous: 1, lastActiveAt: 1 });
+

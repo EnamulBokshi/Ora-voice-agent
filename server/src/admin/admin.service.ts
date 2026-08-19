@@ -302,16 +302,29 @@ export class AdminService {
           businessId: b._id,
         } as any);
 
+        const detectedOrigins = b.detectedOrigins || [];
+        const isMultiSite = detectedOrigins.length > 1;
+        const hasMismatch = detectedOrigins.some((o: any) => o.isMismatch);
+
         return {
           id: b._id.toString(),
           name: b.name,
           domain: b.domain || 'N/A',
-          publishableKey: b.publishableKey,
+          publishableKey: b.publishableKey || null,
+          keyStatus: b.keyStatus || (b.publishableKey ? 'active' : 'none'),
+          detectedOrigins,
+          anomalyFlags: {
+            isMultiSite,
+            hasMismatch,
+            activeOriginsCount: detectedOrigins.length,
+          },
           status: b.status || 'active',
           connectedPlatform: b.connectedPlatform || 'none',
           ownerEmail: owner?.email || 'unassigned@ora.ai',
           ownerName: owner?.name || 'Store Owner',
           conversationsCount,
+          keyRevokedAt: b.keyRevokedAt,
+          keyRevokedBy: b.keyRevokedBy,
           createdAt: b.createdAt,
         };
       }),
@@ -352,12 +365,25 @@ export class AdminService {
       this.conversationModel.countDocuments({ businessId: business._id } as any),
     ]);
 
+    const detectedOrigins = (business as any).detectedOrigins || [];
+    const isMultiSite = detectedOrigins.length > 1;
+    const hasMismatch = detectedOrigins.some((o: any) => o.isMismatch);
+
     return {
       business: {
         id: (business as any)._id.toString(),
         name: business.name,
         domain: business.domain || 'N/A',
-        publishableKey: business.publishableKey,
+        publishableKey: business.publishableKey || null,
+        keyStatus: (business as any).keyStatus || (business.publishableKey ? 'active' : 'none'),
+        detectedOrigins,
+        anomalyFlags: {
+          isMultiSite,
+          hasMismatch,
+          activeOriginsCount: detectedOrigins.length,
+        },
+        keyRevokedAt: (business as any).keyRevokedAt,
+        keyRevokedBy: (business as any).keyRevokedBy,
         status: business.status || 'active',
         connectedPlatform: business.connectedPlatform || 'none',
         owner: owner
@@ -414,10 +440,81 @@ export class AdminService {
     }
 
     return {
-      id: business._id.toString(),
-      name: business.name,
-      status: business.status,
-      message: `Business status successfully updated to "${status}".`,
+      success: true,
+      message: `Business "${business.name}" status updated to ${status}.`,
+      business: {
+        id: business._id.toString(),
+        name: business.name,
+        status: business.status,
+      },
+    };
+  }
+
+  /**
+   * Revokes and permanently invalidates a merchant's publishable key by SuperAdmin.
+   */
+  async revokeBusinessPublishableKey(businessId: string, adminUserId?: string) {
+    const business = await this.businessModel.findById(businessId);
+    if (!business) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        'Business tenant not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const previousKey = business.publishableKey;
+    business.publishableKey = null;
+    business.keyStatus = 'revoked';
+    business.keyRevokedAt = new Date();
+    business.keyRevokedBy = adminUserId || 'super_admin';
+    await business.save();
+
+    this.logger.log(
+      `[AdminService] Key ${previousKey} for business "${business.name}" (${businessId}) was REVOKED by admin ${adminUserId}`,
+    );
+
+    return {
+      success: true,
+      message: `Publishable key for "${business.name}" has been revoked and invalidated.`,
+      businessId,
+      keyStatus: 'revoked',
+    };
+  }
+
+  /**
+   * Updates a merchant's key status (active / suspended) by SuperAdmin.
+   */
+  async updateBusinessKeyStatus(businessId: string, keyStatus: string) {
+    const business = await this.businessModel.findById(businessId);
+    if (!business) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        'Business tenant not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!['active', 'suspended'].includes(keyStatus)) {
+      throw new DomainException(
+        'INVALID_KEY_STATUS',
+        'Key status must be either "active" or "suspended".',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    business.keyStatus = keyStatus;
+    await business.save();
+
+    this.logger.log(
+      `[AdminService] Key status for business "${business.name}" (${businessId}) set to ${keyStatus}`,
+    );
+
+    return {
+      success: true,
+      message: `Publishable key status for "${business.name}" updated to ${keyStatus}.`,
+      businessId,
+      keyStatus,
     };
   }
 

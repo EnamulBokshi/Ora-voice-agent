@@ -41,13 +41,11 @@ export class SitemapCrawlerProcessor extends WorkerHost {
       return;
     }
 
-    if (discovered.kind === 'product') {
-      const product = this.jsonLdExtractor.extractProduct(html, discovered.url);
-      if (!product) {
-        this.logger.debug(`[SitemapCrawlerWorker] No JSON-LD/OG product found at ${discovered.url}`);
-        return;
-      }
+    let productIngested = false;
 
+    // 1. Attempt product extraction (JSON-LD, OpenGraph, or semantic HTML)
+    const product = this.jsonLdExtractor.extractProduct(html, discovered.url);
+    if (product && (discovered.kind === 'product' || product.price !== undefined || product.title !== 'Untitled product')) {
       const availability =
         product.availability === 'in_stock'
           ? ProductAvailability.IN_STOCK
@@ -59,7 +57,8 @@ export class SitemapCrawlerProcessor extends WorkerHost {
         sourceTier: SourceTier.TIER3_PASSIVE,
         products: [
           {
-            nativeProductId: product.externalId || `url_${Buffer.from(discovered.url).toString('base64').substring(0, 16)}`,
+            nativeProductId:
+              product.externalId || `url_${Buffer.from(discovered.url).toString('base64').substring(0, 16)}`,
             name: product.title,
             description: product.description || '',
             price: product.price || 0,
@@ -76,35 +75,30 @@ export class SitemapCrawlerProcessor extends WorkerHost {
       });
 
       this.logger.log(`[SitemapCrawlerWorker] Ingested product '${product.title}' for business ${businessId}`);
-      return;
+      productIngested = true;
     }
 
-    if (
-      discovered.kind === 'policy' ||
-      discovered.kind === 'faq' ||
-      discovered.kind === 'page'
-    ) {
-      const doc = this.readabilityExtractor.extract(html, discovered.url, discovered.kind);
-      if (!doc) {
-        this.logger.debug(`[SitemapCrawlerWorker] Insufficient text extracted from ${discovered.url}`);
-        return;
-      }
-
-      await this.knowledgeService.upsertExtractedDoc(businessId, {
-        title: doc.title,
-        category: doc.category,
-        markdown: doc.markdown,
-        sourceUrl: doc.sourceUrl,
-        contentHash: doc.contentHash,
-      });
-
-      this.logger.log(
-        `[SitemapCrawlerWorker] Ingested knowledge doc '${doc.title}' (${doc.category}) for business ${businessId}`,
+    // 2. Also extract text knowledge docs for policies, FAQs, pages, and blog posts
+    if (discovered.kind !== 'product' || !productIngested) {
+      const doc = this.readabilityExtractor.extract(
+        html,
+        discovered.url,
+        discovered.kind,
       );
-      return;
-    }
+      if (doc) {
+        await this.knowledgeService.upsertExtractedDoc(businessId, {
+          title: doc.title,
+          category: doc.category,
+          markdown: doc.markdown,
+          sourceUrl: doc.sourceUrl,
+          contentHash: doc.contentHash,
+        });
 
-    this.logger.debug(`[SitemapCrawlerWorker] Unclassified URL kind for ${discovered.url}, skipping`);
+        this.logger.log(
+          `[SitemapCrawlerWorker] Ingested knowledge doc '${doc.title}' (${doc.category}) for business ${businessId}`,
+        );
+      }
+    }
   }
 
   private async fetchHtml(url: string): Promise<string | null> {

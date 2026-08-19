@@ -64,6 +64,30 @@ export async function updateBusinessStatus(
   );
 }
 
+export async function adminRevokeBusinessKeyApi(
+  businessId: string,
+): Promise<{ success: boolean; message: string; businessId: string; keyStatus: string }> {
+  return apiClient<{ success: boolean; message: string; businessId: string; keyStatus: string }>(
+    `/admin/businesses/${businessId}/publishable-key`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
+export async function adminUpdateKeyStatusApi(
+  businessId: string,
+  keyStatus: 'active' | 'suspended',
+): Promise<{ success: boolean; message: string; businessId: string; keyStatus: string }> {
+  return apiClient<{ success: boolean; message: string; businessId: string; keyStatus: string }>(
+    `/admin/businesses/${businessId}/key-status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ keyStatus }),
+    },
+  );
+}
+
 export async function fetchAdminUsers(params?: {
   page?: number;
   limit?: number;

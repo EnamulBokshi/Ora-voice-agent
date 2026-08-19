@@ -12,6 +12,9 @@ import { CrawlJobData, CrawlUrlJobData, DiscoveredUrl } from '../types/ingestion
 import { HTML_CRAWL_QUEUE } from './sitemap-crawler.processor';
 import { UrlNormalizer } from '../utils/url-normalizer.util';
 
+import { JsonLdExtractor } from '../extractors/json-ld.extractor';
+import { ReadabilityExtractor } from '../extractors/readability.extractor';
+
 @Injectable()
 export class SitemapCrawlerService {
   private readonly logger = new Logger(SitemapCrawlerService.name);
@@ -22,6 +25,8 @@ export class SitemapCrawlerService {
     private readonly sniffer: PlatformSnifferService,
     private readonly fastPath: PlatformFastPathService,
     private readonly discovery: SitemapDiscoveryService,
+    private readonly jsonLdExtractor: JsonLdExtractor,
+    private readonly readabilityExtractor: ReadabilityExtractor,
     @InjectQueue(HTML_CRAWL_QUEUE) private readonly htmlCrawlQueue: Queue<CrawlUrlJobData>,
   ) {}
 
@@ -227,15 +232,101 @@ export class SitemapCrawlerService {
       };
     }
 
-    const queued = await this.enqueueHtmlCrawl(businessId, domain, 'custom', discovered);
+    // Direct inline crawl for priority pages (up to 15) for instant dashboard availability
+    const priorityUrls = discovered.slice(0, 15);
+    const backgroundUrls = discovered.slice(15);
+
+    let productsIngested = 0;
+    let knowledgeDocsIngested = 0;
+
+    for (const item of priorityUrls) {
+      const outcome = await this.crawlUrlDirectly(businessId, item);
+      if (outcome.isProduct) productsIngested += 1;
+      if (outcome.isDoc) knowledgeDocsIngested += 1;
+    }
+
+    const queued = await this.enqueueHtmlCrawl(businessId, domain, 'custom', backgroundUrls);
 
     return {
       platform: 'custom',
-      productsIngested: 0,
-      knowledgeDocsIngested: 0,
+      productsIngested,
+      knowledgeDocsIngested,
       htmlCrawlJobsQueued: queued,
-      message: `Discovered ${discovered.length} pages via sitemap. Queued background ingestion jobs.`,
+      message: `Successfully indexed ${productsIngested} product(s) & ${knowledgeDocsIngested} knowledge document(s) from ${domain}${queued > 0 ? `. Queued ${queued} more in background.` : '.'}`,
     };
+  }
+
+  private async crawlUrlDirectly(
+    businessId: string,
+    discovered: DiscoveredUrl,
+  ): Promise<{ isProduct: boolean; isDoc: boolean }> {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(discovered.url, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'ORA-Sync/1.0 (+https://ora.ai/bot)', Accept: 'text/html' },
+      }).finally(() => clearTimeout(timeout));
+
+      if (!res.ok) return { isProduct: false, isDoc: false };
+      const html = await res.text();
+
+      let isProduct = false;
+      let isDoc = false;
+
+      // 1. Product extraction
+      const product = this.jsonLdExtractor.extractProduct(html, discovered.url);
+      if (
+        product &&
+        (discovered.kind === 'product' || product.price !== undefined || product.title !== 'Untitled product')
+      ) {
+        await this.productsService.batchSync(businessId, {
+          sourceTier: SourceTier.TIER3_PASSIVE,
+          products: [
+            {
+              nativeProductId:
+                product.externalId ||
+                `url_${Buffer.from(discovered.url).toString('base64').substring(0, 16)}`,
+              name: product.title,
+              description: product.description || '',
+              price: product.price || 0,
+              currency: product.currency || 'USD',
+              stockQuantity: product.availability === 'out_of_stock' ? 0 : 10,
+              availability:
+                product.availability === 'out_of_stock'
+                  ? ProductAvailability.OUT_OF_STOCK
+                  : ProductAvailability.IN_STOCK,
+              category: 'General',
+              images: product.images,
+              attributes: { sourceUrl: product.sourceUrl, contentHash: product.contentHash },
+              sourceTier: SourceTier.TIER3_PASSIVE,
+              confidenceScore: 0.3,
+            },
+          ],
+        });
+        isProduct = true;
+      }
+
+      // 2. Knowledge extraction
+      if (discovered.kind !== 'product' || !isProduct) {
+        const doc = this.readabilityExtractor.extract(html, discovered.url, discovered.kind);
+        if (doc) {
+          await this.knowledgeService.upsertExtractedDoc(businessId, {
+            title: doc.title,
+            category: doc.category,
+            markdown: doc.markdown,
+            sourceUrl: doc.sourceUrl,
+            contentHash: doc.contentHash,
+          });
+          isDoc = true;
+        }
+      }
+
+      return { isProduct, isDoc };
+    } catch (err: any) {
+      this.logger.debug(`Direct crawl failed for ${discovered.url}: ${err.message}`);
+      return { isProduct: false, isDoc: false };
+    }
   }
 
   private async enqueueHtmlCrawl(

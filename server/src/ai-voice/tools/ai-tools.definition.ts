@@ -78,6 +78,21 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'search_knowledge_base',
+    description:
+      'Search website knowledge base, portfolio details, creator bio, projects, services, pricing, FAQs, contact info, and policies.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: {
+          type: 'STRING',
+          description: 'Search query or question about the portfolio, projects, bio, company, services, or policies.',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'get_store_policy',
     description: 'Lookup store policies, FAQs, shipping rules, return procedures, or brand information.',
     parameters: {
@@ -91,4 +106,31 @@ export const ORA_TOOL_DECLARATIONS = [
       required: ['query'],
     },
   },
+  {
+    name: 'update_customer_profile',
+    description:
+      'Save or update the customer name, email, phone, or extracted preferences (e.g. name, favorite color, size, budget) into persistent memory whenever the customer introduces themselves or shares preferences.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: {
+          type: 'STRING',
+          description: 'The full name or first name of the customer (e.g. "Enamul").',
+        },
+        email: {
+          type: 'STRING',
+          description: 'The email address of the customer if provided.',
+        },
+        phone: {
+          type: 'STRING',
+          description: 'The phone number of the customer if provided.',
+        },
+        preferences: {
+          type: 'OBJECT',
+          description: 'Key-value preferences or interests extracted from conversation.',
+        },
+      },
+    },
+  },
 ];
+

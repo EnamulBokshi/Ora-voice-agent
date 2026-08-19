@@ -32,6 +32,15 @@ describe('AiToolsExecutor', () => {
               stockQuantity: 10,
               availability: 'in_stock',
             }),
+            verifyLiveBatch: jest.fn().mockResolvedValue([
+              {
+                _id: 'prod_123',
+                name: 'Test Audio Headset',
+                price: 150,
+                stockQuantity: 10,
+                availability: 'in_stock',
+              },
+            ]),
           },
         },
         {
