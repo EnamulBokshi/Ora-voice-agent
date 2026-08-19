@@ -252,9 +252,14 @@ export class VoiceProxyGateway {
           sendToClient({ type: 'turn_complete' });
         },
 
-        // Tool executed server-side → notify client for UI only
-        onToolResult: (toolName) => {
-          sendToClient({ type: 'tool_result', toolName });
+        // Tool executed server-side → notify client for UI and forward action payload if present
+        onToolResult: (toolName, result) => {
+          sendToClient({
+            type: 'tool_result',
+            toolName,
+            action: result?.action,
+            message: result?.message,
+          });
         },
 
         // Google WS error (post-setup)

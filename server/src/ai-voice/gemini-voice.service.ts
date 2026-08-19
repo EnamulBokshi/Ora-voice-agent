@@ -23,8 +23,8 @@ export interface GeminiVoiceSessionOptions {
   onInterrupted?: () => void;
   /** Called when Gemini signals the agent has finished its turn */
   onTurnComplete?: () => void;
-  /** Called after each tool is executed server-side (toolName for UI hints only) */
-  onToolResult?: (toolName: string) => void;
+  /** Called after each tool is executed server-side (toolName & result for UI actions) */
+  onToolResult?: (toolName: string, result?: any) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
 }
@@ -277,8 +277,8 @@ export class GeminiVoiceService {
                     };
                   }
 
-                  // Notify proxy gateway for UI-only hint (no tool data sent to client)
-                  options.onToolResult?.(call.name);
+                  // Notify proxy gateway with tool result and any action payload (e.g. navigation)
+                  options.onToolResult?.(call.name, toolResult);
 
                   return {
                     id: call.id,
@@ -470,7 +470,7 @@ export class GeminiVoiceService {
       } else if (businessArchetype === 'agency_services') {
         persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
       } else if (businessArchetype === 'saas') {
-        persona = `You are ORA, product specialist for ${siteName || 'this platform'}. Your mission is to explain our features, integrations, API capabilities, and help users get started with a free trial.`;
+        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for ORA (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans ($29 Starter, $99 Growth, $299 Enterprise with Stripe USD and bKash BDT). Proactively answer questions about integrations (Shopify, WooCommerce, Next.js, HTML), explain how our automated DOM scraping works, capture sales leads, and navigate visitors to our pricing or registration pages when they're ready to get started.`;
       } else if (businessArchetype === 'ecommerce' || hasProducts) {
         persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, availability, and guide them through checkout.`;
       } else {
@@ -494,7 +494,11 @@ export class GeminiVoiceService {
         '5. WHEN TO USE TOOLS:',
         businessArchetype === 'ecommerce' || hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above.' : '',
         businessArchetype === 'ecommerce' || hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
-        '   - update_customer_profile: Call whenever the customer shares their name, introduces themselves (e.g. "I am Enamul"), or expresses preferences.',
+        '   - get_pricing_plans: Call when a prospect asks for detailed pricing tiers, USD/BDT cost breakdown, or plan limits.',
+        '   - navigate_to_page: Call whenever a visitor asks to view a section (e.g. "show me pricing", "show me features", "take me to signup") or when guiding them to /pricing or /register.',
+        '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
+        '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
+        '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
         '   - update_agent_directives: Call when the owner/merchant provides new directives, rules, or instructions during voice setup.',
         '   - search_knowledge_base / get_store_policy: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
         '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',

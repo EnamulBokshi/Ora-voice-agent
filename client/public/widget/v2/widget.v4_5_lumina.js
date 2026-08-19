@@ -1519,6 +1519,19 @@
             return;
           }
 
+          if (msg.type === 'tool_result') {
+            if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
+              var dest = msg.action.destination;
+              if (dest.startsWith('#')) {
+                var targetEl = document.querySelector(dest);
+                if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } else if (dest.startsWith('/') || dest.startsWith('http')) {
+                window.location.href = dest;
+              }
+            }
+            return;
+          }
+
           if (msg.type === 'session_closed') {
             if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
             return;

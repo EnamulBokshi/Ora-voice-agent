@@ -159,6 +159,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         onTextData: (text: string) => {
           client.emit('text-stream', { sessionId, text });
         },
+        onToolResult: (toolName: string, result?: any) => {
+          client.emit('tool-result', {
+            sessionId,
+            toolName,
+            action: result?.action,
+            message: result?.message,
+          });
+        },
         onError: (err) => {
           client.emit('voice-error', { message: err.message || 'Gemini error' });
         },

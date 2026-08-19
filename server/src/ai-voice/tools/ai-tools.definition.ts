@@ -133,6 +133,89 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'get_pricing_plans',
+    description:
+      'Retrieve active subscription tiers, pricing in USD and BDT, voice minutes, and feature limits from the database. Call this whenever a visitor asks about pricing, cost, plans, or subscription options.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        currency: {
+          type: 'STRING',
+          description: 'Optional currency preference ("USD" or "BDT").',
+        },
+      },
+    },
+  },
+  {
+    name: 'navigate_to_page',
+    description:
+      'Direct or scroll the visitor’s browser to a specific page or section (e.g. "/pricing", "/register", "#features", "#stats", "#cta", or demo section). Use this when guiding a visitor or when they ask to see a feature, pricing, or start registration.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        destination: {
+          type: 'STRING',
+          description: 'The URL path (e.g. "/pricing", "/register", "/auth") or anchor hash (e.g. "#features", "#pricing", "#stats", "#cta").',
+        },
+        reason: {
+          type: 'STRING',
+          description: 'Brief explanation of why we are navigating or scrolling to this section.',
+        },
+      },
+      required: ['destination'],
+    },
+  },
+  {
+    name: 'capture_sales_lead',
+    description:
+      'Record a prospective customer or merchant lead details (name, email, phone, company/store URL, interested tier, notes) into the database for sales follow-up.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: {
+          type: 'STRING',
+          description: 'The prospect or merchant contact name.',
+        },
+        email: {
+          type: 'STRING',
+          description: 'The prospect email address.',
+        },
+        phone: {
+          type: 'STRING',
+          description: 'Optional phone number.',
+        },
+        storeUrl: {
+          type: 'STRING',
+          description: 'The prospect current store URL, company website, or portfolio domain.',
+        },
+        interestedPlan: {
+          type: 'STRING',
+          description: 'The plan or tier the prospect expressed interest in (e.g. "starter", "growth", "enterprise").',
+        },
+        notes: {
+          type: 'STRING',
+          description: 'Any additional notes or custom requirements mentioned by the prospect.',
+        },
+      },
+      required: ['email'],
+    },
+  },
+  {
+    name: 'get_integration_guide',
+    description:
+      'Get step-by-step setup instructions and code snippets for integrating ORA into Shopify, WooCommerce, Next.js/React, or vanilla HTML.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        platform: {
+          type: 'STRING',
+          description: 'Target platform: "shopify", "woocommerce", "nextjs", "react", or "html".',
+        },
+      },
+      required: ['platform'],
+    },
+  },
+  {
     name: 'update_agent_directives',
     description:
       'Persist or update custom merchant directives, brand voice rules, portfolio instructions, or sales priorities during onboarding or voice setup.',
@@ -160,6 +243,13 @@ export function getToolsForArchetype(archetype?: string) {
       (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout'].includes(t.name),
     );
   }
+  if (archetype === 'saas') {
+    // For SaaS and platform sites, provide all SaaS tools and omit physical e-commerce cart
+    return ORA_TOOL_DECLARATIONS.filter(
+      (t) => !['add_to_cart', 'place_order'].includes(t.name),
+    );
+  }
   return ORA_TOOL_DECLARATIONS;
 }
+
 
