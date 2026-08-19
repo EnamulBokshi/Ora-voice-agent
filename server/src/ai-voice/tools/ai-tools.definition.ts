@@ -132,5 +132,34 @@ export const ORA_TOOL_DECLARATIONS = [
       },
     },
   },
+  {
+    name: 'update_agent_directives',
+    description:
+      'Persist or update custom merchant directives, brand voice rules, portfolio instructions, or sales priorities during onboarding or voice setup.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        directives: {
+          type: 'STRING',
+          description: 'The updated instructions, focus areas, or rules specified by the owner.',
+        },
+        brandVoice: {
+          type: 'STRING',
+          description: 'Optional updated tone of voice description.',
+        },
+      },
+      required: ['directives'],
+    },
+  },
 ];
+
+export function getToolsForArchetype(archetype?: string) {
+  if (archetype === 'portfolio' || archetype === 'agency_services' || archetype === 'consulting') {
+    // Exclude e-commerce shopping cart and direct order placement tools on non-e-commerce sites
+    return ORA_TOOL_DECLARATIONS.filter(
+      (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout'].includes(t.name),
+    );
+  }
+  return ORA_TOOL_DECLARATIONS;
+}
 

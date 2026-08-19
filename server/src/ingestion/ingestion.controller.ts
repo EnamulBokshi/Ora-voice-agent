@@ -23,6 +23,8 @@ import { FeedParserService } from './services/feed-parser.service';
 import { SitemapCrawlerService } from './services/sitemap-crawler.service';
 import { ManualConnectorService } from './services/manual-connector.service';
 import { FileIngestionService } from './services/file-ingestion.service';
+import { DomSemanticStructurerService } from './services/dom-semantic-structurer.service';
+import { DomTelemetryDto } from './dto/dom-telemetry.dto';
 import { FeedIngestDto } from './dto/feed-ingest.dto';
 import { PassiveIngestDto } from './dto/passive-ingest.dto';
 import { ManualIngestDto } from './dto/manual-ingest.dto';
@@ -43,6 +45,7 @@ export class IngestionController {
     private readonly woocommerceService: WooCommerceConnectorService,
     private readonly feedParserService: FeedParserService,
     private readonly sitemapCrawlerService: SitemapCrawlerService,
+    private readonly domSemanticStructurer: DomSemanticStructurerService,
     private readonly manualConnectorService: ManualConnectorService,
     private readonly fileIngestionService: FileIngestionService,
     @InjectModel(Business.name)
@@ -188,6 +191,17 @@ export class IngestionController {
   @HttpCode(HttpStatus.OK)
   async passiveCapture(@Req() req: any, @Body() dto: PassiveIngestDto) {
     return this.sitemapCrawlerService.processPassiveCapture(
+      req.businessId,
+      dto,
+    );
+  }
+
+  // Universal Storefront / Portfolio / SPA Viewport Telemetry Beacon
+  @UseGuards(ApiKeyGuard)
+  @Post('telemetry')
+  @HttpCode(HttpStatus.OK)
+  async telemetryCapture(@Req() req: any, @Body() dto: DomTelemetryDto) {
+    return this.domSemanticStructurer.processTelemetry(
       req.businessId,
       dto,
     );

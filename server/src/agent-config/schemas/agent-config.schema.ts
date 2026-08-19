@@ -19,6 +19,19 @@ export class AgentConfig {
   @Prop({ default: 'Helpful, professional, and friendly sales assistant.' })
   brandVoiceDescription: string;
 
+  @Prop({
+    type: String,
+    enum: ['portfolio', 'agency_services', 'saas', 'ecommerce', 'clinic_appointments', 'consulting', 'general'],
+    default: 'general',
+  })
+  businessArchetype: string;
+
+  @Prop({ type: String, default: '' })
+  businessSummary: string;
+
+  @Prop({ type: String, default: '' })
+  customDirectives: string;
+
   @Prop({ default: 'en' })
   language: string;
 

@@ -15,11 +15,13 @@ import { JsonLdExtractor } from './extractors/json-ld.extractor';
 import { ReadabilityExtractor } from './extractors/readability.extractor';
 import { ManualConnectorService } from './services/manual-connector.service';
 import { FileIngestionService } from './services/file-ingestion.service';
+import { DomSemanticStructurerService } from './services/dom-semantic-structurer.service';
 import { ProductsModule } from '../products/products.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { VectorModule } from '../vector/vector.module';
 import { RedisModule } from '../common/redis/redis.module';
 import { Business, BusinessSchema } from '../users/schemas/business.schema';
+import { AgentConfig, AgentConfigSchema } from '../agent-config/schemas/agent-config.schema';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { Business, BusinessSchema } from '../users/schemas/business.schema';
     }),
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
+      { name: AgentConfig.name, schema: AgentConfigSchema },
     ]),
   ],
   controllers: [IngestionController],
@@ -46,6 +49,7 @@ import { Business, BusinessSchema } from '../users/schemas/business.schema';
     FeedParserService,
     SitemapCrawlerService,
     SitemapCrawlerProcessor,
+    DomSemanticStructurerService,
     PlatformSnifferService,
     PlatformFastPathService,
     SitemapDiscoveryService,
@@ -59,6 +63,7 @@ import { Business, BusinessSchema } from '../users/schemas/business.schema';
     WooCommerceConnectorService,
     FeedParserService,
     SitemapCrawlerService,
+    DomSemanticStructurerService,
     ManualConnectorService,
     FileIngestionService,
   ],

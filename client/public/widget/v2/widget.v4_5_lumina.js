@@ -154,18 +154,115 @@
     return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ '/g, "'");
   }
 
-  // ─── Storefront DOM & JSON-LD Extractor ────────────────────────────────────
-  function extractPageContext() {
-    try {
-      var context = {
-        url: window.location.href,
-        title: document.title,
-        pathname: window.location.pathname,
-        isProductPage: false,
-        product: null
-      };
+  // ─── Fast String Hasher for Client Deduplication ────────────────────────────
+  function hashString(str) {
+    var hash = 5381;
+    for (var i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    }
+    return (hash >>> 0).toString(16);
+  }
 
-      // 1. Check Schema.org JSON-LD
+  // ─── Universal Storefront, Portfolio & Viewport DOM Extractor ───────────────
+  function extractUniversalDomTelemetry() {
+    try {
+      var url = window.location.href;
+      var pathname = window.location.pathname;
+      var title = document.title || '';
+
+      var metaDesc = (document.querySelector('meta[name="description"]') && document.querySelector('meta[name="description"]').getAttribute('content')) ||
+                     (document.querySelector('meta[property="og:description"]') && document.querySelector('meta[property="og:description"]').getAttribute('content')) || '';
+
+      // 1. Headings Hierarchy
+      var headings = [];
+      var headingEls = document.querySelectorAll('h1, h2, h3, h4');
+      for (var h = 0; h < headingEls.length; h++) {
+        var el = headingEls[h];
+        if (el.closest('#ora-voice-root') || el.closest('.ora-shadow-host')) continue;
+        var hText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
+        if (hText.length >= 2 && hText.length <= 150) {
+          headings.push({ level: el.tagName.toLowerCase(), text: hText });
+        }
+      }
+
+      // 2. Discover Contact & Social Channels
+      var contacts = { emails: [], links: [] };
+      var linkEls = document.querySelectorAll('a[href]');
+      for (var l = 0; l < linkEls.length; l++) {
+        var href = linkEls[l].getAttribute('href') || '';
+        if (href.startsWith('mailto:')) {
+          var em = href.replace(/^mailto:/i, '').split('?')[0].trim();
+          if (em && contacts.emails.indexOf(em) === -1) contacts.emails.push(em);
+        } else if (/github\.com|linkedin\.com|twitter\.com|x\.com|calendly\.com|cal\.com/i.test(href)) {
+          if (contacts.links.indexOf(href) === -1 && contacts.links.length < 10) {
+            contacts.links.push(href);
+          }
+        }
+      }
+
+      // 3. Extract Card / Project / Section Entities
+      var cards = [];
+      var cardSelectors = [
+        '[class*="project"]',
+        '[class*="card"]',
+        '[class*="service"]',
+        '[class*="item"]',
+        'article',
+        '.grid > div',
+        'section'
+      ];
+      var candidateCards = document.querySelectorAll(cardSelectors.join(', '));
+      for (var c = 0; c < candidateCards.length && cards.length < 20; c++) {
+        var cardEl = candidateCards[c];
+        if (cardEl.closest('#ora-voice-root') || cardEl.closest('.ora-shadow-host')) continue;
+        
+        var cardHeading = cardEl.querySelector('h2, h3, h4, h5, [class*="title"], strong');
+        var cardTitle = cardHeading ? (cardHeading.innerText || cardHeading.textContent || '').trim() : '';
+        if (!cardTitle || cardTitle.length < 2 || cardTitle.length > 100) continue;
+
+        var cardText = (cardEl.innerText || cardEl.textContent || '')
+          .replace(/\s+/g, ' ')
+          .replace(cardTitle, '')
+          .trim();
+
+        // Extract any tags or tech stack labels
+        var tags = [];
+        var tagEls = cardEl.querySelectorAll('span, [class*="tag"], [class*="badge"], [class*="pill"], li');
+        for (var t = 0; t < tagEls.length && tags.length < 8; t++) {
+          var tagText = (tagEls[t].innerText || tagEls[t].textContent || '').trim();
+          if (tagText.length >= 2 && tagText.length <= 25 && tagText !== cardTitle) {
+            if (tags.indexOf(tagText) === -1) tags.push(tagText);
+          }
+        }
+
+        var cardLink = (cardEl.querySelector('a[href]') && cardEl.querySelector('a[href]').getAttribute('href')) || '';
+        if (cardLink && !cardLink.startsWith('http')) {
+          try { cardLink = new URL(cardLink, window.location.origin).href; } catch (e) {}
+        }
+
+        if (cardText.length >= 10 || tags.length > 0) {
+          cards.push({
+            title: cardTitle,
+            description: cardText.slice(0, 300),
+            tags: tags,
+            link: cardLink
+          });
+        }
+      }
+
+      // 4. Clean Visible Text Preview (Stripping Scripts & Noise)
+      var bodyClone = document.body.cloneNode(true);
+      var noiseEls = bodyClone.querySelectorAll('script, style, svg, noscript, #ora-voice-root, .ora-shadow-host, nav, footer');
+      for (var n = 0; n < noiseEls.length; n++) {
+        if (noiseEls[n].parentNode) noiseEls[n].parentNode.removeChild(noiseEls[n]);
+      }
+      var cleanBodyText = (bodyClone.innerText || bodyClone.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 4000);
+
+      // 5. Schema.org Product Check (if e-commerce)
+      var product = null;
       var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (var i = 0; i < ldScripts.length; i++) {
         try {
@@ -177,9 +274,8 @@
           });
           if (prod) {
             var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
-            context.isProductPage = true;
-            context.product = {
-              name: prod.name || document.title,
+            product = {
+              name: prod.name || title,
               price: offer && offer.price ? Number(offer.price) : null,
               currency: offer && offer.priceCurrency ? offer.priceCurrency : 'USD',
               availability: offer && /instock/i.test(offer.availability || '') ? 'in_stock' : 'unknown',
@@ -190,56 +286,115 @@
         } catch (e) {}
       }
 
-      // 2. OpenGraph / Meta Fallback
-      if (!context.product) {
-        var ogTitle = document.querySelector('meta[property="og:title"]');
-        var ogPrice = document.querySelector('meta[property="og:price:amount"]') || document.querySelector('meta[property="product:price:amount"]');
-        var ogCurrency = document.querySelector('meta[property="og:price:currency"]') || document.querySelector('meta[property="product:price:currency"]');
-        if (ogTitle && ogPrice) {
-          context.isProductPage = true;
-          context.product = {
-            name: ogTitle.getAttribute('content') || document.title,
-            price: Number(ogPrice.getAttribute('content')),
-            currency: ogCurrency ? ogCurrency.getAttribute('content') : 'USD',
-            availability: 'in_stock'
-          };
-        }
-      }
+      var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + cleanBodyText.slice(0, 500);
+      var contentHash = hashString(contentSignature);
 
-      return context;
+      return {
+        url: url,
+        pathname: pathname,
+        title: title,
+        metaDescription: metaDesc,
+        headings: headings.slice(0, 15),
+        cards: cards.slice(0, 15),
+        contacts: contacts,
+        bodyTextSnippet: cleanBodyText,
+        product: product,
+        contentHash: contentHash
+      };
     } catch (err) {
-      return { url: window.location.href, title: document.title };
+      return { url: window.location.href, title: document.title, pathname: window.location.pathname };
     }
   }
 
-  function triggerPassiveStorefrontSync() {
+  // Keep legacy extractPageContext for backward compatibility with active voice context
+  function extractPageContext() {
+    var telemetry = extractUniversalDomTelemetry();
+    return {
+      url: telemetry.url,
+      title: telemetry.title,
+      pathname: telemetry.pathname,
+      isProductPage: !!telemetry.product,
+      product: telemetry.product
+    };
+  }
+
+  // ─── Universal Telemetry Dispatcher with Deduplication ───────────────────────
+  function triggerUniversalTelemetrySync() {
     try {
-      var ctx = extractPageContext();
-      if (!ctx || !ctx.product) return;
-      var cacheKey = '__ora_synced_' + ctx.url;
-      if (window.sessionStorage && window.sessionStorage.getItem(cacheKey)) return;
+      if (!publishableKey || !apiBase) return;
+      var telemetry = extractUniversalDomTelemetry();
+      if (!telemetry || !telemetry.url) return;
 
-      if (window.sessionStorage) window.sessionStorage.setItem(cacheKey, '1');
+      var storageKey = '__ora_dom_' + telemetry.pathname;
+      if (window.sessionStorage && window.sessionStorage.getItem(storageKey) === telemetry.contentHash) {
+        // Content hasn't changed since last sync in this session — skip redundant network traffic
+        return;
+      }
 
-      if (apiBase) {
-        fetch(apiBase + '/api/v1/ingestion/passive', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-publishable-key': publishableKey,
-          },
-          body: JSON.stringify({
-            nativeProductId: ctx.product.sku || 'dom_' + Math.abs(ctx.url.split('').reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(36),
-            name: ctx.product.name,
-            description: (document.querySelector('meta[name="description"]') && document.querySelector('meta[name="description"]').getAttribute('content')) || '',
-            price: ctx.product.price || 0,
-            category: 'General',
-            attributes: { sourceUrl: ctx.url, currency: ctx.product.currency }
-          })
-        }).catch(function() {});
+      var endpoint = apiBase + '/api/v1/ingestion/telemetry';
+      var payload = JSON.stringify(telemetry);
+
+      // Attempt sendBeacon or non-blocking fetch
+      var sent = false;
+      if (navigator.sendBeacon) {
+        var blob = new Blob([payload], { type: 'application/json' });
+        // Note: sendBeacon doesn't allow custom headers on all browsers, so fallback to fetch with x-publishable-key
+      }
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-publishable-key': publishableKey,
+        },
+        body: payload,
+      })
+      .then(function(res) {
+        if (res.ok && window.sessionStorage) {
+          window.sessionStorage.setItem(storageKey, telemetry.contentHash);
+        }
+      })
+      .catch(function () {});
+    } catch (e) {}
+  }
+
+  // Backward compatibility alias
+  function triggerPassiveStorefrontSync() {
+    triggerUniversalTelemetrySync();
+  }
+
+  // ─── SPA Route Transition Listener (Next.js, Nuxt, React CSR) ───────────────
+  function initSpaRouteObserver() {
+    try {
+      var lastPath = window.location.pathname;
+      function checkRouteChange() {
+        if (window.location.pathname !== lastPath) {
+          lastPath = window.location.pathname;
+          // Debounce slightly to allow dynamic SPA views (Next.js/React) to render DOM
+          setTimeout(triggerUniversalTelemetrySync, 1200);
+        }
+      }
+
+      if (window.history) {
+        var origPush = window.history.pushState;
+        if (origPush) {
+          window.history.pushState = function () {
+            origPush.apply(this, arguments);
+            checkRouteChange();
+          };
+        }
+        var origReplace = window.history.replaceState;
+        if (origReplace) {
+          window.history.replaceState = function () {
+            origReplace.apply(this, arguments);
+            checkRouteChange();
+          };
+        }
+        window.addEventListener('popstate', checkRouteChange);
       }
     } catch (e) {}
   }
+  initSpaRouteObserver();
 
   // ─── Customer Identity & Fail-Closed Consent Resolution ─────────────────────
   function getOrCreateDeviceId() {

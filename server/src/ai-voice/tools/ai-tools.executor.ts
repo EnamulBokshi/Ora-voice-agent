@@ -58,6 +58,9 @@ export class AiToolsExecutor {
         case 'update_customer_profile':
         case 'save_customer_name':
           return await this.handleUpdateCustomerProfile(businessId, sessionId, args);
+        case 'update_agent_directives':
+        case 'save_merchant_directives':
+          return await this.handleUpdateAgentDirectives(businessId, args);
         default:
           return { error: `Unknown tool: ${toolName}` };
       }
@@ -67,6 +70,17 @@ export class AiToolsExecutor {
       );
       return { error: err.message || 'Internal tool execution error.' };
     }
+  }
+
+  private async handleUpdateAgentDirectives(businessId: string, args: Record<string, any>) {
+    await this.agentConfigService.updateConfig(businessId, {
+      customDirectives: args.directives,
+      ...(args.brandVoice ? { brandVoiceDescription: args.brandVoice } : {}),
+    });
+    return {
+      success: true,
+      message: 'Directives and instructions updated into persistent memory successfully.',
+    };
   }
 
   private async handleFindProducts(businessId: string, args: Record<string, any>) {
