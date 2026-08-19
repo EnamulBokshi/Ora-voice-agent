@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import WebSocket from 'ws';
-import { ORA_TOOL_DECLARATIONS } from './tools/ai-tools.definition';
+import { ORA_TOOL_DECLARATIONS, getToolsForArchetype } from './tools/ai-tools.definition';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { AgentConfigService } from '../agent-config/agent-config.service';
 import { ProductsService } from '../products/products.service';
@@ -23,8 +23,8 @@ export interface GeminiVoiceSessionOptions {
   onInterrupted?: () => void;
   /** Called when Gemini signals the agent has finished its turn */
   onTurnComplete?: () => void;
-  /** Called after each tool is executed server-side (toolName for UI hints only) */
-  onToolResult?: (toolName: string) => void;
+  /** Called after each tool is executed server-side (toolName & result for UI actions) */
+  onToolResult?: (toolName: string, result?: any) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
 }
@@ -97,6 +97,8 @@ export class GeminiVoiceService {
       options.deviceId,
     );
 
+    const agentConfig = await this.agentConfigService.getConfig(options.businessId).catch(() => null);
+    const archetype = agentConfig?.config?.businessArchetype || 'general';
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
@@ -183,7 +185,7 @@ export class GeminiVoiceService {
             },
             tools: [
               {
-                functionDeclarations: ORA_TOOL_DECLARATIONS,
+                functionDeclarations: getToolsForArchetype(archetype),
               },
             ],
           },
@@ -191,7 +193,7 @@ export class GeminiVoiceService {
 
         ws.send(JSON.stringify(setupPayload));
         this.logger.log(
-          `[GeminiVoiceService] Setup payload sent, waiting for Gemini acknowledgement...`,
+          `[GeminiVoiceService] Setup payload sent (Archetype: ${archetype}), waiting for Gemini acknowledgement...`,
         );
       });
 
@@ -273,8 +275,8 @@ export class GeminiVoiceService {
                     };
                   }
 
-                  // Notify proxy gateway for UI-only hint (no tool data sent to client)
-                  options.onToolResult?.(call.name);
+                  // Notify proxy gateway with tool result and any action payload (e.g. navigation)
+                  options.onToolResult?.(call.name, toolResult);
 
                   return {
                     id: call.id,
@@ -357,10 +359,23 @@ export class GeminiVoiceService {
       baseInstruction = cached.instruction;
     } else {
       let merchantBrandVoice = '';
+      let businessArchetype = 'general';
+      let businessSummary = '';
+      let customDirectives = '';
+
       try {
         const agentConfig = await this.agentConfigService.getConfig(businessId);
         if (agentConfig?.config?.brandVoiceDescription) {
-          merchantBrandVoice = `\nMerchant Brand Voice: ${agentConfig.config.brandVoiceDescription}`;
+          merchantBrandVoice = `\nMerchant Brand Voice / Tone: ${agentConfig.config.brandVoiceDescription}`;
+        }
+        if (agentConfig?.config?.businessArchetype) {
+          businessArchetype = agentConfig.config.businessArchetype;
+        }
+        if (agentConfig?.config?.businessSummary) {
+          businessSummary = `\nPlatform Overview: ${agentConfig.config.businessSummary}`;
+        }
+        if (agentConfig?.config?.customDirectives) {
+          customDirectives = `\nOWNER / MERCHANT CUSTOM DIRECTIVES:\n${agentConfig.config.customDirectives}`;
         }
       } catch {
         // Fallback — no custom brand voice
@@ -368,6 +383,8 @@ export class GeminiVoiceService {
 
       // 1. Preload Business Identity & Owner Contact Info (Email, Name, Domain)
       let contactIdentitySummary = '';
+      let ownerName = '';
+      let siteName = '';
       try {
         if (this.businessModel) {
           const biz = await this.businessModel.findById(businessId).exec();
@@ -378,6 +395,9 @@ export class GeminiVoiceService {
               .sort({ createdAt: 1 })
               .exec();
           }
+
+          siteName = biz?.name || '';
+          ownerName = ownerUser?.name || '';
 
           const identityLines: string[] = [];
           if (biz?.name) identityLines.push(`• Entity / Website Name: ${biz.name}`);
@@ -421,35 +441,45 @@ export class GeminiVoiceService {
       let hasKnowledge = false;
       try {
         if (this.knowledgeService) {
-          const docsRes = await this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 8 });
+          const docsRes = await this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 10 });
           if (docsRes && docsRes.items && docsRes.items.length > 0) {
             hasKnowledge = true;
             const docSnippets = docsRes.items
               .map((d: any) => {
                 const cleanSnippet = (d.content || '')
                   .replace(/\s+/g, ' ')
-                  .slice(0, 250)
+                  .slice(0, 300)
                   .trim();
-                return `  • [${d.title}]: ${cleanSnippet}${cleanSnippet.length >= 250 ? '...' : ''}`;
+                return `  • [${d.title}]: ${cleanSnippet}${cleanSnippet.length >= 300 ? '...' : ''}`;
               })
               .join('\n');
 
-            knowledgeSummary = `\nWEBSITE & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without searching!`;
+            knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools!`;
           }
         }
       } catch {
         // Fallback — proceed without knowledge summary
       }
 
-      const persona = hasProducts
-        ? 'You are ORA, a friendly, ultra-fast, and professional AI sales representative for this business.'
-        : hasKnowledge
-          ? 'You are ORA, an intelligent, friendly AI representative and personal assistant for this website and portfolio.'
-          : 'You are ORA, a friendly and helpful AI representative for this website and business.';
+      // ─── Adaptive Archetype Persona Construction ───────────────────────────
+      let persona = '';
+      if (businessArchetype === 'portfolio') {
+        persona = `You are ORA, ${ownerName ? `${ownerName}'s` : 'the creator\'s'} personal AI assistant and representative for this website and portfolio. Your primary mission is to warmly introduce visitors, recruiters, and clients to ${ownerName || 'the engineer'}'s background, featured projects, tech stack, and achievements, and help them get in touch or book a technical consultation.`;
+      } else if (businessArchetype === 'agency_services') {
+        persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
+      } else if (businessArchetype === 'saas') {
+        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for ORA (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans ($29 Starter, $99 Growth, $299 Enterprise with Stripe USD and bKash BDT). Proactively answer questions about integrations (Shopify, WooCommerce, Next.js, HTML), explain how our automated DOM scraping works, capture sales leads, and navigate visitors to our pricing or registration pages when they're ready to get started.`;
+      } else if (businessArchetype === 'ecommerce' || hasProducts) {
+        persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, availability, and guide them through checkout.`;
+      } else {
+        persona = `You are ORA, an intelligent, friendly AI representative and personal assistant for ${siteName || ownerName || 'this website'}.`;
+      }
 
       baseInstruction = [
         persona,
+        businessSummary,
         merchantBrandVoice,
+        customDirectives,
         contactIdentitySummary,
         catalogSummary,
         knowledgeSummary,
@@ -458,11 +488,16 @@ export class GeminiVoiceService {
         '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally like a knowledgeable human assistant.',
         '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING, not typing.',
         '3. NEVER output internal reasoning, thought headers, or status messages (e.g. do not say "Searching catalog..." or "Hold on while I check").',
-        '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL): If the visitor asks for contact email, website URL, creator name/bio, what services you offer, policies, or featured items, answer DIRECTLY from your preloaded memory above. NEVER call search tools for basic contact/identity questions.',
+        '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL): If the visitor asks for contact email, website URL, creator bio, what projects/services you offer, policies, or featured items, answer DIRECTLY from your preloaded memory above. NEVER call search tools for basic contact/identity questions.',
         '5. WHEN TO USE TOOLS:',
-        hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above in your preloaded memory.' : '',
-        hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
-        '   - update_customer_profile: Call whenever the customer shares their name, introduces themselves (e.g. "I am Enamul"), or expresses preferences (size, color, budget).',
+        businessArchetype === 'ecommerce' || hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above.' : '',
+        businessArchetype === 'ecommerce' || hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
+        '   - get_pricing_plans: Call when a prospect asks for detailed pricing tiers, USD/BDT cost breakdown, or plan limits.',
+        '   - navigate_to_page: Call whenever a visitor asks to view a section (e.g. "show me pricing", "show me features", "take me to signup") or when guiding them to /pricing or /register.',
+        '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
+        '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
+        '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
+        '   - update_agent_directives: Call when the owner/merchant provides new directives, rules, or instructions during voice setup.',
         '   - search_knowledge_base / get_store_policy: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
         '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
         '7. If the visitor speaks Bengali or another language, respond naturally in their language.',
@@ -494,17 +529,17 @@ export class GeminiVoiceService {
           customerContext = `
 ACTIVE CUSTOMER & RECOGNITION CONTEXT (Who you are currently speaking with):
 - Customer Name: ${isKnownName ? cust.name : 'Guest Visitor (Ask for their name naturally if appropriate)'}
-- Account Status: ${cust.isAnonymous ? 'Guest Shopper (Device recognized)' : 'Registered Customer'}
+- Account Status: ${cust.isAnonymous ? 'Guest Visitor (Device recognized)' : 'Registered Customer'}
 - Device ID: ${devId || 'Active Browser Session'}
 ${prefs ? `- Saved Customer Preferences: ${prefs}` : ''}
 ${cust.pastOrderIds && cust.pastOrderIds.length > 0 ? `- Past Orders Count: ${cust.pastOrderIds.length}` : ''}
 
 * MEMORY & CUSTOMER INTERACTION RULES:
-1. If the customer asks "do you know me?", "who am I?", or greets you:
+1. If the visitor asks "do you know me?", "who am I?", or greets you:
    - If their name is known ("${isKnownName ? cust.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust.name : ''}. Great to see you again!").
-   - If unknown, say: "You are visiting as a guest shopper. What is your name?".
-2. If the customer asks for their device ID, answer directly: "Your device ID is ${devId || 'active session'}".
-3. When the customer introduces themselves (e.g. "I am Enamul", "My name is Enamul", "call me X") or shares preferences, IMMEDIATELY call the update_customer_profile tool to save their details into memory so you remember them next time!`;
+   - If unknown, say: "You are visiting as a guest. What is your name?".
+2. If the visitor asks for their device ID, answer directly: "Your device ID is ${devId || 'active session'}".
+3. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "call me X") or shares preferences, IMMEDIATELY call the update_customer_profile tool to save their details into memory so you remember them next time!`;
         }
       } catch (err: any) {
         this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
@@ -514,8 +549,7 @@ ${cust.pastOrderIds && cust.pastOrderIds.length > 0 ? `- Past Orders Count: ${cu
     return [baseInstruction, customerContext].filter(Boolean).join('\n\n');
   }
 
-  getToolDeclarations() {
-
-    return ORA_TOOL_DECLARATIONS;
+  getToolDeclarations(archetype?: string) {
+    return getToolsForArchetype(archetype);
   }
 }

@@ -11,6 +11,7 @@ export enum EventType {
   CART_UPDATED = 'cart_updated',
   AUTHORITY_ESCALATION_FLAGGED = 'authority_escalation_flagged',
   INVENTORY_WARNING = 'inventory_warning',
+  SALES_LEAD_CAPTURED = 'sales_lead_captured',
 }
 
 @Schema({ timestamps: true })

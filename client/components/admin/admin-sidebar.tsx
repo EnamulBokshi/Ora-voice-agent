@@ -33,7 +33,7 @@ const adminNavItems: NavItem[] = [
   { id: 'merchants', label: 'Merchants & Stores', href: '/admin/merchants', icon: <Store size={16} /> },
   { id: 'users', label: 'Users & RBAC', href: '/admin/users', icon: <Users size={16} /> },
   { id: 'voice-monitor', label: 'AI Voice Monitor', href: '/admin/voice-monitor', icon: <Radio size={16} /> },
-  { id: 'system', label: 'System Diagnostics', href: '/admin/system', icon: <Server size={16} /> },
+  { id: 'system', label: 'Platform & System', href: '/admin/system', icon: <Server size={16} /> },
 ];
 
 export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {

@@ -10,6 +10,8 @@ import {
   AdminUserActionPayload,
   VoiceSessionsResponse,
   SystemHealthData,
+  PlatformAgentConfigData,
+  UpdatePlatformAgentPayload,
 } from '@/types/admin';
 
 export async function fetchPlatformStats(period = '30d'): Promise<PlatformStatsData> {
@@ -173,4 +175,20 @@ export async function fetchSystemHealth(): Promise<SystemHealthData> {
     method: 'GET',
   });
 }
+
+export async function fetchPlatformAgentConfig(): Promise<PlatformAgentConfigData> {
+  return apiClient<PlatformAgentConfigData>('/admin/platform-agent', {
+    method: 'GET',
+  });
+}
+
+export async function updatePlatformAgentConfig(
+  payload: UpdatePlatformAgentPayload,
+): Promise<{ success: boolean; business: any; agentConfig: any }> {
+  return apiClient<{ success: boolean; business: any; agentConfig: any }>('/admin/platform-agent', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
 

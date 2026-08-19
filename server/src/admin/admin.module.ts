@@ -9,6 +9,7 @@ import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
 import { Subscription, SubscriptionSchema } from '../billing/schemas/subscription.schema';
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
+import { AgentConfig, AgentConfigSchema } from '../agent-config/schemas/agent-config.schema';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { Product, ProductSchema } from '../products/schemas/product.schema';
       { name: Subscription.name, schema: SubscriptionSchema },
       { name: Order.name, schema: OrderSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: AgentConfig.name, schema: AgentConfigSchema },
     ]),
   ],
   controllers: [AdminController],

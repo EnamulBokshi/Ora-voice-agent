@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { AdminHeader } from './admin-header';
+import { AdminPlatformAgentCard } from './admin-platform-agent-card';
 import { fetchSystemHealth } from '@/services/admin-service';
 import { SystemHealthData } from '@/types/admin';
 import {
@@ -50,13 +51,16 @@ export function AdminSystemView() {
   return (
     <div className="flex flex-col min-h-full">
       <AdminHeader
-        title="Infrastructure & Diagnostics"
-        description="Low-level system metrics, database connection pools, Redis in-memory cache health, and server telemetry."
+        title="Infrastructure & Platform Agent"
+        description="Configure the flagship ORA Platform voice AI agent, inspect low-level system metrics, database connection pools, and Redis health."
         onRefresh={() => loadData(true)}
         isRefreshing={refreshing}
       />
 
       <div className="flex-1 p-6 space-y-6">
+        {/* Flagship Platform AI Agent Config Card */}
+        <AdminPlatformAgentCard />
+
         {/* Diagnostics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* MongoDB Health */}

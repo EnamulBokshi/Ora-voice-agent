@@ -7,6 +7,18 @@ export class UpdateAgentConfigDto {
 
   @IsOptional()
   @IsString()
+  businessArchetype?: string;
+
+  @IsOptional()
+  @IsString()
+  businessSummary?: string;
+
+  @IsOptional()
+  @IsString()
+  customDirectives?: string;
+
+  @IsOptional()
+  @IsString()
   language?: string;
 
   @IsOptional()

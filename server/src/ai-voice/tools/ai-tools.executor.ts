@@ -9,6 +9,7 @@ import { OrdersService } from '../../orders/orders.service';
 import { OrderSource } from '../../orders/schemas/order.schema';
 import { AgentConfigService } from '../../agent-config/agent-config.service';
 import { CustomersService } from '../../customers/customers.service';
+import { BillingService } from '../../billing/billing.service';
 
 @Injectable()
 export class AiToolsExecutor {
@@ -24,6 +25,8 @@ export class AiToolsExecutor {
     private readonly agentConfigService: AgentConfigService,
     @Optional()
     private readonly customersService?: CustomersService,
+    @Optional()
+    private readonly billingService?: BillingService,
   ) {}
 
   async executeTool(
@@ -51,6 +54,18 @@ export class AiToolsExecutor {
           return await this.handlePlaceOrder(businessId, sessionId, args);
         case 'redirect_to_checkout':
           return await this.handleRedirectToCheckout(businessId, sessionId);
+        case 'get_pricing_plans':
+        case 'get_plans':
+          return await this.handleGetPricingPlans(businessId, args);
+        case 'navigate_to_page':
+        case 'navigate':
+          return await this.handleNavigateToPage(businessId, sessionId, args);
+        case 'capture_sales_lead':
+        case 'save_lead':
+          return await this.handleCaptureSalesLead(businessId, sessionId, args);
+        case 'get_integration_guide':
+        case 'how_to_setup':
+          return await this.handleGetIntegrationGuide(businessId, args);
         case 'search_knowledge_base':
         case 'get_business_info':
         case 'get_store_policy':
@@ -58,6 +73,9 @@ export class AiToolsExecutor {
         case 'update_customer_profile':
         case 'save_customer_name':
           return await this.handleUpdateCustomerProfile(businessId, sessionId, args);
+        case 'update_agent_directives':
+        case 'save_merchant_directives':
+          return await this.handleUpdateAgentDirectives(businessId, args);
         default:
           return { error: `Unknown tool: ${toolName}` };
       }
@@ -67,6 +85,17 @@ export class AiToolsExecutor {
       );
       return { error: err.message || 'Internal tool execution error.' };
     }
+  }
+
+  private async handleUpdateAgentDirectives(businessId: string, args: Record<string, any>) {
+    await this.agentConfigService.updateConfig(businessId, {
+      customDirectives: args.directives,
+      ...(args.brandVoice ? { brandVoiceDescription: args.brandVoice } : {}),
+    });
+    return {
+      success: true,
+      message: 'Directives and instructions updated into persistent memory successfully.',
+    };
   }
 
   private async handleFindProducts(businessId: string, args: Record<string, any>) {
@@ -475,6 +504,227 @@ export class AiToolsExecutor {
     return {
       success: true,
       message: `Customer profile successfully saved with name: ${updated.name}`,
+    };
+  }
+
+  private async handleGetPricingPlans(businessId: string, args: Record<string, any>) {
+    let plansData: any[] = [];
+    try {
+      if (this.billingService) {
+        plansData = await this.billingService.getPlans();
+      }
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Error fetching plans from BillingService: ${err.message}`);
+    }
+
+    if (!plansData || plansData.length === 0) {
+      plansData = [
+        {
+          planId: 'starter',
+          name: 'Starter Plan',
+          priceUsd: 29,
+          priceBdt: 3200,
+          billingInterval: 'month',
+          limits: { conversationMinutes: 500, connectedStores: 1, seats: 1 },
+          features: [
+            '500 Live Voice Minutes / month',
+            '1 Connected Storefront / Portfolio',
+            'Universal Zero-Config DOM Scraping',
+            'Sub-400ms Ultra-Low Latency Streaming',
+            'Standard Support',
+          ],
+        },
+        {
+          planId: 'growth',
+          name: 'Growth Plan',
+          priceUsd: 99,
+          priceBdt: 10800,
+          billingInterval: 'month',
+          limits: { conversationMinutes: 2500, connectedStores: 3, seats: 5 },
+          features: [
+            '2,500 Live Voice Minutes / month',
+            '3 Connected Stores / Portfolios',
+            'Shopify & WooCommerce Real-Time Webhooks',
+            'Custom Brand Voice & Dynamic Directives',
+            'Priority 24/7 SLA & Live Desk Handoff',
+          ],
+        },
+        {
+          planId: 'scale',
+          name: 'Scale / Enterprise',
+          priceUsd: 299,
+          priceBdt: 32500,
+          billingInterval: 'month',
+          limits: { conversationMinutes: 10000, connectedStores: 10, seats: 20 },
+          features: [
+            '10,000+ Live Voice Minutes / month',
+            'Unlimited Custom Domains & White-Labeling',
+            'Custom LLM Fine-Tuning & Dedicated WebSockets',
+            'Dedicated Account Manager & 99.9% SLA',
+          ],
+        },
+      ];
+    } else {
+      plansData = plansData.map((p) => ({
+        planId: p.planId,
+        name: p.name,
+        priceUsd: p.priceUsdCents ? p.priceUsdCents / 100 : (p.priceMonthlyUsd || 0),
+        priceBdt: p.priceBdtPaisa ? p.priceBdtPaisa / 100 : (p.priceMonthlyBdt || 0),
+        billingInterval: p.billingInterval || 'month',
+        limits: p.limits || {
+          conversationMinutes: p.conversationMinutesIncluded || 100,
+          connectedStores: p.connectedStoresLimit || 1,
+        },
+        features: p.features || [],
+      }));
+    }
+
+    const preferBdt = args.currency && /bdt|taka/i.test(args.currency);
+    const summaryLines = plansData.map((p) => {
+      const priceStr = preferBdt ? `৳${p.priceBdt} BDT/mo` : `$${p.priceUsd} USD/mo (or ৳${p.priceBdt} BDT/mo)`;
+      const limitsStr = `${p.limits?.conversationMinutes || 0} voice mins/mo, ${p.limits?.connectedStores || 1} store(s)`;
+      return `• **${p.name}**: ${priceStr} — includes ${limitsStr}. Key features: ${(p.features || []).slice(0, 3).join(', ')}`;
+    });
+
+    return {
+      success: true,
+      plans: plansData,
+      currency: preferBdt ? 'BDT' : 'USD',
+      summary: summaryLines.join('\n'),
+      notes: 'We support instant online checkout via Stripe (USD credit/debit cards) and bKash (BDT tokenized agreement).',
+      action: {
+        type: 'navigate',
+        destination: '/pricing',
+        reason: 'Show full pricing table and comparison matrix',
+      },
+    };
+  }
+
+  private async handleNavigateToPage(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ) {
+    const rawDest = (args.destination || '').trim();
+    let cleanDest = rawDest;
+    if (!cleanDest.startsWith('/') && !cleanDest.startsWith('#')) {
+      cleanDest = `/${cleanDest}`;
+    }
+
+    return {
+      success: true,
+      message: `Navigating visitor to ${cleanDest}`,
+      action: {
+        type: 'navigate',
+        destination: cleanDest,
+        reason: args.reason || 'Requested by customer or AI assistant',
+      },
+    };
+  }
+
+  private async handleCaptureSalesLead(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ) {
+    const { name, email, phone, storeUrl, interestedPlan, notes } = args;
+
+    // 1. Try persisting through CustomerService if session customer exists
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
+    if (customerId && this.customersService) {
+      await this.customersService.update(businessId, customerId, {
+        name: name || undefined,
+        metadata: {
+          salesLead: {
+            email,
+            phone,
+            storeUrl,
+            interestedPlan,
+            notes,
+            capturedAt: new Date(),
+          },
+        },
+      } as any).catch(() => {});
+    }
+
+    // 2. Cache in Redis lead store for CRM notification
+    try {
+      const redis = this.redisService.getClient();
+      const leadKey = `lead:${businessId}:${Date.now()}`;
+      await redis.set(
+        leadKey,
+        JSON.stringify({
+          businessId,
+          sessionId,
+          name,
+          email,
+          phone,
+          storeUrl,
+          interestedPlan,
+          notes,
+          capturedAt: new Date().toISOString(),
+        }),
+        'EX',
+        86400 * 30, // 30 days
+      );
+    } catch {}
+
+    // 3. Emit event for sales dashboard notification
+    try {
+      if (this.eventsService) {
+        await this.eventsService.logEvent(
+          businessId,
+          EventType.SALES_LEAD_CAPTURED,
+          {
+            name,
+            email,
+            storeUrl,
+            interestedPlan,
+            notes,
+          },
+        );
+      }
+    } catch {}
+
+    return {
+      success: true,
+      message: `Thank you${name ? ` ${name}` : ''}! Your contact details (${email}) have been saved. Our team will follow up promptly.`,
+      leadCaptured: { name, email, storeUrl, interestedPlan },
+    };
+  }
+
+  private async handleGetIntegrationGuide(businessId: string, args: Record<string, any>) {
+    const platform = (args.platform || 'html').toLowerCase();
+
+    let guideMarkdown = '';
+    if (platform.includes('shopify')) {
+      guideMarkdown = `### Shopify Integration in 60 Seconds\n1. Open your Shopify Admin -> Online Store -> Themes -> Edit code.\n2. In \`theme.liquid\`, right before \`</head>\`, paste:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n3. Click Save! ORA immediately ingests your products via passive telemetry and mounts the live voice agent.`;
+    } else if (platform.includes('woo') || platform.includes('wordpress')) {
+      guideMarkdown = `### WooCommerce Integration\n1. Install the ORA WooCommerce Plugin or add the snippet to \`header.php\`:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n2. Set up WooCommerce REST API keys in your ORA dashboard for instant order placement.`;
+    } else if (platform.includes('next') || platform.includes('react')) {
+      guideMarkdown = `### Next.js & React Integration\nIn your root \`app/layout.tsx\`:\n\`\`\`tsx\nimport Script from 'next/script';\n\n<Script\n  src="http://localhost:3000/widget/ora-widget.js"\n  data-ora-key="YOUR_PUBLISHABLE_KEY"\n  data-ora-api="http://localhost:5000"\n  strategy="afterInteractive"\n/>\n\`\`\`\nORA automatically handles SPA route changes and hydration!`;
+    } else {
+      guideMarkdown = `### Universal HTML Integration\nAdd this single line anywhere in your HTML before \`</body>\`:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\nORA auto-scrapes your headings, projects, products, and contact info in real-time.`;
+    }
+
+    return {
+      success: true,
+      platform,
+      guide: guideMarkdown,
+      action: {
+        type: 'navigate',
+        destination: '/docs',
+        reason: 'View complete documentation and SDK references',
+      },
     };
   }
 }

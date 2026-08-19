@@ -142,7 +142,7 @@ const getSocketUrl = (): string => {
   return `http://${hostname}:5000`;
 };
 
-const PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
+const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_ORA_KEY || 'biz_live_ora_platform_system';
 
 /**
  * FloatingOrbWidget — Siri/Gemini Live style interactive voice assistant on the landing page.
@@ -457,6 +457,44 @@ export function FloatingOrbWidget() {
     window.addEventListener('ora-trigger-voice', handleTrigger);
     return () => window.removeEventListener('ora-trigger-voice', handleTrigger);
   });
+
+  // ── Auto-sync landing page telemetry on mount ─────────────────────────────
+  useEffect(() => {
+    try {
+      const apiBase = getSocketUrl();
+      const title = document.title || 'ORA AI Platform';
+      const headings: Array<{ level: string; text: string }> = [];
+      document.querySelectorAll('h1, h2, h3').forEach((el) => {
+        const txt = (el.textContent || '').trim();
+        if (txt && txt.length < 150) {
+          headings.push({ level: el.tagName.toLowerCase(), text: txt });
+        }
+      });
+
+      const bodyText = (document.body.innerText || '')
+        .replace(/\s+/g, ' ')
+        .slice(0, 4000);
+
+      fetch(`${apiBase}/api/v1/ingestion/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-publishable-key': PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          url: window.location.href,
+          pathname: window.location.pathname,
+          title,
+          headings,
+          bodyTextSnippet: bodyText,
+          contacts: {
+            emails: ['sales@ora.ai', 'support@ora.ai'],
+            links: ['https://github.com/enamul/ora'],
+          },
+        }),
+      }).catch(() => {});
+    } catch {}
+  }, []);
 
   // ── Cleanup on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -803,6 +841,20 @@ export function FloatingOrbWidget() {
         try {
           recognitionRef.current.abort();
         } catch {}
+      }
+    });
+
+    socket.on('tool-result', (data: { toolName: string; action?: { type: string; destination: string; reason?: string } }) => {
+      if (data?.action?.type === 'navigate' && data.action.destination) {
+        const dest = data.action.destination;
+        if (dest.startsWith('#')) {
+          const el = document.querySelector(dest);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } else if (dest.startsWith('/')) {
+          window.location.href = dest;
+        }
       }
     });
 

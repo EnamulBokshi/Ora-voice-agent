@@ -18,11 +18,12 @@ import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 
 import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
 import { CustomersModule } from '../customers/customers.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
-
   imports: [
     ConfigModule,
+    BillingModule,
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
       { name: AdminUser.name, schema: AdminUserSchema },
