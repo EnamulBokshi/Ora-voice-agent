@@ -96,7 +96,7 @@ export class GeminiLiveClient {
     const {
       publishableKey,
       sessionId,
-      apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
+      apiBaseUrl,
       authToken,
       onStatusChange,
       onTranscript,
@@ -133,7 +133,18 @@ export class GeminiLiveClient {
       const startTime = performance.now();
 
       // ── 1. Direct WebSocket URL Construction (Zero HTTP roundtrip penalty) ───
-      const wsBase = apiBaseUrl.replace(/^http/, 'ws');
+      let wsBase: string;
+      if (process.env.NEXT_PUBLIC_WS_URL) {
+        wsBase = process.env.NEXT_PUBLIC_WS_URL.replace(/^http/, 'ws');
+      } else if (apiBaseUrl && apiBaseUrl.startsWith('http')) {
+        wsBase = apiBaseUrl.replace(/^http/, 'ws');
+      } else if (typeof window !== 'undefined') {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsBase = `${wsProtocol}//${window.location.host}`;
+      } else {
+        wsBase = 'ws://localhost:5000';
+      }
+
       const wsPath = '/ws/voice';
       const ctx = this.options.clientContext;
       const contextParams = ctx

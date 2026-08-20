@@ -55,6 +55,9 @@ COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/dist ./dist
 # Copy package manifest
 COPY --chown=node:node --from=builder /app/package.json ./package.json
+# Copy email templates explicitly to ensure availability in production runner
+COPY --chown=node:node --from=builder /app/src/mail/templates ./dist/mail/templates
+COPY --chown=node:node --from=builder /app/src/mail/templates ./src/mail/templates
 
 EXPOSE 5000
 

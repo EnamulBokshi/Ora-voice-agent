@@ -31,68 +31,80 @@ export class MailService {
     to: string,
     data: VerifyEmailData,
   ): Promise<void> {
-    const html = renderVerifyEmailTemplate(data);
-    const from =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
-      this.configService.get<string>('SMTP_FROM') ||
-      'ORA Onboarding <onboarding@resend.dev>';
+    try {
+      const html = renderVerifyEmailTemplate(data);
+      const from =
+        this.configService.get<string>('RESEND_FROM_EMAIL') ||
+        this.configService.get<string>('SMTP_FROM') ||
+        'ORA Onboarding <onboarding@resend.dev>';
 
-    if (this.resend) {
-      try {
-        const response = await this.resend.emails.send({
-          from,
-          to,
-          subject: 'Verify your ORA merchant email address',
-          html,
-        });
+      if (this.resend) {
+        try {
+          const response = await this.resend.emails.send({
+            from,
+            to,
+            subject: 'Verify your ORA merchant email address',
+            html,
+          });
+          this.logger.log(
+            `[MailService] Verification email sent to ${to} via Resend (ID: ${response.data?.id})`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `[MailService] Failed to send email via Resend: ${err.message}`,
+          );
+        }
+      } else {
         this.logger.log(
-          `[MailService] Verification email sent to ${to} via Resend (ID: ${response.data?.id})`,
-        );
-      } catch (err: any) {
-        this.logger.error(
-          `[MailService] Failed to send email via Resend: ${err.message}`,
+          `==================================================\n` +
+            `[DEV OTP LOG] Verification Email to: ${to}\n` +
+            `[DEV OTP LOG] OTP Code: ${data.code}\n` +
+            `[DEV OTP LOG] Link: ${data.verifyUrl}\n` +
+            `==================================================`,
         );
       }
-    } else {
-      this.logger.log(
-        `==================================================\n` +
-          `[DEV OTP LOG] Verification Email to: ${to}\n` +
-          `[DEV OTP LOG] OTP Code: ${data.code}\n` +
-          `[DEV OTP LOG] Link: ${data.verifyUrl}\n` +
-          `==================================================`,
+    } catch (err: any) {
+      this.logger.error(
+        `[MailService] Verification email rendering/delivery error: ${err.message}`,
       );
     }
   }
 
   async sendOtpEmail(to: string, data: OtpEmailData): Promise<void> {
-    const html = renderOtpTemplate(data);
-    const from =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
-      this.configService.get<string>('SMTP_FROM') ||
-      'ORA Security <security@resend.dev>';
+    try {
+      const html = renderOtpTemplate(data);
+      const from =
+        this.configService.get<string>('RESEND_FROM_EMAIL') ||
+        this.configService.get<string>('SMTP_FROM') ||
+        'ORA Security <security@resend.dev>';
 
-    if (this.resend) {
-      try {
-        const response = await this.resend.emails.send({
-          from,
-          to,
-          subject: 'Your ORA Verification Code',
-          html,
-        });
+      if (this.resend) {
+        try {
+          const response = await this.resend.emails.send({
+            from,
+            to,
+            subject: 'Your ORA Verification Code',
+            html,
+          });
+          this.logger.log(
+            `[MailService] OTP email sent to ${to} via Resend (ID: ${response.data?.id})`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `[MailService] Failed to send OTP email via Resend: ${err.message}`,
+          );
+        }
+      } else {
         this.logger.log(
-          `[MailService] OTP email sent to ${to} via Resend (ID: ${response.data?.id})`,
-        );
-      } catch (err: any) {
-        this.logger.error(
-          `[MailService] Failed to send OTP email via Resend: ${err.message}`,
+          `==================================================\n` +
+            `[DEV OTP LOG] OTP Email to: ${to}\n` +
+            `[DEV OTP LOG] OTP Code: ${data.code}\n` +
+            `==================================================`,
         );
       }
-    } else {
-      this.logger.log(
-        `==================================================\n` +
-          `[DEV OTP LOG] OTP Email to: ${to}\n` +
-          `[DEV OTP LOG] OTP Code: ${data.code}\n` +
-          `==================================================`,
+    } catch (err: any) {
+      this.logger.error(
+        `[MailService] OTP email rendering/delivery error: ${err.message}`,
       );
     }
   }
