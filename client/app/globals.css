@@ -203,6 +203,7 @@
     --lp-primary-hover:       #B8DD28;
     --lp-primary-dim:         #D4F536;
     --lp-primary-glow:        rgba(200, 240, 49, 0.15);
+    --lp-stat-highlight:      #111111;
 
     /* Dark surfaces */
     --lp-dark:                #111111;
@@ -352,6 +353,7 @@
     --lp-primary-hover:       #D4F536;
     --lp-primary-dim:         #D4F536;
     --lp-primary-glow:        rgba(200, 240, 49, 0.2);
+    --lp-stat-highlight:      #D4F536;
 
     --lp-dark:                #0A0A0A;
     --lp-dark-deep:           #050505;
