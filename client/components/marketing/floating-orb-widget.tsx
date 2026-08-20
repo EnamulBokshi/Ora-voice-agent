@@ -277,10 +277,14 @@ export function FloatingOrbWidget() {
     } catch {}
   }, []);
 
+  const isMountedRef = useRef(true);
+
   // ── Cleanup on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      liveClientRef.current?.stop();
+      isMountedRef.current = false;
+      liveClientRef.current?.stop(true);
     };
   }, []);
 
@@ -308,6 +312,7 @@ export function FloatingOrbWidget() {
           history: pageHistoryRef.current,
         },
         onStatusChange: (status) => {
+          if (!isMountedRef.current) return;
           if (status === 'connecting') setVoiceState('connecting');
           else if (status === 'thinking') setVoiceState('thinking');
           else if (status === 'listening' || status === 'connected') setVoiceState('active');
@@ -316,6 +321,7 @@ export function FloatingOrbWidget() {
           else if (status === 'idle') setVoiceState('idle');
         },
         onTranscript: (sender, text) => {
+          if (!isMountedRef.current) return;
           if (sender === 'agent') {
             setLiveSpeaker('agent');
             setLiveUtterance(text);
@@ -327,13 +333,15 @@ export function FloatingOrbWidget() {
           }
         },
         onAudioLevel: (level) => {
-          if (voiceState === 'ora-speaking') {
+          if (!isMountedRef.current) return;
+          if (voiceStateRef.current === 'ora-speaking') {
             setSpeakingLevel(level);
           } else {
             setUserMicLevel(level);
           }
         },
         onAction: (action) => {
+          if (!isMountedRef.current) return;
           if (action?.type === 'navigate' && action.destination) {
             let dest = action.destination.trim();
             if (dest === '/register' || dest === '/signup' || dest === '/auth/register') {
@@ -342,24 +350,45 @@ export function FloatingOrbWidget() {
               dest = '/auth?mode=login';
             } else if (dest === '/home' || dest === '/landing') {
               dest = '/';
+            } else if (
+              dest === '/doc' ||
+              dest === '/docs' ||
+              dest === '/manual' ||
+              dest === '/manuals' ||
+              dest === '/guide' ||
+              dest === '/guides' ||
+              dest === '/documentation'
+            ) {
+              dest = '#features';
             }
 
             if (dest.startsWith('#')) {
               const el = document.querySelector(dest);
               if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } else if (pathname !== '/') {
+                setTimeout(() => {
+                  if (isMountedRef.current) {
+                    router.push(`/${dest}`);
+                  }
+                }, 0);
               }
             } else if (dest.startsWith('/')) {
               if (typeof window !== 'undefined') {
                 const currentFull = window.location.pathname + window.location.search;
                 if (currentFull !== dest) {
-                  router.push(dest);
+                  setTimeout(() => {
+                    if (isMountedRef.current) {
+                      router.push(dest);
+                    }
+                  }, 0);
                 }
               }
             }
           }
         },
         onError: (errMessage) => {
+          if (!isMountedRef.current) return;
           setErrorMsg(errMessage);
           setVoiceState('error');
         },
@@ -368,11 +397,12 @@ export function FloatingOrbWidget() {
       liveClientRef.current = client;
       await client.start();
     } catch (err: any) {
+      if (!isMountedRef.current) return;
       console.error('[OrbWidget] Direct GeminiLiveClient start failed:', err);
       setErrorMsg(err.message || 'Could not connect to Voice Gateway');
       setVoiceState('error');
     }
-  }, [pathname, router, voiceState]);
+  }, [pathname, router]);
 
   // ── Global event trigger support (e.g. from Hero CTA button) ───────────────
   const voiceStateRef = useRef<VoiceState>(voiceState);

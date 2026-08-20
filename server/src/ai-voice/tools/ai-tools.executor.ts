@@ -617,6 +617,43 @@ export class AiToolsExecutor {
       cleanDest = '/auth?mode=login';
     } else if (cleanDest === '/home' || cleanDest === '/landing') {
       cleanDest = '/';
+    } else if (
+      cleanDest === '/doc' ||
+      cleanDest === '/docs' ||
+      cleanDest === '/manual' ||
+      cleanDest === '/manuals' ||
+      cleanDest === '/guide' ||
+      cleanDest === '/guides' ||
+      cleanDest === '/documentation'
+    ) {
+      cleanDest = '#features';
+    }
+
+    const ALLOWED_TARGETS = [
+      '/',
+      '/pricing',
+      '/auth',
+      '/dashboard',
+      '/live-desk',
+      '/conversations',
+      '/agent',
+      '/customers',
+      '/billing',
+      '/profile',
+      '/admin',
+      '#features',
+      '#stats',
+      '#cta',
+      '#solutions',
+      '#docs',
+    ];
+
+    const isValid = ALLOWED_TARGETS.some(
+      (t) => cleanDest === t || cleanDest.startsWith(`${t}?`) || cleanDest.startsWith(`${t}/`),
+    );
+
+    if (!isValid) {
+      cleanDest = '#features';
     }
 
     return {

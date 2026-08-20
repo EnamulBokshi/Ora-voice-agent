@@ -81,7 +81,7 @@ export class GeminiLiveClient {
   }
 
   private handlePageHide = () => {
-    this.stop();
+    this.stop(true);
   };
 
   private resetIdleTimer() {
@@ -422,7 +422,7 @@ export class GeminiLiveClient {
     }
   }
 
-  public stop() {
+  public stop(silent = false) {
     this.setupConfirmed = false;
     this.isAgentSpeaking = false;
     this.userHasSpoken = false;
@@ -482,8 +482,10 @@ export class GeminiLiveClient {
       this.broadcastChannel = null;
     }
 
-    this.options.onStatusChange?.('idle');
-    this.options.onAudioLevel?.(0);
+    if (!silent) {
+      this.options.onStatusChange?.('idle');
+      this.options.onAudioLevel?.(0);
+    }
   }
 
   private float32ToInt16Base64(float32Array: Float32Array): string {

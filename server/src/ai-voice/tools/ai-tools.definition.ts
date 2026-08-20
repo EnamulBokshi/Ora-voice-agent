@@ -174,6 +174,8 @@ export const ORA_TOOL_DECLARATIONS = [
             '#features',
             '#stats',
             '#cta',
+            '#solutions',
+            '#docs',
           ],
         },
         reason: {

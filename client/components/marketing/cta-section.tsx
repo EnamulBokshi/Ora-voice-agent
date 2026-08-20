@@ -3,6 +3,7 @@ import Link from 'next/link';
 export function CtaSection() {
   return (
     <section
+      id="cta"
       aria-labelledby="cta-headline"
       style={{ paddingTop: '2rem', paddingBottom: '6rem' }}
     >

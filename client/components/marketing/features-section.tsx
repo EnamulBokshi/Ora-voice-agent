@@ -5,6 +5,8 @@ export function FeaturesSection() {
       className="lp-section"
       aria-labelledby="features-headline"
     >
+      <div id="solutions" style={{ position: 'relative', top: '-6rem' }} aria-hidden="true" />
+      <div id="docs" style={{ position: 'relative', top: '-6rem' }} aria-hidden="true" />
       <div className="lp-container">
         {/* Section label */}
         <div className="lp-section-label">

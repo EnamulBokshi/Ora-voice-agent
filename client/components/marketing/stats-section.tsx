@@ -8,6 +8,7 @@ const stats = [
 export function StatsSection() {
   return (
     <section
+      id="stats"
       aria-labelledby="stats-headline"
       style={{ paddingTop: '2rem', paddingBottom: '2rem' }}
     >
