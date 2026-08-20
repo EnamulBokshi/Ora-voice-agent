@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { GeminiVoiceService } from './gemini-voice.service';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
@@ -24,6 +25,15 @@ import { BillingModule } from '../billing/billing.module';
   imports: [
     ConfigModule,
     BillingModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'ora-secret-key-change-in-prod',
+      }),
+    }),
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
       { name: AdminUser.name, schema: AdminUserSchema },

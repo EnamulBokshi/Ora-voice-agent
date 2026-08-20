@@ -20,6 +20,8 @@ export default function MarketingLayout({
 }) {
   return (
     // lp-root scopes all Stitch/Lumina CSS tokens — does not affect the dashboard theme
-    <div className="lp-root">{children}</div>
+    <div className="lp-root relative min-h-screen">
+      {children}
+    </div>
   );
 }

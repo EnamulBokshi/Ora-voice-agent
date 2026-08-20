@@ -1,23 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as http from 'http';
 import * as url from 'url';
 import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
-import { GeminiVoiceService } from './gemini-voice.service';
+import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
+import { GeminiVoiceService, GeminiVoiceSessionControls } from './gemini-voice.service';
 import { RedisService } from '../common/redis/redis.service';
 
 import { CustomersService } from '../customers/customers.service';
 
 interface ProxySession {
   clientWs: WebSocket;
-  sessionControls: {
-    sendAudioChunk: (base64Pcm16k: string) => void;
-    sendTextMessage: (text: string) => void;
-    closeSession: () => void;
-  };
+  sessionControls: GeminiVoiceSessionControls;
   businessId: string;
   customerId: string;
   isAnonymous: boolean;
@@ -29,13 +27,17 @@ export class VoiceProxyGateway {
   private readonly logger = new Logger(VoiceProxyGateway.name);
   private readonly sessions = new Map<string, ProxySession>();
   private readonly businessCache = new Map<string, { businessId: string; name: string; expiresAt: number }>();
+  private readonly userCache = new Map<string, { user: { id: string; name: string; email: string; role: string; businessId?: string }; expiresAt: number }>();
   private wss: WebSocketServer | null = null;
 
   constructor(
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    @InjectModel(AdminUser.name)
+    private readonly adminUserModel: Model<AdminUserDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
   ) { }
@@ -51,7 +53,8 @@ export class VoiceProxyGateway {
       this.logger.log(`[VoiceProxyGateway] Cache invalidated for key: ${publishableKey.substring(0, 16)}...`);
     } else {
       this.businessCache.clear();
-      this.logger.log('[VoiceProxyGateway] All cached business keys cleared.');
+      this.userCache.clear();
+      this.logger.log('[VoiceProxyGateway] All cached business and user keys cleared.');
     }
   }
 
@@ -106,7 +109,46 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] New connection — session: ${sessionId}, key: ${publishableKey.substring(0, 16)}...`,
     );
 
-    // ── Resolve business from publishable key (with memory cache) ──────────────
+    // ── Check for Authenticated AdminUser / Merchant Token First ──────────────
+    const authTokenParam = parsedUrl.query.authToken as string;
+    let authenticatedUser: { id: string; name: string; email: string; role: string; businessId?: string } | undefined = undefined;
+
+    if (authTokenParam) {
+      try {
+        const decoded = await this.jwtService.verifyAsync(authTokenParam);
+        if (decoded && decoded.sub) {
+          const cached = this.userCache.get(decoded.sub);
+          if (cached && cached.expiresAt > Date.now()) {
+            authenticatedUser = cached.user;
+          } else {
+            const userDoc = await this.adminUserModel.findById(decoded.sub).exec();
+            if (userDoc) {
+              const uBizId = userDoc.businessId ? (userDoc.businessId as any).toString() : undefined;
+              authenticatedUser = {
+                id: (userDoc._id as any).toString(),
+                name: userDoc.name || 'Merchant User',
+                email: userDoc.email,
+                role: userDoc.role || 'owner',
+                businessId: uBizId,
+              };
+              this.userCache.set(decoded.sub, {
+                user: authenticatedUser,
+                expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
+              });
+            }
+          }
+          if (authenticatedUser) {
+            this.logger.log(
+              `[VoiceProxyGateway] 👤 Authenticated user connected: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}, biz: ${authenticatedUser.businessId}) for session ${sessionId}`,
+            );
+          }
+        }
+      } catch (authErr: any) {
+        this.logger.warn(`[VoiceProxyGateway] Auth token verification notice for session ${sessionId}: ${authErr.message}`);
+      }
+    }
+
+    // ── Resolve Host Business from Publishable Key (Single Source of Truth) ───
     let businessId: string | null = null;
     let businessName: string = '';
 
@@ -117,8 +159,12 @@ export class VoiceProxyGateway {
     } else {
       let business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
-      if (!business && publishableKey === 'biz_live_mock_key_12345' && process.env.NODE_ENV !== 'production') {
-        business = await this.businessModel.findOne({}).sort({ createdAt: -1 }).exec();
+      // Safe fallback for platform / demo / mock keys in development: look for ORA platform business
+      if (!business && (publishableKey === 'biz_live_mock_key_12345' || publishableKey === 'biz_live_demo' || publishableKey === 'biz_live_ora_platform_system') && process.env.NODE_ENV !== 'production') {
+        business = await this.businessModel.findOne({ name: { $regex: /ora/i } }).exec();
+        if (!business) {
+          business = await this.businessModel.findOne({}).sort({ createdAt: 1 }).exec();
+        }
       }
 
       if (business) {
@@ -167,6 +213,9 @@ export class VoiceProxyGateway {
       sessionId,
     });
 
+    const isUserAnon = authenticatedUser ? false : activeCustomer.isAnonymous;
+    const resolvedName = authenticatedUser?.name || activeCustomer.name;
+
     // Store active session customer mapping in Redis
     try {
       const redis = this.redisService.getClient();
@@ -174,8 +223,10 @@ export class VoiceProxyGateway {
         `session:${sessionId}:customer`,
         JSON.stringify({
           customerId: activeCustomer.id,
-          isAnonymous: activeCustomer.isAnonymous,
-          name: activeCustomer.name,
+          isAnonymous: isUserAnon,
+          name: resolvedName,
+          email: authenticatedUser?.email,
+          role: authenticatedUser?.role,
           businessId,
         }),
         'EX',
@@ -201,13 +252,40 @@ export class VoiceProxyGateway {
       }
     }
 
+    // ── Extract Live Client Context from Query ───────────────────────────────
+    const currentPathParam = (parsedUrl.query.currentPath as string) || '/';
+    const pageTitleParam = (parsedUrl.query.pageTitle as string) || '';
+    const historyParam = (parsedUrl.query.history as string) || '';
+    const activeSectionParam = (parsedUrl.query.activeSection as string) || '';
+
+    const initialClientContext = {
+      currentPath: currentPathParam,
+      title: pageTitleParam,
+      history: historyParam ? historyParam.split(',') : [currentPathParam],
+      activeSection: activeSectionParam,
+    };
+
+    // ── Terminate any existing session with the same sessionId ───────────────
+    const existingSession = this.sessions.get(sessionId);
+    if (existingSession) {
+      this.logger.log(`[VoiceProxyGateway] Cleaning up previous session with same sessionId: ${sessionId}`);
+      try {
+        existingSession.closed = true;
+        existingSession.sessionControls?.closeSession();
+        if (existingSession.clientWs.readyState === WebSocket.OPEN) {
+          existingSession.clientWs.close(1000, 'Replaced by new session');
+        }
+      } catch {}
+      this.sessions.delete(sessionId);
+    }
+
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {
       clientWs,
       sessionControls: null as any, // filled after createVoiceSession resolves
       businessId,
       customerId: activeCustomer.id,
-      isAnonymous: activeCustomer.isAnonymous,
+      isAnonymous: isUserAnon,
       closed: false,
     };
 
@@ -230,9 +308,10 @@ export class VoiceProxyGateway {
         sessionId,
         customerId: activeCustomer.id,
         deviceId: deviceIdParam,
+        clientContext: initialClientContext,
+        authenticatedUser,
 
         // Google → client: audio response
-
         onAudioData: (base64AudioPcm) => {
           sendToClient({ type: 'audio', data: base64AudioPcm });
         },
@@ -300,14 +379,15 @@ export class VoiceProxyGateway {
     // ── Notify client that session is ready ───────────────────────────────────
     sendToClient({
       type: 'setup_complete',
+      user: authenticatedUser || null,
       customer: {
         id: activeCustomer.id,
-        isAnonymous: activeCustomer.isAnonymous,
-        name: activeCustomer.name,
+        isAnonymous: isUserAnon,
+        name: resolvedName,
       },
     });
     this.logger.log(
-      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (Customer: ${activeCustomer.id}, Anon: ${activeCustomer.isAnonymous}). Active sessions: ${this.sessions.size}`,
+      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}). Active sessions: ${this.sessions.size}`,
     );
 
     // ── Route incoming messages from client → Google ──────────────────────────
@@ -377,6 +457,17 @@ export class VoiceProxyGateway {
           } catch (e) {}
           sendToClient({ type: 'session_suspended', resumptionToken: rToken });
           cleanup();
+          return;
+        }
+
+        if (msg.type === 'client_context_update') {
+          this.logger.log(`[VoiceProxyGateway] Context update for session ${sessionId}: page="${msg.currentPath || '/'}" title="${msg.title || ''}"`);
+          sessionControls.sendContextUpdate({
+            currentPath: msg.currentPath,
+            title: msg.title,
+            history: msg.history,
+            activeSection: msg.activeSection,
+          });
           return;
         }
 

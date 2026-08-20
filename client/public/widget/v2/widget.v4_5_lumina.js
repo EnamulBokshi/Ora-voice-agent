@@ -1393,10 +1393,14 @@
       }
       const wsBase = apiBase.replace(/^http/, 'ws');
       const custPayload = resolveCustomerPayload();
+      const curPath = (typeof window !== 'undefined' && window.location.pathname) ? window.location.pathname : '/';
+      const curTitle = (typeof document !== 'undefined' && document.title) ? document.title : '';
       let wsUri = wsBase + '/ws/voice' +
         '?publishableKey=' + encodeURIComponent(publishableKey) +
         '&sessionId=' + encodeURIComponent(sessionId) +
-        '&deviceId=' + encodeURIComponent(custPayload.deviceId);
+        '&deviceId=' + encodeURIComponent(custPayload.deviceId) +
+        '&currentPath=' + encodeURIComponent(curPath) +
+        '&pageTitle=' + encodeURIComponent(curTitle);
 
       if (custPayload.customerToken && custPayload.customerToken.customerId) {
         wsUri += '&customerId=' + encodeURIComponent(custPayload.customerToken.customerId) +

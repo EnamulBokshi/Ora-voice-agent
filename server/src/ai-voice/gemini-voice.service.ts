@@ -17,6 +17,18 @@ export interface GeminiVoiceSessionOptions {
   sessionId: string;
   customerId?: string;
   deviceId?: string;
+  authenticatedUser?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  clientContext?: {
+    currentPath?: string;
+    title?: string;
+    history?: string[];
+    activeSection?: string;
+  };
   onAudioData: (base64AudioPcm: string) => void;
   onTextData?: (text: string) => void;
   /** Called when Gemini signals a barge-in / interruption */
@@ -27,6 +39,13 @@ export interface GeminiVoiceSessionOptions {
   onToolResult?: (toolName: string, result?: any) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
+}
+
+export interface GeminiVoiceSessionControls {
+  sendAudioChunk: (base64Pcm16k: string) => void;
+  sendTextMessage: (text: string) => void;
+  sendContextUpdate: (context: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => void;
+  closeSession: () => void;
 }
 
 @Injectable()
@@ -54,11 +73,7 @@ export class GeminiVoiceService {
   ) { }
 
 
-  async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<{
-    sendAudioChunk: (base64Pcm16k: string) => void;
-    sendTextMessage: (text: string) => void;
-    closeSession: () => void;
-  }> {
+  async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<GeminiVoiceSessionControls> {
     const apiKey =
       this.configService.get<string>('GEMINI_API_KEY') ||
       process.env.GEMINI_API_KEY;
@@ -95,6 +110,8 @@ export class GeminiVoiceService {
       options.businessId,
       options.customerId,
       options.deviceId,
+      options.clientContext,
+      options.authenticatedUser,
     );
 
     const agentConfig = await this.agentConfigService.getConfig(options.businessId).catch(() => null);
@@ -143,6 +160,24 @@ export class GeminiVoiceService {
                   },
                 ],
                 turnComplete: true,
+              },
+            };
+            ws.send(JSON.stringify(clientContent));
+          }
+        },
+        sendContextUpdate: (ctx: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            const histStr = ctx.history && ctx.history.length > 0 ? ctx.history.join(' -> ') : ctx.currentPath || '/';
+            const contextText = `[CLIENT_BROWSING_STATE_UPDATE: Visitor is now viewing page "${ctx.currentPath || '/'}" (Page Title: "${ctx.title || ''}"${ctx.activeSection ? `, Active Section: "${ctx.activeSection}"` : ''}). Browsing history: ${histStr}. Rule: The visitor is ALREADY on this page. Do NOT suggest navigating to ${ctx.currentPath || '/'} or ask if they want to go there.]`;
+            const clientContent = {
+              clientContent: {
+                turns: [
+                  {
+                    role: 'user',
+                    parts: [{ text: contextText }],
+                  },
+                ],
+                turnComplete: false,
               },
             };
             ws.send(JSON.stringify(clientContent));
@@ -352,6 +387,18 @@ export class GeminiVoiceService {
     businessId: string,
     customerId?: string,
     deviceId?: string,
+    clientContext?: {
+      currentPath?: string;
+      title?: string;
+      history?: string[];
+      activeSection?: string;
+    },
+    authenticatedUser?: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+    },
   ): Promise<string> {
     let baseInstruction = '';
     const cached = this.instructionCache.get(businessId);
@@ -463,17 +510,74 @@ export class GeminiVoiceService {
 
       // ─── Adaptive Archetype Persona Construction ───────────────────────────
       let persona = '';
-      if (businessArchetype === 'portfolio') {
+      const isOraPlatform = (siteName || '').toLowerCase().includes('ora') || businessArchetype === 'saas';
+
+      if (isOraPlatform) {
+        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans.
+
+PLANS & PRICING (Preloaded in memory — answer immediately without tool delay):
+• Free Tier: $0 USD/mo (৳0 BDT) — 100 Voice Minutes, 20 Tier-1 Orders, 1 Connected Store, Basic RAG Search.
+• Growth Plan: $49 USD/mo (৳5,500 BDT) — 2,000 Voice Minutes, 500 Tier-1 Orders, 3 Connected Stores, 5 Staff Seats, Full RAG Vector Search, Webhook Sync, Custom Brand Voice Directives.
+• Scale Plan: $199 USD/mo (৳22,000 BDT) — Unlimited Voice Minutes, Unlimited Orders, 99 Connected Stores, 99 Seats, Dedicated SLA, Priority Support.
+We support instant online checkout with Stripe (USD cards) and bKash (BDT tokenized checkout). When a visitor asks how to buy or see plans, explain the options directly in voice. If they are not already on the pricing page, invoke navigate_to_page with "/pricing". If they are ALREADY on /pricing, refer to the pricing options right in front of them without asking to navigate there.`;
+      } else if (businessArchetype === 'portfolio') {
         persona = `You are ORA, ${ownerName ? `${ownerName}'s` : 'the creator\'s'} personal AI assistant and representative for this website and portfolio. Your primary mission is to warmly introduce visitors, recruiters, and clients to ${ownerName || 'the engineer'}'s background, featured projects, tech stack, and achievements, and help them get in touch or book a technical consultation.`;
       } else if (businessArchetype === 'agency_services') {
         persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
-      } else if (businessArchetype === 'saas') {
-        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for ORA (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans ($29 Starter, $99 Growth, $299 Enterprise with Stripe USD and bKash BDT). Proactively answer questions about integrations (Shopify, WooCommerce, Next.js, HTML), explain how our automated DOM scraping works, capture sales leads, and navigate visitors to our pricing or registration pages when they're ready to get started.`;
       } else if (businessArchetype === 'ecommerce' || hasProducts) {
         persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, availability, and guide them through checkout.`;
       } else {
         persona = `You are ORA, an intelligent, friendly AI representative and personal assistant for ${siteName || ownerName || 'this website'}.`;
       }
+
+      const sitemapDirectory = `
+APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this application):
+• Public & Marketing Routes:
+  - "/" : Landing Page / Home (Hero section, live interactive demo, #features, #stats, #cta).
+  - "/pricing" : Transparent Multimodal AI Pricing ($0 Free, $49 Growth, $199 Scale, Stripe & bKash checkout).
+  - "/auth?mode=register" : Merchant Account Registration / Sign Up / Create Account.
+  - "/auth?mode=login" : Merchant Login / Sign In.
+  - "/auth?mode=login&from=/dashboard" : Merchant Login with direct redirect to Dashboard.
+  - "/auth?mode=register&from=/dashboard" : Merchant Registration with direct redirect to Dashboard.
+• Merchant Dashboard Routes (for registered store owners and operators):
+  - "/dashboard" : Merchant Command Center, Real-Time Revenue, AI Performance & Store Overview.
+  - "/live-desk" : Live Shopper Voice & Chat Monitor.
+  - "/conversations" : Past Conversation History, Transcripts & Audio Logs.
+  - "/agent" : Voice Agent Configuration, Brand Voice Directives, and Widget Embed Script.
+  - "/customers" : Customer CRM & Shopper Identity Profiles.
+  - "/billing" : Subscription Management, Payment Methods, and Invoices.
+  - "/profile" : Merchant Store Profile & Settings.
+• Platform Admin Routes:
+  - "/admin" : SuperAdmin Command Center & Platform Control Plane.
+• In-Page Section Anchors (on Landing Page):
+  - "#features" : Platform Features & Zero-Config Capabilities.
+  - "#stats" : Real-Time Performance Stats & Sub-400ms Metrics.
+  - "#cta" : Call to Action Section.
+  - "#solutions" : Multi-channel E-commerce Solutions.
+  - "#docs" : Documentation, API & Integration Guide Anchor.
+
+* DASHBOARD & AUTHENTICATION NAVIGATION RULES:
+1. AUTHENTICATED USER ASKS FOR DASHBOARD:
+   - When an authenticated logged-in user asks to "go to dashboard", "open dashboard", "show store metrics", "view my store", or "open command center":
+     * If user role is "owner" or "staff": Respond verbally in 1 short sentence ("Taking you to your dashboard now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/dashboard".
+     * If user role is "admin" or "super_admin": Respond verbally in 1 short sentence ("Taking you to the admin command center now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/admin".
+     * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, profile): Call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/profile").
+
+2. UNAUTHENTICATED GUEST USER ASKS FOR DASHBOARD:
+   - When an unauthenticated guest visitor asks to "go to dashboard", "open my dashboard", "log in", "sign in", "create account", "register", or "access merchant portal":
+     * Inform them warmly in 1 short sentence: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
+     * IMMEDIATELY call navigate_to_page with destination "/auth?mode=login&from=/dashboard" (or "/auth?mode=register&from=/dashboard" if they asked to register/create account).
+
+3. GENERAL NAVIGATION & MANUALS/DOCS:
+   - When a user asks for documentation, manuals, or setup guides:
+     * Explain our 60-second setup verbally and answer their questions directly (or call get_integration_guide if they specify a platform like Shopify, WooCommerce, Next.js, or HTML).
+     * If they want to view documentation/features, call navigate_to_page with destination "#features" (or "#docs"). Never navigate to "/doc" or "/docs".
+   - When a user asks to see pricing, cost, or plans -> call navigate_to_page with destination "/pricing".
+   - When a user asks to go home or landing page -> call navigate_to_page with destination "/".
+   - When a user asks to view features -> call navigate_to_page with destination "#features".
+   - When a user asks to register or sign up -> call navigate_to_page with destination "/auth?mode=register".
+   - When a user asks to log in -> call navigate_to_page with destination "/auth?mode=login".
+   - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now!`;
 
       baseInstruction = [
         persona,
@@ -483,17 +587,17 @@ export class GeminiVoiceService {
         contactIdentitySummary,
         catalogSummary,
         knowledgeSummary,
+        sitemapDirectory,
         '',
         'CRITICAL RULES FOR REAL-TIME VOICE:',
-        '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally like a knowledgeable human assistant.',
-        '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING, not typing.',
-        '3. NEVER output internal reasoning, thought headers, or status messages (e.g. do not say "Searching catalog..." or "Hold on while I check").',
-        '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL): If the visitor asks for contact email, website URL, creator bio, what projects/services you offer, policies, or featured items, answer DIRECTLY from your preloaded memory above. NEVER call search tools for basic contact/identity questions.',
-        '5. WHEN TO USE TOOLS:',
+        '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally and enthusiastically like a human expert.',
+        '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
+        '3. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
+        '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the visitor asks who you are, what ORA does, pricing plans, how to buy, contact email, website URL, features, or how to integrate, answer IMMEDIATELY from your preloaded memory above with sub-400ms latency. Do not block voice audio.',
+        '5. WHEN TO USE TOOLS (WHILE SPEAKING):',
         businessArchetype === 'ecommerce' || hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above.' : '',
         businessArchetype === 'ecommerce' || hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
-        '   - get_pricing_plans: Call when a prospect asks for detailed pricing tiers, USD/BDT cost breakdown, or plan limits.',
-        '   - navigate_to_page: Call whenever a visitor asks to view a section (e.g. "show me pricing", "show me features", "take me to signup") or when guiding them to /pricing or /register.',
+        '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
         '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
         '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
         '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
@@ -512,41 +616,73 @@ export class GeminiVoiceService {
       });
     }
 
-    // 2. Dynamically Inject Active Customer Context (Per-Session)
+    // 2. Dynamically Inject Active User / Recognition Context (Per-Session)
     let customerContext = '';
-    if (this.customerModel && customerId) {
+    if (authenticatedUser) {
+      customerContext = `
+ACTIVE VISITOR CONTEXT (Authenticated Logged-In User):
+- Visitor Name: ${authenticatedUser.name || 'Merchant User'}
+- Email Address: ${authenticatedUser.email}
+- Account Role: ${authenticatedUser.role || 'owner'}
+- Authentication Status: Authenticated Logged-In User
+
+* INTERACTION RULES FOR AUTHENTICATED USER:
+1. Warmly recognize and greet them by name ("Welcome back, ${authenticatedUser.name || ''}!").
+2. When the user asks "who am I?", "what is my email?", "do you know me?", or "what is my role/account?", answer IMMEDIATELY and accurately from the authenticated user context above with 100% confidence.
+3. When the user asks to go to dashboard or open command center, IMMEDIATELY call navigate_to_page with "/dashboard" (or "/admin" if admin/super_admin) while confirming verbally.
+4. You are ORA. Answer their questions about the platform, features, pricing, or their merchant store operations.`;
+    } else if (this.customerModel && customerId) {
       try {
         const cust = await this.customerModel.findById(customerId).exec();
-        if (cust) {
-          const isKnownName = cust.name && cust.name !== 'Guest Shopper';
-          const prefs =
-            cust.extractedPreferences && Object.keys(cust.extractedPreferences).length > 0
-              ? JSON.stringify(cust.extractedPreferences)
-              : null;
+        const isKnownName = cust && cust.name && cust.name !== 'Guest Shopper';
+        const prefs =
+          cust?.extractedPreferences && Object.keys(cust.extractedPreferences).length > 0
+            ? JSON.stringify(cust.extractedPreferences)
+            : null;
 
-          const devId = deviceId || (cust.deviceIds && cust.deviceIds[0]) || null;
+        const devId = deviceId || (cust?.deviceIds && cust.deviceIds[0]) || null;
 
-          customerContext = `
-ACTIVE CUSTOMER & RECOGNITION CONTEXT (Who you are currently speaking with):
-- Customer Name: ${isKnownName ? cust.name : 'Guest Visitor (Ask for their name naturally if appropriate)'}
-- Account Status: ${cust.isAnonymous ? 'Guest Visitor (Device recognized)' : 'Registered Customer'}
+        customerContext = `
+ACTIVE USER & RECOGNITION CONTEXT (Guest Visitor):
+- Customer Name: ${isKnownName ? cust!.name : 'Guest Visitor (Unauthenticated)'}
+- Account Status: Guest Visitor (Unauthenticated)
 - Device ID: ${devId || 'Active Browser Session'}
-${prefs ? `- Saved Customer Preferences: ${prefs}` : ''}
-${cust.pastOrderIds && cust.pastOrderIds.length > 0 ? `- Past Orders Count: ${cust.pastOrderIds.length}` : ''}
+${prefs ? `- Saved Preferences: ${prefs}` : ''}
 
-* MEMORY & CUSTOMER INTERACTION RULES:
-1. If the visitor asks "do you know me?", "who am I?", or greets you:
-   - If their name is known ("${isKnownName ? cust.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust.name : ''}. Great to see you again!").
-   - If unknown, say: "You are visiting as a guest. What is your name?".
-2. If the visitor asks for their device ID, answer directly: "Your device ID is ${devId || 'active session'}".
-3. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "call me X") or shares preferences, IMMEDIATELY call the update_customer_profile tool to save their details into memory so you remember them next time!`;
-        }
+* GUEST DISCOVERY & INFORMATION GATHERING PLAYBOOK:
+1. If the visitor asks "do you know me?" or "who am I?":
+   - If their name is known ("${isKnownName ? cust!.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust!.name : ''}. Great to see you again!").
+   - If unknown, answer naturally: "You are visiting as a guest right now! May I have your name and email so I can assist you better?"
+2. When a guest asks to access or go to the dashboard:
+   - Tell them: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
+   - Call navigate_to_page with "/auth?mode=login&from=/dashboard".
+3. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their personal details (such as Name, Email, Phone number, Store/Company URL, or specific business requirements).
+4. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "my email is ...") or shares contact details/preferences, IMMEDIATELY call the update_customer_profile or capture_sales_lead tool in the background so you remember them!`;
       } catch (err: any) {
         this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
       }
     }
 
-    return [baseInstruction, customerContext].filter(Boolean).join('\n\n');
+    // 3. Dynamically Inject Real-Time Visitor Browsing Context
+    let browsingContext = '';
+    if (clientContext) {
+      const histStr =
+        clientContext.history && clientContext.history.length > 0
+          ? clientContext.history.join(' -> ')
+          : clientContext.currentPath || '/';
+      browsingContext = `
+REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
+• Current Page: ${clientContext.currentPath || '/'} (${clientContext.title || 'Active Page'})
+• Visible Section: ${clientContext.activeSection || 'Top of Page'}
+• Session Browsing History: ${histStr}
+
+* REAL-TIME BROWSING AWARENESS RULES:
+1. You are 100% aware of where the visitor is in the web app right now.
+2. If the visitor is ALREADY on the requested page (e.g. they ask about pricing while on /pricing, or about features while looking at features), acknowledge that they are currently on it (e.g. "As you can see right here on our pricing page...") and NEVER ask if they want to navigate there!
+3. If they ask "where am I?", "what page is this?", or "what was the last page I visited?", answer accurately from the real-time browsing state above.`;
+    }
+
+    return [baseInstruction, customerContext, browsingContext].filter(Boolean).join('\n\n');
   }
 
   getToolDeclarations(archetype?: string) {

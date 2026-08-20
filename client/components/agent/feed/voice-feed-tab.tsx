@@ -34,7 +34,7 @@ interface TranscriptEntry {
   timestamp: string;
 }
 
-type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'speaking' | 'error';
+type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'thinking' | 'speaking' | 'error';
 type VoiceMode = 'gemini-live' | 'speech-ai';
 
 export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceFeedTabProps) {
@@ -379,9 +379,13 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
       setErrorMessage(null);
       setStatus('connecting');
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const keyToUse = publishableKey || process.env.NEXT_PUBLIC_ORA_KEY || 'biz_live_ora_platform_system';
+
       const client = new GeminiLiveClient({
-        publishableKey,
+        publishableKey: keyToUse,
         sessionId,
+        authToken: token || undefined,
         onStatusChange: (newStatus) => setStatus(newStatus),
         onTranscript: (sender, text) => addTranscript(sender, text),
         onAudioLevel: (level) => setAudioLevel(level),

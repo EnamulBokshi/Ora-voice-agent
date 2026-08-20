@@ -516,51 +516,50 @@ export class AiToolsExecutor {
     } catch (err: any) {
       this.logger.warn(`[AiToolsExecutor] Error fetching plans from BillingService: ${err.message}`);
     }
-
     if (!plansData || plansData.length === 0) {
       plansData = [
         {
-          planId: 'starter',
-          name: 'Starter Plan',
-          priceUsd: 29,
-          priceBdt: 3200,
+          planId: 'free',
+          name: 'Free Tier',
+          priceUsd: 0,
+          priceBdt: 0,
           billingInterval: 'month',
-          limits: { conversationMinutes: 500, connectedStores: 1, seats: 1 },
+          limits: { conversationMinutes: 100, ordersPerMonth: 20, connectedStores: 1, seats: 1 },
           features: [
-            '500 Live Voice Minutes / month',
-            '1 Connected Storefront / Portfolio',
-            'Universal Zero-Config DOM Scraping',
-            'Sub-400ms Ultra-Low Latency Streaming',
-            'Standard Support',
+            '100 Live Voice Minutes / month',
+            '20 Tier-1 Orders',
+            '1 Connected Storefront / Connector',
+            'Basic RAG Search',
           ],
         },
         {
           planId: 'growth',
           name: 'Growth Plan',
-          priceUsd: 99,
-          priceBdt: 10800,
+          priceUsd: 49,
+          priceBdt: 5500,
           billingInterval: 'month',
-          limits: { conversationMinutes: 2500, connectedStores: 3, seats: 5 },
+          limits: { conversationMinutes: 2000, ordersPerMonth: 500, connectedStores: 3, seats: 5 },
           features: [
-            '2,500 Live Voice Minutes / month',
-            '3 Connected Stores / Portfolios',
-            'Shopify & WooCommerce Real-Time Webhooks',
-            'Custom Brand Voice & Dynamic Directives',
-            'Priority 24/7 SLA & Live Desk Handoff',
+            '2,000 Live Voice Minutes / month',
+            '500 Tier-1 Orders',
+            '3 Connected Stores',
+            '5 Staff Seats',
+            'Full RAG Vector Search & Webhook Sync',
           ],
         },
         {
           planId: 'scale',
-          name: 'Scale / Enterprise',
-          priceUsd: 299,
-          priceBdt: 32500,
+          name: 'Scale Plan',
+          priceUsd: 199,
+          priceBdt: 22000,
           billingInterval: 'month',
-          limits: { conversationMinutes: 10000, connectedStores: 10, seats: 20 },
+          limits: { conversationMinutes: 100000, ordersPerMonth: 100000, connectedStores: 99, seats: 99 },
           features: [
-            '10,000+ Live Voice Minutes / month',
-            'Unlimited Custom Domains & White-Labeling',
-            'Custom LLM Fine-Tuning & Dedicated WebSockets',
-            'Dedicated Account Manager & 99.9% SLA',
+            'Unlimited Live Voice Minutes / month',
+            'Unlimited Orders',
+            '99 Connected Stores',
+            '99 Staff Seats',
+            'Dedicated Account Manager & Priority Support',
           ],
         },
       ];
@@ -609,6 +608,52 @@ export class AiToolsExecutor {
     let cleanDest = rawDest;
     if (!cleanDest.startsWith('/') && !cleanDest.startsWith('#')) {
       cleanDest = `/${cleanDest}`;
+    }
+
+    // Sanitize and alias common route hallucination variations to valid Next.js routes
+    if (cleanDest === '/register' || cleanDest === '/signup' || cleanDest === '/auth/register') {
+      cleanDest = '/auth?mode=register';
+    } else if (cleanDest === '/login' || cleanDest === '/signin' || cleanDest === '/auth/login') {
+      cleanDest = '/auth?mode=login';
+    } else if (cleanDest === '/home' || cleanDest === '/landing') {
+      cleanDest = '/';
+    } else if (
+      cleanDest === '/doc' ||
+      cleanDest === '/docs' ||
+      cleanDest === '/manual' ||
+      cleanDest === '/manuals' ||
+      cleanDest === '/guide' ||
+      cleanDest === '/guides' ||
+      cleanDest === '/documentation'
+    ) {
+      cleanDest = '#features';
+    }
+
+    const ALLOWED_TARGETS = [
+      '/',
+      '/pricing',
+      '/auth',
+      '/dashboard',
+      '/live-desk',
+      '/conversations',
+      '/agent',
+      '/customers',
+      '/billing',
+      '/profile',
+      '/admin',
+      '#features',
+      '#stats',
+      '#cta',
+      '#solutions',
+      '#docs',
+    ];
+
+    const isValid = ALLOWED_TARGETS.some(
+      (t) => cleanDest === t || cleanDest.startsWith(`${t}?`) || cleanDest.startsWith(`${t}/`),
+    );
+
+    if (!isValid) {
+      cleanDest = '#features';
     }
 
     return {

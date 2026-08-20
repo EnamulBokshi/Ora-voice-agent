@@ -140,7 +140,7 @@ export class DomSemanticStructurerService {
 
     // 6. Update Agent Archetype and Summary in AgentConfig
     try {
-      const config = await this.agentConfigModel.findOne({ businessId: businessId as any }).exec();
+      const config = await this.agentConfigModel.findOne({ businessId }).exec();
       if (config) {
         let changed = false;
         if (config.businessArchetype === 'general' || !config.businessArchetype) {
