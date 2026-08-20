@@ -7,6 +7,11 @@ import {
   Database,
   Radio,
   ExternalLink,
+  Sparkles,
+  Mic,
+  FileText,
+  Package,
+  Key,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TopHeader } from '@/components/dashboard/top-header';
@@ -16,6 +21,7 @@ import { VoiceFeedTab } from './feed/voice-feed-tab';
 import { DocumentsFeedTab } from './feed/documents-feed-tab';
 import { ProductDetailsFeedTab } from './feed/product-details-feed-tab';
 import { KnowledgeFeedList } from './feed/knowledge-feed-list';
+import { AgentPersonaTab } from './persona/agent-persona-tab';
 import { getMeApi } from '@/services/auth-service';
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
@@ -24,7 +30,15 @@ import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AgentSection = 'voice' | 'documents' | 'products' | 'integration';
+type AgentSection = 'persona' | 'voice' | 'documents' | 'products' | 'integration';
+
+const AGENT_TABS: { id: AgentSection; label: string; icon: React.ElementType }[] = [
+  { id: 'persona', label: 'Persona & Archetype', icon: Sparkles },
+  { id: 'voice', label: 'Talk to ORA', icon: Mic },
+  { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'products', label: 'Product Catalog', icon: Package },
+  { id: 'integration', label: 'Integration & Keys', icon: Key },
+];
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
@@ -54,9 +68,9 @@ function AgentClientContent() {
   const searchParams = useSearchParams();
   const rawTab       = searchParams.get('tab') as AgentSection;
   const activeSection: AgentSection =
-    rawTab && ['voice', 'documents', 'products', 'integration'].includes(rawTab)
+    rawTab && ['persona', 'voice', 'documents', 'products', 'integration'].includes(rawTab)
       ? rawTab
-      : 'voice';
+      : 'persona';
 
   const fallbackKey = demoProfile?.business?.publishableKey ?? null;
   const fallbackName = demoProfile?.business?.name ?? 'My Store';
@@ -157,9 +171,43 @@ function AgentClientContent() {
         )}
       </div>
 
+      {/* ── In-Page Agent Tabs Navigation ── */}
+      <div className="flex items-center gap-1.5 px-6 lg:px-8 pt-4 pb-0 bg-background border-b border-border overflow-x-auto no-scrollbar flex-shrink-0">
+        {AGENT_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeSection === tab.id;
+          return (
+            <Link
+              key={tab.id}
+              href={`/agent?tab=${tab.id}`}
+              className={cn(
+                'flex items-center gap-2 px-3.5 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer',
+                isActive
+                  ? 'border-primary text-foreground font-semibold bg-surface-high/30 rounded-t-md'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-high/20 rounded-t-md',
+              )}
+            >
+              <Icon size={14} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
+              <span>{tab.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
       {/* ── Full-Width Content Area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar bg-background">
         <div className="max-w-[1400px] w-full mx-auto px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+          {/* ── Persona & Archetype section ── */}
+          {activeSection === 'persona' && (
+            <>
+              <SectionHeader
+                title="Agent Persona & Business Archetype"
+                description="Configure ORA's business model (Portfolio, E-Commerce, SaaS, Agency), brand voice description, creator bio, and custom directives."
+              />
+              <AgentPersonaTab />
+            </>
+          )}
 
           {/* ── Voice section ── */}
           {activeSection === 'voice' && (

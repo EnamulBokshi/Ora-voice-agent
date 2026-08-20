@@ -4,6 +4,9 @@ export interface AgentConfigData {
   _id?: string;
   businessId?: string;
   brandVoiceDescription: string;
+  businessArchetype?: string;
+  businessSummary?: string;
+  customDirectives?: string;
   language: string;
   idleTimeoutSeconds: number;
   discountFloorPercent: number;
@@ -34,6 +37,9 @@ export interface FullAgentConfigResponse {
 
 export interface UpdateAgentConfigInput {
   brandVoiceDescription?: string;
+  businessArchetype?: string;
+  businessSummary?: string;
+  customDirectives?: string;
   language?: string;
   idleTimeoutSeconds?: number;
   discountFloorPercent?: number;
