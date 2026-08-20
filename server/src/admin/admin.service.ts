@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpStatus, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -23,7 +23,7 @@ import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 
 @Injectable()
-export class AdminService {
+export class AdminService implements OnModuleInit {
   private readonly logger = new Logger(AdminService.name);
 
   constructor(
@@ -47,6 +47,108 @@ export class AdminService {
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
   ) { }
+
+  async onModuleInit() {
+    await this.seedSuperAdminOnStartup();
+  }
+
+  /**
+   * Automated SuperAdmin & System Tenant Bootstrapper
+   * Runs idempotently on server startup to guarantee platform readiness.
+   */
+  private async seedSuperAdminOnStartup(): Promise<void> {
+    try {
+      const adminEmail = (
+        this.configService.get<string>('ADMIN_EMAIL') ||
+        process.env.ADMIN_EMAIL ||
+        'ora.admin@tryora.live'
+      ).trim().toLowerCase();
+
+      const adminPassword = (
+        this.configService.get<string>('ADMIN_PASSWORD') ||
+        process.env.ADMIN_PASSWORD ||
+        'Admin@ora2026!'
+      ).trim();
+
+      const adminName = (
+        this.configService.get<string>('ADMIN_NAME') ||
+        process.env.ADMIN_NAME ||
+        'Platform SuperAdmin'
+      ).trim();
+
+      // 1. Ensure System Business Tenant exists
+      let systemBusiness = await this.businessModel.findOne({ publishableKey: 'biz_live_ora_platform_system' }).exec();
+      if (!systemBusiness) {
+        systemBusiness = await this.businessModel.findOne({ name: 'ORA Platform' }).exec();
+      }
+
+      if (!systemBusiness) {
+        this.logger.log('[AdminService] Initializing System Tenant ("ORA Platform")...');
+        systemBusiness = await this.businessModel.create({
+          name: 'ORA Platform',
+          domain: 'tryora.live',
+          publishableKey: 'biz_live_ora_platform_system',
+          keyStatus: 'active',
+          status: 'active',
+          connectedPlatform: 'none',
+        });
+      } else if (!systemBusiness.publishableKey) {
+        systemBusiness.publishableKey = 'biz_live_ora_platform_system';
+        await systemBusiness.save();
+      }
+
+      // 2. Ensure SuperAdmin User exists
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(adminPassword, salt);
+
+      let superAdmin = await this.adminUserModel.findOne({ email: adminEmail }).exec();
+      if (!superAdmin) {
+        superAdmin = await this.adminUserModel.findOne({ role: AdminRole.SUPER_ADMIN }).exec();
+      }
+
+      if (!superAdmin) {
+        this.logger.log(`[AdminService] Provisioning SuperAdmin User: "${adminEmail}"...`);
+        superAdmin = await this.adminUserModel.create({
+          businessId: systemBusiness._id as any,
+          email: adminEmail,
+          passwordHash,
+          name: adminName,
+          role: AdminRole.SUPER_ADMIN,
+          emailVerified: true,
+        });
+        this.logger.log(`[AdminService] SuperAdmin User created successfully: ${adminEmail}`);
+      } else {
+        let modified = false;
+        if (!superAdmin.emailVerified) {
+          superAdmin.emailVerified = true;
+          modified = true;
+        }
+        if (superAdmin.role !== AdminRole.SUPER_ADMIN) {
+          superAdmin.role = AdminRole.SUPER_ADMIN;
+          modified = true;
+        }
+        if (modified) {
+          await superAdmin.save();
+        }
+      }
+
+      // 3. Ensure System AgentConfig exists
+      let agentConfig = await this.agentConfigModel.findOne({ businessId: systemBusiness._id as any }).exec();
+      if (!agentConfig) {
+        await this.agentConfigModel.create({
+          businessId: systemBusiness._id as any,
+          businessArchetype: 'saas',
+          businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
+          brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
+          customDirectives: 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.',
+          isActive: true,
+        });
+        this.logger.log('[AdminService] AgentConfig created for ORA Platform.');
+      }
+    } catch (err: any) {
+      this.logger.warn(`[AdminService] Auto-seed status: ${err.message}`);
+    }
+  }
 
   /**
    * Aggregates high-level platform-wide statistics for the SuperAdmin command center.
