@@ -54,7 +54,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         errorMessage = exception.message;
       }
     } else if (exception instanceof Error) {
-      errorMessage = exception.message;
+      const isProduction = process.env.NODE_ENV === 'production';
+      errorMessage = isProduction
+        ? 'An unexpected internal error occurred. Please try again later.'
+        : exception.message;
       this.logger.error(
         `Unhandled Exception [${correlationId}]: ${exception.message}`,
         exception.stack,

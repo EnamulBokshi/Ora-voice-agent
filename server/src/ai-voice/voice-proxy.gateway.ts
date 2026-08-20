@@ -42,7 +42,7 @@ export class VoiceProxyGateway {
 
     server.on('upgrade', (request, socket, head) => {
       const parsedUrl = url.parse(request.url || '', true);
-      if (parsedUrl.pathname !== '/ws/voice') return;
+      if (parsedUrl.pathname !== '/ws/voice' && parsedUrl.pathname !== '/api/v1/ws/voice') return;
 
       this.wss!.handleUpgrade(request, socket as any, head, (ws) => {
         this.wss!.emit('connection', ws, request);

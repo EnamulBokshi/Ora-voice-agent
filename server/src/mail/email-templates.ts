@@ -68,11 +68,18 @@ export interface SecurityAlertData {
 /**
  * Locate template file resolving across src/ and dist/ build locations
  */
-function getTemplatePath(fileName: string): string {
+function getTemplatePath(fileName: string): string | null {
   const possiblePaths = [
     path.join(__dirname, 'templates', fileName),
+    path.join(__dirname, '..', 'templates', fileName),
+    path.join(__dirname, '..', 'mail', 'templates', fileName),
+    path.join(__dirname, '..', '..', 'mail', 'templates', fileName),
+    path.join(__dirname, '..', '..', 'src', 'mail', 'templates', fileName),
+    path.join(process.cwd(), 'dist', 'mail', 'templates', fileName),
+    path.join(process.cwd(), 'dist', 'src', 'mail', 'templates', fileName),
     path.join(process.cwd(), 'src', 'mail', 'templates', fileName),
     path.join(process.cwd(), 'server', 'src', 'mail', 'templates', fileName),
+    path.join(process.cwd(), 'mail', 'templates', fileName),
   ];
 
   for (const p of possiblePaths) {
@@ -81,30 +88,76 @@ function getTemplatePath(fileName: string): string {
     }
   }
 
-  throw new Error(`[EmailTemplatesEngine] EJS template file not found: ${fileName}. Checked paths: ${possiblePaths.join(', ')}`);
+  return null;
 }
 
 /**
- * Render EJS body template inside base layout.ejs
+ * Clean responsive fallback HTML template used when disk templates are missing
+ */
+function getFallbackHtml(data: Record<string, any>, meta: { title: string; preheader: string }): string {
+  const code = data.code || '';
+  const url = data.verifyUrl || data.resetUrl || data.inviteUrl || data.dashboardUrl || data.secureAccountUrl || '#';
+  const name = data.recipientName || 'there';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${meta.title}</title>
+</head>
+<body style="margin:0;padding:40px 20px;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#FAFAFA;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background-color:#111111;border:1px solid #2A2A2A;border-radius:12px;overflow:hidden;">
+    <tr>
+      <td style="padding:32px 32px 24px 32px;background-color:#0A0A0A;border-bottom:1px solid #222222;">
+        <span style="font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#C8F031;">ORA</span>
+        <span style="font-size:12px;color:#888888;margin-left:8px;text-transform:uppercase;letter-spacing:1px;">AI Sales Platform</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        <h2 style="font-size:20px;font-weight:700;color:#FAFAFA;margin:0 0 12px 0;">${meta.title}</h2>
+        <p style="font-size:15px;line-height:1.6;color:#CCCCCC;margin:0 0 16px 0;">Hi ${name},</p>
+        <p style="font-size:15px;line-height:1.6;color:#AAAAAA;margin:0 0 24px 0;">${meta.preheader}</p>
+        ${code ? `<div style="background-color:#050505;border:1px solid #2A2A2A;border-radius:8px;padding:20px;text-align:center;margin:24px 0;"><span style="font-size:32px;letter-spacing:8px;font-weight:700;color:#C8F031;font-family:monospace;">${code}</span></div>` : ''}
+        ${url !== '#' ? `<div style="text-align:center;margin:28px 0;"><a href="${url}" style="background-color:#C8F031;color:#111111;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Proceed to ORA</a></div>` : ''}
+        <p style="font-size:12px;color:#666666;margin:32px 0 0 0;padding-top:20px;border-top:1px solid #222222;">If you did not request this email, you can safely ignore it.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * Render EJS body template inside base layout.ejs with resilient fallback
  */
 export function renderEjsTemplate(templateName: string, data: Record<string, any>, meta: { title: string; preheader: string }): string {
-  const layoutPath = getTemplatePath('layout.ejs');
-  const bodyPath = getTemplatePath(`${templateName}.ejs`);
+  try {
+    const layoutPath = getTemplatePath('layout.ejs');
+    const bodyPath = getTemplatePath(`${templateName}.ejs`);
 
-  const layoutSource = fs.readFileSync(layoutPath, 'utf8');
-  const bodySource = fs.readFileSync(bodyPath, 'utf8');
+    if (!layoutPath || !bodyPath) {
+      return getFallbackHtml(data, meta);
+    }
 
-  // Render body EJS template
-  const renderedBody = ejs.render(bodySource, data);
+    const layoutSource = fs.readFileSync(layoutPath, 'utf8');
+    const bodySource = fs.readFileSync(bodyPath, 'utf8');
 
-  // Render layout wrapper passing body HTML
-  const finalHtml = ejs.render(layoutSource, {
-    title: meta.title,
-    preheader: meta.preheader,
-    body: renderedBody,
-  });
+    // Render body EJS template
+    const renderedBody = ejs.render(bodySource, data);
 
-  return finalHtml;
+    // Render layout wrapper passing body HTML
+    const finalHtml = ejs.render(layoutSource, {
+      title: meta.title,
+      preheader: meta.preheader,
+      body: renderedBody,
+    });
+
+    return finalHtml;
+  } catch (err: any) {
+    return getFallbackHtml(data, meta);
+  }
 }
 
 /**

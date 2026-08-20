@@ -54,7 +54,7 @@ export class GeminiLiveClient {
     const {
       publishableKey,
       sessionId,
-      apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000',
+      apiBaseUrl,
       onStatusChange,
       onTranscript,
       onError,
@@ -67,8 +67,24 @@ export class GeminiLiveClient {
 
       const startTime = performance.now();
 
-      // ── 1. Bootstrap: obtain sessionId + wsPath from ORA server ──────────────
-      const bootstrapRes = await fetch(`${apiBaseUrl}/api/v1/voice/session/bootstrap`, {
+      // ── 1. Determine HTTP REST base URL ───────────────────────────────────────
+      let restBase = apiBaseUrl;
+      if (!restBase) {
+        if (typeof window !== 'undefined') {
+          restBase = window.location.origin;
+        } else if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
+          restBase = process.env.NEXT_PUBLIC_API_URL;
+        } else {
+          restBase = 'http://localhost:5000';
+        }
+      } else if (restBase.startsWith('/')) {
+        // If relative (e.g. '/api/v1' or '/api'), use browser origin
+        restBase = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
+      }
+
+      // ── 2. Bootstrap: obtain sessionId + wsPath from ORA server ──────────────
+      const bootstrapEndpoint = `${restBase}/api/v1/voice/session/bootstrap`;
+      const bootstrapRes = await fetch(bootstrapEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publishableKey, sessionId }),
@@ -85,9 +101,19 @@ export class GeminiLiveClient {
       this.options.onLatency?.(bootstrapRtt);
       onTranscript?.('system', `✅ Bootstrap OK (${bootstrapRtt}ms). Connecting to voice proxy...`);
 
-      // ── 2. Open WebSocket to ORA Proxy (not Google) ───────────────────────────
-      const wsBase = apiBaseUrl.replace(/^http/, 'ws');
-      const wsPath = bootstrap.wsPath || '/ws/voice';
+      // ── 3. Open WebSocket to ORA Proxy (not Google) ───────────────────────────
+      let wsBase: string;
+      if (process.env.NEXT_PUBLIC_WS_URL) {
+        wsBase = process.env.NEXT_PUBLIC_WS_URL.replace(/^http/, 'ws');
+      } else if (typeof window !== 'undefined') {
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsBase = `${wsProtocol}//${window.location.host}`;
+      } else {
+        wsBase = 'ws://localhost:5000';
+      }
+
+      const rawWsPath = bootstrap.wsPath || '/ws/voice';
+      const wsPath = rawWsPath.startsWith('/') ? rawWsPath : `/${rawWsPath}`;
       const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}`;
 
       const ws = new WebSocket(wsUrl);

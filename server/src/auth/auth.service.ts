@@ -76,12 +76,16 @@ export class AuthService {
     });
 
     // Send verification email
-    await this.mailService.sendVerificationEmail(user.email, {
-      recipientName: user.name,
-      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
-      code: otpCode,
-      expireMinutes: 10,
-    });
+    try {
+      await this.mailService.sendVerificationEmail(user.email, {
+        recipientName: user.name,
+        verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+        code: otpCode,
+        expireMinutes: 10,
+      });
+    } catch (mailErr: any) {
+      this.logger.error(`[AuthService] Verification email delivery warning: ${mailErr.message}`);
+    }
 
     // Send ORA Welcome & Integration credentials email
     if (this.onboardingEmailService) {
