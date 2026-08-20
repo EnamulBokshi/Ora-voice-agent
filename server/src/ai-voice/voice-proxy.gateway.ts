@@ -161,7 +161,10 @@ export class VoiceProxyGateway {
 
       // Safe fallback for platform / demo / mock keys in development: look for ORA platform business
       if (!business && (publishableKey === 'biz_live_mock_key_12345' || publishableKey === 'biz_live_demo' || publishableKey === 'biz_live_ora_platform_system') && process.env.NODE_ENV !== 'production') {
-        business = await this.businessModel.findOne({ name: { $regex: /ora/i } }).exec();
+        business = await this.businessModel.findOne({ publishableKey: 'biz_live_ora_platform_system' }).exec();
+        if (!business) {
+          business = await this.businessModel.findOne({ name: 'ORA Platform' }).exec();
+        }
         if (!business) {
           business = await this.businessModel.findOne({}).sort({ createdAt: 1 }).exec();
         }
