@@ -59,10 +59,19 @@ function BillingClientContent() {
     );
   }
 
-  if (error || !subscription) {
+  const effectiveSubscription: SubscriptionDetailsResponse = subscription ?? {
+    plan: null,
+    subscription: null,
+    usage: {
+      conversationMinutes: 0,
+      ordersPerMonth: 0,
+    },
+  };
+
+  if (error) {
     return (
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-sm text-muted-foreground px-6">
-        {error ?? 'Billing unavailable.'}
+        {error}
       </div>
     );
   }
@@ -72,12 +81,12 @@ function BillingClientContent() {
       <div className="max-w-[1200px] mx-auto space-y-8">
         <BillingHeader />
         {isUsageTab ? (
-          <UsageDashboard subscription={subscription} />
+          <UsageDashboard subscription={effectiveSubscription} />
         ) : (
           <>
-            <CurrentPlanCard subscription={subscription} onReload={load} />
+            <CurrentPlanCard subscription={effectiveSubscription} onReload={load} />
             <PlanComparisonGrid
-              currentPlanId={subscription.plan?.planId ?? null}
+              currentPlanId={effectiveSubscription.plan?.planId ?? null}
               onSubscribed={load}
             />
             <InvoiceHistory invoices={invoices} onResent={load} />
