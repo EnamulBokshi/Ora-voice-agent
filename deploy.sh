@@ -4,15 +4,19 @@ set -e
 # ==============================================================================
 # ORA Production One-Shot Deployment Script
 # Domain: https://tryora.live
-# Backend Port:  4000 (127.0.0.1:4000:5000)
-# Frontend Port: 4080 (127.0.0.1:4080:3000)
+# Backend Port:  4000 (127.0.0.1:4000 -> container:5000)
+# Frontend Port: 4080 (127.0.0.1:4080 -> container:3000)
 # ==============================================================================
 
 LOCAL_DIR="/home/nullpointer/Documents/work/hype_corporation/ORA/"
 REMOTE_HOST="contabo"
 REMOTE_DIR="/root/ora"
 
-echo "🚀 [1/4] Syncing ORA codebase to VPS ($REMOTE_HOST:$REMOTE_DIR)..."
+echo "=========================================================="
+echo "🚀 Starting ORA Production Deployment ($REMOTE_HOST)"
+echo "=========================================================="
+
+echo "📦 [1/2] Syncing codebase to VPS ($REMOTE_HOST:$REMOTE_DIR)..."
 rsync -avz --delete \
   --exclude 'node_modules' \
   --exclude 'client/node_modules' \
@@ -27,33 +31,50 @@ rsync -avz --delete \
   --exclude 'erd.pdf' \
   "$LOCAL_DIR" "$REMOTE_HOST:$REMOTE_DIR/"
 
-echo "🔧 [2/4] Verifying production .env on VPS..."
-ssh "$REMOTE_HOST" "
-  if [ ! -f $REMOTE_DIR/.env ]; then
-    echo '⚠️  No .env found on VPS. Creating initial .env from .env.example...'
-    cp $REMOTE_DIR/.env.example $REMOTE_DIR/.env
-    echo '👉 Please verify and update secrets in $REMOTE_DIR/.env on the VPS!'
-  fi
-"
+echo "🔧 [2/2] Running production deployment on VPS..."
+ssh "$REMOTE_HOST" "bash -s" << 'EOF'
+set -e
+REMOTE_DIR="/root/ora"
+cd "$REMOTE_DIR"
 
-echo "🌐 [3/4] Updating Host Nginx configuration..."
-ssh "$REMOTE_HOST" "
-  cp $REMOTE_DIR/deploy/nginx/ora.conf /etc/nginx/sites-available/ora.conf
+echo "🔍 Verifying production environment configuration..."
+if [ ! -f "$REMOTE_DIR/.env" ]; then
+  echo "⚠️  No .env found on VPS. Creating initial .env from .env.example..."
+  cp "$REMOTE_DIR/.env.example" "$REMOTE_DIR/.env"
+  echo "👉 Please verify secrets in $REMOTE_DIR/.env on the VPS!"
+fi
+
+# Pre-flight check for unconfigured default placeholders
+if grep -q "replace_with_a_super_strong_random_jwt_secret" "$REMOTE_DIR/.env" 2>/dev/null; then
+  echo "⚠️  WARNING: Default JWT_SECRET detected in $REMOTE_DIR/.env. Consider generating a production secret."
+fi
+if grep -q "AIzaSy_your_gemini_api_key_here" "$REMOTE_DIR/.env" 2>/dev/null; then
+  echo "⚠️  WARNING: Default GEMINI_API_KEY placeholder detected in $REMOTE_DIR/.env. AI Voice & RAG features require a valid key."
+fi
+
+# Update Host Nginx Configuration if Nginx is installed
+if [ -d "/etc/nginx/sites-available" ]; then
+  echo "🌐 Updating Host Nginx reverse proxy configuration..."
+  cp "$REMOTE_DIR/deploy/nginx/ora.conf" /etc/nginx/sites-available/ora.conf
+  mkdir -p /etc/nginx/sites-enabled/
   ln -sf /etc/nginx/sites-available/ora.conf /etc/nginx/sites-enabled/
   if nginx -t > /dev/null 2>&1; then
     systemctl reload nginx
-    echo '✅ Nginx reloaded successfully.'
+    echo "✅ Nginx reloaded successfully."
   else
-    echo '⚠️  Nginx config test failed (likely pending Certbot SSL certs). Keeping current config.'
+    echo "⚠️  Nginx config test failed (pending SSL certificates or syntax). Preserving running Nginx config."
   fi
-"
+fi
 
-echo "🔨 [4/4] Building and launching ORA production containers..."
-ssh "$REMOTE_HOST" "cd $REMOTE_DIR && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans"
-
-echo ""
-echo "📊 Current Container Status:"
-ssh "$REMOTE_HOST" "cd $REMOTE_DIR && docker compose -f docker-compose.prod.yml ps"
+echo "🔨 Building and launching ORA production containers..."
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
 
 echo ""
-echo "🎉 ORA deployment finished! Visit: https://tryora.live"
+echo "📊 Production Container Status:"
+docker compose -f docker-compose.prod.yml ps
+
+echo ""
+echo "🎉 ORA production stack deployed successfully!"
+echo "🌐 URL: https://tryora.live"
+EOF
+

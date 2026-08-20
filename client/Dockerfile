@@ -53,13 +53,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy public static assets
-COPY --from=builder /app/public ./public
-
-# Automatically leverage output traces to reduce image size
-# Copy standalone server and static files
+# Copy standalone server build output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Copy static assets to both root and subpaths for monorepo standalone resilience
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./client/public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./client/.next/static
 
 # Set permissions
 USER nextjs

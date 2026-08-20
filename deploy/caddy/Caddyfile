@@ -1,8 +1,11 @@
 # ==============================================================================
 # ORA Caddy Reverse Proxy Configuration (Automatic SSL & WebSockets)
+# Domain: tryora.live
+# Frontend: 127.0.0.1:4080
+# Backend:  127.0.0.1:4000
 # ==============================================================================
 
-yourdomain.com, app.ora.ai {
+tryora.live, www.tryora.live {
     # Encode responses with gzip and zstd
     encode zstd gzip
 
@@ -13,10 +16,10 @@ yourdomain.com, app.ora.ai {
 
     # Route WebSockets and backend APIs directly to NestJS
     @backend {
-        path /api/* /ws/* /socket.io/*
+        path /api/* /ws/* /ws /socket.io/* /socket.io
     }
     handle @backend {
-        reverse_proxy 127.0.0.1:5000 {
+        reverse_proxy 127.0.0.1:4000 {
             # Ensure WebSocket streaming headers are passed
             header_up Host {host}
             header_up X-Real-IP {remote_host}
@@ -25,9 +28,9 @@ yourdomain.com, app.ora.ai {
         }
     }
 
-    # Route all other dashboard & public web traffic to Next.js
+    # Route Next.js static files and frontend traffic to Next.js
     handle {
-        reverse_proxy 127.0.0.1:3000 {
+        reverse_proxy 127.0.0.1:4080 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}

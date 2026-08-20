@@ -102,7 +102,7 @@ export function MerchantCredentialsCard({
       case 'woocommerce':
         return `<!-- WooCommerce / WordPress Script Injection -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`;
       case 'react':
-        return `// Next.js (App Router / Pages) or React Layout\nimport Script from 'next/script';\n\nexport default function StoreLayout({ children }) {\n  return (\n    <>\n      {children}\n      <script\n        dangerouslySetInnerHTML={{\n          __html: \`window.ORA_CONFIG={key:"${publishableKey}",api:"${apiOrigin}"};\`\n        }}\n      />\n      <Script src="${origin}/widget/ora-widget.js" strategy="afterInteractive" />\n    </>\n  );\n}`;
+        return `// Next.js (App Router / Pages) or React Layout\nimport Script from 'next/script';\n\nexport default function StoreLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <>\n      {children}\n      <Script\n        src="${origin}/widget/ora-widget.js"\n        data-ora-key="${publishableKey}"\n        data-ora-api="${apiOrigin}"\n        strategy="afterInteractive"\n      />\n    </>\n  );\n}`;
     }
   };
 

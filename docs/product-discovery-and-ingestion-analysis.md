@@ -385,19 +385,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
 
-        {/* 1. Global ORA Configuration */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.ORA_CONFIG = {
-              key: "${process.env.NEXT_PUBLIC_ORA_KEY}",
-              api: "${process.env.NEXT_PUBLIC_ORA_API_URL}"
-            };`,
-          }}
-        />
-
-        {/* 2. Load ORA Widget */}
+        {/* ORA Voice AI Widget */}
         <Script
-          src="https://cdn.ora.ai/widget/v2/ora-widget.js"
+          src="https://cdn.ora.ai/widget/ora-widget.js"
+          data-ora-key={process.env.NEXT_PUBLIC_ORA_KEY}
+          data-ora-api={process.env.NEXT_PUBLIC_ORA_API_URL}
           strategy="afterInteractive"
         />
       </body>
