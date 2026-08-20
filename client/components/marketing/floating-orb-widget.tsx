@@ -10,15 +10,14 @@ import { GeminiLiveClient } from '@/services/gemini-live-client';
 export type VoiceState = 'idle' | 'connecting' | 'active' | 'thinking' | 'ora-speaking' | 'error';
 
 // ─── Socket / API URL Resolution ──────────────────────────────────────────────
-const getApiUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+const getApiBase = (): string => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
   }
-  if (typeof window === 'undefined') {
-    return 'http://localhost:5000';
+  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, '');
   }
-  const hostname = window.location.hostname || 'localhost';
-  return `http://${hostname}:5000`;
+  return 'http://localhost:5000';
 };
 
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_ORA_KEY || 'biz_live_ora_platform_system';
@@ -242,7 +241,7 @@ export function FloatingOrbWidget() {
   // ── Auto-sync landing page telemetry on mount ─────────────────────────────
   useEffect(() => {
     try {
-      const apiBase = getApiUrl();
+      const apiBase = getApiBase();
       const title = document.title || 'ORA AI Platform';
       const headings: Array<{ level: string; text: string }> = [];
       document.querySelectorAll('h1, h2, h3').forEach((el) => {
@@ -298,7 +297,7 @@ export function FloatingOrbWidget() {
     setShowTranscript(true);
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
-    const apiBaseUrl = getApiUrl();
+    const apiBaseUrl = getApiBase();
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     try {
       const client = new GeminiLiveClient({

@@ -44,6 +44,10 @@
     }
   }
 
+  if (apiBase) {
+    apiBase = apiBase.replace(/\/api\/v1\/?$/, '');
+  }
+
   // Positioning: 'bottom-center' (default)
   var position = _cfg.position || (scriptEl && scriptEl.getAttribute('data-ora-position')) || 'bottom-center';
 

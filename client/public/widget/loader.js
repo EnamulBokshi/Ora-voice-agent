@@ -46,6 +46,10 @@
       : w.location.origin;
   }
 
+  if (apiBase) {
+    apiBase = apiBase.replace(/\/api\/v1\/?$/, '');
+  }
+
   // Ensure window.ORA_CONFIG is populated for downstream bundle
   w.ORA_CONFIG = w.ORA_CONFIG || {};
   if (key && !w.ORA_CONFIG.key) w.ORA_CONFIG.key = key;
