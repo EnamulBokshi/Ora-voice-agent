@@ -457,4 +457,42 @@ export class LiveDeskService {
       ],
     };
   }
+
+  async closeSession(businessId: string, sessionIdOrId: string) {
+    const businessObjId = Types.ObjectId.isValid(businessId)
+      ? new Types.ObjectId(businessId)
+      : (businessId as any);
+
+    const query: any = {
+      businessId: businessObjId,
+      $or: [
+        { sessionId: sessionIdOrId },
+      ],
+    };
+
+    if (Types.ObjectId.isValid(sessionIdOrId)) {
+      query.$or.push({ _id: new Types.ObjectId(sessionIdOrId) });
+    }
+
+    const conversation = await this.conversationModel
+      .findOneAndUpdate(
+        query,
+        { $set: { status: ConversationStatus.CLOSED, lastActivityAt: new Date() } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (conversation?.sessionId) {
+      await this.redisService.getClient().del(`session:conv:${conversation.sessionId}`);
+    }
+
+    return {
+      message: 'Session closed successfully.',
+      conversation,
+    };
+  }
+
+  async terminateVoiceSession(businessId: string, sessionIdOrId: string) {
+    return this.closeSession(businessId, sessionIdOrId);
+  }
 }

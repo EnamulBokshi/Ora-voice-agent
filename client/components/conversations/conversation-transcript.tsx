@@ -3,7 +3,7 @@
 import { ConversationItem } from './conversation-types';
 import { TranscriptHeader } from './subcomponents/transcript-header';
 import { TranscriptBubble } from './subcomponents/transcript-bubble';
-import { Loader2, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Loader2, MessageSquare } from 'lucide-react';
 
 interface ConversationTranscriptProps {
   conversation: ConversationItem;
@@ -18,8 +18,6 @@ export function ConversationTranscript({
   isClosing,
   isLoadingTranscript,
 }: ConversationTranscriptProps) {
-  const isActive = conversation.status === 'active';
-
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
       {/* ── Top Header ── */}
@@ -33,24 +31,19 @@ export function ConversationTranscript({
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {isLoadingTranscript ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-2">
-            <Loader2 className="animate-spin text-primary" size={18} />
-            <span>Loading conversation messages...</span>
+            <Loader2 className="animate-spin text-muted-foreground" size={16} />
+            <span>Loading messages…</span>
           </div>
         ) : conversation.transcript.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-1.5 py-12">
-            <MessageSquare size={24} className="text-muted-foreground/50 mb-1" />
-            <p className="font-semibold text-foreground">No transcript records found</p>
-            <p className="text-[11px]">Messages exchanged during this session will appear here.</p>
+            <MessageSquare size={20} className="text-muted-foreground/40 mb-1" />
+            <p className="font-medium text-foreground">No transcript recorded</p>
+            <p className="text-[11.5px] text-muted-foreground/60">
+              Messages exchanged during this session will appear here.
+            </p>
           </div>
         ) : (
-          <>
-            {/* Conversation Start Marker */}
-            <div className="text-center my-2">
-              <span className="inline-block px-3 py-0.5 rounded-full text-[10px] font-mono bg-surface-low border border-border text-muted-foreground">
-                Session initiated · {conversation.channel.toUpperCase()}
-              </span>
-            </div>
-
+          <div className="space-y-4 max-w-3xl mx-auto">
             {conversation.transcript.map((msg) => (
               <TranscriptBubble
                 key={msg.id}
@@ -58,21 +51,14 @@ export function ConversationTranscript({
                 customerName={conversation.customerName}
               />
             ))}
-          </>
+          </div>
         )}
       </div>
 
-      {/* ── Bottom Session Info Banner ── */}
-      <div className="px-5 py-2.5 border-t border-border bg-surface-low/80 flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck size={12} className="text-primary" />
-          <span>
-            {isActive
-              ? 'Real-time session managed by ORA Voice & Chat Gateway'
-              : 'Archived session transcript'}
-          </span>
-        </div>
-        <span className="font-mono text-[10px]">
+      {/* ── Bottom Session Info Bar ── */}
+      <div className="px-5 py-2.5 border-t border-border bg-surface-lowest flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
+        <span>Session ID: {conversation.sessionRef}</span>
+        <span className="font-mono">
           {conversation.transcript.length} {conversation.transcript.length === 1 ? 'message' : 'messages'}
         </span>
       </div>

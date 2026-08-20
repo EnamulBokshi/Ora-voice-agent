@@ -1,11 +1,19 @@
 import {
   Controller,
   Get,
+  Post,
+  Patch,
   Param,
   Query,
+  Body,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -36,5 +44,34 @@ export class OrdersController {
   @Get(':id')
   async findOne(@CurrentUser() user: JwtPayloadUser, @Param('id') id: string) {
     return this.ordersService.findOne(user.businessId, id);
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.ordersService.create(user.businessId, dto);
+  }
+
+  @Patch(':id/status')
+  @HttpCode(HttpStatus.OK)
+  async updateStatus(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.ordersService.updateStatus(user.businessId, id, dto.status);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  async update(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderDto,
+  ) {
+    return this.ordersService.update(user.businessId, id, dto);
   }
 }

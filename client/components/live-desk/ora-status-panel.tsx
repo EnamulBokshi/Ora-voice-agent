@@ -21,11 +21,11 @@ export function OraStatusPanel({ health }: OraStatusPanelProps) {
   const isAllOnline = health ? health.allOnline : true;
 
   return (
-    <div className="rounded-md border border-border bg-surface-container overflow-hidden">
+    <div className="overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Server size={14} className="text-primary" />
+          <Server size={14} className="text-muted-foreground" />
           <h3 className="text-[12px] font-semibold text-foreground">System Services Status</h3>
         </div>
         <span

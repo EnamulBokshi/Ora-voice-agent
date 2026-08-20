@@ -3,8 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Order, OrderDocument, OrderStatus, OrderSource } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { EventsService } from '../events/events.service';
 import { EventType } from '../events/schemas/event.schema';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationCategory, NotificationSeverity } from '../notifications/schemas/notification.schema';
 import { DomainException } from '../common/exceptions/domain.exception';
 
 @Injectable()
@@ -15,6 +18,7 @@ export class OrdersService {
     @InjectModel(Order.name)
     private readonly orderModel: Model<OrderDocument>,
     private readonly eventsService: EventsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(businessId: string, dto: CreateOrderDto): Promise<OrderDocument> {
@@ -47,6 +51,23 @@ export class OrdersService {
       totalAmount: saved.totalAmount,
       itemCount: saved.items.length,
     });
+
+    // Create a merchant notification
+    await this.notificationsService
+      .create(businessId, {
+        title: `New Order Placed: ${orderNumber}`,
+        message: `Shopper completed an order for ${saved.items.length} item(s) (${saved.currency} ${saved.totalAmount.toFixed(2)}).`,
+        category: NotificationCategory.SALES,
+        severity: NotificationSeverity.SUCCESS,
+        metadata: {
+          orderId: saved._id.toString(),
+          orderNumber: saved.orderNumber,
+          totalAmount: saved.totalAmount,
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(`Failed to create order notification: ${err.message}`);
+      });
 
     this.logger.log(
       `[OrdersService] Order ${orderNumber} created for business ${businessId}`,
@@ -86,6 +107,38 @@ export class OrdersService {
         _id: id as any,
         businessId: businessId as any,
       })
+      .exec();
+
+    if (!order) {
+      throw new DomainException(
+        'ORDER_NOT_FOUND',
+        `Order with ID '${id}' not found.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return order;
+  }
+
+  async update(
+    businessId: string,
+    id: string,
+    dto: UpdateOrderDto,
+  ): Promise<OrderDocument> {
+    const updatePayload: any = {};
+    if (dto.status !== undefined) updatePayload.status = dto.status;
+    if (dto.shippingAddress !== undefined) updatePayload.shippingAddress = dto.shippingAddress;
+    if (dto.metadata !== undefined) updatePayload.metadata = dto.metadata;
+
+    const order = await this.orderModel
+      .findOneAndUpdate(
+        {
+          _id: id as any,
+          businessId: businessId as any,
+        },
+        { $set: updatePayload },
+        { returnDocument: 'after' },
+      )
       .exec();
 
     if (!order) {

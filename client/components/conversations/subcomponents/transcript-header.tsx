@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Mic, MessageSquare, Check, Copy, PowerOff } from 'lucide-react';
+import { Radio, MessageSquare, Check, Copy, PowerOff } from 'lucide-react';
 import { ConversationItem } from '../conversation-types';
-import { cn } from '@/lib/utils';
 
 interface TranscriptHeaderProps {
   conversation: ConversationItem;
@@ -15,6 +14,7 @@ export function TranscriptHeader({ conversation, onCloseSession, isClosing }: Tr
   const conv = conversation;
   const [copied, setCopied] = useState(false);
   const isActive = conv.status === 'active';
+  const isVoice = conv.channel?.toLowerCase().includes('voice');
 
   const handleCopyRef = () => {
     navigator.clipboard.writeText(conv.sessionRef);
@@ -23,67 +23,62 @@ export function TranscriptHeader({ conversation, onCloseSession, isClosing }: Tr
   };
 
   return (
-    <div className="px-5 py-3.5 border-b border-border bg-surface-container flex items-center justify-between shrink-0 gap-4 flex-wrap">
+    <div className="h-12 px-5 border-b border-border bg-surface-lowest flex items-center justify-between shrink-0 gap-4">
       {/* Customer & Session Info */}
       <div className="flex items-center gap-3 min-w-0">
-        <div className="relative shrink-0">
-          <span className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold uppercase bg-surface-high border border-border text-foreground">
-            {conv.customerName.charAt(0)}
-          </span>
-          {isActive && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-background animate-pulse" />
-          )}
+        <div className="w-6 h-6 rounded-full bg-surface-high border border-border flex items-center justify-center font-medium text-[11px] text-foreground shrink-0 select-none">
+          {conv.customerName.charAt(0)}
         </div>
 
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-sm font-semibold text-foreground truncate">
-              {conv.customerName}
-            </h2>
-            <span className="px-2 py-0.5 rounded text-[10px] font-medium border border-border bg-surface-low text-muted-foreground flex items-center gap-1 shrink-0">
-              {conv.channel === 'voice' ? <Mic size={11} /> : <MessageSquare size={11} />}
-              <span className="capitalize">{conv.channel} Session</span>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
-            <span
-              className={cn(
-                'flex items-center gap-1 font-medium text-[11px]',
-                isActive ? 'text-primary' : 'text-muted-foreground',
-              )}
-            >
-              <span
-                className={cn(
-                  'w-1.5 h-1.5 rounded-full',
-                  isActive ? 'bg-primary animate-pulse' : 'bg-muted-foreground',
-                )}
-              />
-              {isActive ? 'Session Active' : 'Session Concluded'}
-            </span>
-            <span>·</span>
-            <button
-              onClick={handleCopyRef}
-              title="Click to copy session reference ID"
-              className="font-mono text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-            >
-              <span>{conv.sessionRef}</span>
-              {copied ? <Check size={10} className="text-primary" /> : <Copy size={10} />}
-            </button>
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-[13px] font-semibold text-foreground truncate">
+            {conv.customerName}
+          </h2>
+          <span className="text-border">·</span>
+          <button
+            onClick={handleCopyRef}
+            title="Click to copy session reference ID"
+            className="font-mono text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors truncate"
+          >
+            <span>{conv.sessionRef}</span>
+            {copied ? <Check size={10} className="text-primary" /> : <Copy size={10} />}
+          </button>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Status & Actions */}
+      <div className="flex items-center gap-4 text-[12px] shrink-0">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {isVoice ? (
+            <span className="flex items-center gap-1">
+              <Radio size={11} className="text-primary" />
+              Voice
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <MessageSquare size={11} className="text-muted-foreground" />
+              Chat
+            </span>
+          )}
+          <span className="text-border">·</span>
+          <span className="flex items-center gap-1.5 font-medium text-foreground">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isActive ? 'bg-[color:var(--status-online)]' : 'bg-muted-foreground'
+              }`}
+            />
+            {isActive ? 'Active' : 'Closed'}
+          </span>
+        </div>
+
         {isActive && onCloseSession && (
           <button
             onClick={onCloseSession}
             disabled={isClosing}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold border border-border bg-surface-low text-foreground hover:bg-error/10 hover:text-error hover:border-error/30 disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-xs"
+            className="text-[11.5px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 disabled:opacity-50"
           >
-            <PowerOff size={12} />
-            <span>{isClosing ? 'Closing...' : 'Close Session'}</span>
+            <PowerOff size={11} />
+            <span>{isClosing ? 'Closing…' : 'Close'}</span>
           </button>
         )}
       </div>

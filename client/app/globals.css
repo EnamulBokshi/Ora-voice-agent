@@ -105,23 +105,23 @@
 :root {
     --radius: 0.625rem;
 
-    /* ── Core palette ───────────────────────────────────────────────────────── */
-    --primary:              #C8F031;
-    --primary-hover:        #B8DD28;
-    --primary-active:       #A6C822;
-    --primary-foreground:   #111111;
+    /* ── Core palette (light — crisp dark primary on light canvas) ────────── */
+    --primary:              #111111;
+    --primary-hover:        #2A2A2A;
+    --primary-active:       #000000;
+    --primary-foreground:   #FAFAFA;
 
     --secondary:            #6B7280;
     --secondary-hover:      #4B5563;
     --secondary-active:     #374151;
     --secondary-foreground: #FFFFFF;
 
-    /* ── Lime accent (matches landing page CTA) ─────────────────────────────── */
-    --accent:               rgba(200, 240, 49, 0.12);
+    /* ── Subtle accent ─────────────────────────────────────────────────────── */
+    --accent:               rgba(17, 17, 17, 0.06);
     --accent-foreground:    #111111;
 
     /* ── Utility / Semantic colors ──────────────────────────────────────────── */
-    --ora-success:              #65A30D;
+    --ora-success:              #16A34A;
     --ora-success-foreground:   #FFFFFF;
     --ora-warning:              #D97706;
     --ora-warning-foreground:   #FFFFFF;
@@ -134,7 +134,7 @@
     --muted:                    #F7F8F7;
     --muted-foreground:         #6B7280;
     --destructive:              #DC2626;
-    --ring:                     #C8F031;
+    --ring:                     #111111;
     --input:                    #E5E7EB;
     --border:                   #E5E7EB;
 
@@ -157,19 +157,19 @@
     --on-surface-variant:       #6B7280;
     --outline-variant:          #E5E7EB;
 
-    /* ── Chart series ────────────────────────────────────────────────────────── */
-    --chart-1:  #C8F031;
-    --chart-2:  #111111;
-    --chart-3:  #6B7280;
+    /* ── Chart series (light) ───────────────────────────────────────────────── */
+    --chart-1:  #111111;
+    --chart-2:  #4B5563;
+    --chart-3:  #9CA3AF;
     --chart-4:  #D1D5DB;
     --chart-5:  #DC2626;
-    --chart-6:  #9CA3AF;
+    --chart-6:  #E5E7EB;
 
-    /* ── Agent Status colors ────────────────────────────────────────────────── */
-    --status-online:        #65A30D;
-    --status-active:        #84CC16;
+    /* ── Agent Status colors (light mode — high-contrast readable) ───────────── */
+    --status-online:        #16A34A;
+    --status-active:        #15803D;
     --status-warning:       #D97706;
-    --status-offline:       #9CA3AF;
+    --status-offline:       #6B7280;
     --status-error:         #DC2626;
     --status-processing:    #6B7280;
 
@@ -181,7 +181,7 @@
     --sidebar-accent:               #F7F8F7;
     --sidebar-accent-foreground:    #111111;
     --sidebar-border:               #E5E7EB;
-    --sidebar-ring:                 #C8F031;
+    --sidebar-ring:                 #111111;
 
 
     /* ── Component-level tokens (light) ────────────────────────────────────── */
@@ -447,6 +447,33 @@
 }
 .animate-pulse-ring {
     animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* =============================================================================
+   DASHBOARD UTILITIES — Intercom-inspired layout helpers
+   ============================================================================= */
+
+/* Sidebar nav active left-border accent */
+.nav-active-accent {
+    border-left: 2px solid var(--primary);
+    padding-left: calc(0.75rem - 2px);
+}
+
+/* No-scrollbar — hides scrollbar but keeps scroll functionality */
+.no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Clean data table hover rows */
+.data-table tbody tr {
+    transition: background 120ms ease;
+}
+.data-table tbody tr:hover {
+    background-color: var(--surface-high);
 }
 
 /* =============================================================================

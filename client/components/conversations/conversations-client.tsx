@@ -11,6 +11,7 @@ import {
 import { ConversationListPanel } from './conversation-list-panel';
 import { ConversationTranscript } from './conversation-transcript';
 import { demoConversationItems } from '@/lib/demo-data';
+import { withDemoFallback } from '@/lib/demo-config';
 import { Loader2, MessageSquare } from 'lucide-react';
 
 export function ConversationsClient() {
@@ -29,11 +30,14 @@ export function ConversationsClient() {
     try {
       const res = await getConversationsApi({ page: 1, limit: 50 });
       const mapped = (res?.items ?? []).map((conv) => mapApiConversationToUi(conv));
-      const items = mapped.length > 0 ? mapped : demoConversationItems;
+      const items = withDemoFallback(mapped, demoConversationItems);
       setConversations(items);
       setSelectedId((prev) => prev || items[0]?.id || '');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load conversations');
+      console.error('Failed to load conversations:', err);
+      const items = withDemoFallback(null, demoConversationItems);
+      setConversations(items);
+      setSelectedId((prev) => prev || items[0]?.id || '');
     } finally {
       setIsLoading(false);
     }
@@ -123,8 +127,8 @@ export function ConversationsClient() {
     return (
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-primary" size={20} />
-          <span className="text-sm font-medium">Loading conversations...</span>
+          <Loader2 className="animate-spin text-muted-foreground" size={18} />
+          <span className="text-sm font-medium">Loading conversations…</span>
         </div>
       </div>
     );
@@ -139,7 +143,7 @@ export function ConversationsClient() {
   }
 
   return (
-    <div className="flex-1 flex h-full w-full overflow-hidden bg-background">
+    <div className="flex-1 flex h-full w-full overflow-hidden bg-background divide-x divide-border">
       <ConversationListPanel
         conversations={filteredConversations}
         selectedId={selectedId}
@@ -159,10 +163,10 @@ export function ConversationsClient() {
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
-          <MessageSquare size={32} className="text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">No conversation selected</p>
-          <p className="text-xs text-muted-foreground">
-            Select a conversation from the left to view the live transcript.
+          <MessageSquare size={24} className="text-muted-foreground/30" />
+          <p className="font-medium text-foreground">No conversation selected</p>
+          <p className="text-xs text-muted-foreground/60">
+            Select a conversation from the left to view the transcript.
           </p>
         </div>
       )}

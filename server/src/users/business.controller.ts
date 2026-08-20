@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Body,
   Delete,
   UseGuards,
   Req,
@@ -18,6 +20,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRole } from './enums/admin-role.enum';
 import { VoiceProxyGateway } from '../ai-voice/voice-proxy.gateway';
 
+import { UpdateBusinessDto } from './dto/update-business.dto';
+
 @Controller('business')
 export class BusinessController {
   constructor(
@@ -32,6 +36,21 @@ export class BusinessController {
   async getCurrentBusiness(@Req() req: any) {
     const business = await this.usersService.findBusinessById(req.businessId);
     return business;
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
+  @Patch('current')
+  @HttpCode(HttpStatus.OK)
+  async updateCurrentBusiness(
+    @Req() req: any,
+    @Body() dto: UpdateBusinessDto,
+  ) {
+    const updated = await this.usersService.updateBusiness(req.businessId, dto);
+    return {
+      message: 'Store settings updated successfully.',
+      business: updated,
+    };
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)

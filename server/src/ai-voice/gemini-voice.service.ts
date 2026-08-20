@@ -140,12 +140,10 @@ export class GeminiVoiceService {
           if (ws.readyState === WebSocket.OPEN) {
             const realtimeInput = {
               realtimeInput: {
-                mediaChunks: [
-                  {
-                    mimeType: 'audio/pcm;rate=16000',
-                    data: base64Pcm16k,
-                  },
-                ],
+                audio: {
+                  mimeType: 'audio/pcm;rate=16000',
+                  data: base64Pcm16k,
+                },
               },
             };
             ws.send(JSON.stringify(realtimeInput));

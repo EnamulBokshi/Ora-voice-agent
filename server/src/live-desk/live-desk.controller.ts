@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { LiveDeskService } from './live-desk.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
@@ -40,5 +40,23 @@ export class LiveDeskController {
   @Get('system-health')
   async getSystemHealth() {
     return this.liveDeskService.getSystemHealth();
+  }
+
+  @Post('sessions/:id/close')
+  @HttpCode(HttpStatus.OK)
+  async closeSession(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+  ) {
+    return this.liveDeskService.closeSession(user.businessId, id);
+  }
+
+  @Post('voice-sessions/:id/terminate')
+  @HttpCode(HttpStatus.OK)
+  async terminateVoiceSession(
+    @CurrentUser() user: JwtPayloadUser,
+    @Param('id') id: string,
+  ) {
+    return this.liveDeskService.terminateVoiceSession(user.businessId, id);
   }
 }

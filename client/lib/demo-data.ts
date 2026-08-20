@@ -1,10 +1,10 @@
 /**
- * Demo fallback data used when the backend returns empty collections.
- * These are illustrative records so pages render useful content before
- * real store data exists. Never shown when the API returns data.
+ * Demo fallback data used when DEMO_MODE_ENABLED is true.
+ * Controlled centrally by DEMO_MODE_ENABLED in '@/lib/demo-config'.
  */
 
 import { ProductAvailability, SourceTier, ProductDocument } from '@/types/product';
+import { KnowledgeDoc, DocType } from '@/types/knowledge';
 import { Order } from '@/services/orders-service';
 import { Conversation } from '@/types/conversation';
 import { Customer } from '@/types/customer';
@@ -12,6 +12,7 @@ import { Invoice } from '@/types/invoices';
 import { Plan, SubscriptionDetailsResponse } from '@/types/billing';
 import { ProfileResponseData } from '@/types/auth';
 import { ConversationItem, ChatMessage } from '@/components/conversations/conversation-types';
+import { DashboardStatsResponse } from '@/services/dashboard-service';
 
 const daysAgo = (n: number, hour = 10) => {
   const d = new Date();
@@ -20,27 +21,74 @@ const daysAgo = (n: number, hour = 10) => {
   return d.toISOString();
 };
 
+export const demoKnowledgeDocs: KnowledgeDoc[] = [
+  {
+    _id: 'doc-1',
+    businessId: 'demo-biz',
+    docType: DocType.POLICY,
+    title: 'Return, Exchange & Refund Policy (2026)',
+    content: 'We offer 30-day hassle-free returns on all non-custom goods. Items must be in original condition with tags attached. Return shipping labels are complimentary for domestic exchanges.',
+    sourceUrl: 'https://demo-store.example.com/returns',
+    isActive: true,
+    createdAt: daysAgo(14),
+    updatedAt: daysAgo(1),
+  },
+  {
+    _id: 'doc-2',
+    businessId: 'demo-biz',
+    docType: DocType.FAQ,
+    title: 'Domestic & International Shipping Rates',
+    content: 'Standard domestic 3-5 day delivery ($5 flat rate, free over $75). Express 2-day available. International shipping rates are calculated at checkout for Canada, UK, and EU.',
+    sourceUrl: 'https://demo-store.example.com/shipping',
+    isActive: true,
+    createdAt: daysAgo(10),
+    updatedAt: daysAgo(2),
+  },
+  {
+    _id: 'doc-3',
+    businessId: 'demo-biz',
+    docType: DocType.PRODUCT_MANUAL,
+    title: 'Ceramic & Glassware Care Instructions',
+    content: 'All Kettle & Clay stoneware drippers and ceramic mugs are 100% microwave and dishwasher safe. Avoid rapid thermal shocks by allowing hot ceramics to cool before cold rinsing.',
+    isActive: true,
+    createdAt: daysAgo(7),
+    updatedAt: daysAgo(3),
+  },
+  {
+    _id: 'doc-4',
+    businessId: 'demo-biz',
+    docType: DocType.BRAND_RULE,
+    title: 'Brand Story & Quality Assurance Standards',
+    content: 'Founded in 2024, our goods are responsibly sourced from artisanal workshops. Every item undergoes rigorous hand inspection and carries a lifetime warranty against manufacturing defects.',
+    isActive: true,
+    createdAt: daysAgo(5),
+    updatedAt: daysAgo(0),
+  },
+];
+
+// ─── Products ─────────────────────────────────────────────────────────────────
+
 export const demoProducts: ProductDocument[] = [
   {
     _id: 'demo-prod-1',
     businessId: 'demo-biz',
     nativeProductId: 'SKU-1001',
     name: 'Artisan Leather Tote',
-    description: 'Hand-stitched full-grain leather tote, vegetable-tanned.',
+    description: 'Hand-stitched full-grain leather tote with padded laptop sleeve, vegetable-tanned.',
     price: 129.0,
     currency: 'USD',
     availability: ProductAvailability.IN_STOCK,
     stockQuantity: 24,
     images: ['https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300&q=80'],
-    category: 'Bags',
-    attributes: { brand: 'Hearth & Hide' },
+    category: 'Bags & Leather',
+    attributes: { brand: 'Hearth & Hide', material: 'Full-grain Leather' },
     sourceTier: SourceTier.TIER1_CONNECTOR,
     confidenceScore: 0.95,
     isEmbedded: true,
     lastVerifiedAt: daysAgo(0, 9),
     isActive: true,
-    timesRecommendedByAgent: 12,
-    timesUpsold: 4,
+    timesRecommendedByAgent: 24,
+    timesUpsold: 8,
     createdAt: daysAgo(30),
     updatedAt: daysAgo(0),
   },
@@ -49,48 +97,96 @@ export const demoProducts: ProductDocument[] = [
     businessId: 'demo-biz',
     nativeProductId: 'SKU-1002',
     name: 'Ceramic Pour-Over Set',
-    description: 'Stoneware pour-over brewer with matching carafe.',
+    description: 'Stoneware pour-over dripper with heat-resistant 600ml glass carafe.',
     price: 54.0,
     currency: 'USD',
     availability: ProductAvailability.IN_STOCK,
     stockQuantity: 41,
     images: ['https://images.unsplash.com/photo-1517130068649-a7901c0e0c6c?w=300&q=80'],
-    category: 'Kitchen',
-    attributes: { brand: 'Kettle & Clay' },
-    sourceTier: SourceTier.TIER2_FEED,
-    confidenceScore: 0.88,
+    category: 'Kitchen & Coffee',
+    attributes: { brand: 'Kettle & Clay', dishwasherSafe: 'Yes' },
+    sourceTier: SourceTier.TIER1_CONNECTOR,
+    confidenceScore: 0.92,
     isEmbedded: true,
-    lastVerifiedAt: daysAgo(1, 14),
+    lastVerifiedAt: daysAgo(0, 11),
     isActive: true,
-    timesRecommendedByAgent: 8,
-    timesUpsold: 3,
+    timesRecommendedByAgent: 19,
+    timesUpsold: 6,
     createdAt: daysAgo(28),
-    updatedAt: daysAgo(1),
+    updatedAt: daysAgo(0),
   },
   {
     _id: 'demo-prod-3',
     businessId: 'demo-biz',
     nativeProductId: 'SKU-1003',
-    name: 'Wool Throw Blanket',
-    description: 'Lightweight merino wool throw in oat.',
+    name: 'Merino Wool Throw Blanket',
+    description: 'Lightweight, ultra-soft merino wool throw blanket in oat herringbone.',
     price: 89.0,
+    currency: 'USD',
+    availability: ProductAvailability.IN_STOCK,
+    stockQuantity: 12,
+    images: ['https://images.unsplash.com/photo-1580301762395-24ce36d77559?w=300&q=80'],
+    category: 'Home Living',
+    attributes: { brand: 'Hearth & Hide', dimensions: '50x70 in' },
+    sourceTier: SourceTier.TIER1_CONNECTOR,
+    confidenceScore: 0.88,
+    isEmbedded: true,
+    lastVerifiedAt: daysAgo(1, 14),
+    isActive: true,
+    timesRecommendedByAgent: 11,
+    timesUpsold: 2,
+    createdAt: daysAgo(21),
+    updatedAt: daysAgo(1),
+  },
+  {
+    _id: 'demo-prod-4',
+    businessId: 'demo-biz',
+    nativeProductId: 'SKU-1004',
+    name: 'Minimalist Brass Desk Lamp',
+    description: 'Solid brushed brass desk lamp with warm LED illumination and dimmer.',
+    price: 145.0,
+    currency: 'USD',
+    availability: ProductAvailability.IN_STOCK,
+    stockQuantity: 18,
+    images: ['https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=300&q=80'],
+    category: 'Lighting',
+    attributes: { brand: 'Lumina Craft', bulbType: 'Integrated LED' },
+    sourceTier: SourceTier.TIER2_FEED,
+    confidenceScore: 0.9,
+    isEmbedded: true,
+    lastVerifiedAt: daysAgo(2, 8),
+    isActive: true,
+    timesRecommendedByAgent: 15,
+    timesUpsold: 4,
+    createdAt: daysAgo(15),
+    updatedAt: daysAgo(2),
+  },
+  {
+    _id: 'demo-prod-5',
+    businessId: 'demo-biz',
+    nativeProductId: 'SKU-1005',
+    name: 'Japanese Washed Linen Apron',
+    description: 'Cross-back stonewashed linen apron with deep utility pockets.',
+    price: 48.0,
     currency: 'USD',
     availability: ProductAvailability.PREORDER,
     stockQuantity: 0,
-    images: ['https://images.unsplash.com/photo-1580301762395-24ce36d77559?w=300&q=80'],
-    category: 'Home',
-    attributes: { brand: 'Hearth & Hide' },
+    images: ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=300&q=80'],
+    category: 'Apparel',
+    attributes: { brand: 'Kettle & Clay', material: '100% French Flax' },
     sourceTier: SourceTier.TIER3_PASSIVE,
-    confidenceScore: 0.62,
+    confidenceScore: 0.76,
     isEmbedded: false,
-    lastVerifiedAt: daysAgo(4, 11),
+    lastVerifiedAt: daysAgo(3, 16),
     isActive: true,
-    timesRecommendedByAgent: 3,
-    timesUpsold: 0,
-    createdAt: daysAgo(21),
-    updatedAt: daysAgo(4),
+    timesRecommendedByAgent: 7,
+    timesUpsold: 1,
+    createdAt: daysAgo(10),
+    updatedAt: daysAgo(3),
   },
 ];
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
 
 export const demoOrders: Order[] = [
   {
@@ -102,8 +198,8 @@ export const demoOrders: Order[] = [
     currency: 'USD',
     status: 'delivered',
     shippingAddress: { fullName: 'Nadia Rahman', city: 'Dhaka', country: 'BD' },
-    createdAt: daysAgo(2, 15),
-    updatedAt: daysAgo(1, 9),
+    createdAt: daysAgo(0, 14),
+    updatedAt: daysAgo(0, 14),
   },
   {
     _id: 'demo-order-2',
@@ -114,55 +210,36 @@ export const demoOrders: Order[] = [
     currency: 'USD',
     status: 'confirmed',
     shippingAddress: { fullName: 'Sarah Chen', city: 'Toronto', country: 'CA' },
-    createdAt: daysAgo(5, 12),
-    updatedAt: daysAgo(5, 12),
+    createdAt: daysAgo(1, 11),
+    updatedAt: daysAgo(1, 11),
   },
   {
     _id: 'demo-order-3',
     businessId: 'demo-biz',
     orderNumber: 'ORD-2026-000099',
-    items: [{ productId: 'demo-prod-1', name: 'Artisan Leather Tote', quantity: 1, unitPrice: 129 }],
-    totalAmount: 129,
+    items: [{ productId: 'demo-prod-3', name: 'Merino Wool Throw Blanket', quantity: 1, unitPrice: 89 }],
+    totalAmount: 89,
     currency: 'USD',
     status: 'pending',
     shippingAddress: { fullName: 'Omar Faruq', city: 'Chattogram', country: 'BD' },
-    createdAt: daysAgo(0, 8),
-    updatedAt: daysAgo(0, 8),
+    createdAt: daysAgo(2, 9),
+    updatedAt: daysAgo(2, 9),
+  },
+  {
+    _id: 'demo-order-4',
+    businessId: 'demo-biz',
+    orderNumber: 'ORD-2026-000098',
+    items: [{ productId: 'demo-prod-4', name: 'Minimalist Brass Desk Lamp', quantity: 1, unitPrice: 145 }],
+    totalAmount: 145,
+    currency: 'USD',
+    status: 'shipped',
+    shippingAddress: { fullName: 'Marcus Vance', city: 'San Francisco', country: 'US' },
+    createdAt: daysAgo(3, 16),
+    updatedAt: daysAgo(2, 10),
   },
 ];
 
-export const demoConversations: Conversation[] = [
-  {
-    _id: 'demo-conv-1',
-    businessId: 'demo-biz',
-    sessionId: 'sess_demo_9f3a71c2',
-    channel: 'widget_chat',
-    status: 'active',
-    lastActivityAt: daysAgo(0, 10),
-    createdAt: daysAgo(0, 10),
-    updatedAt: daysAgo(0, 10),
-  },
-  {
-    _id: 'demo-conv-2',
-    businessId: 'demo-biz',
-    sessionId: 'sess_demo_44b09d1e',
-    channel: 'widget_voice',
-    status: 'closed',
-    lastActivityAt: daysAgo(1, 16),
-    createdAt: daysAgo(1, 16),
-    updatedAt: daysAgo(1, 9),
-  },
-  {
-    _id: 'demo-conv-3',
-    businessId: 'demo-biz',
-    sessionId: 'sess_demo_b7c2f00a',
-    channel: 'widget_chat',
-    status: 'active',
-    lastActivityAt: daysAgo(0, 12),
-    createdAt: daysAgo(0, 12),
-    updatedAt: daysAgo(0, 12),
-  },
-];
+// ─── Customers ────────────────────────────────────────────────────────────────
 
 export const demoCustomers: Customer[] = [
   {
@@ -200,6 +277,156 @@ export const demoCustomers: Customer[] = [
   },
 ];
 
+// ─── Conversations ────────────────────────────────────────────────────────────
+
+export const demoConversations: Conversation[] = [
+  {
+    _id: 'demo-conv-1',
+    businessId: 'demo-biz',
+    sessionId: 'sess_demo_8821a',
+    channel: 'widget_chat',
+    status: 'active',
+    lastActivityAt: daysAgo(0, 14),
+    createdAt: daysAgo(0, 14),
+    updatedAt: daysAgo(0, 14),
+  },
+  {
+    _id: 'demo-conv-2',
+    businessId: 'demo-biz',
+    sessionId: 'sess_demo_8820b',
+    channel: 'widget_voice',
+    status: 'closed',
+    lastActivityAt: daysAgo(0, 11),
+    createdAt: daysAgo(0, 11),
+    updatedAt: daysAgo(0, 11),
+  },
+  {
+    _id: 'demo-conv-3',
+    businessId: 'demo-biz',
+    sessionId: 'sess_demo_8819c',
+    channel: 'widget_chat',
+    status: 'active',
+    lastActivityAt: daysAgo(1, 9),
+    createdAt: daysAgo(1, 9),
+    updatedAt: daysAgo(1, 9),
+  },
+  {
+    _id: 'demo-conv-4',
+    businessId: 'demo-biz',
+    sessionId: 'sess_demo_8818d',
+    channel: 'widget_voice',
+    status: 'active',
+    lastActivityAt: daysAgo(1, 15),
+    createdAt: daysAgo(1, 15),
+    updatedAt: daysAgo(1, 15),
+  },
+];
+
+export const demoConversationItems: ConversationItem[] = [
+  {
+    id: 'demo-conv-1',
+    customerName: 'Nadia Rahman',
+    channel: 'chat',
+    status: 'active',
+    lastMessageTime: 'Just now',
+    previewMessage: 'Does the Artisan Leather Tote come with a padded laptop compartment?',
+    sessionRef: 'sess_demo_8821a',
+    transcript: [
+      { id: 'm1', sender: 'customer', text: 'Hi! Does the Artisan Leather Tote come with a padded laptop compartment?', time: '2:14 PM' },
+      { id: 'm2', sender: 'ora', text: 'Hello Nadia! Yes, the Artisan Leather Tote includes a dedicated padded sleeve that fits up to 15" laptops comfortably.', time: '2:14 PM' },
+      { id: 'm3', sender: 'customer', text: 'Awesome, is the tan color in stock?', time: '2:15 PM' },
+      { id: 'm4', sender: 'ora', text: 'We currently have 24 units in stock in Tan. Would you like me to prepare direct checkout with free domestic shipping?', time: '2:15 PM' },
+    ],
+  },
+  {
+    id: 'demo-conv-2',
+    customerName: 'Sarah Chen',
+    channel: 'voice',
+    status: 'completed',
+    lastMessageTime: '2h ago',
+    previewMessage: 'Can you recommend a pour-over set that works on induction stoves?',
+    sessionRef: 'sess_demo_8820b',
+    transcript: [
+      { id: 'm1', sender: 'customer', text: 'Can you recommend a pour-over set that works on induction stoves?', time: '12:04 PM' },
+      { id: 'm2', sender: 'ora', text: 'The Ceramic Pour-Over Set with our 600ml glass carafe is heat-resistant. For induction heating, pair it with our stainless kettle.', time: '12:04 PM' },
+      { id: 'm3', sender: 'customer', text: 'Sounds great! I will take 2 sets.', time: '12:05 PM' },
+      { id: 'm4', sender: 'ora', text: 'Confirmed! Order ORD-2026-000100 for $108.00 has been placed and receipt emailed to you.', time: '12:06 PM' },
+    ],
+  },
+  {
+    id: 'demo-conv-3',
+    customerName: 'Omar Faruq',
+    channel: 'chat',
+    status: 'active',
+    lastMessageTime: 'Yesterday',
+    previewMessage: 'Is the Merino Wool Throw Blanket available for preorder?',
+    sessionRef: 'sess_demo_8819c',
+    transcript: [
+      { id: 'm1', sender: 'customer', text: 'Is the Merino Wool Throw Blanket available for preorder?', time: 'Yesterday' },
+      { id: 'm2', sender: 'ora', text: 'We currently have 12 units available in stock for immediate dispatch. Preorders are open for the upcoming seasonal colors as well!', time: 'Yesterday' },
+    ],
+  },
+  {
+    id: 'demo-conv-4',
+    customerName: 'Elena Rostova',
+    channel: 'voice',
+    status: 'active',
+    lastMessageTime: 'Yesterday',
+    previewMessage: 'Checking if the handmade ceramic mugs are dishwasher safe.',
+    sessionRef: 'sess_demo_8818d',
+    transcript: [
+      { id: 'm1', sender: 'customer', text: 'Checking if the handmade ceramic mugs are dishwasher safe.', time: 'Yesterday' },
+      { id: 'm2', sender: 'ora', text: 'Yes, all stoneware and ceramics in the Kettle & Clay collection are 100% dishwasher and microwave safe.', time: 'Yesterday' },
+    ],
+  },
+];
+
+// ─── Dashboard Stats ──────────────────────────────────────────────────────────
+
+export const demoDashboardStats: DashboardStatsResponse = {
+  productTotal: 24,
+  orderTotal: 18,
+  conversationTotal: 42,
+  activeChats: 4,
+  activeVoiceCalls: 2,
+  totalRevenue: 2340,
+  revenueTrend: '+18.4%',
+  ordersTrend: '+12.0%',
+  conversationsTrend: '+24.5%',
+  planName: 'Growth Plan',
+  planStatus: 'active',
+  revenueTimeseries: {
+    growthRate: '+18.4%',
+    totalRevenue: 2340,
+    daily: [
+      { label: 'Mon', value: 180 },
+      { label: 'Tue', value: 320 },
+      { label: 'Wed', value: 240 },
+      { label: 'Thu', value: 410 },
+      { label: 'Fri', value: 520 },
+      { label: 'Sat', value: 390 },
+      { label: 'Sun', value: 280 },
+    ],
+    weekly: [
+      { label: 'Wk 1', value: 1400 },
+      { label: 'Wk 2', value: 1850 },
+      { label: 'Wk 3', value: 2100 },
+      { label: 'Wk 4', value: 2340 },
+    ],
+  },
+  funnel: [
+    { label: 'Shopper Inquiries', count: 142, pct: 100 },
+    { label: 'Products Recommended', count: 98, pct: 69 },
+    { label: 'Items Added to Cart', count: 46, pct: 32 },
+    { label: 'Orders Completed', count: 18, pct: 13, isLast: true },
+  ],
+  overallConversion: 13,
+  recentOrders: demoOrders,
+  recentConversations: demoConversations,
+};
+
+// ─── Billing & Profile ────────────────────────────────────────────────────────
+
 export const demoPlans: Plan[] = [
   {
     _id: 'demo-plan-free',
@@ -220,7 +447,7 @@ export const demoPlans: Plan[] = [
     priceBdtPaisa: 550000,
     billingInterval: 'monthly',
     limits: { conversationMinutes: 2000, ordersPerMonth: 500, connectedStores: 3, seats: 5 },
-    features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', '5 staff seats', 'Full RAG vector search'],
+    features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', '5 team seats', 'Full vector search'],
     isActive: true,
   },
   {
@@ -240,7 +467,7 @@ export const demoSubscription: SubscriptionDetailsResponse = {
   subscription: {
     _id: 'demo-sub-1',
     businessId: 'demo-biz',
-    planId: 'free',
+    planId: 'growth',
     billingProvider: 'stripe',
     status: 'active',
     currentPeriodStart: daysAgo(10),
@@ -249,38 +476,38 @@ export const demoSubscription: SubscriptionDetailsResponse = {
     createdAt: daysAgo(10),
     updatedAt: daysAgo(0),
   },
-  plan: demoPlans[0],
-  usage: { conversationMinutes: 47, ordersPerMonth: 3 },
+  plan: demoPlans[1],
+  usage: { conversationMinutes: 47, ordersPerMonth: 14 },
 };
 
 export const demoInvoices: Invoice[] = [
   {
     _id: 'demo-inv-1',
     businessId: 'demo-biz',
-    invoiceNumber: 'ORA-2026-000101',
+    invoiceNumber: 'INV-2026-000101',
     subscriptionId: 'demo-sub-1',
-    transactionId: 'demo-txn-1',
-    amountUsdCents: 0,
+    transactionId: 'txn_demo_stripe_01',
+    amountUsdCents: 4900,
     amountBdtPaisa: 0,
     currency: 'USD',
     taxAmount: 0,
     pdfUrl: '/api/v1/invoices/demo-inv-1/pdf',
-    status: 'generated',
+    status: 'sent',
     createdAt: daysAgo(10),
     updatedAt: daysAgo(10),
   },
   {
     _id: 'demo-inv-2',
     businessId: 'demo-biz',
-    invoiceNumber: 'ORA-2026-000100',
+    invoiceNumber: 'INV-2026-000100',
     subscriptionId: 'demo-sub-1',
-    transactionId: 'demo-txn-0',
-    amountUsdCents: 0,
+    transactionId: 'txn_demo_stripe_00',
+    amountUsdCents: 4900,
     amountBdtPaisa: 0,
     currency: 'USD',
     taxAmount: 0,
     pdfUrl: '/api/v1/invoices/demo-inv-2/pdf',
-    status: 'generated',
+    status: 'sent',
     createdAt: daysAgo(40),
     updatedAt: daysAgo(40),
   },
@@ -289,57 +516,16 @@ export const demoInvoices: Invoice[] = [
 export const demoProfile: ProfileResponseData = {
   user: {
     id: 'demo-user-1',
-    name: 'Merchant Owner',
-    email: 'owner@demo-store.com',
+    name: 'Hamday Rabby',
+    email: 'rabby@artisangoods.io',
     role: 'owner',
     emailVerified: true,
   },
   business: {
     id: 'demo-biz',
-    name: 'Demo Store',
-    domain: 'demo-store.example.com',
-    publishableKey: 'biz_live_demo_xxxxxxxxxxxx',
+    name: 'Artisan Goods Co.',
+    domain: 'store.artisangoods.io',
+    publishableKey: 'biz_live_89a2b1c4e7f09312',
     status: 'active',
   },
 };
-
-export const demoConversationItems: ConversationItem[] = [
-  {
-    id: 'demo-conv-1',
-    customerName: 'Nadia Rahman',
-    channel: 'chat',
-    status: 'active',
-    lastMessageTime: daysAgo(0, 10),
-    previewMessage: '"Does the leather tote come in tan?"',
-    sessionRef: 'sess_demo_9f3a71c2',
-    transcript: demoChatTranscript('Does the leather tote come in tan?', 'Yes — tan and black are in stock. Want me to add one to your order?'),
-  },
-  {
-    id: 'demo-conv-2',
-    customerName: 'Sarah Chen',
-    channel: 'voice',
-    status: 'completed',
-    lastMessageTime: daysAgo(1, 16),
-    previewMessage: '"I\'ll take the pour-over set, please."',
-    sessionRef: 'sess_demo_44b09d1e',
-    transcript: demoChatTranscript('Can you help me pick a coffee brewer?', 'The Ceramic Pour-Over Set is our best seller. I added 2 to your order — confirmed!'),
-  },
-  {
-    id: 'demo-conv-3',
-    customerName: 'Omar Faruq',
-    channel: 'chat',
-    status: 'active',
-    lastMessageTime: daysAgo(0, 12),
-    previewMessage: '"Is the blanket available for preorder?"',
-    sessionRef: 'sess_demo_b7c2f00a',
-    transcript: demoChatTranscript('Is the blanket available for preorder?', 'Yes — the Wool Throw Blanket ships in 2 weeks. Shall I reserve one?'),
-  },
-];
-
-function demoChatTranscript(customerText: string, oraText: string): ChatMessage[] {
-  return [
-    { id: 'msg-1', sender: 'customer', text: 'Hi, I need some help with your products.', time: '10:02 AM' },
-    { id: 'msg-2', sender: 'ora', text: customerText ? `Sure! ${customerText}` : 'Sure! What would you like to know?', time: '10:02 AM' },
-    { id: 'msg-3', sender: 'ora', text: oraText, time: '10:03 AM' },
-  ];
-}

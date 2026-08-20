@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
 import { formatCurrency } from '@/lib/format';
-import { useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 interface PlanComparisonGridProps {
   currentPlanId: string | null;
@@ -47,8 +47,8 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
 
   if (loading) {
     return (
-      <div className="rounded-md border border-border bg-surface-container p-8 flex items-center justify-center text-muted-foreground">
-        <Loader2 className="animate-spin mr-2" size={14} /> Loading plans...
+      <div className="py-8 flex items-center justify-center text-muted-foreground text-xs">
+        <Loader2 className="animate-spin mr-2" size={14} /> Loading available plans…
       </div>
     );
   }
@@ -58,10 +58,14 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-foreground">Available plans</h2>
+    <div className="pt-4">
+      {/* Header */}
+      <div className="pb-3 border-b border-border">
+        <h2 className="text-[13.5px] font-semibold text-foreground">Available Plans</h2>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Flat Pricing Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border border-b border-border">
         {plans.map((plan) => {
           const isCurrent = plan.planId === currentPlanId;
           const isSubscribing = subscribingId === plan._id;
@@ -69,55 +73,57 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
           return (
             <div
               key={plan._id}
-              className={`rounded-md border bg-surface-container p-5 flex flex-col ${
-                isCurrent ? 'border-primary' : 'border-border'
-              }`}
+              className={cn(
+                'p-6 flex flex-col justify-between transition-colors',
+                isCurrent ? 'bg-surface-high/30' : 'hover:bg-surface-high/15',
+              )}
             >
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-sm font-semibold text-foreground">{plan.name}</h3>
-                {isCurrent && (
-                  <span
-                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase"
-                    style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-                  >
-                    Current
-                  </span>
-                )}
-              </div>
-              <div className="text-xl font-semibold tabular-nums text-foreground mb-4">
-                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
-                <span className="text-xs font-normal text-muted-foreground">/mo</span>
-              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-[14px] font-semibold text-foreground">{plan.name}</h3>
+                  {isCurrent && (
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Current Plan
+                    </span>
+                  )}
+                </div>
 
-              <ul className="space-y-2 text-[12px] text-muted-foreground mb-5 flex-1">
-                <li className="flex items-start gap-2">
-                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
-                  {plan.limits.conversationMinutes.toLocaleString()} conversation minutes
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
-                  {plan.limits.ordersPerMonth.toLocaleString()} orders per month
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
-                  {plan.limits.connectedStores} connected store{plan.limits.connectedStores === 1 ? '' : 's'}
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check size={14} className="shrink-0 mt-0.5 text-primary" />
-                  {plan.limits.seats} seat{plan.limits.seats === 1 ? '' : 's'}
-                </li>
-              </ul>
+                <div className="text-xl font-bold tabular-nums text-foreground mb-4 font-mono">
+                  {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                  <span className="text-xs font-normal text-muted-foreground font-sans">/month</span>
+                </div>
+
+                <ul className="space-y-2 text-[12px] text-muted-foreground mb-6">
+                  <li className="flex items-start gap-2">
+                    <Check size={13} className="shrink-0 mt-0.5 text-foreground" />
+                    <span>{plan.limits.conversationMinutes.toLocaleString()} conversation minutes</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check size={13} className="shrink-0 mt-0.5 text-foreground" />
+                    <span>{plan.limits.ordersPerMonth.toLocaleString()} orders per month</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check size={13} className="shrink-0 mt-0.5 text-foreground" />
+                    <span>{plan.limits.connectedStores} connected store{plan.limits.connectedStores === 1 ? '' : 's'}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check size={13} className="shrink-0 mt-0.5 text-foreground" />
+                    <span>{plan.limits.seats} team seat{plan.limits.seats === 1 ? '' : 's'}</span>
+                  </li>
+                </ul>
+              </div>
 
               <button
                 onClick={() => handleSubscribe(plan)}
                 disabled={isCurrent || isSubscribing}
-                className={`w-full py-2 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${
+                className={cn(
+                  'w-full py-2 rounded text-xs font-medium transition-colors disabled:opacity-50',
                   isCurrent
                     ? 'bg-surface-high text-muted-foreground cursor-default'
-                    : 'bg-primary text-primary-foreground hover:opacity-90'
-                }`}
+                    : 'bg-foreground text-background hover:opacity-90 font-semibold',
+                )}
               >
-                {isSubscribing ? 'Subscribing...' : isCurrent ? 'Current plan' : 'Subscribe'}
+                {isSubscribing ? 'Processing…' : isCurrent ? 'Active' : 'Upgrade Plan'}
               </button>
             </div>
           );

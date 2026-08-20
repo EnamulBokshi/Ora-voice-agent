@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Package, ShieldCheck, Zap, Radio, Sparkles, Tag, Layers, RefreshCw } from 'lucide-react';
+import { X, Package, Layers, RefreshCw } from 'lucide-react';
 import { ProductDocument, ProductAvailability, SourceTier } from '@/types/product';
 
 interface ProductDetailDrawerProps {
@@ -12,50 +12,46 @@ interface ProductDetailDrawerProps {
 
 const AVAILABILITY_CONFIG: Record<
   ProductAvailability,
-  { label: string; bg: string; text: string; dot: string }
+  { label: string; dot: string; text: string }
 > = {
   [ProductAvailability.IN_STOCK]: {
     label: 'In Stock',
-    bg: 'bg-emerald-500/10 border-emerald-500/20',
-    text: 'text-emerald-400',
     dot: 'bg-emerald-400',
+    text: 'text-foreground',
   },
   [ProductAvailability.OUT_OF_STOCK]: {
     label: 'Out of Stock',
-    bg: 'bg-rose-500/10 border-rose-500/20',
-    text: 'text-rose-400',
     dot: 'bg-rose-400',
+    text: 'text-muted-foreground',
   },
   [ProductAvailability.PREORDER]: {
     label: 'Pre-Order',
-    bg: 'bg-amber-500/10 border-amber-500/20',
-    text: 'text-amber-400',
     dot: 'bg-amber-400',
+    text: 'text-foreground',
   },
   [ProductAvailability.DISCONTINUED]: {
     label: 'Discontinued',
-    bg: 'bg-zinc-500/10 border-zinc-500/20',
-    text: 'text-zinc-400',
-    dot: 'bg-zinc-400',
+    dot: 'bg-zinc-500',
+    text: 'text-muted-foreground',
   },
 };
 
 const SOURCE_TIER_CONFIG: Record<SourceTier, { label: string; desc: string }> = {
   [SourceTier.TIER1_CONNECTOR]: {
-    label: 'Tier 1 Connector',
-    desc: 'Shopify / WooCommerce Live Webhook Sync',
+    label: 'Live Webhook',
+    desc: 'Shopify / WooCommerce sync',
   },
   [SourceTier.TIER2_FEED]: {
-    label: 'Tier 2 Feed',
-    desc: 'Google Merchant XML / RSS / CSV Feed URL',
+    label: 'Catalog Feed',
+    desc: 'XML / RSS / CSV feed URL',
   },
   [SourceTier.TIER3_PASSIVE]: {
-    label: 'Tier 3 Passive',
-    desc: 'Storefront Passive Capture / Sitemap Crawler',
+    label: 'Website Crawl',
+    desc: 'Storefront capture',
   },
   [SourceTier.TIER4_MANUAL]: {
-    label: 'Tier 4 Manual',
-    desc: 'Merchant File Upload / Manual Admin Override',
+    label: 'Manual Entry',
+    desc: 'CSV upload or manual edit',
   },
 };
 
@@ -75,160 +71,126 @@ export function ProductDetailDrawer({
     SOURCE_TIER_CONFIG[SourceTier.TIER4_MANUAL];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="flex h-full w-full max-w-lg flex-col border-l border-border bg-surface-container shadow-2xl overflow-hidden animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="flex h-full w-full max-w-md flex-col border-l border-border bg-surface-lowest shadow-2xl overflow-hidden animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
-              <Package size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground truncate max-w-xs">
-                Product Details
-              </h2>
-              <p className="text-xs text-muted-foreground font-mono">
-                SKU: {product.nativeProductId}
-              </p>
-            </div>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div>
+            <h2 className="text-[14px] font-semibold text-foreground truncate">
+              Product Details
+            </h2>
+            <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+              SKU: {product.nativeProductId}
+            </p>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close product detail drawer"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground"
+            aria-label="Close"
+            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Main Title & Price */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-semibold ${avail.bg} ${avail.text}`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${avail.dot}`} />
-                {avail.label}
-              </span>
-              <span className="rounded-md border border-border bg-surface-low px-2 py-0.5 text-xs font-mono text-muted-foreground">
-                {product.category || 'General'}
-              </span>
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Main Info */}
+          <div className="space-y-2 pb-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${avail.dot}`} />
+              <span className={`text-[12px] font-medium ${avail.text}`}>{avail.label}</span>
+              <span className="text-border">·</span>
+              <span className="text-[12px] text-muted-foreground">{product.category || 'General'}</span>
             </div>
 
-            <h3 className="text-base font-bold text-foreground leading-snug">
+            <h3 className="text-[15px] font-semibold text-foreground leading-snug">
               {product.name}
             </h3>
 
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-foreground font-mono">
+            <div className="flex items-baseline gap-2 pt-1">
+              <span className="text-xl font-bold text-foreground font-mono">
                 {product.currency} {product.price.toFixed(2)}
               </span>
-              <span className="text-xs text-muted-foreground">
-                ({product.stockQuantity} units available)
+              <span className="text-[12px] text-muted-foreground">
+                ({product.stockQuantity} in stock)
               </span>
             </div>
           </div>
 
-          {/* AI Sales Signals */}
-          <div className="rounded-xl border border-border bg-surface-low p-4 space-y-3">
-            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <Sparkles size={14} className="text-primary" />
-              ORA AI Sales Performance
+          {/* Activity / Performance */}
+          <div className="space-y-3 pb-4 border-b border-border">
+            <h4 className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+              Sales Activity
             </h4>
-
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-border bg-surface-lowest p-3">
-                <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                  Recommended
-                </span>
-                <p className="text-lg font-bold text-foreground mt-0.5 font-mono">
+              <div className="p-3 rounded-md bg-surface-high/50 border border-border/60">
+                <span className="text-[11px] text-muted-foreground block">Recommended</span>
+                <p className="text-base font-semibold text-foreground mt-0.5 font-mono">
                   {product.timesRecommendedByAgent ?? 0}
                 </p>
-                <span className="text-[10px] text-muted-foreground">times in live chat</span>
               </div>
-
-              <div className="rounded-lg border border-border bg-surface-lowest p-3">
-                <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                  Upsold
-                </span>
-                <p className="text-lg font-bold text-foreground mt-0.5 font-mono">
+              <div className="p-3 rounded-md bg-surface-high/50 border border-border/60">
+                <span className="text-[11px] text-muted-foreground block">Upsold</span>
+                <p className="text-base font-semibold text-foreground mt-0.5 font-mono">
                   {product.timesUpsold ?? 0}
                 </p>
-                <span className="text-[10px] text-muted-foreground">cross-sell conversions</span>
               </div>
             </div>
           </div>
 
-          {/* Ingestion & Source Tier Info */}
-          <div className="rounded-xl border border-border bg-surface-low p-4 space-y-3">
-            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <Layers size={14} className="text-primary" />
-              Ingestion Source & Vector Status
+          {/* Source & Metadata */}
+          <div className="space-y-3 pb-4 border-b border-border">
+            <h4 className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+              Source & Sync
             </h4>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                <span className="text-muted-foreground">Source Tier</span>
-                <span className="font-semibold text-foreground font-mono">
-                  {tierInfo.label}
+            <div className="space-y-2 text-[12.5px]">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Source</span>
+                <span className="font-medium text-foreground">{tierInfo.label}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Sync status</span>
+                <span className="font-medium text-foreground">
+                  {product.isEmbedded ? 'Indexed' : 'Standard'}
                 </span>
               </div>
-
-              <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                <span className="text-muted-foreground">Confidence Score</span>
-                <span className="font-mono text-primary font-bold">
-                  {(product.confidenceScore * 100).toFixed(0)}%
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                <span className="text-muted-foreground">Vector Store Indexed</span>
-                <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
-                  <ShieldCheck size={13} />
-                  Embedded for RAG
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-muted-foreground">Last Verified</span>
-                <span className="text-muted-foreground font-mono">
-                  {product.lastVerifiedAt
-                    ? new Date(product.lastVerifiedAt).toLocaleString()
-                    : 'Recently'}
-                </span>
-              </div>
+              {product.lastVerifiedAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Last verified</span>
+                  <span className="text-muted-foreground font-mono text-[11px]">
+                    {new Date(product.lastVerifiedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Description */}
           {product.description && (
-            <div className="space-y-1.5">
-              <h4 className="text-xs font-semibold text-foreground">
-                Description & Specs
+            <div className="space-y-2">
+              <h4 className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                Description
               </h4>
-              <div className="rounded-xl border border-border bg-surface-low p-3.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              <p className="text-[12.5px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
                 {product.description}
-              </div>
+              </p>
             </div>
           )}
 
           {/* Custom Attributes */}
           {product.attributes && Object.keys(product.attributes).length > 0 && (
-            <div className="space-y-1.5">
-              <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Tag size={13} className="text-primary" />
-                Custom Attributes & Variants
+            <div className="space-y-2">
+              <h4 className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                Attributes
               </h4>
-              <div className="rounded-xl border border-border bg-surface-low p-3.5 space-y-1.5">
+              <div className="space-y-1.5 text-[12px]">
                 {Object.entries(product.attributes).map(([key, value]) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between text-xs font-mono"
+                    className="flex items-center justify-between font-mono"
                   >
                     <span className="text-muted-foreground">{key}:</span>
-                    <span className="text-foreground font-semibold">
+                    <span className="text-foreground">
                       {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                     </span>
                   </div>
@@ -239,10 +201,10 @@ export function ProductDetailDrawer({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between border-t border-border bg-surface-low px-6 py-4">
+        <div className="flex items-center justify-between border-t border-border px-5 py-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-border bg-surface-high px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-surface-bright"
+            className="h-8 px-3 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Close
           </button>
@@ -253,10 +215,10 @@ export function ProductDetailDrawer({
                 onClose();
                 onOpenOverride(product);
               }}
-              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium border border-border bg-surface-container hover:bg-surface-high text-foreground transition-colors"
             >
-              <RefreshCw size={13} />
-              Manual Override
+              <RefreshCw size={12} />
+              <span>Edit Product</span>
             </button>
           )}
         </div>

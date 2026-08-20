@@ -2,10 +2,14 @@ import { Injectable, OnModuleInit, Logger, HttpStatus } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { AdminUser, AdminUserDocument } from './schemas/admin-user.schema';
 import { Business, BusinessDocument } from './schemas/business.schema';
 import { AdminRole } from './enums/admin-role.enum';
 import { DomainException } from '../common/exceptions/domain.exception';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateBusinessDto } from './dto/update-business.dto';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -102,6 +106,62 @@ export class UsersService implements OnModuleInit {
     return this.adminUserModel
       .findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after' })
       .exec();
+  }
+
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<AdminUserDocument> {
+    const user = await this.adminUserModel.findById(userId).exec();
+    if (!user) {
+      throw new DomainException('USER_NOT_FOUND', 'User not found.', HttpStatus.NOT_FOUND);
+    }
+
+    if (dto.name !== undefined) user.name = dto.name;
+    const saved = await user.save();
+    return saved;
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const user = await this.adminUserModel.findById(userId).exec();
+    if (!user) {
+      throw new DomainException('USER_NOT_FOUND', 'User not found.', HttpStatus.NOT_FOUND);
+    }
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new DomainException(
+        'INVALID_PASSWORD',
+        'Current password is incorrect.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    await user.save();
+
+    return { message: 'Password changed successfully.' };
+  }
+
+  async updateBusiness(
+    businessId: string,
+    dto: UpdateBusinessDto,
+  ): Promise<BusinessDocument> {
+    const business = await this.businessModel.findById(businessId).exec();
+    if (!business) {
+      throw new DomainException('BUSINESS_NOT_FOUND', 'Business not found.', HttpStatus.NOT_FOUND);
+    }
+
+    if (dto.name !== undefined) business.name = dto.name;
+    if (dto.domain !== undefined) business.domain = dto.domain;
+    if (dto.shopifyStoreUrl !== undefined) business.shopifyStoreUrl = dto.shopifyStoreUrl;
+    if (dto.woocommerceStoreUrl !== undefined) business.woocommerceStoreUrl = dto.woocommerceStoreUrl;
+
+    const saved = await business.save();
+    return saved;
   }
 
   async deletePublishableKey(businessId: string): Promise<BusinessDocument> {

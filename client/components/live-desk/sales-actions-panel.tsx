@@ -20,11 +20,11 @@ export function SalesActionsPanel({ actions }: SalesActionsPanelProps) {
   const maxCount = Math.max(...items.map((a) => a.count), 1);
 
   return (
-    <div className="rounded-md border border-border bg-surface-container overflow-hidden">
+    <div className="overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Zap size={14} className="text-primary fill-primary" />
+          <Zap size={14} className="text-muted-foreground" />
           <h3 className="text-[12px] font-semibold text-foreground">Sales Conversions</h3>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">

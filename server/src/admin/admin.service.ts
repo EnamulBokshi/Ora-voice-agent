@@ -46,7 +46,7 @@ export class AdminService {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Aggregates high-level platform-wide statistics for the SuperAdmin command center.
@@ -392,19 +392,19 @@ export class AdminService {
         connectedPlatform: business.connectedPlatform || 'none',
         owner: owner
           ? {
-              name: owner.name,
-              email: owner.email,
-              role: owner.role,
-              createdAt: (owner as any).createdAt,
-            }
+            name: owner.name,
+            email: owner.email,
+            role: owner.role,
+            createdAt: (owner as any).createdAt,
+          }
           : null,
         subscription: subscription
           ? {
-              planId: subscription.planId,
-              status: subscription.status,
-              billingProvider: subscription.billingProvider,
-              currentPeriodEnd: subscription.currentPeriodEnd,
-            }
+            planId: subscription.planId,
+            status: subscription.status,
+            billingProvider: subscription.billingProvider,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+          }
           : null,
         metrics: {
           productsCount,
@@ -794,11 +794,11 @@ export class AdminService {
       ]) : [],
       bId
         ? this.conversationModel
-            .find({ businessId: bId as any })
-            .populate('customerId', 'name phone email')
-            .sort({ updatedAt: -1 })
-            .limit(5)
-            .lean()
+          .find({ businessId: bId as any })
+          .populate('customerId', 'name phone email')
+          .sort({ updatedAt: -1 })
+          .limit(5)
+          .lean()
         : [],
     ]);
 
@@ -819,14 +819,14 @@ export class AdminService {
         updatedAt: (user as any).updatedAt,
         business: business
           ? {
-              id: (business as any)._id.toString(),
-              name: business.name,
-              domain: business.domain || 'N/A',
-              publishableKey: business.publishableKey,
-              status: business.status || 'active',
-              connectedPlatform: business.connectedPlatform || 'none',
-              createdAt: (business as any).createdAt,
-            }
+            id: (business as any)._id.toString(),
+            name: business.name,
+            domain: business.domain || 'N/A',
+            publishableKey: business.publishableKey,
+            status: business.status || 'active',
+            connectedPlatform: business.connectedPlatform || 'none',
+            createdAt: (business as any).createdAt,
+          }
           : null,
         subscription: {
           planId,
@@ -1110,10 +1110,10 @@ export class AdminService {
       });
     }
 
-    let agentConfig = await this.agentConfigModel.findOne({ businessId: platformBiz._id }).exec();
+    let agentConfig = await this.agentConfigModel.findOne({ businessId: platformBiz._id as Types.ObjectId }).exec();
     if (!agentConfig) {
       agentConfig = await this.agentConfigModel.create({
-        businessId: platformBiz._id,
+        businessId: platformBiz._id as Types.ObjectId,
         businessArchetype: 'saas',
         businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
         brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
@@ -1141,7 +1141,7 @@ export class AdminService {
    */
   async updatePlatformAgentConfig(dto: UpdatePlatformAgentDto) {
     const platformData = await this.getPlatformAgentConfig();
-    const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id }).exec();
+    const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id as Types.ObjectId }).exec();
 
     if (!config) {
       throw new DomainException('PLATFORM_AGENT_NOT_FOUND', 'Platform AgentConfig not found.', HttpStatus.NOT_FOUND);

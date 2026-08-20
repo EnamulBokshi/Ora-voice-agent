@@ -90,3 +90,25 @@ export async function getSystemHealthApi(): Promise<SystemHealthResponse> {
     method: 'GET',
   });
 }
+
+export async function closeLiveSessionApi(
+  sessionIdOrId: string,
+): Promise<{ message: string; conversation: any }> {
+  return apiClient<{ message: string; conversation: any }>(
+    `/live-desk/sessions/${sessionIdOrId}/close`,
+    {
+      method: 'POST',
+    },
+  );
+}
+
+export async function terminateVoiceSessionApi(
+  sessionIdOrId: string,
+): Promise<{ message: string; conversation: any }> {
+  return apiClient<{ message: string; conversation: any }>(
+    `/live-desk/voice-sessions/${sessionIdOrId}/terminate`,
+    {
+      method: 'POST',
+    },
+  );
+}

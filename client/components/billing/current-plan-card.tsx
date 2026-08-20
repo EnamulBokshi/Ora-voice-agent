@@ -15,7 +15,7 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
   const [cancelling, setCancelling] = useState(false);
 
   const handleCancel = async () => {
-    if (!confirm('Cancel your subscription? You will lose paid features at the end of the period.')) return;
+    if (!confirm('Cancel your subscription? You will lose paid features at the end of the current billing cycle.')) return;
     setCancelling(true);
     try {
       await cancelSubscriptionApi();
@@ -32,107 +32,95 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
   const usage = subscription.usage;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Active plan */}
-      <div className="lg:col-span-8 rounded-md border border-border bg-surface-container p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <h2 className="text-lg font-semibold text-foreground">
-                {plan ? plan.name : 'No plan'}
-              </h2>
-              {sub && (
-                <span
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ background: 'var(--success)', color: 'var(--success-foreground)' }}
-                >
-                  {sub.status.replace('_', ' ')}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {sub
-                ? `Billing period ${new Date(sub.currentPeriodStart).toLocaleDateString()} - ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
-                : 'No active subscription.'}
-            </p>
-          </div>
-
-          {plan && (
-            <div className="text-left sm:text-right">
-              <div className="text-2xl font-semibold tabular-nums text-foreground leading-none">
-                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
-                <span className="text-xs font-normal text-muted-foreground">/mo</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 capitalize">
-                {sub?.billingProvider ?? 'no provider'}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Usage */}
-        <div className="grid grid-cols-2 gap-4 text-[13px]">
-          <div className="p-3 rounded-md border border-border bg-surface-low">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">
-              Conversation minutes
-            </p>
-            <p className="font-semibold text-foreground tabular-nums">
-              {usage.conversationMinutes.toLocaleString()}
-            </p>
-          </div>
-          <div className="p-3 rounded-md border border-border bg-surface-low">
-            <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">Orders</p>
-            <p className="font-semibold text-foreground tabular-nums">
-              {usage.ordersPerMonth.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
+    <div className="pt-2">
+      {/* Section Sub-Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-border">
+        <h2 className="text-[13.5px] font-semibold text-foreground">
+          Current Plan
+        </h2>
         {sub && sub.status !== 'canceled' && (
           <button
             onClick={handleCancel}
             disabled={cancelling}
-            className="mt-5 px-3.5 py-1.5 rounded-md text-xs font-medium border border-error/40 text-error hover:bg-error/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-border bg-surface-high text-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
           >
-            {cancelling && <Loader2 className="animate-spin" size={12} />}
+            {cancelling && <Loader2 className="animate-spin text-foreground" size={12} />}
             Cancel subscription
           </button>
         )}
       </div>
 
-      {/* Plan limits summary */}
-      <div className="lg:col-span-4 rounded-md border border-border bg-surface-container p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Plan limits</h3>
-        {plan ? (
-          <dl className="space-y-3 text-[13px]">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Conversation minutes</dt>
-              <dd className="font-medium text-foreground tabular-nums">
-                {plan.limits.conversationMinutes.toLocaleString()}
-              </dd>
+      {/* Main Details Row — flat 3-column split */}
+      <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border border-b border-border py-4">
+        {/* Col 1: Plan & Price */}
+        <div className="py-2 md:py-0 md:pr-6 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[15px] font-semibold text-foreground">
+              {plan ? plan.name : 'No active plan'}
+            </span>
+            {sub && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
+                {sub.status.replace('_', ' ')}
+              </span>
+            )}
+          </div>
+          {plan && (
+            <div className="text-[13px] font-mono text-muted-foreground">
+              <span className="text-xl font-bold text-foreground">
+                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+              </span>
+              <span>/month · {sub?.billingProvider ?? 'Stripe'}</span>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Orders per month</dt>
-              <dd className="font-medium text-foreground tabular-nums">
-                {plan.limits.ordersPerMonth.toLocaleString()}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Connected stores</dt>
-              <dd className="font-medium text-foreground tabular-nums">
-                {plan.limits.connectedStores}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Seats</dt>
-              <dd className="font-medium text-foreground tabular-nums">{plan.limits.seats}</dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="text-[13px] text-muted-foreground">
-            Subscribe to a plan to unlock limits.
+          )}
+          <p className="text-[11.5px] text-muted-foreground pt-1">
+            {sub
+              ? `Current cycle: ${new Date(sub.currentPeriodStart).toLocaleDateString()} – ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
+              : 'Subscribe to a plan to start selling with ORA.'}
           </p>
-        )}
+        </div>
+
+        {/* Col 2: Usage this period */}
+        <div className="py-3 md:py-0 md:px-6 space-y-2">
+          <span className="text-[12px] font-medium text-muted-foreground block">
+            Usage this billing period
+          </span>
+          <div className="space-y-1.5 text-[12.5px]">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Conversation minutes:</span>
+              <span className="font-mono font-medium text-foreground tabular-nums">
+                {usage.conversationMinutes.toLocaleString()} / {plan ? plan.limits.conversationMinutes.toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Orders influenced:</span>
+              <span className="font-mono font-medium text-foreground tabular-nums">
+                {usage.ordersPerMonth.toLocaleString()} / {plan ? plan.limits.ordersPerMonth.toLocaleString() : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Col 3: Quotas & Entitlements */}
+        <div className="py-3 md:py-0 md:pl-6 space-y-2">
+          <span className="text-[12px] font-medium text-muted-foreground block">
+            Plan Entitlements
+          </span>
+          <div className="space-y-1.5 text-[12.5px]">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Connected stores:</span>
+              <span className="font-mono font-medium text-foreground tabular-nums">
+                {plan ? plan.limits.connectedStores : 1}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Merchant seats:</span>
+              <span className="font-mono font-medium text-foreground tabular-nums">
+                {plan ? plan.limits.seats : 1}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

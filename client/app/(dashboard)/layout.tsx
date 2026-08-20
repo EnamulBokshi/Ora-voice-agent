@@ -20,10 +20,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar collapsed={collapsed} onToggle={toggle} />
         </Suspense>
 
+        {/* Main content column: fills remaining width */}
         <div
           className="flex-1 h-full flex flex-col overflow-hidden transition-[margin] duration-200 ease-out"
-          style={{ marginLeft: collapsed ? 64 : 232 }}
+          style={{ marginLeft: collapsed ? 64 : 240 }}
         >
+          {/* Page content is responsible for its own TopHeader and scroll area */}
           <main className="flex-1 flex overflow-hidden">{children}</main>
         </div>
       </div>

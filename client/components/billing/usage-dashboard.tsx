@@ -1,16 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import {
-  BarChart2,
-  Mic,
-  ShoppingCart,
-  Database,
-  Users,
-  ArrowUpRight,
-  Calendar,
-  CheckCircle2,
-} from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
 import { cn } from '@/lib/utils';
 
@@ -64,237 +53,127 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
     { day: '6 days ago', sessions: 5, minutes: 7.2, orders: 1 },
   ];
 
+  const quotaItems = [
+    {
+      label: 'Conversation Minutes',
+      used: minutesUsed,
+      limit: minutesLimit,
+      unit: 'min',
+      pct: minutesPct,
+      remaining: `${minutesLimit - minutesUsed} min remaining`,
+    },
+    {
+      label: 'Assisted Orders',
+      used: ordersUsed,
+      limit: ordersLimit,
+      unit: 'orders',
+      pct: ordersPct,
+      remaining: `${ordersLimit - ordersUsed} orders remaining`,
+    },
+    {
+      label: 'Store Knowledge Queries',
+      used: ragUsed,
+      limit: ragLimit,
+      unit: '',
+      pct: ragPct,
+      remaining: `${(ragLimit - ragUsed).toLocaleString()} remaining`,
+    },
+    {
+      label: 'Team Seats',
+      used: seatsUsed,
+      limit: seatsLimit,
+      unit: 'seats',
+      pct: seatsPct,
+      remaining: `${seatsLimit - seatsUsed} available`,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* ── Top Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-              <BarChart2 size={13} className="text-primary" />
-              Billing & Quotas
-            </p>
-            <span className="text-[10px] text-muted-foreground font-mono">· Monthly Cycle</span>
-          </div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">
-            Usage & Resource Consumption
-          </h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">
-            Monitor real-time voice streaming minutes, assisted orders, and store knowledge queries.
-          </p>
+    <div className="space-y-8">
+      {/* ── Cycle Information ── */}
+      <div className="flex items-center justify-between text-[12px] text-muted-foreground pb-1">
+        <span>
+          Current billing cycle for <strong className="text-foreground font-semibold">{plan?.name ?? 'Pro Plan'}</strong>
+        </span>
+        <span className="font-mono">Renews on {periodEndFormatted}</span>
+      </div>
+
+      {/* ── 4-Column Flat Metric Strip ── */}
+      <div>
+        <div className="pb-3 border-b border-border">
+          <h2 className="text-[13.5px] font-semibold text-foreground">Quota Utilization</h2>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="p-2.5 px-3 rounded-md bg-surface-container border border-border flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <div>
-              <p className="text-xs font-semibold text-foreground">
-                {plan?.name ?? 'Pro Plan'}
-              </p>
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 font-mono">
-                <Calendar size={10} />
-                <span>Renews {periodEndFormatted}</span>
-              </p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border border-b border-border py-4">
+          {quotaItems.map((item) => (
+            <div key={item.label} className="p-4 first:pl-0 last:pr-0 space-y-3">
+              <div className="flex justify-between items-baseline">
+                <span className="text-[12px] font-medium text-muted-foreground truncate">
+                  {item.label}
+                </span>
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  {item.pct}%
+                </span>
+              </div>
 
-          <Link
-            href="/billing"
-            className="px-3.5 py-2 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors flex items-center gap-1.5"
-          >
-            <span>Upgrade Plan</span>
-            <ArrowUpRight size={13} />
-          </Link>
+              <div>
+                <span className="text-2xl font-bold font-mono text-foreground tabular-nums">
+                  {item.used.toLocaleString()}
+                </span>
+                <span className="text-xs text-muted-foreground ml-1">
+                  / {item.limit.toLocaleString()} {item.unit}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <div className="h-1.5 w-full rounded-full bg-surface-high overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      item.pct > 85 ? 'bg-amber-400' : 'bg-primary',
+                    )}
+                    style={{ width: `${item.pct}%` }}
+                  />
+                </div>
+                <p className="text-[10.5px] text-muted-foreground/70 font-mono">
+                  {item.remaining}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── 4 Quota Utilization Metric Cards ─────────────────────────── */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Quota Utilization">
-        {/* Metric 1: Voice Minutes */}
-        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
+      {/* ── Flat Activity Breakdown Table ── */}
+      <div className="pt-2">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Voice Minutes
-              </span>
-              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <Mic size={14} />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                {minutesUsed}
-                <span className="text-xs font-normal text-muted-foreground ml-1">/ {minutesLimit} min</span>
-              </p>
-              <span
-                className={cn(
-                  'px-2 py-0.5 rounded text-[10px] font-bold font-mono',
-                  minutesPct > 80
-                    ? 'bg-[color:var(--status-warning)]/10 text-[color:var(--status-warning)] border border-[color:var(--status-warning)]/20'
-                    : 'bg-surface-low text-foreground border border-border',
-                )}
-              >
-                {minutesPct}%
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-1.5">
-            <div className="w-full bg-surface-low rounded-full h-1.5 overflow-hidden border border-border">
-              <div
-                className="bg-primary h-full rounded-full transition-all duration-500"
-                style={{ width: `${minutesPct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground font-mono">
-              {minutesLimit - minutesUsed} minutes remaining
+            <h3 className="text-[13.5px] font-semibold text-foreground">Daily Activity Breakdown</h3>
+            <p className="text-[11.5px] text-muted-foreground mt-0.5">
+              Daily customer interactions and resource consumption over the last 7 days.
             </p>
           </div>
-        </div>
-
-        {/* Metric 2: Assisted Orders */}
-        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Assisted Orders
-              </span>
-              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <ShoppingCart size={14} />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                {ordersUsed}
-                <span className="text-xs font-normal text-muted-foreground ml-1">/ {ordersLimit} orders</span>
-              </p>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-surface-low text-foreground border border-border">
-                {ordersPct}%
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-1.5">
-            <div className="w-full bg-surface-low rounded-full h-1.5 overflow-hidden border border-border">
-              <div
-                className="bg-primary h-full rounded-full transition-all duration-500"
-                style={{ width: `${ordersPct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground font-mono">
-              {ordersLimit - ordersUsed} orders remaining
-            </p>
-          </div>
-        </div>
-
-        {/* Metric 3: RAG Knowledge Queries */}
-        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Store Queries
-              </span>
-              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <Database size={14} />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                {ragUsed.toLocaleString()}
-                <span className="text-xs font-normal text-muted-foreground ml-1">/ {ragLimit.toLocaleString()}</span>
-              </p>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-surface-low text-foreground border border-border">
-                {ragPct}%
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-1.5">
-            <div className="w-full bg-surface-low rounded-full h-1.5 overflow-hidden border border-border">
-              <div
-                className="bg-primary h-full rounded-full transition-all duration-500"
-                style={{ width: `${ragPct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground font-mono">
-              {(ragLimit - ragUsed).toLocaleString()} queries remaining
-            </p>
-          </div>
-        </div>
-
-        {/* Metric 4: Team Seats */}
-        <div className="rounded-md border border-border bg-surface-container p-4 hover:border-border/80 transition-colors flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Team Seats
-              </span>
-              <div className="w-7 h-7 rounded flex items-center justify-center bg-primary/10 text-primary border border-primary/20">
-                <Users size={14} />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                {seatsUsed}
-                <span className="text-xs font-normal text-muted-foreground ml-1">/ {seatsLimit} seats</span>
-              </p>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-surface-low text-foreground border border-border">
-                {seatsPct}%
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-1.5">
-            <div className="w-full bg-surface-low rounded-full h-1.5 overflow-hidden border border-border">
-              <div
-                className="bg-primary h-full rounded-full transition-all duration-500"
-                style={{ width: `${seatsPct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground font-mono">
-              {seatsLimit - seatsUsed} available seats
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Daily Activity Breakdown Table ──────────────────────────── */}
-      <div className="rounded-md border border-border bg-surface-container overflow-hidden">
-        <div className="p-4 px-5 border-b border-border bg-surface-low/50 flex items-center justify-between">
-          <div>
-            <h3 className="text-[13px] font-semibold text-foreground">Recent Voice & Sales Activity</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Daily breakdown of customer voice interactions and assisted conversions
-            </p>
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-surface-high px-2 py-0.5 rounded border border-border font-mono">
-            Last 7 Days
-          </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[13px]">
+          <table className="w-full text-left border-collapse text-[12.5px]">
             <thead>
-              <tr className="border-b border-border text-muted-foreground uppercase text-[11px] tracking-wider font-medium bg-surface-low/30">
-                <th className="py-3 px-5">Timeline</th>
-                <th className="py-3 px-5">Live Sessions</th>
-                <th className="py-3 px-5">Minutes Consumed</th>
-                <th className="py-3 px-5">Orders Assisted</th>
-                <th className="py-3 px-5 text-right">Quota Impact</th>
+              <tr className="border-b border-border text-muted-foreground uppercase text-[11px] font-medium tracking-wider">
+                <th className="py-2.5 px-3">Timeline</th>
+                <th className="py-2.5 px-3">Sessions</th>
+                <th className="py-2.5 px-3">Minutes Used</th>
+                <th className="py-2.5 px-3">Orders Assisted</th>
+                <th className="py-2.5 px-3 text-right">Quota Impact</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border text-foreground">
+            <tbody className="divide-y divide-border/50 text-foreground">
               {dailyBreakdown.map((row, i) => (
-                <tr key={i} className="hover:bg-surface-high/50 transition-colors">
-                  <td className="py-3.5 px-5 font-medium text-foreground text-xs">{row.day}</td>
-                  <td className="py-3.5 px-5 font-mono text-foreground text-xs">{row.sessions} sessions</td>
-                  <td className="py-3.5 px-5 font-mono text-foreground text-xs">{row.minutes} min</td>
-                  <td className="py-3.5 px-5 text-foreground text-xs">
-                    <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary font-mono text-[11px] font-medium">
-                      {row.orders} orders
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-5 text-right font-mono text-muted-foreground text-xs">
+                <tr key={i} className="hover:bg-surface-high/30 transition-colors">
+                  <td className="py-3 px-3 font-medium text-foreground">{row.day}</td>
+                  <td className="py-3 px-3 font-mono text-muted-foreground">{row.sessions} sessions</td>
+                  <td className="py-3 px-3 font-mono text-foreground">{row.minutes} min</td>
+                  <td className="py-3 px-3 font-mono text-foreground">{row.orders} orders</td>
+                  <td className="py-3 px-3 text-right font-mono text-muted-foreground">
                     +{Math.round((row.minutes / minutesLimit) * 100)}%
                   </td>
                 </tr>
@@ -304,15 +183,9 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
       </div>
 
-      {/* ── Fair Usage & Quotas Notice ──────────────────────────────── */}
-      <div className="rounded-md border border-border bg-surface-container p-4 flex items-start gap-3">
-        <CheckCircle2 size={16} className="text-primary shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <p className="text-[13px] font-semibold text-foreground">Fair Usage & Uninterrupted Customer Experience</p>
-          <p className="text-[12px] text-muted-foreground leading-relaxed">
-            ORA never shuts off unexpectedly during customer sessions. When approaching 80% and 95% of your quota, we'll notify you in-app and via email with 1-click tier expansion options.
-          </p>
-        </div>
+      {/* ── Policy Notice ── */}
+      <div className="pt-2 text-[12px] text-muted-foreground border-t border-border flex items-center justify-between">
+        <span>Fair usage policy applies. When reaching 80% quota, automatic notifications will be sent to the store email.</span>
       </div>
     </div>
   );

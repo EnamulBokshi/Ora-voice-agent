@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { getSubscriptionApi, getBillingPlansApi } from '@/services/billing-service';
 import { getInvoicesApi } from '@/services/invoices-service';
 import { demoSubscription, demoInvoices, demoPlans } from '@/lib/demo-data';
+import { withDemoFallback } from '@/lib/demo-config';
 import { SubscriptionDetailsResponse } from '@/types/billing';
 import { Invoice } from '@/types/invoices';
 import { BillingHeader } from './billing-header';
@@ -32,10 +33,12 @@ function BillingClientContent() {
         getSubscriptionApi().catch(() => null),
         getInvoicesApi({ page: 1, limit: 20 }).catch(() => null),
       ]);
-      setSubscription(sub ?? demoSubscription);
-      setInvoices(inv?.items && inv.items.length > 0 ? inv.items : demoInvoices);
+      setSubscription(withDemoFallback(sub, demoSubscription));
+      setInvoices(withDemoFallback(inv?.items, demoInvoices));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load billing');
+      console.error('Failed to load billing details:', err);
+      setSubscription(withDemoFallback(null, demoSubscription));
+      setInvoices(withDemoFallback(null, demoInvoices));
     } finally {
       setLoading(false);
     }
@@ -49,8 +52,8 @@ function BillingClientContent() {
     return (
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-primary" size={20} />
-          <span className="text-sm font-medium">Loading billing details...</span>
+          <Loader2 className="animate-spin text-muted-foreground" size={18} />
+          <span className="text-sm font-medium">Loading billing details…</span>
         </div>
       </div>
     );
@@ -66,12 +69,12 @@ function BillingClientContent() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full bg-background">
-      <div className="max-w-[1300px] mx-auto space-y-6">
+      <div className="max-w-[1200px] mx-auto space-y-8">
+        <BillingHeader />
         {isUsageTab ? (
           <UsageDashboard subscription={subscription} />
         ) : (
           <>
-            <BillingHeader />
             <CurrentPlanCard subscription={subscription} onReload={load} />
             <PlanComparisonGrid
               currentPlanId={subscription.plan?.planId ?? null}
@@ -87,7 +90,7 @@ function BillingClientContent() {
 
 export function BillingClient() {
   return (
-    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Billing...</div>}>
+    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Billing…</div>}>
       <BillingClientContent />
     </Suspense>
   );

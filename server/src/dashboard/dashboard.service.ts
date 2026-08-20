@@ -36,7 +36,7 @@ export class DashboardService {
     return `${sign}${diff.toFixed(1)}%`;
   }
 
-  async getStats(businessId: string) {
+  async getStats(businessId: string, period = '7d') {
     const businessObjId = Types.ObjectId.isValid(businessId)
       ? new Types.ObjectId(businessId)
       : (businessId as any);
@@ -44,8 +44,9 @@ export class DashboardService {
     const query = { businessId: businessObjId };
 
     const now = new Date();
-    const last7DaysStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const prev7DaysStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const days = period === '90d' ? 90 : period === '30d' ? 30 : 7;
+    const lastPeriodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const prevPeriodStart = new Date(now.getTime() - days * 2 * 24 * 60 * 60 * 1000);
     const last28DaysStart = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
     const [
@@ -106,13 +107,13 @@ export class DashboardService {
           },
         },
       ]),
-      // 10. Current 7-day revenue & orders
+      // 10. Current period revenue & orders
       this.orderModel.aggregate([
         {
           $match: {
             businessId: businessObjId,
             status: { $ne: OrderStatus.CANCELED },
-            createdAt: { $gte: last7DaysStart, $lte: now },
+            createdAt: { $gte: lastPeriodStart, $lte: now },
           },
         },
         {
@@ -123,13 +124,13 @@ export class DashboardService {
           },
         },
       ]),
-      // 11. Previous 7-day revenue & orders
+      // 11. Previous period revenue & orders
       this.orderModel.aggregate([
         {
           $match: {
             businessId: businessObjId,
             status: { $ne: OrderStatus.CANCELED },
-            createdAt: { $gte: prev7DaysStart, $lt: last7DaysStart },
+            createdAt: { $gte: prevPeriodStart, $lt: lastPeriodStart },
           },
         },
         {
@@ -140,15 +141,15 @@ export class DashboardService {
           },
         },
       ]),
-      // 12. Current 7-day conversations count
+      // 12. Current period conversations count
       this.conversationModel.countDocuments({
         businessId: businessObjId,
-        createdAt: { $gte: last7DaysStart, $lte: now },
+        createdAt: { $gte: lastPeriodStart, $lte: now },
       }),
-      // 13. Previous 7-day conversations count
+      // 13. Previous period conversations count
       this.conversationModel.countDocuments({
         businessId: businessObjId,
-        createdAt: { $gte: prev7DaysStart, $lt: last7DaysStart },
+        createdAt: { $gte: prevPeriodStart, $lt: lastPeriodStart },
       }),
       // 14. Daily revenue in last 28 days for timeseries chart
       this.orderModel.aggregate([
@@ -303,8 +304,8 @@ export class DashboardService {
     };
   }
 
-  async getRevenueAnalytics(businessId: string) {
-    const stats = await this.getStats(businessId);
+  async getRevenueAnalytics(businessId: string, period = '7d') {
+    const stats = await this.getStats(businessId, period);
     return stats.revenueTimeseries;
   }
 
