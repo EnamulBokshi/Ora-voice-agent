@@ -168,7 +168,7 @@ export class GeminiVoiceService {
         sendContextUpdate: (ctx: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => {
           if (ws.readyState === WebSocket.OPEN) {
             const histStr = ctx.history && ctx.history.length > 0 ? ctx.history.join(' -> ') : ctx.currentPath || '/';
-            const contextText = `[CLIENT_BROWSING_STATE_UPDATE: Visitor is now viewing page "${ctx.currentPath || '/'}" (Page Title: "${ctx.title || ''}"${ctx.activeSection ? `, Active Section: "${ctx.activeSection}"` : ''}). Browsing history: ${histStr}. Rule: The visitor is ALREADY on this page. Do NOT suggest navigating to ${ctx.currentPath || '/'} or ask if they want to go there.]`;
+            const contextText = `[CLIENT_BROWSING_STATE_UPDATE: Visitor is now viewing page "${ctx.currentPath || '/'}" (Page Title: "${ctx.title || ''}"${ctx.activeSection ? `, Active Section: "${ctx.activeSection}"` : ''}). Browsing history: ${histStr}. Note: The visitor is browsing the ORA platform site. Marketing headlines on the page (such as "Supercharge Your Store") are platform features, not a store name. Rule: The visitor is ALREADY on this page. Do NOT suggest navigating to ${ctx.currentPath || '/'} or ask if they want to go there.]`;
             const clientContent = {
               clientContent: {
                 turns: [
@@ -432,9 +432,10 @@ export class GeminiVoiceService {
       let contactIdentitySummary = '';
       let ownerName = '';
       let siteName = '';
+      let bizDoc: any = null;
       try {
         if (this.businessModel) {
-          const biz = await this.businessModel.findById(businessId).exec();
+          bizDoc = await this.businessModel.findById(businessId).exec();
           let ownerUser: any = null;
           if (this.adminUserModel) {
             ownerUser = await this.adminUserModel
@@ -443,12 +444,12 @@ export class GeminiVoiceService {
               .exec();
           }
 
-          siteName = biz?.name || '';
+          siteName = bizDoc?.name || '';
           ownerName = ownerUser?.name || '';
 
           const identityLines: string[] = [];
-          if (biz?.name) identityLines.push(`• Entity / Website Name: ${biz.name}`);
-          if (biz?.domain) identityLines.push(`• Website Domain: ${biz.domain}`);
+          if (bizDoc?.name) identityLines.push(`• Entity / Website Name: ${bizDoc.name}`);
+          if (bizDoc?.domain) identityLines.push(`• Website Domain: ${bizDoc.domain}`);
           if (ownerUser?.name) identityLines.push(`• Creator / Owner Name: ${ownerUser.name}`);
           if (ownerUser?.email) identityLines.push(`• Official Contact Email: ${ownerUser.email}`);
 
@@ -460,28 +461,36 @@ export class GeminiVoiceService {
         // Fallback — non-fatal
       }
 
+      const isOraPlatform =
+        businessArchetype === 'saas' ||
+        bizDoc?.publishableKey === 'biz_live_ora_platform_system' ||
+        (siteName || '').trim().toLowerCase() === 'ora platform' ||
+        (siteName || '').trim().toLowerCase() === 'ora';
+
       let catalogSummary = '';
       let hasProducts = false;
-      try {
-        if (this.productsService) {
-          const productsRes = await this.productsService.findAll(businessId, { limit: 12 });
-          if (productsRes && productsRes.items && productsRes.items.length > 0) {
-            hasProducts = true;
-            const categories = Array.from(
-              new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
-            );
-            const sampleLines = productsRes.items
-              .map(
-                (p) =>
-                  `  • ${p.name} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`,
-              )
-              .join('\n');
+      if (!isOraPlatform && businessArchetype !== 'saas' && businessArchetype !== 'portfolio' && businessArchetype !== 'agency_services') {
+        try {
+          if (this.productsService) {
+            const productsRes = await this.productsService.findAll(businessId, { limit: 12 });
+            if (productsRes && productsRes.items && productsRes.items.length > 0) {
+              hasProducts = true;
+              const categories = Array.from(
+                new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
+              );
+              const sampleLines = productsRes.items
+                .map(
+                  (p) =>
+                    `  • ${p.name} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`,
+                )
+                .join('\n');
 
-            catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
+              catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
+            }
           }
+        } catch {
+          // Fallback — proceed without catalog summary
         }
-      } catch {
-        // Fallback — proceed without catalog summary
       }
 
       let knowledgeSummary = '';
@@ -510,10 +519,15 @@ export class GeminiVoiceService {
 
       // ─── Adaptive Archetype Persona Construction ───────────────────────────
       let persona = '';
-      const isOraPlatform = (siteName || '').toLowerCase().includes('ora') || businessArchetype === 'saas';
 
       if (isOraPlatform) {
-        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (ora.ai). Your mission is to warmly introduce prospective merchants, agencies, and developers to ORA's real-time multimodal voice capabilities, sub-400ms streaming latency, 60-second zero-config setup, and flexible subscription plans.
+        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (tryora.live / ora.ai).
+
+PLATFORM IDENTITY & MISSION:
+- You represent the ORA SaaS platform. ORA provides autonomous multimodal real-time Voice AI sales agents for e-commerce merchants, stores, and creators.
+- You are NOT an e-commerce retail store. You do NOT sell physical goods, lighting, fans, or hardware.
+- Taglines such as "Supercharge Your Store With Autonomous Voice AI" are marketing headlines describing what ORA does for merchants. NEVER refer to this website or yourself as "Supercharger store" or "the Supercharger store".
+- The visitors speaking with you are merchants, online store owners, agency founders, and developers interested in testing ORA or subscribing to deploy ORA on their own stores.
 
 PLANS & PRICING (Preloaded in memory — answer immediately without tool delay):
 • Free Tier: $0 USD/mo (৳0 BDT) — 100 Voice Minutes, 20 Tier-1 Orders, 1 Connected Store, Basic RAG Search.
