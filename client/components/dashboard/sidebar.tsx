@@ -18,7 +18,7 @@ import {
   FileText,
   Package,
   Key,
-  Sparkles,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -38,19 +38,19 @@ const navGroups: NavGroupDef[] = [
   {
     groupLabel: 'My Store',
     items: [
-      { id: 'dashboard',     label: 'Overview',         href: '/dashboard',  icon: <LayoutDashboard size={15} /> },
-      { id: 'live-desk',     label: 'Live Desk',        href: '/live-desk',  icon: <Radio size={15} /> },
+      { id: 'dashboard', label: 'Overview', href: '/dashboard', icon: <LayoutDashboard size={15} /> },
+      { id: 'live-desk', label: 'Live Desk', href: '/live-desk', icon: <Radio size={15} /> },
       {
         id: 'agent',
         label: 'ORA Agent',
         href: '/agent',
         icon: <Bot size={15} />,
         subItems: [
-          { id: 'agent-persona',     label: 'Persona & Archetype', href: '/agent?tab=persona',     icon: <Sparkles size={13} />, tabKey: 'persona' },
-          { id: 'agent-voice',       label: 'Talk to ORA',       href: '/agent?tab=voice',       icon: <Mic size={13} />,      tabKey: 'voice' },
-          { id: 'agent-documents',   label: 'Documents',         href: '/agent?tab=documents',   icon: <FileText size={13} />, tabKey: 'documents' },
-          { id: 'agent-products',    label: 'Product Catalog',   href: '/agent?tab=products',    icon: <Package size={13} />,  tabKey: 'products' },
-          { id: 'agent-integration', label: 'Integration',       href: '/agent?tab=integration', icon: <Key size={13} />,      tabKey: 'integration' },
+          { id: 'agent-persona', label: 'Persona & Archetype', href: '/agent?tab=persona', icon: <Sparkles size={13} />, tabKey: 'persona' },
+          { id: 'agent-voice', label: 'Talk to ORA', href: '/agent?tab=voice', icon: <Mic size={13} />, tabKey: 'voice' },
+          { id: 'agent-documents', label: 'Documents', href: '/agent?tab=documents', icon: <FileText size={13} />, tabKey: 'documents' },
+          { id: 'agent-products', label: 'Product Catalog', href: '/agent?tab=products', icon: <Package size={13} />, tabKey: 'products' },
+          { id: 'agent-integration', label: 'Integration', href: '/agent?tab=integration', icon: <Key size={13} />, tabKey: 'integration' },
         ],
       },
     ],
@@ -58,21 +58,21 @@ const navGroups: NavGroupDef[] = [
   {
     groupLabel: 'Conversations',
     items: [
-      { id: 'conversations', label: 'All Conversations', href: '/conversations',             icon: <MessageSquareText size={15} /> },
+      { id: 'conversations', label: 'All Conversations', href: '/conversations', icon: <MessageSquareText size={15} /> },
     ],
   },
   {
     groupLabel: 'Billing',
     items: [
-      { id: 'billing',       label: 'Invoices',         href: '/billing',                   icon: <Receipt size={15} /> },
-      { id: 'usage',         label: 'Usage',            href: '/billing?tab=usage',         icon: <BarChart2 size={15} /> },
+      { id: 'billing', label: 'Invoices', href: '/billing', icon: <Receipt size={15} /> },
+      { id: 'usage', label: 'Usage', href: '/billing?tab=usage', icon: <BarChart2 size={15} /> },
     ],
   },
   {
     groupLabel: 'Account',
     items: [
-      { id: 'notifications', label: 'Notifications',    href: '/notifications',             icon: <Bell size={15} /> },
-      { id: 'settings',      label: 'Settings',         href: '/profile',                   icon: <Settings size={15} /> },
+      { id: 'notifications', label: 'Notifications', href: '/notifications', icon: <Bell size={15} /> },
+      { id: 'settings', label: 'Settings', href: '/profile', icon: <Settings size={15} /> },
     ],
   },
 ];
@@ -86,8 +86,8 @@ function getActiveNavId(
   searchParams: { get: (name: string) => string | null },
 ): string {
   if (pathname === '/' || pathname.startsWith('/dashboard')) return 'dashboard';
-  if (pathname.startsWith('/live-desk'))    return 'live-desk';
-  if (pathname.startsWith('/agent'))        return 'agent';
+  if (pathname.startsWith('/live-desk')) return 'live-desk';
+  if (pathname.startsWith('/agent')) return 'agent';
   if (pathname.startsWith('/conversations')) return 'conversations';
   if (pathname.startsWith('/notifications')) return 'notifications';
   if (pathname.startsWith('/billing'))
@@ -111,10 +111,10 @@ interface SidebarProps {
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
-  const pathname      = usePathname();
-  const searchParams  = useSearchParams();
-  const activeTab     = searchParams.get('tab') || 'voice';
-  const activeId      = getActiveNavId(pathname, searchParams);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'voice';
+  const activeId = getActiveNavId(pathname, searchParams);
 
   const [userName, setUserName] = useState<string>('Profile');
   const [userRole, setUserRole] = useState<string>('Owner');
