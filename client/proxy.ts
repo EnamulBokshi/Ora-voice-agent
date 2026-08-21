@@ -22,6 +22,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
     pathname.startsWith('/billing') ||
+    pathname.startsWith('/notifications') ||
     pathname.startsWith('/profile');
 
   // Admin command center routes
@@ -87,7 +88,7 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const middleware = proxy;
+export default proxy;
 
 export const config = {
   matcher: [

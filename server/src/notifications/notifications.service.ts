@@ -64,15 +64,6 @@ export class NotificationsService {
       filter.read = false;
     }
 
-    // Check count first - if 0 and no filters, seed initial demo notifications
-    const totalCount = await this.notificationModel.countDocuments({
-      businessId: businessObjId,
-    });
-
-    if (totalCount === 0) {
-      await this.seedInitialForBusiness(businessId);
-    }
-
     const [items, total, unreadCount, salesCount, syncCount, systemCount] =
       await Promise.all([
         this.notificationModel

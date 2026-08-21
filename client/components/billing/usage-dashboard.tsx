@@ -19,21 +19,17 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
     seats: 3,
   };
 
-  const minutesUsed = usage.conversationMinutes ?? 47;
+  const minutesUsed = usage.conversationMinutes ?? 0;
   const minutesLimit = limits.conversationMinutes || 100;
-  const minutesPct = Math.min(100, Math.round((minutesUsed / minutesLimit) * 100));
+  const minutesPct = Math.min(100, Math.round((minutesUsed / Math.max(1, minutesLimit)) * 100));
 
-  const ordersUsed = usage.ordersPerMonth ?? 14;
+  const ordersUsed = usage.ordersPerMonth ?? 0;
   const ordersLimit = limits.ordersPerMonth || 25;
-  const ordersPct = Math.min(100, Math.round((ordersUsed / ordersLimit) * 100));
-
-  const ragUsed = 1420;
-  const ragLimit = 5000;
-  const ragPct = Math.min(100, Math.round((ragUsed / ragLimit) * 100));
+  const ordersPct = Math.min(100, Math.round((ordersUsed / Math.max(1, ordersLimit)) * 100));
 
   const seatsUsed = 1;
   const seatsLimit = limits.seats || 3;
-  const seatsPct = Math.min(100, Math.round((seatsUsed / seatsLimit) * 100));
+  const seatsPct = Math.min(100, Math.round((seatsUsed / Math.max(1, seatsLimit)) * 100));
 
   const periodEndFormatted = sub?.currentPeriodEnd
     ? new Date(sub.currentPeriodEnd).toLocaleDateString(undefined, {
@@ -41,17 +37,15 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         day: 'numeric',
         year: 'numeric',
       })
-    : 'Sep 1, 2026';
+    : 'Monthly cycle';
 
-  const dailyBreakdown = [
-    { day: 'Today', sessions: 8, minutes: 12.4, orders: 4 },
-    { day: 'Yesterday', sessions: 11, minutes: 18.2, orders: 5 },
-    { day: '2 days ago', sessions: 6, minutes: 9.1, orders: 2 },
-    { day: '3 days ago', sessions: 9, minutes: 14.0, orders: 3 },
-    { day: '4 days ago', sessions: 4, minutes: 6.8, orders: 1 },
-    { day: '5 days ago', sessions: 7, minutes: 10.5, orders: 2 },
-    { day: '6 days ago', sessions: 5, minutes: 7.2, orders: 1 },
-  ];
+  const daysLabel = ['Today', 'Yesterday', '2 days ago', '3 days ago', '4 days ago', '5 days ago', '6 days ago'];
+  const dailyBreakdown = daysLabel.map((day, idx) => ({
+    day,
+    sessions: idx === 0 ? (minutesUsed > 0 ? 1 : 0) : 0,
+    minutes: idx === 0 ? minutesUsed : 0,
+    orders: idx === 0 ? ordersUsed : 0,
+  }));
 
   const quotaItems = [
     {
@@ -60,7 +54,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
       limit: minutesLimit,
       unit: 'min',
       pct: minutesPct,
-      remaining: `${minutesLimit - minutesUsed} min remaining`,
+      remaining: `${Math.max(0, minutesLimit - minutesUsed)} min remaining`,
     },
     {
       label: 'Assisted Orders',
@@ -68,15 +62,15 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
       limit: ordersLimit,
       unit: 'orders',
       pct: ordersPct,
-      remaining: `${ordersLimit - ordersUsed} orders remaining`,
+      remaining: `${Math.max(0, ordersLimit - ordersUsed)} orders remaining`,
     },
     {
-      label: 'Store Knowledge Queries',
-      used: ragUsed,
-      limit: ragLimit,
-      unit: '',
-      pct: ragPct,
-      remaining: `${(ragLimit - ragUsed).toLocaleString()} remaining`,
+      label: 'Connected Stores',
+      used: 1,
+      limit: limits.connectedStores || 1,
+      unit: 'store',
+      pct: Math.min(100, Math.round((1 / Math.max(1, limits.connectedStores || 1)) * 100)),
+      remaining: `${Math.max(0, (limits.connectedStores || 1) - 1)} available`,
     },
     {
       label: 'Team Seats',
@@ -84,7 +78,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
       limit: seatsLimit,
       unit: 'seats',
       pct: seatsPct,
-      remaining: `${seatsLimit - seatsUsed} available`,
+      remaining: `${Math.max(0, seatsLimit - seatsUsed)} available`,
     },
   ];
 
@@ -93,9 +87,9 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
       {/* ── Cycle Information ── */}
       <div className="flex items-center justify-between text-[12px] text-muted-foreground pb-1">
         <span>
-          Current billing cycle for <strong className="text-foreground font-semibold">{plan?.name ?? 'Pro Plan'}</strong>
+          Current billing cycle for <strong className="text-foreground font-semibold">{plan?.name ?? 'Free Tier'}</strong>
         </span>
-        <span className="font-mono">Renews on {periodEndFormatted}</span>
+        <span className="font-mono">{sub?.status === 'active' ? `Renews on ${periodEndFormatted}` : 'Active Free Tier'}</span>
       </div>
 
       {/* ── 4-Column Flat Metric Strip ── */}
@@ -174,7 +168,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
                   <td className="py-3 px-3 font-mono text-foreground">{row.minutes} min</td>
                   <td className="py-3 px-3 font-mono text-foreground">{row.orders} orders</td>
                   <td className="py-3 px-3 text-right font-mono text-muted-foreground">
-                    +{Math.round((row.minutes / minutesLimit) * 100)}%
+                    {minutesLimit > 0 ? `+${Math.round((row.minutes / minutesLimit) * 100)}%` : '0%'}
                   </td>
                 </tr>
               ))}

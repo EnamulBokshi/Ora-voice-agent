@@ -20,8 +20,8 @@ import {
   getDashboardStatsApi,
   DashboardStatsResponse,
 } from '@/services/dashboard-service';
-import { demoOrders, demoConversations, demoProfile, demoDashboardStats } from '@/lib/demo-data';
-import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
+import { demoProfile, demoDashboardStats, demoOrders, demoConversations } from '@/lib/demo-data';
+import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
 
@@ -42,18 +42,42 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
+const EMPTY_STATS: DashboardStatsResponse = {
+  productTotal: 0,
+  orderTotal: 0,
+  conversationTotal: 0,
+  activeChats: 0,
+  activeVoiceCalls: 0,
+  totalRevenue: 0,
+  revenueTrend: '+0.0%',
+  ordersTrend: '+0.0%',
+  conversationsTrend: '+0.0%',
+  planName: null,
+  planStatus: null,
+  revenueTimeseries: { daily: [], weekly: [], growthRate: '+0.0%', totalRevenue: 0 },
+  funnel: [],
+  overallConversion: 0,
+  recentOrders: [],
+  recentConversations: [],
+};
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function OverviewClient() {
-  const [stats, setStats]           = useState<DashboardStatsResponse>(demoDashboardStats);
+  const [stats, setStats]           = useState<DashboardStatsResponse>(
+    DEMO_MODE_ENABLED ? demoDashboardStats : EMPTY_STATS,
+  );
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
-  const [userName, setUserName]     = useState<string>(demoProfile.user.name);
+  const [userName, setUserName]     = useState<string>(
+    DEMO_MODE_ENABLED ? demoProfile.user.name : '',
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const load = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true);
+    else if (!DEMO_MODE_ENABLED && stats.productTotal === 0) setLoading(true);
     setError(null);
 
     try {
@@ -76,49 +100,42 @@ export function OverviewClient() {
           setStats(demoDashboardStats);
         } else {
           setStats({
-            productTotal: d.productTotal ?? (DEMO_MODE_ENABLED ? demoDashboardStats.productTotal : 0),
-            orderTotal: d.orderTotal ?? (DEMO_MODE_ENABLED ? demoDashboardStats.orderTotal : 0),
-            conversationTotal: d.conversationTotal ?? (DEMO_MODE_ENABLED ? demoDashboardStats.conversationTotal : 0),
-            activeChats: d.activeChats ?? (DEMO_MODE_ENABLED ? demoDashboardStats.activeChats : 0),
-            activeVoiceCalls: d.activeVoiceCalls ?? (DEMO_MODE_ENABLED ? demoDashboardStats.activeVoiceCalls : 0),
-            totalRevenue: d.totalRevenue ?? (DEMO_MODE_ENABLED ? demoDashboardStats.totalRevenue : 0),
-            revenueTrend: d.revenueTrend || (DEMO_MODE_ENABLED ? demoDashboardStats.revenueTrend : '+0.0%'),
-            ordersTrend: d.ordersTrend || (DEMO_MODE_ENABLED ? demoDashboardStats.ordersTrend : '+0.0%'),
-            conversationsTrend: d.conversationsTrend || (DEMO_MODE_ENABLED ? demoDashboardStats.conversationsTrend : '+0.0%'),
-            planName: d.planName ?? (DEMO_MODE_ENABLED ? demoDashboardStats.planName : null),
-            planStatus: d.planStatus ?? (DEMO_MODE_ENABLED ? demoDashboardStats.planStatus : null),
-            revenueTimeseries: (d.revenueTimeseries?.daily?.length)
-              ? d.revenueTimeseries
-              : (DEMO_MODE_ENABLED ? demoDashboardStats.revenueTimeseries : { daily: [], weekly: [], growthRate: '+0.0%', totalRevenue: 0 }),
-            funnel: (d.funnel?.length)
-              ? d.funnel
-              : (DEMO_MODE_ENABLED ? demoDashboardStats.funnel : []),
-            overallConversion: d.overallConversion ?? (DEMO_MODE_ENABLED ? demoDashboardStats.overallConversion : 0),
-            recentOrders: (d.recentOrders?.length)
-              ? d.recentOrders
-              : (DEMO_MODE_ENABLED ? demoOrders : []),
-            recentConversations: (d.recentConversations?.length)
-              ? d.recentConversations
-              : (DEMO_MODE_ENABLED ? demoConversations : []),
+            productTotal:        d.productTotal        ?? 0,
+            orderTotal:          d.orderTotal          ?? 0,
+            conversationTotal:   d.conversationTotal   ?? 0,
+            activeChats:         d.activeChats         ?? 0,
+            activeVoiceCalls:    d.activeVoiceCalls    ?? 0,
+            totalRevenue:        d.totalRevenue        ?? 0,
+            revenueTrend:        d.revenueTrend        || '+0.0%',
+            ordersTrend:         d.ordersTrend         || '+0.0%',
+            conversationsTrend:  d.conversationsTrend  || '+0.0%',
+            planName:            d.planName            ?? null,
+            planStatus:          d.planStatus          ?? null,
+            revenueTimeseries:   d.revenueTimeseries   ?? { daily: [], weekly: [], growthRate: '+0.0%', totalRevenue: 0 },
+            funnel:              d.funnel              ?? [],
+            overallConversion:   d.overallConversion   ?? 0,
+            recentOrders:        d.recentOrders        ?? [],
+            recentConversations: d.recentConversations ?? [],
           });
         }
       } else if (DEMO_MODE_ENABLED) {
         setStats(demoDashboardStats);
       } else {
-        throw new Error('Could not load overview stats');
+        setStats(EMPTY_STATS);
       }
     } catch (err) {
       if (DEMO_MODE_ENABLED) {
         setStats(demoDashboardStats);
         setError(null);
       } else {
-        setError(err instanceof Error ? err.message : 'Could not load overview');
+        setStats(EMPTY_STATS);
+        setError(err instanceof Error ? err.message : 'Could not load overview stats');
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [stats.productTotal]);
 
   useEffect(() => { load(); }, [load]);
 
