@@ -93,22 +93,6 @@ export function MarketingNavbar() {
     }
   };
 
-  const getCtaLink = () => {
-    if (!isLoggedIn || !user) return '/auth';
-    if (user.role === 'admin' || user.role === 'super_admin') return '/admin';
-    if (user.role === 'owner' || user.role === 'staff') return '/dashboard';
-    if (user.role === 'user') return '/pricing';
-    return '/auth';
-  };
-
-  const getCtaLabel = () => {
-    if (!isLoggedIn || !user) return 'Get Started';
-    if (user.role === 'admin' || user.role === 'super_admin') return 'Admin Portal';
-    if (user.role === 'owner' || user.role === 'staff') return 'Dashboard';
-    if (user.role === 'user') return 'Choose Plan';
-    return 'Get Started';
-  };
-
   const getUserInitials = () => {
     if (!user) return 'U';
     if (user.name) {
@@ -168,21 +152,23 @@ export function MarketingNavbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ThemeToggle />
 
-          {/* Primary CTA */}
-          <Link
-            href={getCtaLink()}
-            className="lp-btn-primary lp-nav-cta"
-            id="nav-get-started-cta"
-          >
-            {getCtaLabel()}
-          </Link>
+          {/* Primary CTA (shown only when logged out) */}
+          {!isLoggedIn && (
+            <Link
+              href="/auth"
+              className="lp-btn-primary lp-nav-cta"
+              id="nav-get-started-cta"
+            >
+              Get Started
+            </Link>
+          )}
 
           {/* Profile Dropdown (when logged in) */}
           {isLoggedIn && user && (
             <div className="lp-user-menu-wrapper" ref={dropdownRef}>
               <button
                 type="button"
-                className="lp-user-trigger-btn"
+                className={`lp-user-trigger-btn${dropdownOpen ? ' active' : ''}`}
                 onClick={() => setDropdownOpen((prev) => !prev)}
                 aria-expanded={dropdownOpen}
                 aria-label="User profile and account menu"
@@ -196,32 +182,43 @@ export function MarketingNavbar() {
                 </span>
                 <ChevronDown
                   size={14}
+                  className="lp-user-chevron"
                   style={{
                     color: 'var(--lp-text-secondary)',
-                    transition: 'transform 0.15s ease',
+                    transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                     transform: dropdownOpen ? 'rotate(180deg)' : 'none',
                   }}
                 />
               </button>
 
-              {/* Dropdown Card */}
+              {/* Glassy Dropdown Card */}
               {dropdownOpen && (
                 <div className="lp-user-dropdown-card" role="menu">
-                  {/* User info */}
+                  {/* User info frosted tile */}
                   <div className="lp-user-info-section">
-                    <div className="lp-user-info-name">
-                      {user.name || 'Merchant Account'}
+                    <div className="lp-user-info-header">
+                      <div className="lp-user-info-avatar">
+                        {getUserInitials()}
+                      </div>
+                      <div className="lp-user-info-text">
+                        <div className="lp-user-info-name">
+                          {user.name || 'Merchant Account'}
+                        </div>
+                        <div className="lp-user-info-email" title={user.email}>
+                          {user.email}
+                        </div>
+                      </div>
                     </div>
-                    <div className="lp-user-info-email" title={user.email}>
-                      {user.email}
+                    <div className="lp-user-role-container">
+                      <span
+                        className={`lp-user-role-badge ${
+                          user.role === 'owner' ? 'owner' : user.role.includes('admin') ? 'admin' : ''
+                        }`}
+                      >
+                        <span className="lp-user-role-dot" />
+                        {getRoleLabel()}
+                      </span>
                     </div>
-                    <span
-                      className={`lp-user-role-badge ${
-                        user.role === 'owner' ? 'owner' : user.role.includes('admin') ? 'admin' : ''
-                      }`}
-                    >
-                      {getRoleLabel()}
-                    </span>
                   </div>
 
                   {/* Navigation items */}
@@ -234,7 +231,9 @@ export function MarketingNavbar() {
                           className="lp-user-menu-item"
                           onClick={() => setDropdownOpen(false)}
                         >
-                          <LayoutDashboard size={16} />
+                          <span className="lp-user-menu-icon">
+                            <LayoutDashboard size={15} />
+                          </span>
                           <span>Store Dashboard</span>
                         </Link>
                       </li>
@@ -248,7 +247,9 @@ export function MarketingNavbar() {
                           className="lp-user-menu-item"
                           onClick={() => setDropdownOpen(false)}
                         >
-                          <Shield size={16} />
+                          <span className="lp-user-menu-icon">
+                            <Shield size={15} />
+                          </span>
                           <span>Admin Console</span>
                         </Link>
                       </li>
@@ -261,24 +262,28 @@ export function MarketingNavbar() {
                         className="lp-user-menu-item"
                         onClick={() => setDropdownOpen(false)}
                       >
-                        <CreditCard size={16} />
+                        <span className="lp-user-menu-icon">
+                          <CreditCard size={15} />
+                        </span>
                         <span>{user.role === 'user' ? 'Select Plan' : 'Subscription & Pricing'}</span>
                       </Link>
                     </li>
 
                     {/* Divider & Logout */}
-                    <li style={{ borderTop: '1px solid var(--lp-border-light)', marginTop: '0.25rem', paddingTop: '0.25rem' }}>
+                    <li className="lp-user-menu-divider">
                       <button
                         type="button"
                         onClick={handleLogout}
                         disabled={loggingOut}
                         className="lp-user-menu-item danger"
                       >
-                        {loggingOut ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <LogOut size={16} />
-                        )}
+                        <span className="lp-user-menu-icon danger">
+                          {loggingOut ? (
+                            <Loader2 size={15} className="animate-spin" />
+                          ) : (
+                            <LogOut size={15} />
+                          )}
+                        </span>
                         <span>{loggingOut ? 'Logging out...' : 'Log Out'}</span>
                       </button>
                     </li>

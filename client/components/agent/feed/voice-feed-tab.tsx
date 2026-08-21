@@ -21,6 +21,7 @@ import { createKnowledgeDocApi } from '@/services/knowledge-service';
 import { DocType } from '@/types/knowledge';
 import { cn } from '@/lib/utils';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
+import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 
 interface VoiceFeedTabProps {
   publishableKey?: string;
@@ -405,6 +406,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
   };
 
   const handleToggleVoice = () => {
+    if (status === 'connecting') return;
     if (status === 'idle' || status === 'error') {
       if (voiceMode === 'gemini-live') {
         startGeminiLiveSession();
@@ -466,65 +468,16 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
           }}
         />
 
-        {/* Central Glowing Microphone Logo Orb */}
-        <div className="relative flex items-center justify-center my-4">
-          {/* Speaking ping waves */}
-          {status === 'speaking' && (
-            <div className="absolute w-44 h-44 rounded-full bg-primary/20 animate-ping pointer-events-none" />
-          )}
-
-          {/* Listening audio volume reaction halo */}
-          {status === 'listening' && (
-            <div
-              className="absolute rounded-full bg-[color:var(--status-warning)]/20 transition-all duration-75 pointer-events-none"
-              style={{
-                width: `${128 + audioLevel * 0.9}px`,
-                height: `${128 + audioLevel * 0.9}px`,
-              }}
-            />
-          )}
-
-          {/* Interactive Button */}
-          <button
+        {/* Central Living Crystal Fluid Wave Orb */}
+        <div className="relative flex flex-col items-center justify-center my-4">
+          <LivingOrb
+            size={110}
+            voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
+            energyLevel={audioLevel}
             onClick={handleToggleVoice}
-            className={cn(
-              'relative z-10 w-28 h-28 rounded-full flex flex-col items-center justify-center shadow-xl border-2 transition-all duration-300 cursor-pointer focus:outline-none focus:ring-4 focus:ring-primary/20',
-              status === 'speaking'
-                ? 'bg-primary/10 border-primary text-primary shadow-primary/30'
-                : status === 'listening'
-                ? 'bg-[color:var(--status-warning)]/15 border-[color:var(--status-warning)] text-[color:var(--status-warning)] shadow-[color:var(--status-warning)]/30'
-                : status === 'connecting'
-                ? 'bg-surface-high border-primary/50 text-primary animate-pulse'
-                : status === 'error'
-                ? 'bg-error/15 border-error text-error'
-                : 'bg-surface-low border-border text-foreground hover:border-primary/60 hover:scale-[1.03]',
-            )}
-            aria-label={isActive ? 'Stop ORA Voice Assistant' : 'Start ORA Voice Assistant'}
-          >
-            {status === 'connecting' ? (
-              <RefreshCw size={32} className="animate-spin text-primary" />
-            ) : status === 'speaking' ? (
-              <Volume2 size={32} className="text-primary animate-bounce" />
-            ) : status === 'listening' ? (
-              <Mic size={32} className="text-[color:var(--status-warning)] animate-pulse" />
-            ) : status === 'error' ? (
-              <Square size={28} className="text-error" />
-            ) : (
-              <Mic size={32} className="text-primary" />
-            )}
-
-            <span className="text-[10px] font-bold tracking-wider uppercase mt-1.5 text-foreground">
-              {status === 'connecting'
-                ? 'Connecting'
-                : status === 'speaking'
-                ? 'Speaking'
-                : status === 'listening'
-                ? 'Listening'
-                : status === 'error'
-                ? 'Retry'
-                : 'Tap to Talk'}
-            </span>
-          </button>
+            ariaLabel={isActive ? 'Stop ORA Voice Assistant' : 'Start ORA Voice Assistant'}
+            title={isActive ? 'Click to stop voice session' : 'Click to talk to ORA'}
+          />
         </div>
 
         {/* Status text */}

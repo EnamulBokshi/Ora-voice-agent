@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
+import { refreshApi } from '@/services/auth-service';
 
 /**
  * Voice session states — matching the NestJS VoiceProxyGateway & Gemini Live state machine
@@ -11,11 +12,18 @@ export type VoiceState = 'idle' | 'connecting' | 'active' | 'thinking' | 'ora-sp
 
 // ─── Socket / API URL Resolution ──────────────────────────────────────────────
 const getApiBase = (): string => {
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
   if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const isLocal =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === '0.0.0.0';
+    if (isLocal) {
+      return 'http://localhost:5000';
+    }
+    return window.location.origin;
   }
   return 'http://localhost:5000';
 };
@@ -298,7 +306,18 @@ export function FloatingOrbWidget() {
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     const apiBaseUrl = getApiBase();
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    let token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+    // If access token is absent in localStorage, attempt silent refresh from session cookie
+    if (!token && typeof window !== 'undefined') {
+      try {
+        const refreshRes = await refreshApi().catch(() => null);
+        if (refreshRes && refreshRes.accessToken) {
+          token = refreshRes.accessToken;
+          localStorage.setItem('accessToken', token);
+        }
+      } catch {}
+    }
     try {
       const client = new GeminiLiveClient({
         publishableKey: PUBLISHABLE_KEY,
@@ -434,6 +453,10 @@ export function FloatingOrbWidget() {
 
   // ── Toggle orb click ───────────────────────────────────────────────────────
   const handleOrbClick = () => {
+    if (voiceState === 'connecting') {
+      // Ignore click while connection is bootstrapping to prevent premature termination
+      return;
+    }
     if (voiceState === 'idle' || voiceState === 'error') {
       handleStart();
     } else {

@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { OrdersService } from './orders.service';
 import { Order } from './schemas/order.schema';
 import { EventsService } from '../events/events.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -23,6 +24,12 @@ describe('OrdersService', () => {
           provide: EventsService,
           useValue: {
             logEvent: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
+          provide: NotificationsService,
+          useValue: {
+            create: jest.fn().mockResolvedValue({}),
           },
         },
       ],
