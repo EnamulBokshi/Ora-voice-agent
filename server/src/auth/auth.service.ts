@@ -82,7 +82,7 @@ export class AuthService {
     try {
       await this.mailService.sendVerificationEmail(user.email, {
         recipientName: user.name,
-        verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+        verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/auth?mode=otp`,
         code: otpCode,
         expireMinutes: 10,
       });
@@ -421,7 +421,7 @@ export class AuthService {
 
     await this.mailService.sendVerificationEmail(user.email, {
       recipientName: user.name,
-      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/auth?mode=otp`,
       code: otpCode,
       expireMinutes: 10,
     });

@@ -39,14 +39,26 @@ export class OnboardingEmailService {
     }
   }
 
+  private getFromAddress(displayName: string): string {
+    const rawFrom =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      this.configService.get<string>('SMTP_FROM') ||
+      'onboarding@noreply.magicfunnel.io';
+
+    const match =
+      rawFrom.match(/<([^>]+)>/) ||
+      rawFrom.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    const emailAddress = match ? match[1] || match[0] : rawFrom.trim();
+
+    return `"${displayName}" <${emailAddress}>`;
+  }
+
   async sendOnboardingEmail(payload: OnboardingEmailPayload): Promise<{ success: boolean; messageId?: string }> {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const serverUrl =
       process.env.BACKEND_URL || 'http://localhost:5000';
-    const fromEmail =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
-      'ORA Sales AI <onboarding@noreply.magicfunnel.io>';
+    const fromEmail = this.getFromAddress('ORA AI Sales Platform');
 
     const widgetScriptTag = `&lt;!-- ORA Voice AI Sales Assistant Widget --&gt;\n&lt;script \n  src="${frontendUrl}/widget/ora-widget.js" \n  data-ora-key="${payload.publishableKey}" \n  async&gt;\n&lt;/script&gt;`;
 

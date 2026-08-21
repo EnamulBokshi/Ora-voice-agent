@@ -29,16 +29,27 @@ export class MailService {
     }
   }
 
+  private getFromAddress(displayName: string): string {
+    const rawFrom =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      this.configService.get<string>('SMTP_FROM') ||
+      'onboarding@noreply.magicfunnel.io';
+
+    const match =
+      rawFrom.match(/<([^>]+)>/) ||
+      rawFrom.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    const emailAddress = match ? match[1] || match[0] : rawFrom.trim();
+
+    return `"${displayName}" <${emailAddress}>`;
+  }
+
   async sendVerificationEmail(
     to: string,
     data: VerifyEmailData,
   ): Promise<void> {
     try {
       const html = renderVerifyEmailTemplate(data);
-      const from =
-        this.configService.get<string>('RESEND_FROM_EMAIL') ||
-        this.configService.get<string>('SMTP_FROM') ||
-        'ORA Onboarding <onboarding@resend.dev>';
+      const from = this.getFromAddress('ORA Verification');
 
       if (this.resend) {
         try {
@@ -75,10 +86,7 @@ export class MailService {
   async sendOtpEmail(to: string, data: OtpEmailData): Promise<void> {
     try {
       const html = renderOtpTemplate(data);
-      const from =
-        this.configService.get<string>('RESEND_FROM_EMAIL') ||
-        this.configService.get<string>('SMTP_FROM') ||
-        'ORA Security <security@resend.dev>';
+      const from = this.getFromAddress('ORA Security');
 
       if (this.resend) {
         try {
@@ -117,10 +125,7 @@ export class MailService {
   ): Promise<void> {
     try {
       const html = renderForgotPasswordTemplate(data);
-      const from =
-        this.configService.get<string>('RESEND_FROM_EMAIL') ||
-        this.configService.get<string>('SMTP_FROM') ||
-        'ORA Security <security@resend.dev>';
+      const from = this.getFromAddress('ORA Security');
 
       if (this.resend) {
         try {
@@ -156,10 +161,7 @@ export class MailService {
 
   async sendCongratulationsEmail(to: string, data: CongratulationsEmailData): Promise<void> {
     const html = renderCongratulationsTemplate(data);
-    const from =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
-      this.configService.get<string>('SMTP_FROM') ||
-      'ORA Subscriptions <billing@resend.dev>';
+    const from = this.getFromAddress('ORA Subscriptions');
 
     if (this.resend) {
       try {

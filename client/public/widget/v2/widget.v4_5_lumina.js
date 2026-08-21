@@ -502,47 +502,52 @@
       60%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
       100% { opacity: 1; transform: translateY(0) scale(1); }
     }
-    @keyframes ora-w-bob {
-      0%, 100% { transform: translateY(0px); }
-      50%      { transform: translateY(-6px); }
-    }
-    @keyframes ora-w-wave-spin {
-      0%   { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
     @keyframes ora-w-glow-pulse {
       0%, 100% {
         box-shadow:
-          inset -10px -10px 40px rgba(150, 100, 255, 0.5),
-          inset 10px 10px 20px rgba(255, 255, 255, 0.3),
-          0 0 50px rgba(150, 100, 255, 0.3);
+          inset 0 0 24px rgba(0, 0, 0, 0.95),
+          inset 0 0 12px rgba(56, 189, 248, 0.2),
+          0 8px 32px rgba(0, 0, 0, 0.6),
+          0 0 25px rgba(56, 189, 248, 0.18);
       }
       50% {
         box-shadow:
-          inset -10px -10px 40px rgba(150, 100, 255, 0.65),
-          inset 10px 10px 20px rgba(255, 255, 255, 0.3),
-          0 0 80px rgba(150, 100, 255, 0.55);
+          inset 0 0 24px rgba(0, 0, 0, 0.95),
+          inset 0 0 16px rgba(56, 189, 248, 0.35),
+          0 8px 36px rgba(0, 0, 0, 0.7),
+          0 0 35px rgba(56, 189, 248, 0.32);
       }
     }
-    @keyframes ora-w-speaking-pulse {
+    @keyframes ora-w-speaking-glow {
       0%, 100% {
         box-shadow:
-          inset -10px -10px 40px rgba(150, 100, 255, 0.8),
-          inset 10px 10px 20px rgba(255, 255, 255, 0.45),
-          0 0 60px rgba(200, 240, 49, 0.6),
-          0 0 35px rgba(168, 85, 247, 0.5);
+          inset 0 0 24px rgba(0, 0, 0, 0.95),
+          inset 0 0 16px rgba(168, 85, 247, 0.4),
+          0 8px 36px rgba(0, 0, 0, 0.7),
+          0 0 40px rgba(200, 240, 49, 0.45),
+          0 0 20px rgba(168, 85, 247, 0.35);
       }
       50% {
         box-shadow:
-          inset -10px -10px 40px rgba(150, 100, 255, 1),
-          inset 10px 10px 20px rgba(255, 255, 255, 0.6),
-          0 0 90px rgba(200, 240, 49, 0.85),
-          0 0 55px rgba(168, 85, 247, 0.75);
+          inset 0 0 24px rgba(0, 0, 0, 0.95),
+          inset 0 0 22px rgba(168, 85, 247, 0.6),
+          0 8px 42px rgba(0, 0, 0, 0.8),
+          0 0 60px rgba(200, 240, 49, 0.7),
+          0 0 32px rgba(168, 85, 247, 0.55);
       }
     }
-    @keyframes ora-w-aura-spin {
-      0%   { filter: blur(14px) hue-rotate(0deg); }
-      100% { filter: blur(14px) hue-rotate(360deg); }
+    @keyframes ora-w-ring-pulse {
+      0% {
+        transform: scale(0.85);
+        opacity: 0.9;
+      }
+      50% {
+        opacity: 0.6;
+      }
+      100% {
+        transform: scale(1.45);
+        opacity: 0;
+      }
     }
     @keyframes ora-w-spin {
       to { transform: rotate(360deg); }
@@ -697,137 +702,141 @@
     .ora-w-status-dot.muted { background: #EF4444; }
     .ora-w-status-dot.error { background: #EF4444; }
 
-    /* ── Main Orb Container (80px compact) ── */
+    /* ── Main Orb Container ── */
     .ora-w-orb-container {
       position: relative;
-      width: 80px;
-      height: 80px;
+      width: 68px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      flex-shrink: 0;
     }
 
-    /* ── Outer 3D Glass Sphere Button ── */
+    /* ── Outer 3D Crystal Glass Sphere Button ── */
     .ora-w-glass-sphere {
       cursor: pointer;
       pointer-events: auto;
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      position: relative;
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
-      background: radial-gradient(
-        circle at 30% 30%,
-        rgba(255, 255, 255, 0.4) 0%,
-        rgba(150, 100, 255, 0.1) 40%,
-        rgba(0, 0, 0, 0.8) 100%
-      );
+      background: #050508;
+      border: 1px solid rgba(255, 255, 255, 0.16);
       box-shadow:
-        inset -10px -10px 40px rgba(150, 100, 255, 0.5),
-        inset 10px 10px 20px rgba(255, 255, 255, 0.3),
-        0 0 50px rgba(150, 100, 255, 0.3);
-      border: 1px solid rgba(200, 150, 255, 0.3);
+        inset 0 0 20px rgba(0, 0, 0, 0.95),
+        inset 0 0 10px rgba(56, 189, 248, 0.2),
+        0 6px 28px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(56, 189, 248, 0.16);
       overflow: hidden;
       z-index: 10;
       outline: none;
       padding: 0;
       margin: 0;
-      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease;
-      animation: ora-w-bob 4s ease-in-out infinite, ora-w-glow-pulse 3s ease-in-out infinite;
+      display: block;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.3s ease;
+      animation: ora-w-glow-pulse 3.5s ease-in-out infinite;
       -webkit-tap-highlight-color: transparent;
     }
     .ora-w-glass-sphere:hover {
-      transform: scale(1.06);
+      transform: scale(1.05);
+      border-color: rgba(200, 240, 49, 0.5);
     }
     .ora-w-glass-sphere:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
+    }
+    .ora-w-glass-sphere:focus-visible {
+      outline: 2px solid rgba(200, 240, 49, 0.8);
+      outline-offset: 4px;
     }
     .ora-w-glass-sphere.active {
-      box-shadow:
-        inset -10px -10px 40px rgba(150, 100, 255, 0.7),
-        inset 10px 10px 20px rgba(255, 255, 255, 0.4),
-        0 0 50px rgba(200, 240, 49, 0.45),
-        0 0 25px rgba(150, 100, 255, 0.35);
-      border-color: rgba(200, 240, 49, 0.6);
+      border-color: rgba(200, 240, 49, 0.5);
     }
     .ora-w-glass-sphere.speaking-active {
-      animation: ora-w-bob 4s ease-in-out infinite, ora-w-speaking-pulse 0.8s ease-in-out infinite !important;
+      border-color: rgba(200, 240, 49, 0.7);
+      animation: ora-w-speaking-glow 0.9s ease-in-out infinite !important;
+    }
+    .ora-w-glass-sphere.connecting-active {
+      border-color: rgba(56, 189, 248, 0.7);
     }
 
-    /* ── Top Glass Highlight ── */
+    /* ── Procedural Fluid Wave Mesh Canvas ── */
+    .ora-w-orb-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 2;
+      display: block;
+    }
+
+    /* ── Top Glass Specular Highlight ── */
     .ora-w-top-highlight {
       position: absolute;
-      top: 5%; left: 15%;
-      width: 70%; height: 30%;
-      border-radius: 50% 50% 10% 10% / 100% 100% 10% 10%;
-      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
-      transform: rotate(-15deg);
-      z-index: 20;
+      top: 4%;
+      left: 15%;
+      width: 70%;
+      height: 32%;
+      border-radius: 50% 50% 20% 20% / 100% 100% 30% 30%;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+      transform: rotate(-12deg);
       pointer-events: none;
+      z-index: 6;
     }
 
-    /* ── Inner Rim Lighting ── */
+    /* ── Inner Rim Refraction Lighting ── */
     .ora-w-inner-rim-light {
       position: absolute;
-      top: 2%; left: 2%;
-      width: 96%; height: 96%;
+      inset: 1px;
       border-radius: 50%;
-      border: 2px solid transparent;
-      border-bottom-color: rgba(150, 100, 255, 0.4);
-      border-right-color: rgba(100, 200, 255, 0.3);
-      transform: rotate(45deg);
-      z-index: 15;
+      border: 1.5px solid transparent;
+      border-bottom-color: rgba(56, 189, 248, 0.45);
+      border-right-color: rgba(168, 85, 247, 0.35);
+      border-top-color: rgba(255, 255, 255, 0.2);
+      transform: rotate(35deg);
       pointer-events: none;
-    }
-
-    /* ── Ambient Inner Aura ── */
-    .ora-w-ambient-aura {
-      position: absolute;
-      top: 5%; left: 5%;
-      width: 90%; height: 90%;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(150, 100, 255, 0.2) 0%, transparent 70%);
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    /* ── Inner Electric Plasma Wave Wrapper ── */
-    .ora-w-wave-wrapper {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 95%; height: 95%;
-      border-radius: 50%;
-      overflow: hidden;
       z-index: 5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+    }
+
+    /* ── Quantum Orbital Connecting Rings ── */
+    .ora-w-connecting-rings {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
       pointer-events: none;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ora-w-quantum-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(56, 189, 248, 0.65);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    .ora-w-quantum-ring.ring-1 {
+      animation: ora-w-ring-pulse 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+    }
+    .ora-w-quantum-ring.ring-2 {
+      animation: ora-w-ring-pulse 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.9s infinite;
     }
 
-    /* ── Inner Plasma Texture Image ── */
-    .ora-w-wave-img {
-      width: 250%; height: 250%;
-      object-fit: cover;
-      object-position: center;
-      opacity: 0.92;
-      mix-blend-mode: screen;
-      filter: contrast(1.25) brightness(1.15);
-      animation: ora-w-wave-spin 18s linear infinite;
-      transform-origin: center center;
-    }
-    .ora-w-wave-wrapper.spinning .ora-w-wave-img {
-      animation: ora-w-wave-spin 10s linear infinite;
-    }
-
-    /* ── Floor Shadow Reflection ── */
+    /* ── Ambient Floor Shadow Reflection ── */
     .ora-w-floor-reflection {
       position: absolute;
-      bottom: -14px;
+      bottom: -10px;
       left: 50%;
       transform: translateX(-50%);
-      width: 56px;
-      height: 11px;
+      width: 50px;
+      height: 8px;
       border-radius: 50%;
-      background: radial-gradient(ellipse at center, rgba(150, 100, 255, 0.45) 0%, transparent 70%);
-      filter: blur(6px);
+      background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.35) 0%, rgba(168, 85, 247, 0.15) 45%, transparent 75%);
+      filter: blur(5px);
       z-index: 0;
       pointer-events: none;
     }
@@ -835,53 +844,35 @@
     /* ── Reactive Fluid Outer Aura ── */
     .ora-w-reactive-aura {
       position: absolute;
-      bottom: 0;
+      top: 50%;
       left: 50%;
-      width: 120px;
-      height: 120px;
+      margin-top: -46px;
+      margin-left: -46px;
+      width: 92px;
+      height: 92px;
       border-radius: 50%;
       pointer-events: none;
-      z-index: 2;
+      z-index: 1;
       filter: blur(14px);
-      transition: transform 0.1s ease-out, opacity 0.15s ease-out;
+      transform-origin: center center;
+      transition: transform 0.12s ease-out, opacity 0.15s ease-out;
     }
     .ora-w-reactive-aura.listening {
       background: radial-gradient(
         circle,
-        rgba(200, 240, 49, 0.6) 0%,
-        rgba(99, 102, 241, 0.4) 50%,
+        rgba(200, 240, 49, 0.55) 0%,
+        rgba(56, 189, 248, 0.35) 45%,
         transparent 75%
       );
     }
     .ora-w-reactive-aura.speaking {
       background: radial-gradient(
         circle,
-        rgba(168, 85, 247, 0.7) 0%,
-        rgba(200, 240, 49, 0.5) 45%,
+        rgba(168, 85, 247, 0.65) 0%,
+        rgba(200, 240, 49, 0.45) 45%,
         rgba(56, 189, 248, 0.3) 70%,
         transparent 85%
       );
-      animation: ora-w-aura-spin 4s linear infinite;
-    }
-
-    /* ── Connecting Overlay Spinner ── */
-    .ora-w-connecting-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.45);
-      z-index: 25;
-    }
-    .ora-w-spinner {
-      width: 24px;
-      height: 24px;
-      border: 2.5px solid rgba(255, 255, 255, 0.2);
-      border-top-color: #C8F031;
-      border-radius: 50%;
-      animation: ora-w-spin 0.8s linear infinite;
     }
   `;
 
@@ -890,8 +881,9 @@
   let shadowRoot = null;
   let root = null;
   let orbBtn = null;
-  let waveWrapper = null;
-  let connectingSpinner = null;
+  let orbCanvas = null;
+  let canvasCtx = null;
+  let connectingRings = null;
   let statusChip = null;
   let statusDot = null;
   let statusLabel = null;
@@ -901,6 +893,8 @@
   let controlsBar = null;
   let muteBtn = null;
   let closeBtn = null;
+  let canvasTime = 0;
+  let canvasAnimId = null;
 
   // ─── Idle Inactivity Timer (Conversational Standby Protocol) ───────────────
   function cancelIdleTimer() {
@@ -916,12 +910,13 @@
     if (voiceState === 'active' && !isWaitingForAi) {
       idleTimer = setTimeout(function () {
         if (voiceState === 'active' && !isWaitingForAi && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
-          console.log('[ORA Widget] Conversational idle timeout — suspending session.');
+          console.log('[ORA Widget] Conversational idle timeout — suspending session after 10s.');
           try {
             geminiWs.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: sessionId }));
           } catch (e) {}
+          disconnectVoice('standby');
         }
-      }, 45000); // 45 seconds of total conversational dormancy
+      }, 10000); // 10 seconds of conversational dormancy
     }
   }
 
@@ -958,23 +953,16 @@
         <span id="oraWStatusLabel">Talk with ORA</span>
       </div>
 
-      <div id="oraWReactiveAura" class="ora-w-reactive-aura" style="display:none;"></div>
-
       <div class="ora-w-orb-container">
+        <div id="oraWReactiveAura" class="ora-w-reactive-aura" style="display:none;"></div>
         <div class="ora-w-floor-reflection"></div>
         <button id="oraWOrbBtn" class="ora-w-glass-sphere" type="button" aria-label="Talk with ORA Voice AI">
-          <div class="ora-w-top-highlight"></div>
+          <canvas id="oraWOrbCanvas" class="ora-w-orb-canvas" width="140" height="140" aria-hidden="true"></canvas>
           <div class="ora-w-inner-rim-light"></div>
-          <div class="ora-w-ambient-aura"></div>
-          <div id="oraWWaveWrapper" class="ora-w-wave-wrapper">
-            <img
-              alt="ORA AI voice energy orb"
-              class="ora-w-wave-img"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiiHohwyyA_AYKIz0FqIi4lPhglG4dGwSbGydUlHEFcCUM5D4yOQD-RJduetkXycHsfXCpjKD1V6i1Ek4Zmm0SOmvvLn_3yXdEptG2uCrTB1O6TgxzJRmH_pj3OAdpkvd7RoFK6hGg_wsyBjWnmR1a58wAIhaVAeWaiT5787U3fMOsKHQRqRt7z_RXy7bLI8nl0AFq-er2vKD0G1eZAhCcOPbFtAiT0mFdoN1yorZVMMmgRuw7D7j-PbK4xBOs2NjWnzA"
-            />
-          </div>
-          <div id="oraWConnectingSpinner" class="ora-w-connecting-overlay" style="display:none;">
-            <div class="ora-w-spinner"></div>
+          <div class="ora-w-top-highlight"></div>
+          <div id="oraWConnectingRings" class="ora-w-connecting-rings" style="display:none;" aria-hidden="true">
+            <div class="ora-w-quantum-ring ring-1"></div>
+            <div class="ora-w-quantum-ring ring-2"></div>
           </div>
         </button>
       </div>
@@ -983,8 +971,8 @@
 
     // Element refs from Shadow Root
     orbBtn = shadowRoot.getElementById('oraWOrbBtn');
-    waveWrapper = shadowRoot.getElementById('oraWWaveWrapper');
-    connectingSpinner = shadowRoot.getElementById('oraWConnectingSpinner');
+    orbCanvas = shadowRoot.getElementById('oraWOrbCanvas');
+    connectingRings = shadowRoot.getElementById('oraWConnectingRings');
     statusChip = shadowRoot.getElementById('oraWStatusChip');
     statusDot = shadowRoot.getElementById('oraWDot');
     statusLabel = shadowRoot.getElementById('oraWStatusLabel');
@@ -995,8 +983,12 @@
     muteBtn = shadowRoot.getElementById('oraWMuteBtn');
     closeBtn = shadowRoot.getElementById('oraWCloseBtn');
 
+    // Initialize Procedural Canvas Fluid Wave Mesh Engine
+    initOrbCanvas();
+
     // Event Listeners
     orbBtn.addEventListener('click', function () {
+      if (voiceState === 'connecting') return;
       if (voiceState === 'idle' || voiceState === 'error') {
         startVoiceSession();
       } else if (voiceState === 'standby') {
@@ -1007,6 +999,7 @@
     });
 
     statusChip.addEventListener('click', function () {
+      if (voiceState === 'connecting') return;
       if (voiceState === 'idle' || voiceState === 'error') {
         startVoiceSession();
       } else if (voiceState === 'standby') {
@@ -1044,6 +1037,173 @@
     }
   }
 
+  // ─── Procedural Canvas Fluid Wave Mesh Engine ──────────────────────────────
+  function initOrbCanvas() {
+    if (!orbCanvas) return;
+    canvasCtx = orbCanvas.getContext('2d');
+    orbCanvas.width = 140;
+    orbCanvas.height = 140;
+    startCanvasLoop();
+  }
+
+  function startCanvasLoop() {
+    if (canvasAnimId) return;
+    function drawCanvas() {
+      if (canvasCtx && orbCanvas) {
+        canvasTime += 0.035;
+        var t = canvasTime;
+        var w = orbCanvas.width || 140;
+        var h = orbCanvas.height || 140;
+        var cx = w / 2;
+        var cy = h / 2;
+        var ctx = canvasCtx;
+
+        ctx.clearRect(0, 0, w, h);
+
+        var baseRadius = 40;
+        var isIdle = voiceState === 'idle' || voiceState === 'standby';
+        var isConnecting = voiceState === 'connecting';
+        var isThinking = isWaitingForAi;
+        var isSpeaking = voiceState === 'ora-speaking';
+        var isError = voiceState === 'error';
+        var isActive = voiceState === 'active' || isSpeaking || isThinking;
+        var energy = isSpeaking ? speakingLevel : userMicLevel;
+
+        var amp = isSpeaking
+          ? 6 + (energy / 100) * 14
+          : isThinking
+          ? 5
+          : isActive
+          ? 3 + (energy / 100) * 8
+          : isConnecting
+          ? 4
+          : isError
+          ? 2
+          : 1.5;
+
+        var speedMult = isSpeaking ? 1.8 : isThinking ? 1.6 : isConnecting ? 1.5 : 1.0;
+
+        // Outer glow
+        var outerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.4, cx, cy, baseRadius * 1.5);
+        if (isError) {
+          outerGlow.addColorStop(0, 'rgba(239, 68, 68, 0.45)');
+          outerGlow.addColorStop(0.6, 'rgba(185, 28, 28, 0.20)');
+          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else if (isSpeaking) {
+          outerGlow.addColorStop(0, 'rgba(200, 240, 49, 0.45)');
+          outerGlow.addColorStop(0.5, 'rgba(0, 229, 255, 0.25)');
+          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else if (isThinking) {
+          outerGlow.addColorStop(0, 'rgba(180, 120, 255, 0.45)');
+          outerGlow.addColorStop(0.6, 'rgba(0, 210, 255, 0.30)');
+          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else if (isActive) {
+          outerGlow.addColorStop(0, 'rgba(0, 210, 255, 0.40)');
+          outerGlow.addColorStop(0.6, 'rgba(100, 150, 255, 0.15)');
+          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else if (isConnecting) {
+          outerGlow.addColorStop(0, 'rgba(150, 100, 255, 0.35)');
+          outerGlow.addColorStop(0.7, 'rgba(0, 220, 255, 0.15)');
+          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else {
+          outerGlow.addColorStop(0, 'rgba(0, 200, 255, 0.20)');
+          outerGlow.addColorStop(0.7, 'rgba(50, 100, 200, 0.08)');
+          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        }
+        ctx.fillStyle = outerGlow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseRadius * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Layer 1: Wave Mesh
+        ctx.save();
+        ctx.beginPath();
+        var points = 36;
+        for (var i = 0; i <= points; i++) {
+          var theta = (i / points) * Math.PI * 2;
+          var n1 = Math.sin(theta * 3 + t * speedMult * 1.2);
+          var n2 = Math.cos(theta * 2 - t * speedMult * 0.9);
+          var r = baseRadius + (n1 + n2) * (amp * 0.7);
+          var px = cx + Math.cos(theta) * r;
+          var py = cy + Math.sin(theta) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+
+        var innerGrad1 = ctx.createLinearGradient(0, 0, w, h);
+        if (isError) {
+          innerGrad1.addColorStop(0, '#EF4444');
+          innerGrad1.addColorStop(0.6, '#B91C1C');
+          innerGrad1.addColorStop(1, '#450A0A');
+        } else if (isSpeaking) {
+          innerGrad1.addColorStop(0, '#C8F031');
+          innerGrad1.addColorStop(0.5, '#00E5FF');
+          innerGrad1.addColorStop(1, '#0055FF');
+        } else if (isActive) {
+          innerGrad1.addColorStop(0, '#00F5D4');
+          innerGrad1.addColorStop(0.6, '#00BBF9');
+          innerGrad1.addColorStop(1, '#3A0CA3');
+        } else {
+          innerGrad1.addColorStop(0, '#00B4D8');
+          innerGrad1.addColorStop(0.7, '#0077B6');
+          innerGrad1.addColorStop(1, '#03045E');
+        }
+        ctx.fillStyle = innerGrad1;
+        ctx.fill();
+        ctx.restore();
+
+        // Layer 2: Fast Surface Ripple
+        ctx.save();
+        ctx.beginPath();
+        for (var j = 0; j <= points; j++) {
+          var theta2 = (j / points) * Math.PI * 2;
+          var n3 = Math.sin(theta2 * 4 - t * speedMult * 1.5);
+          var n4 = Math.cos(theta2 * 3 + t * speedMult * 1.1);
+          var r2 = baseRadius * 0.82 + (n3 + n4) * (amp * 0.5);
+          var px2 = cx + Math.cos(theta2) * r2;
+          var py2 = cy + Math.sin(theta2) * r2;
+          if (j === 0) ctx.moveTo(px2, py2);
+          else ctx.lineTo(px2, py2);
+        }
+        ctx.closePath();
+
+        var innerGrad2 = ctx.createRadialGradient(cx, cy, 5, cx, cy, baseRadius * 0.9);
+        if (isError) {
+          innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+          innerGrad2.addColorStop(0.4, 'rgba(239, 68, 68, 0.85)');
+          innerGrad2.addColorStop(1, 'rgba(185, 28, 28, 0.1)');
+        } else if (isSpeaking) {
+          innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+          innerGrad2.addColorStop(0.4, 'rgba(200, 240, 49, 0.85)');
+          innerGrad2.addColorStop(1, 'rgba(0, 229, 255, 0.1)');
+        } else {
+          innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+          innerGrad2.addColorStop(0.4, 'rgba(0, 245, 212, 0.7)');
+          innerGrad2.addColorStop(1, 'rgba(0, 119, 182, 0.1)');
+        }
+        ctx.fillStyle = innerGrad2;
+        ctx.fill();
+        ctx.restore();
+
+        // Layer 3: Central Nucleus
+        ctx.save();
+        var nucleusRadius = 8 + (energy / 100) * 10;
+        var nucleusGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, nucleusRadius);
+        nucleusGrad.addColorStop(0, '#FFFFFF');
+        nucleusGrad.addColorStop(0.5, isError ? 'rgba(239, 68, 68, 0.8)' : isSpeaking ? 'rgba(200, 240, 49, 0.8)' : 'rgba(0, 255, 255, 0.8)');
+        nucleusGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = nucleusGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, nucleusRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      canvasAnimId = requestAnimationFrame(drawCanvas);
+    }
+    canvasAnimId = requestAnimationFrame(drawCanvas);
+  }
+
   // ─── Render UI State ───────────────────────────────────────────────────────
   function render() {
     if (!root || !orbBtn) return;
@@ -1056,18 +1216,20 @@
     // Glass Sphere styling
     orbBtn.className = 'ora-w-glass-sphere' +
       (isActive ? ' active' : '') +
-      (isSpeaking ? ' speaking-active' : '');
+      (isSpeaking ? ' speaking-active' : '') +
+      (isConnecting ? ' connecting-active' : '');
 
-    waveWrapper.className = 'ora-w-wave-wrapper' + (isActive ? ' spinning' : '');
-    connectingSpinner.style.display = isConnecting ? 'flex' : 'none';
+    if (connectingRings) {
+      connectingRings.style.display = isConnecting ? 'flex' : 'none';
+    }
     controlsBar.style.display = isActive ? 'flex' : 'none';
 
     // Reactive outer aura
     if (isActive) {
       reactiveAura.style.display = 'block';
       reactiveAura.className = 'ora-w-reactive-aura ' + (isSpeaking ? 'speaking' : 'listening');
-      reactiveAura.style.transform = 'translateX(-50%) scale(' + (1 + (energyLevel / 100) * 0.45) + ')';
-      reactiveAura.style.opacity = (0.4 + (energyLevel / 100) * 0.6).toString();
+      reactiveAura.style.transform = 'scale(' + (1 + (energyLevel / 100) * 0.35) + ')';
+      reactiveAura.style.opacity = (0.45 + (energyLevel / 100) * 0.55).toString();
     } else {
       reactiveAura.style.display = 'none';
     }

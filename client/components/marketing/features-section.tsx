@@ -1,12 +1,26 @@
-export function FeaturesSection() {
+﻿export function FeaturesSection() {
+  const panelStyle: React.CSSProperties = {
+    border: '1px solid var(--lp-border)',
+    background: 'transparent',
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0.625rem 0.875rem',
+    background: 'var(--lp-bg-subtle)',
+    border: '1px solid var(--lp-border)',
+  };
+
   return (
     <section
       id="features"
       className="lp-section"
       aria-labelledby="features-headline"
     >
-      <div id="solutions" style={{ position: 'relative', top: '-6rem' }} aria-hidden="true" />
-      <div id="docs" style={{ position: 'relative', top: '-6rem' }} aria-hidden="true" />
       <div className="lp-container">
         {/* Section label */}
         <div className="lp-section-label">
@@ -30,24 +44,21 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        {/* Bento grid */}
+        {/* Feature grid — flat panels, no card shadows */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
-            gridTemplateRows: 'auto',
             gap: '1.5rem',
           }}
         >
-          {/* ── Large card: Visual Sales Builder ── */}
+          {/* ── Large panel: Visual Sales Builder ── */}
           <div
-            className="lp-card"
             style={{
+              ...panelStyle,
               gridColumn: 'span 2',
               padding: '2.5rem',
               minHeight: '26rem',
-              display: 'flex',
-              flexDirection: 'column',
             }}
           >
             <div className="lp-icon-box" style={{ marginBottom: '1.5rem' }}>
@@ -59,57 +70,51 @@ export function FeaturesSection() {
               Visual Sales Playbook Builder
             </h3>
             <p style={{ fontSize: '0.9375rem', color: 'var(--lp-text-secondary)', lineHeight: 1.65, maxWidth: '28rem' }}>
-              Drag, drop, and connect conversation flows — no code needed. Build cart recovery sequences,
-              upsell journeys, and FAQ handlers in minutes.
+              Build cart recovery sequences, upsell journeys, and FAQ handlers — no code needed.
             </p>
 
-            {/* Node graphic */}
+            {/* Playbook flow rows */}
             <div
               style={{
                 flexGrow: 1,
                 display: 'flex',
-                alignItems: 'center',
+                flexDirection: 'column',
                 justifyContent: 'center',
+                gap: '0.5rem',
                 marginTop: '2rem',
-                position: 'relative',
+                padding: '1.25rem',
+                backgroundColor: 'var(--lp-bg-subtle)',
+                border: '1px solid var(--lp-border)',
               }}
             >
-              <div
-                className="lp-dot-grid"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: 'var(--lp-radius-lg)',
-                  border: '1px solid var(--lp-border-light)',
-                  overflow: 'hidden',
-                }}
-                aria-hidden="true"
-              />
-              <div
-                style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', position: 'relative', zIndex: 1 }}
-                aria-hidden="true"
-              >
-                <div className="lp-node-circle">
-                  <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: 'var(--lp-primary-dim)' }} />
+              <div style={rowStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lp-text-primary)' }}>
+                  <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: 'var(--lp-primary-dim)', flexShrink: 0 }} />
+                  Trigger: Cart Inactivity &gt; 45s
                 </div>
-                <div className="lp-node-connector" />
-                <div className="lp-node-center">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                <span className="lp-mono" style={{ fontSize: '0.6875rem', color: 'var(--lp-text-tertiary)' }}>Intent &gt; 80%</span>
+              </div>
+              <div style={rowStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lp-text-primary)' }}>
+                  <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: '#38bdf8', flexShrink: 0 }} />
+                  Action: ORA Voice AI Inquires on Sizing
                 </div>
-                <div className="lp-node-connector" />
-                <div className="lp-node-circle">
-                  <div style={{ width: '0.625rem', height: '0.625rem', borderRadius: '0.125rem', background: 'var(--lp-dark)' }} />
+                <span className="lp-mono" style={{ fontSize: '0.6875rem', color: 'var(--lp-text-tertiary)' }}>Sub-350ms</span>
+              </div>
+              <div style={rowStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--lp-text-primary)' }}>
+                  <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                  Outcome: 1-Click Discount Added to Bag
                 </div>
+                <span className="lp-mono" style={{ fontSize: '0.6875rem', color: '#22c55e', fontWeight: 700 }}>+92.4% Recovered</span>
               </div>
             </div>
           </div>
 
-          {/* ── Right column: 2 small cards ── */}
+          {/* ── Right column ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Card: Real-time Monitor */}
-            <div className="lp-card" style={{ padding: '2rem', flex: 1 }}>
+            {/* Real-time Monitor */}
+            <div style={{ ...panelStyle, padding: '2rem', flex: 1 }}>
               <div className="lp-icon-box" style={{ marginBottom: '1.5rem' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -119,7 +124,7 @@ export function FeaturesSection() {
                 Real-time Monitoring
               </h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                Track latency, conversion rate, and errors in real-time.
+                Track latency, conversion rate, and errors live.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                 <div>
@@ -143,8 +148,8 @@ export function FeaturesSection() {
               </div>
             </div>
 
-            {/* Card: Smart Alerts */}
-            <div className="lp-card" style={{ padding: '2rem', flex: 1 }}>
+            {/* Smart Alerts */}
+            <div style={{ ...panelStyle, padding: '2rem', flex: 1 }}>
               <div className="lp-icon-box" style={{ marginBottom: '1.5rem' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -157,7 +162,7 @@ export function FeaturesSection() {
                 Get notified instantly when ORA needs your attention.
               </p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="lp-avatar-stack" aria-label="3 team members and 12 more">
+                <div className="lp-avatar-stack" aria-label="3 team members and 8 more">
                   {['A', 'B', 'C'].map((l) => (
                     <div
                       key={l}
@@ -178,17 +183,15 @@ export function FeaturesSection() {
                   <div className="lp-avatar-count">+8</div>
                 </div>
                 <button
-                  className="lp-badge-lime"
                   style={{
                     padding: '0.375rem 0.875rem',
                     cursor: 'pointer',
                     fontSize: '0.75rem',
-                    borderRadius: 'var(--lp-radius-full)',
-                    border: 'none',
-                    background: 'var(--lp-primary-dim)',
-                    color: 'var(--lp-dark)',
-                    fontWeight: 700,
-                    transition: 'background 0.15s ease',
+                    border: '1px solid var(--lp-border)',
+                    background: 'transparent',
+                    color: 'var(--lp-text-primary)',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
                   }}
                   type="button"
                   id="view-alerts-btn"
