@@ -167,6 +167,9 @@ export class BillingService implements OnModuleInit {
         { $set: { role: AdminRole.OWNER } },
       ).exec();
 
+      // Dispatch Congratulations email and ORA credentials & widget embed manual email
+      await this.sendSubscriberWelcomeEmail(businessId, plan.name);
+
       return {
         requiresRedirect: false,
         subscription: sub,

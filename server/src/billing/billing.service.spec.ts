@@ -17,9 +17,10 @@ import { ConfigService } from '@nestjs/config';
 
 describe('BillingService', () => {
   let service: BillingService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         BillingService,
         {
@@ -49,7 +50,11 @@ describe('BillingService', () => {
           provide: getModelToken(AdminUser.name),
           useValue: {
             updateMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) }),
-            findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+            findOne: jest.fn().mockReturnValue({
+              sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+              exec: jest.fn().mockResolvedValue(null),
+            }),
+            findById: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
           },
         },
         {
@@ -109,5 +114,77 @@ describe('BillingService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('plan activation email dispatching', () => {
+    it('should dispatch welcome and onboarding guide email when free plan is activated', async () => {
+      const planModel = module.get(getModelToken(Plan.name));
+      const subModel = module.get(getModelToken(Subscription.name));
+      const businessModel = module.get(getModelToken(Business.name));
+      const adminUserModel = module.get(getModelToken(AdminUser.name));
+      const mailService = module.get(MailService);
+      const onboardingService = module.get(OnboardingEmailService);
+
+      planModel.findOne = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          planId: 'free',
+          name: 'Free Tier',
+          priceUsdCents: 0,
+          priceBdtPaisa: 0,
+        }),
+      });
+
+      subModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'sub_123',
+          planId: 'free',
+          status: 'active',
+        }),
+      });
+
+      const mockBusinessObj = {
+        _id: 'biz_123',
+        name: 'Apex Store',
+        publishableKey: 'biz_live_1234567890ab',
+        status: 'pending',
+        save: jest.fn().mockResolvedValue(true),
+      };
+      businessModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockBusinessObj),
+      });
+
+      const mockUserObj = {
+        _id: 'user_123',
+        email: 'merchant@apex.com',
+        name: 'Apex Merchant',
+        role: 'owner',
+      };
+      adminUserModel.findOne = jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(mockUserObj) }),
+        exec: jest.fn().mockResolvedValue(mockUserObj),
+      });
+
+      const result = await service.subscribe('biz_123', {
+        planId: 'free' as any,
+      });
+
+      expect(result.requiresRedirect).toBe(false);
+      expect(mailService.sendCongratulationsEmail).toHaveBeenCalledWith(
+        'merchant@apex.com',
+        expect.objectContaining({
+          recipientName: 'Apex Merchant',
+          storeName: 'Apex Store',
+          planName: 'Free Tier',
+        }),
+      );
+      expect(onboardingService.sendOnboardingEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toEmail: 'merchant@apex.com',
+          merchantName: 'Apex Merchant',
+          storeName: 'Apex Store',
+          publishableKey: 'biz_live_1234567890ab',
+        }),
+      );
+    });
   });
 });
