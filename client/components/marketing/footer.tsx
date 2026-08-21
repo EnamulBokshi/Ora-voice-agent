@@ -119,13 +119,26 @@ export function MarketingFooter() {
                 {heading}
               </h4>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {links.map((link) => (
-                  <li key={link}>
-                    <Link href="#" className="lp-footer-link">
-                      {link}
-                    </Link>
-                  </li>
-                ))}
+                {links.map((link) => {
+                  let href = '#';
+                  if (link === 'Docs') href = '/docs';
+                  else if (link === 'Guides') href = '/docs#quickstart';
+                  else if (link === 'Pricing') href = '/pricing';
+                  else if (link === 'Features') href = '/#features';
+                  else if (link === 'Solutions') href = '/#solutions';
+                  else if (link === 'Help Center') href = '/docs#connectors';
+                  else if (link === 'API Reference') href = '/docs#api-reference';
+                  else if (link === 'Privacy') href = '/privacy';
+                  else if (link === 'Terms') href = '/terms';
+
+                  return (
+                    <li key={link}>
+                      <Link href={href} className="lp-footer-link">
+                        {link}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
