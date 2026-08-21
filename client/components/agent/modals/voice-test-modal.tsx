@@ -6,16 +6,13 @@ import {
   MicOff,
   Square,
   Play,
-  Volume2,
   X,
   Sparkles,
   Activity,
   Bot,
   User,
   Zap,
-  RefreshCw,
   SlidersHorizontal,
-  Server,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
@@ -491,8 +488,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             <button
               onClick={() => { stopSession(); setVoiceMode('gemini-proxy'); }}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'gemini-proxy'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
                 }`}
               title="Connects via ORA Server Proxy — API key stays on server"
             >
@@ -502,8 +499,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             <button
               onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${voiceMode === 'browser-speech'
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
                 }`}
             >
               <SlidersHorizontal size={13} />
@@ -533,12 +530,12 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             <div className="flex items-center space-x-2">
               <span
                 className={`w-2.5 h-2.5 rounded-full ${status === 'speaking' || status === 'listening'
-                    ? 'bg-emerald-400 animate-pulse'
-                    : status === 'connecting'
-                      ? 'bg-amber-400 animate-ping'
-                      : status === 'error'
-                        ? 'bg-red-400'
-                        : 'bg-slate-500'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : status === 'connecting'
+                    ? 'bg-amber-400 animate-ping'
+                    : status === 'error'
+                      ? 'bg-red-400'
+                      : 'bg-slate-500'
                   }`}
               />
               <span className="text-slate-300 font-medium">
@@ -585,8 +582,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                 <button
                   onClick={toggleMute}
                   className={`p-3 rounded-xl border transition-colors ${isMuted
-                      ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                      : 'bg-[#1c2b3c] border-[#273647] text-slate-200 hover:bg-[#273647]'
+                    ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                    : 'bg-[#1c2b3c] border-[#273647] text-slate-200 hover:bg-[#273647]'
                     }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >

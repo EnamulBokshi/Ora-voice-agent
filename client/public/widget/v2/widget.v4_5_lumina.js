@@ -910,12 +910,13 @@
     if (voiceState === 'active' && !isWaitingForAi) {
       idleTimer = setTimeout(function () {
         if (voiceState === 'active' && !isWaitingForAi && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
-          console.log('[ORA Widget] Conversational idle timeout — suspending session.');
+          console.log('[ORA Widget] Conversational idle timeout — suspending session after 10s.');
           try {
             geminiWs.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: sessionId }));
           } catch (e) {}
+          disconnectVoice('standby');
         }
-      }, 45000); // 45 seconds of total conversational dormancy
+      }, 10000); // 10 seconds of conversational dormancy
     }
   }
 
@@ -987,6 +988,7 @@
 
     // Event Listeners
     orbBtn.addEventListener('click', function () {
+      if (voiceState === 'connecting') return;
       if (voiceState === 'idle' || voiceState === 'error') {
         startVoiceSession();
       } else if (voiceState === 'standby') {
@@ -997,6 +999,7 @@
     });
 
     statusChip.addEventListener('click', function () {
+      if (voiceState === 'connecting') return;
       if (voiceState === 'idle' || voiceState === 'error') {
         startVoiceSession();
       } else if (voiceState === 'standby') {

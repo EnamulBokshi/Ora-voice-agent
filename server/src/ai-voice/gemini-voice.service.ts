@@ -51,7 +51,7 @@ export interface GeminiVoiceSessionControls {
 @Injectable()
 export class GeminiVoiceService {
   private readonly logger = new Logger(GeminiVoiceService.name);
-  private readonly instructionCache = new Map<string, { instruction: string; expiresAt: number }>();
+  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; expiresAt: number }>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -114,8 +114,8 @@ export class GeminiVoiceService {
       options.authenticatedUser,
     );
 
-    const agentConfig = await this.agentConfigService.getConfig(options.businessId).catch(() => null);
-    const archetype = agentConfig?.config?.businessArchetype || 'general';
+    const cached = this.instructionCache.get(options.businessId);
+    const archetype = cached?.archetype || 'general';
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
@@ -342,42 +342,25 @@ export class GeminiVoiceService {
 
       ws.on('error', (err) => {
         this.logger.error(
-          `[GeminiVoiceService] WebSocket error (sessionId ${options.sessionId}): ${err.message}`,
+          `[GeminiVoiceService] WebSocket error for session ${options.sessionId}: ${err.message}`,
         );
         if (!setupCompleted) {
           clearTimeout(setupTimeout);
-          reject(
-            new Error(
-              `Gemini Live API connection failed: ${err.message}. Verify GEMINI_API_KEY is a valid Google AI Studio key.`,
-            ),
-          );
-        } else {
-          if (options.onError) options.onError(err);
+          reject(err);
+        } else if (options.onError) {
+          options.onError(err);
         }
       });
 
-      ws.on('close', (code: number, reason: Buffer) => {
-        const reasonStr = reason ? reason.toString('utf8') : '';
-        this.logger.warn(
-          `[GeminiVoiceService] WebSocket closed for session ${options.sessionId} (code: ${code}, reason: '${reasonStr}')`,
+      ws.on('close', (code, reason) => {
+        this.logger.log(
+          `[GeminiVoiceService] WebSocket closed for session ${options.sessionId} (code: ${code}, reason: ${reason?.toString()})`,
         );
-
         if (!setupCompleted) {
           clearTimeout(setupTimeout);
-          let errorDetail = `Gemini WebSocket closed before setup completed (code: ${code})`;
-          if (code === 1008 || code === 1003) {
-            errorDetail +=
-              '. This usually means the API key is invalid or the model does not support BidiGenerateContent.';
-          }
-          if (reasonStr) {
-            errorDetail += ` Reason: ${reasonStr}`;
-          }
-          reject(new Error(errorDetail));
-        } else {
-          if (code !== 1000 && options.onError) {
-            options.onError(new Error(`Gemini session closed: ${reasonStr || `Code ${code}`}`));
-          }
-          if (options.onClose) options.onClose();
+          reject(new Error(`WebSocket closed before setup completed (code: ${code})`));
+        } else if (options.onClose) {
+          options.onClose();
         }
       });
     });
@@ -401,64 +384,59 @@ export class GeminiVoiceService {
     },
   ): Promise<string> {
     let baseInstruction = '';
+    let businessArchetype = 'general';
     const cached = this.instructionCache.get(businessId);
     if (cached && cached.expiresAt > Date.now()) {
       baseInstruction = cached.instruction;
+      businessArchetype = cached.archetype || 'general';
     } else {
       let merchantBrandVoice = '';
-      let businessArchetype = 'general';
       let businessSummary = '';
       let customDirectives = '';
 
-      try {
-        const agentConfig = await this.agentConfigService.getConfig(businessId);
-        if (agentConfig?.config?.brandVoiceDescription) {
-          merchantBrandVoice = `\nMerchant Brand Voice / Tone: ${agentConfig.config.brandVoiceDescription}`;
-        }
-        if (agentConfig?.config?.businessArchetype) {
-          businessArchetype = agentConfig.config.businessArchetype;
-        }
-        if (agentConfig?.config?.businessSummary) {
-          businessSummary = `\nPlatform Overview: ${agentConfig.config.businessSummary}`;
-        }
-        if (agentConfig?.config?.customDirectives) {
-          customDirectives = `\nOWNER / MERCHANT CUSTOM DIRECTIVES:\n${agentConfig.config.customDirectives}`;
-        }
-      } catch {
-        // Fallback — no custom brand voice
+      // Parallelize all independent DB calls concurrently with Promise.all
+      const [agentConfig, bizDoc, ownerUser, productsRes, docsRes] = await Promise.all([
+        this.agentConfigService.getConfig(businessId).catch(() => null),
+        this.businessModel ? this.businessModel.findById(businessId).exec().catch(() => null) : Promise.resolve(null),
+        this.adminUserModel
+          ? this.adminUserModel
+              .findOne({ businessId: businessId as any })
+              .sort({ createdAt: 1 })
+              .exec()
+              .catch(() => null)
+          : Promise.resolve(null),
+        this.productsService ? this.productsService.findAll(businessId, { limit: 12 }).catch(() => null) : Promise.resolve(null),
+        this.knowledgeService
+          ? this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 10 }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      if (agentConfig?.config?.brandVoiceDescription) {
+        merchantBrandVoice = `\nMerchant Brand Voice / Tone: ${agentConfig.config.brandVoiceDescription}`;
+      }
+      if (agentConfig?.config?.businessArchetype) {
+        businessArchetype = agentConfig.config.businessArchetype;
+      }
+      if (agentConfig?.config?.businessSummary) {
+        businessSummary = `\nPlatform Overview: ${agentConfig.config.businessSummary}`;
+      }
+      if (agentConfig?.config?.customDirectives) {
+        customDirectives = `\nOWNER / MERCHANT CUSTOM DIRECTIVES:\n${agentConfig.config.customDirectives}`;
       }
 
       // 1. Preload Business Identity & Owner Contact Info (Email, Name, Domain)
       let contactIdentitySummary = '';
-      let ownerName = '';
-      let siteName = '';
-      let bizDoc: any = null;
-      try {
-        if (this.businessModel) {
-          bizDoc = await this.businessModel.findById(businessId).exec();
-          let ownerUser: any = null;
-          if (this.adminUserModel) {
-            ownerUser = await this.adminUserModel
-              .findOne({ businessId: businessId as any })
-              .sort({ createdAt: 1 })
-              .exec();
-          }
+      const siteName = bizDoc?.name || '';
+      const ownerName = ownerUser?.name || '';
 
-          siteName = bizDoc?.name || '';
-          ownerName = ownerUser?.name || '';
+      const identityLines: string[] = [];
+      if (bizDoc?.name) identityLines.push(`• Entity / Website Name: ${bizDoc.name}`);
+      if (bizDoc?.domain) identityLines.push(`• Website Domain: ${bizDoc.domain}`);
+      if (ownerUser?.name) identityLines.push(`• Creator / Owner Name: ${ownerUser.name}`);
+      if (ownerUser?.email) identityLines.push(`• Official Contact Email: ${ownerUser.email}`);
 
-          const identityLines: string[] = [];
-          if (bizDoc?.name) identityLines.push(`• Entity / Website Name: ${bizDoc.name}`);
-          if (bizDoc?.domain) identityLines.push(`• Website Domain: ${bizDoc.domain}`);
-          if (ownerUser?.name) identityLines.push(`• Creator / Owner Name: ${ownerUser.name}`);
-          if (ownerUser?.email) identityLines.push(`• Official Contact Email: ${ownerUser.email}`);
-
-          if (identityLines.length > 0) {
-            contactIdentitySummary = `\nCONTACT & IDENTITY INFO (Preloaded in your memory):\n${identityLines.join('\n')}\n* Answer contact, email, and creator questions IMMEDIATELY using these details!`;
-          }
-        }
-      } catch {
-        // Fallback — non-fatal
+      if (identityLines.length > 0) {
+        contactIdentitySummary = `\nCONTACT & IDENTITY INFO (Preloaded in your memory):\n${identityLines.join('\n')}\n* Answer contact, email, and creator questions IMMEDIATELY using these details!`;
       }
 
       const isOraPlatform =
@@ -470,51 +448,37 @@ export class GeminiVoiceService {
       let catalogSummary = '';
       let hasProducts = false;
       if (!isOraPlatform && businessArchetype !== 'saas' && businessArchetype !== 'portfolio' && businessArchetype !== 'agency_services') {
-        try {
-          if (this.productsService) {
-            const productsRes = await this.productsService.findAll(businessId, { limit: 12 });
-            if (productsRes && productsRes.items && productsRes.items.length > 0) {
-              hasProducts = true;
-              const categories = Array.from(
-                new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
-              );
-              const sampleLines = productsRes.items
-                .map(
-                  (p) =>
-                    `  • ${p.name} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`,
-                )
-                .join('\n');
+        if (productsRes && productsRes.items && productsRes.items.length > 0) {
+          hasProducts = true;
+          const categories = Array.from(
+            new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
+          );
+          const sampleLines = productsRes.items
+            .map(
+              (p) =>
+                `  • ${p.name} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`,
+            )
+            .join('\n');
 
-              catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
-            }
-          }
-        } catch {
-          // Fallback — proceed without catalog summary
+          catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
         }
       }
 
       let knowledgeSummary = '';
       let hasKnowledge = false;
-      try {
-        if (this.knowledgeService) {
-          const docsRes = await this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 10 });
-          if (docsRes && docsRes.items && docsRes.items.length > 0) {
-            hasKnowledge = true;
-            const docSnippets = docsRes.items
-              .map((d: any) => {
-                const cleanSnippet = (d.content || '')
-                  .replace(/\s+/g, ' ')
-                  .slice(0, 300)
-                  .trim();
-                return `  • [${d.title}]: ${cleanSnippet}${cleanSnippet.length >= 300 ? '...' : ''}`;
-              })
-              .join('\n');
+      if (docsRes && docsRes.items && docsRes.items.length > 0) {
+        hasKnowledge = true;
+        const docSnippets = docsRes.items
+          .map((d: any) => {
+            const cleanSnippet = (d.content || '')
+              .replace(/\s+/g, ' ')
+              .slice(0, 300)
+              .trim();
+            return `  • [${d.title}]: ${cleanSnippet}${cleanSnippet.length >= 300 ? '...' : ''}`;
+          })
+          .join('\n');
 
-            knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools!`;
-          }
-        }
-      } catch {
-        // Fallback — proceed without knowledge summary
+        knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools!`;
       }
 
       // ─── Adaptive Archetype Persona Construction ───────────────────────────
@@ -626,6 +590,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
       // Cache base template for 5 minutes
       this.instructionCache.set(businessId, {
         instruction: baseInstruction,
+        archetype: businessArchetype,
         expiresAt: Date.now() + 5 * 60 * 1000,
       });
     }

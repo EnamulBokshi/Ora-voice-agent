@@ -55,6 +55,7 @@ export class GeminiLiveClient {
   private options: LiveClientOptions;
   private setupConfirmed: boolean = false;
   private broadcastChannel: BroadcastChannel | null = null;
+  private pendingAudioQueue: string[] = [];
 
   constructor(options: LiveClientOptions) {
     this.options = options;
@@ -87,9 +88,19 @@ export class GeminiLiveClient {
   private resetIdleTimer() {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => {
-      this.options.onTranscript?.('system', '⏱️ Session closed due to 45s inactivity.');
+      // If agent is actively speaking or user is currently talking, defer timer
+      if (this.isAgentSpeaking || this.userHasSpoken) {
+        this.resetIdleTimer();
+        return;
+      }
+      this.options.onTranscript?.('system', '⏱️ Session closed due to 10s inactivity.');
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: this.options.sessionId }));
+        } catch {}
+      }
       this.stop();
-    }, 45000);
+    }, 10000);
   }
 
   public async start(): Promise<void> {
@@ -105,6 +116,7 @@ export class GeminiLiveClient {
 
     try {
       this.stop();
+      this.pendingAudioQueue = [];
 
       // ── Broadcast cross-tab single-instance mutex ─────────────────────────────
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -136,11 +148,21 @@ export class GeminiLiveClient {
       let wsBase: string;
       if (process.env.NEXT_PUBLIC_WS_URL) {
         wsBase = process.env.NEXT_PUBLIC_WS_URL.replace(/^http/, 'ws');
+      } else if (typeof window !== 'undefined') {
+        const isLocalhost =
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1' ||
+          window.location.hostname === '0.0.0.0';
+
+        if (isLocalhost) {
+          // In local development, the NestJS WebSocket proxy is hosted on port 5000
+          wsBase = 'ws://localhost:5000';
+        } else {
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          wsBase = `${wsProtocol}//${window.location.host}`;
+        }
       } else if (apiBaseUrl && apiBaseUrl.startsWith('http')) {
         wsBase = apiBaseUrl.replace(/^http/, 'ws');
-      } else if (typeof window !== 'undefined') {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsBase = `${wsProtocol}//${window.location.host}`;
       } else {
         wsBase = 'ws://localhost:5000';
       }
@@ -153,121 +175,12 @@ export class GeminiLiveClient {
       const authParam = authToken ? `&authToken=${encodeURIComponent(authToken)}` : '';
       const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${authParam}${contextParams}`;
 
-      // Open WebSocket immediately
+      // ── 2. Open WebSocket IMMEDIATELY and Bind Event Listeners Synchronously ───
+      // CRITICAL: Event listeners MUST be attached before any async operations (getUserMedia / worklet fetch)
+      // to guarantee setup_complete and early audio frames are NEVER dropped by the browser.
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
 
-      // ── 2. Concurrently Initialize AudioContexts and Microphone Stream ───────
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const inputAudioCtx = new AudioCtx({ sampleRate: 16000 });
-      const outputAudioCtx = new AudioCtx();
-
-      this.inputAudioCtx = inputAudioCtx;
-      this.outputAudioCtx = outputAudioCtx;
-
-      // Run audio context resume and getUserMedia in parallel with WS connection
-      const [stream] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            sampleRate: 16000,
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        }),
-        inputAudioCtx.state === 'suspended' ? inputAudioCtx.resume() : Promise.resolve(),
-        outputAudioCtx.state === 'suspended' ? outputAudioCtx.resume() : Promise.resolve(),
-      ]);
-
-      this.micStream = stream;
-      this.nextPlayTime = outputAudioCtx.currentTime;
-
-      const connectionRtt = Math.round(performance.now() - startTime);
-      this.options.onLatency?.(connectionRtt);
-
-      const source = inputAudioCtx.createMediaStreamSource(stream);
-
-      // ── 3. Audio Level Analyser & Thinking Detector ───────────────────────────
-      const analyser = inputAudioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      this.analyser = analyser;
-      source.connect(analyser);
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVolume = () => {
-        if (!this.analyser) return;
-        this.analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-        const avg = sum / dataArray.length;
-        const level = Math.min(100, Math.round((avg / 128) * 100));
-        this.options.onAudioLevel?.(level);
-
-        // VAD (Voice Activity Detection): User is actively speaking
-        if (level > 12 && !this.isAgentSpeaking) {
-          this.userHasSpoken = true;
-          this.silenceStartTime = 0;
-          this.resetIdleTimer();
-          if (this.setupConfirmed) {
-            onStatusChange?.('listening');
-          }
-        } else if (this.userHasSpoken && level <= 12 && !this.isAgentSpeaking) {
-          // User just finished their utterance -> transition to thinking
-          if (!this.silenceStartTime) {
-            this.silenceStartTime = Date.now();
-          } else if (Date.now() - this.silenceStartTime > 450) {
-            this.userHasSpoken = false;
-            this.silenceStartTime = 0;
-            if (this.setupConfirmed && !this.isAgentSpeaking) {
-              onStatusChange?.('thinking');
-            }
-          }
-        }
-
-        this.animFrameId = requestAnimationFrame(updateVolume);
-      };
-      updateVolume();
-
-      // ── 6. Setup AudioWorklet (with fallback to ScriptProcessor) ─────────────
-      let workletLoaded = false;
-      try {
-        await inputAudioCtx.audioWorklet.addModule('/audio-processors/pcm-recorder-worklet.js');
-        const workletNode = new AudioWorkletNode(inputAudioCtx, 'pcm-recorder-processor');
-        this.workletNode = workletNode;
-
-        workletNode.port.onmessage = (event) => {
-          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed || this.isAgentSpeaking) return;
-          const { pcm16Data } = event.data;
-          if (pcm16Data) {
-            const base64Audio = this.arrayBufferToBase64(pcm16Data);
-            this.sendAudioChunk(base64Audio);
-          }
-        };
-
-        source.connect(workletNode);
-        workletLoaded = true;
-      } catch (workletErr) {
-        console.warn('[GeminiLiveClient] AudioWorklet fallback:', workletErr);
-      }
-
-      if (!workletLoaded) {
-        const processor = inputAudioCtx.createScriptProcessor(2048, 1, 1);
-        this.scriptProcessor = processor;
-        processor.onaudioprocess = (e) => {
-          if (this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed || this.isAgentSpeaking) return;
-          const input = e.inputBuffer.getChannelData(0);
-          const base64Pcm = this.float32ToInt16Base64(input);
-          this.sendAudioChunk(base64Pcm);
-        };
-        source.connect(processor);
-        const silentGain = inputAudioCtx.createGain();
-        silentGain.gain.value = 0;
-        processor.connect(silentGain);
-        silentGain.connect(inputAudioCtx.destination);
-      }
-
-      // ── 7. WebSocket Event Handlers ───────────────────────────────────────────
       ws.onopen = () => {
         onTranscript?.('system', '⚡ Connected to ORA Voice Proxy. Setting up AI stream...');
       };
@@ -288,7 +201,11 @@ export class GeminiLiveClient {
               break;
 
             case 'audio':
-              this.playPcm24kBase64(message.data);
+              if (this.outputAudioCtx && this.outputAudioCtx.state !== 'closed') {
+                this.playPcm24kBase64(message.data);
+              } else {
+                this.pendingAudioQueue.push(message.data);
+              }
               break;
 
             case 'text':
@@ -311,6 +228,7 @@ export class GeminiLiveClient {
                 this.nextPlayTime = this.outputAudioCtx.currentTime;
                 this.isAgentSpeaking = false;
                 onStatusChange?.('listening');
+                this.resetIdleTimer();
               }
               break;
 
@@ -350,6 +268,191 @@ export class GeminiLiveClient {
         console.log(`[GeminiLiveClient] Proxy WebSocket closed (code ${event.code})`);
         onStatusChange?.('idle');
       };
+
+      // ── 3. Concurrently Initialize AudioContexts, Microphone Stream, and Inlined Worklet ───
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const inputAudioCtx = new AudioCtx({ sampleRate: 16000, latencyHint: 'interactive' });
+      const outputAudioCtx = new AudioCtx({ sampleRate: 24000, latencyHint: 'interactive' });
+
+      this.inputAudioCtx = inputAudioCtx;
+      this.outputAudioCtx = outputAudioCtx;
+
+      // Inlined AudioWorkletProcessor — 512 samples (~32ms) chunks for zero-latency streaming
+      const workletCode = `
+        class PCMRecorderProcessor extends AudioWorkletProcessor {
+          constructor() {
+            super();
+            this.bufferSize = 512;
+            this.buffer = new Float32Array(this.bufferSize);
+            this.bytesWritten = 0;
+          }
+          process(inputs) {
+            const input = inputs[0];
+            if (!input || !input[0]) return true;
+            const channel = input[0];
+            for (let i = 0; i < channel.length; i++) {
+              this.buffer[this.bytesWritten++] = channel[i];
+              if (this.bytesWritten >= this.bufferSize) {
+                this.flush();
+              }
+            }
+            return true;
+          }
+          flush() {
+            if (this.bytesWritten === 0) return;
+            const int16Array = new Int16Array(this.bytesWritten);
+            for (let i = 0; i < this.bytesWritten; i++) {
+              const s = Math.max(-1, Math.min(1, this.buffer[i]));
+              int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+            }
+            this.port.postMessage({ pcm16Data: int16Array.buffer }, [int16Array.buffer]);
+            this.bytesWritten = 0;
+          }
+        }
+        registerProcessor('pcm-recorder-processor', PCMRecorderProcessor);
+      `;
+
+      let workletUrl = '';
+      try {
+        const blob = new Blob([workletCode], { type: 'application/javascript' });
+        workletUrl = URL.createObjectURL(blob);
+      } catch {}
+
+      // Run audio context resume, getUserMedia, and inlined worklet registration concurrently
+      const [stream] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        }),
+        inputAudioCtx.state === 'suspended' ? inputAudioCtx.resume() : Promise.resolve(),
+        outputAudioCtx.state === 'suspended' ? outputAudioCtx.resume() : Promise.resolve(),
+        workletUrl && inputAudioCtx.audioWorklet
+          ? inputAudioCtx.audioWorklet.addModule(workletUrl).catch((err) => {
+              console.warn('[GeminiLiveClient] Worklet registration warning:', err);
+            })
+          : Promise.resolve(),
+      ]);
+
+      if (workletUrl) {
+        try { URL.revokeObjectURL(workletUrl); } catch {}
+      }
+
+      this.micStream = stream;
+      this.nextPlayTime = outputAudioCtx.currentTime;
+
+      // Flush any early audio chunks received during microphone permission prompt
+      while (this.pendingAudioQueue.length > 0) {
+        const queuedAudio = this.pendingAudioQueue.shift();
+        if (queuedAudio) this.playPcm24kBase64(queuedAudio);
+      }
+
+      if (this.setupConfirmed) {
+        onStatusChange?.('listening');
+      }
+
+      const connectionRtt = Math.round(performance.now() - startTime);
+      this.options.onLatency?.(connectionRtt);
+
+      const source = inputAudioCtx.createMediaStreamSource(stream);
+
+      // ── 4. Audio Level Analyser & Thinking Detector ───────────────────────────
+      const analyser = inputAudioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      this.analyser = analyser;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateVolume = () => {
+        if (!this.analyser) return;
+        this.analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const level = Math.min(100, Math.round((avg / 128) * 100));
+        this.options.onAudioLevel?.(level);
+
+        // VAD (Voice Activity Detection): User is actively speaking
+        if (level > 10 && !this.isAgentSpeaking) {
+          this.userHasSpoken = true;
+          this.silenceStartTime = 0;
+          this.resetIdleTimer();
+          if (this.setupConfirmed) {
+            onStatusChange?.('listening');
+          }
+        } else if (this.userHasSpoken && level <= 10 && !this.isAgentSpeaking) {
+          // User just finished their utterance -> transition to thinking
+          if (!this.silenceStartTime) {
+            this.silenceStartTime = Date.now();
+          } else if (Date.now() - this.silenceStartTime > 350) {
+            this.userHasSpoken = false;
+            this.silenceStartTime = 0;
+            if (this.setupConfirmed && !this.isAgentSpeaking) {
+              onStatusChange?.('thinking');
+            }
+          }
+        }
+
+        this.animFrameId = requestAnimationFrame(updateVolume);
+      };
+      updateVolume();
+
+      // ── 5. Setup AudioWorklet (with fallback to ScriptProcessor) ─────────────
+      let workletActive = false;
+      try {
+        if (inputAudioCtx.audioWorklet) {
+          const workletNode = new AudioWorkletNode(inputAudioCtx, 'pcm-recorder-processor');
+          this.workletNode = workletNode;
+
+          workletNode.port.onmessage = (event) => {
+            if (
+              this.isMuted ||
+              !this.ws ||
+              this.ws.readyState !== WebSocket.OPEN ||
+              !this.setupConfirmed ||
+              this.isAgentSpeaking
+            )
+              return;
+            const { pcm16Data } = event.data;
+            if (pcm16Data) {
+              const base64Audio = this.arrayBufferToBase64(pcm16Data);
+              this.sendAudioChunk(base64Audio);
+            }
+          };
+
+          source.connect(workletNode);
+          workletActive = true;
+        }
+      } catch (workletErr) {
+        console.warn('[GeminiLiveClient] AudioWorklet activation fallback:', workletErr);
+      }
+
+      if (!workletActive) {
+        const processor = inputAudioCtx.createScriptProcessor(1024, 1, 1);
+        this.scriptProcessor = processor;
+        processor.onaudioprocess = (e) => {
+          if (
+            this.isMuted ||
+            !this.ws ||
+            this.ws.readyState !== WebSocket.OPEN ||
+            !this.setupConfirmed ||
+            this.isAgentSpeaking
+          )
+            return;
+          const input = e.inputBuffer.getChannelData(0);
+          const base64Pcm = this.float32ToInt16Base64(input);
+          this.sendAudioChunk(base64Pcm);
+        };
+        source.connect(processor);
+        const silentGain = inputAudioCtx.createGain();
+        silentGain.gain.value = 0;
+        processor.connect(silentGain);
+        silentGain.connect(inputAudioCtx.destination);
+      }
     } catch (err: any) {
       console.error('[GeminiLiveClient] Start failed:', err);
       onStatusChange?.('error');
@@ -394,11 +497,7 @@ export class GeminiLiveClient {
       sourceNode.connect(audioCtx.destination);
 
       const now = audioCtx.currentTime;
-      if (this.nextPlayTime < now) {
-        this.nextPlayTime = now;
-      }
-
-      const startTime = this.nextPlayTime;
+      const startTime = Math.max(now, this.nextPlayTime);
       sourceNode.start(startTime);
       this.nextPlayTime = startTime + audioBuffer.duration;
 
@@ -412,6 +511,7 @@ export class GeminiLiveClient {
         if (this.activeSources.length === 0 || (this.outputAudioCtx && this.outputAudioCtx.currentTime >= this.nextPlayTime - 0.05)) {
           this.isAgentSpeaking = false;
           this.options.onStatusChange?.('listening');
+          this.resetIdleTimer();
         }
       };
     } catch (err: any) {

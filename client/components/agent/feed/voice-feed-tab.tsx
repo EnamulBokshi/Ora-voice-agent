@@ -406,6 +406,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
   };
 
   const handleToggleVoice = () => {
+    if (status === 'connecting') return;
     if (status === 'idle' || status === 'error') {
       if (voiceMode === 'gemini-live') {
         startGeminiLiveSession();
