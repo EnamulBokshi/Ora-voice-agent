@@ -1,28 +1,15 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  LogOut,
-  LayoutDashboard,
-  Shield,
-  CreditCard,
-  ChevronDown,
-  Loader2,
-} from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
-import { getMeApi, logoutApi } from '@/services/auth-service';
+import { getMeApi } from '@/services/auth-service';
 import { User } from '@/types/auth';
 
 export function MarketingNavbar() {
-  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -54,44 +41,6 @@ export function MarketingNavbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Close dropdown on outside click or ESC
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDropdownOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  const handleLogout = async () => {
-    if (loggingOut) return;
-    setLoggingOut(true);
-    try {
-      await logoutApi();
-    } catch {
-      // Ignore network errors during logout
-    } finally {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
-        setIsLoggedIn(false);
-        setUser(null);
-        setDropdownOpen(false);
-        window.location.href = '/auth';
-      }
-    }
-  };
-
   const getCtaLink = () => {
     if (!isLoggedIn || !user) return '/auth';
     if (user.role === 'admin' || user.role === 'super_admin') return '/admin';
@@ -106,35 +55,6 @@ export function MarketingNavbar() {
     if (user.role === 'owner' || user.role === 'staff') return 'Dashboard';
     if (user.role === 'user') return 'Choose Plan';
     return 'Get Started';
-  };
-
-  const getUserInitials = () => {
-    if (!user) return 'U';
-    if (user.name) {
-      const parts = user.name.trim().split(' ');
-      if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-      return parts[0][0].toUpperCase();
-    }
-    if (user.email) return user.email[0].toUpperCase();
-    return 'U';
-  };
-
-  const getRoleLabel = () => {
-    if (!user) return '';
-    switch (user.role) {
-      case 'owner':
-        return 'Store Owner';
-      case 'admin':
-        return 'Admin';
-      case 'super_admin':
-        return 'Super Admin';
-      case 'staff':
-        return 'Staff Member';
-      case 'user':
-        return 'Subscription Required';
-      default:
-        return user.role;
-    }
   };
 
   return (
@@ -163,7 +83,7 @@ export function MarketingNavbar() {
           </ul>
         </nav>
 
-        {/* CTA, Theme Toggle & Profile Menu */}
+        {/* CTA & Theme Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ThemeToggle />
 
@@ -175,138 +95,10 @@ export function MarketingNavbar() {
           >
             {getCtaLabel()}
           </Link>
-
-          {/* Profile Dropdown (when logged in) */}
-          {isLoggedIn && user && (
-            <div className="lp-user-menu-wrapper" ref={dropdownRef}>
-              <button
-                type="button"
-                className={`lp-user-trigger-btn${dropdownOpen ? ' active' : ''}`}
-                onClick={() => setDropdownOpen((prev) => !prev)}
-                aria-expanded={dropdownOpen}
-                aria-label="User profile and account menu"
-                id="navbar-user-profile-trigger"
-              >
-                <div className="lp-user-avatar">
-                  {getUserInitials()}
-                </div>
-                <span className="lp-user-trigger-name hidden md:inline">
-                  {user.name || user.email.split('@')[0]}
-                </span>
-                <ChevronDown
-                  size={14}
-                  className="lp-user-chevron"
-                  style={{
-                    color: 'var(--lp-text-secondary)',
-                    transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                    transform: dropdownOpen ? 'rotate(180deg)' : 'none',
-                  }}
-                />
-              </button>
-
-              {/* Glassy Dropdown Card */}
-              {dropdownOpen && (
-                <div className="lp-user-dropdown-card" role="menu">
-                  {/* User info frosted tile */}
-                  <div className="lp-user-info-section">
-                    <div className="lp-user-info-header">
-                      <div className="lp-user-info-avatar">
-                        {getUserInitials()}
-                      </div>
-                      <div className="lp-user-info-text">
-                        <div className="lp-user-info-name">
-                          {user.name || 'Merchant Account'}
-                        </div>
-                        <div className="lp-user-info-email" title={user.email}>
-                          {user.email}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="lp-user-role-container">
-                      <span
-                        className={`lp-user-role-badge ${
-                          user.role === 'owner' ? 'owner' : user.role.includes('admin') ? 'admin' : ''
-                        }`}
-                      >
-                        <span className="lp-user-role-dot" />
-                        {getRoleLabel()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Navigation items */}
-                  <ul className="lp-user-menu-list">
-                    {/* Store Dashboard link for owner/staff */}
-                    {(user.role === 'owner' || user.role === 'staff') && (
-                      <li>
-                        <Link
-                          href="/dashboard"
-                          className="lp-user-menu-item"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          <span className="lp-user-menu-icon">
-                            <LayoutDashboard size={15} />
-                          </span>
-                          <span>Store Dashboard</span>
-                        </Link>
-                      </li>
-                    )}
-
-                    {/* Admin Portal link for admin/super_admin */}
-                    {(user.role === 'admin' || user.role === 'super_admin') && (
-                      <li>
-                        <Link
-                          href="/admin"
-                          className="lp-user-menu-item"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          <span className="lp-user-menu-icon">
-                            <Shield size={15} />
-                          </span>
-                          <span>Admin Console</span>
-                        </Link>
-                      </li>
-                    )}
-
-                    {/* Pricing link */}
-                    <li>
-                      <Link
-                        href="/pricing"
-                        className="lp-user-menu-item"
-                        onClick={() => setDropdownOpen(false)}
-                      >
-                        <span className="lp-user-menu-icon">
-                          <CreditCard size={15} />
-                        </span>
-                        <span>{user.role === 'user' ? 'Select Plan' : 'Subscription & Pricing'}</span>
-                      </Link>
-                    </li>
-
-                    {/* Divider & Logout */}
-                    <li className="lp-user-menu-divider">
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        disabled={loggingOut}
-                        className="lp-user-menu-item danger"
-                      >
-                        <span className="lp-user-menu-icon danger">
-                          {loggingOut ? (
-                            <Loader2 size={15} className="animate-spin" />
-                          ) : (
-                            <LogOut size={15} />
-                          )}
-                        </span>
-                        <span>{loggingOut ? 'Logging out...' : 'Log Out'}</span>
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </header>
   );
 }
+
+

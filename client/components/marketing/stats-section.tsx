@@ -17,6 +17,18 @@ export function StatsSection() {
           className="lp-dark-section"
           style={{ padding: 'clamp(3rem, 5vw, 5rem) clamp(2rem, 5vw, 4rem)' }}
         >
+          {/* Decorative glow */}
+          <div
+            className="lp-glow-blob"
+            aria-hidden="true"
+            style={{ top: '-4rem', right: '20%', width: '20rem', height: '20rem' }}
+          />
+          <div
+            className="lp-glow-blob"
+            aria-hidden="true"
+            style={{ bottom: '-4rem', left: '10%', width: '14rem', height: '14rem', opacity: 0.06 }}
+          />
+
           {/* Stats row */}
           <div
             style={{

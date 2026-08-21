@@ -15,6 +15,20 @@ export function CtaSection() {
             textAlign: 'center',
           }}
         >
+          {/* Large glow blob */}
+          <div
+            className="lp-glow-blob"
+            aria-hidden="true"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '30rem',
+              height: '30rem',
+              opacity: 0.18,
+            }}
+          />
+
           <div style={{ position: 'relative', zIndex: 1, maxWidth: '40rem', margin: '0 auto' }}>
             <h2
               id="cta-headline"
