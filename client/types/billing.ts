@@ -34,6 +34,8 @@ export interface Subscription {
 export interface SubscriptionUsage {
   conversationMinutes: number;
   ordersPerMonth: number;
+  connectedStores?: number;
+  seats?: number;
 }
 
 export interface SubscriptionDetailsResponse {

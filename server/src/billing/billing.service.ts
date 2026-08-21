@@ -84,10 +84,21 @@ export class BillingService implements OnModuleInit {
     const currentPeriod = new Date().toISOString().substring(0, 7);
     const redisClient = this.redisService.getClient();
 
-    const [mins, orders] = await Promise.all([
+    const [mins, orders, business, seatsCount] = await Promise.all([
       redisClient.get(`usage:${businessId}:${currentPeriod}:conversationMinutes`),
       redisClient.get(`usage:${businessId}:${currentPeriod}:ordersPerMonth`),
+      this.businessModel.findById(businessId).exec(),
+      this.adminUserModel.countDocuments({ businessId: businessId as any }).exec(),
     ]);
+
+    let connectedStoresCount = 0;
+    if (business) {
+      if (business.shopifyStoreUrl) connectedStoresCount++;
+      if (business.woocommerceStoreUrl) connectedStoresCount++;
+      if (connectedStoresCount === 0 && business.connectedPlatform && business.connectedPlatform !== 'none') {
+        connectedStoresCount = 1;
+      }
+    }
 
     return {
       subscription: sub,
@@ -95,6 +106,8 @@ export class BillingService implements OnModuleInit {
       usage: {
         conversationMinutes: mins ? parseInt(mins, 10) : 0,
         ordersPerMonth: orders ? parseInt(orders, 10) : 0,
+        connectedStores: connectedStoresCount,
+        seats: seatsCount || 1,
       },
     };
   }
