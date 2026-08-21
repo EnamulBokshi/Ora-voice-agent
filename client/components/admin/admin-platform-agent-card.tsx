@@ -12,7 +12,7 @@ import {
   Key,
   Copy,
   Check,
-  Sparkles,
+  MessageSquare,
   Save,
   Radio,
   Globe,
@@ -244,7 +244,7 @@ export function AdminPlatformAgentCard() {
         {/* Brand Voice Description */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <MessageSquare className="h-3.5 w-3.5 text-primary" />
             <span>Brand Voice & Persona</span>
           </label>
           <input

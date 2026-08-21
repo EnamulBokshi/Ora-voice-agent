@@ -2,84 +2,93 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
-  UserCheck,
   ShoppingBag,
   Layers,
   Briefcase,
-  Bot,
+  Globe,
+  Building2,
+  SlidersHorizontal,
   Save,
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Compass,
   FileText,
-  Volume2,
+  MessageSquare,
+  Terminal,
+  ShieldCheck,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   getAgentConfigApi,
   updateAgentConfigApi,
-  AgentConfigData,
 } from '@/services/agent-config-service';
 
-// ─── Archetype Definitions ───────────────────────────────────────────────────
+// ─── Business Model Archetypes ────────────────────────────────────────────────
 
 interface ArchetypeOption {
   id: string;
-  title: string;
-  subtitle: string;
+  name: string;
+  category: string;
   description: string;
   icon: React.ElementType;
-  badge: string;
+  capabilities: string[];
 }
 
 const ARCHETYPES: ArchetypeOption[] = [
   {
-    id: 'portfolio',
-    title: 'Portfolio / Personal Website',
-    subtitle: 'Engineers, Designers, Creators & Executives',
-    description:
-      'Warmly introduces visitors to your background, tech stack, achievements, featured projects, and directs recruiters to your contact/booking links.',
-    icon: UserCheck,
-    badge: 'Recommended for You',
-  },
-  {
     id: 'ecommerce',
-    title: 'E-Commerce Storefront',
-    subtitle: 'Retailers, Brands & Digital Goods',
+    name: 'E-Commerce & Retail Storefront',
+    category: 'Storefront',
     description:
-      'Helps shoppers discover catalog products, checks size/availability, recommends alternatives, and guides checkout via Stripe or bKash.',
+      'Product catalog search, real-time stock/size verification, cart recovery, and Stripe / bKash checkout guidance.',
     icon: ShoppingBag,
-    badge: 'Storefront',
+    capabilities: ['Catalog Search', 'Cart Recovery', 'Live Inventory', '1-Click Checkout'],
   },
   {
     id: 'saas',
-    title: 'SaaS Platform & Tech Product',
-    subtitle: 'Software, Apps & Developer Tools',
+    name: 'SaaS & Digital Tech Product',
+    category: 'Software',
     description:
-      'Pitches features, explains subscription tiers/pricing, answers technical API questions, and onboards signups.',
+      'Feature explanation, subscription tier pricing, API / documentation navigation, and signup onboarding.',
     icon: Layers,
-    badge: 'SaaS',
+    capabilities: ['Tier Pricing', 'Feature Matrix', 'Docs Navigation', 'Lead Capture'],
   },
   {
     id: 'agency_services',
-    title: 'Agency & Professional Services',
-    subtitle: 'Design Agencies, Consultancies & Studios',
+    name: 'Agency & Professional Services',
+    category: 'Services',
     description:
-      'Explains service offerings, case studies, engagement models, and schedules discovery calls with prospects.',
+      'Service package pitching, past case studies, project scoping, and prospect discovery call booking.',
     icon: Briefcase,
-    badge: 'Agency',
+    capabilities: ['Service Packages', 'Case Studies', 'Discovery Booking', 'Inquiries'],
+  },
+  {
+    id: 'portfolio',
+    name: 'Portfolio & Creator Profile',
+    category: 'Personal',
+    description:
+      'Showcase featured projects, technical stack, career milestones, and direct recruiters to booking links.',
+    icon: Globe,
+    capabilities: ['Featured Projects', 'Tech Stack', 'Resume / CV', 'Contact Links'],
   },
   {
     id: 'general',
-    title: 'General AI Assistant',
-    subtitle: 'Multi-purpose Website Representative',
+    name: 'Enterprise & General Knowledge',
+    category: 'General',
     description:
-      'Answers visitor questions using knowledge base documents with an adaptive, conversational persona.',
-    icon: Bot,
-    badge: 'General',
+      'Comprehensive customer support using ingested knowledge base documents, store policies, and escalation workflows.',
+    icon: Building2,
+    capabilities: ['Policy FAQs', 'Knowledge RAG', 'Escalation', 'Multi-Topic'],
   },
+];
+
+const TONE_PRESETS = [
+  'Direct & Concise',
+  'Consultative Sales',
+  'Technical & Precise',
+  'Friendly & Casual',
+  'High-Energy Luxury',
 ];
 
 export function AgentPersonaTab() {
@@ -89,7 +98,7 @@ export function AgentPersonaTab() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Form states
-  const [archetype, setArchetype] = useState<string>('portfolio');
+  const [archetype, setArchetype] = useState<string>('ecommerce');
   const [brandVoice, setBrandVoice] = useState<string>('');
   const [businessSummary, setBusinessSummary] = useState<string>('');
   const [customDirectives, setCustomDirectives] = useState<string>('');
@@ -98,10 +107,10 @@ export function AgentPersonaTab() {
     getAgentConfigApi()
       .then((res) => {
         if (res?.config) {
-          setArchetype(res.config.businessArchetype || 'portfolio');
+          setArchetype(res.config.businessArchetype || 'ecommerce');
           setBrandVoice(
             res.config.brandVoiceDescription ||
-              'Friendly, articulate, technical, and helpful assistant representing the creator.',
+              'Articulate, concise, consultative, and focused on helping shoppers find the right solution.',
           );
           setBusinessSummary(res.config.businessSummary || '');
           setCustomDirectives(res.config.customDirectives || '');
@@ -109,7 +118,7 @@ export function AgentPersonaTab() {
       })
       .catch((err) => {
         console.error('Failed to load agent config:', err);
-        setErrorMsg('Failed to load agent settings. Using local draft.');
+        setErrorMsg('Failed to load agent settings. Using local defaults.');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -127,7 +136,7 @@ export function AgentPersonaTab() {
         businessSummary,
         customDirectives,
       });
-      setSuccessMsg('Agent persona & directives updated successfully!');
+      setSuccessMsg('Agent configuration and directives saved successfully.');
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
       console.error('Failed to update agent config:', err);
@@ -140,39 +149,44 @@ export function AgentPersonaTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        <span className="text-sm">Loading agent persona settings...</span>
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <span className="text-xs font-mono">Loading configuration...</span>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-8 max-w-4xl">
-      {/* Notifications */}
+    <form onSubmit={handleSave} className="space-y-6 max-w-5xl">
+      {/* Feedback Alerts */}
       {successMsg && (
-        <div className="flex items-center gap-2 p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm">
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md text-xs font-medium">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="flex items-center gap-2 p-3.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-xs font-medium">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* ── 1. Archetype Selection ────────────────────────────────────────── */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Compass className="h-4 w-4 text-primary" />
-            Business & Website Archetype
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Select what your website represents. ORA dynamically tailors its tone, mission, and conversation playbook to match.
-          </p>
+      {/* ── 1. Business & Store Archetype ─────────────────────────────────── */}
+      <div className="rounded-lg border border-border bg-card/40 p-5 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-2">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+              Business Model & Archetype
+            </h2>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              Select the primary operating model. ORA dynamically binds the appropriate conversation playbooks and sales tools.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-border bg-background text-muted-foreground">
+            {ARCHETYPES.find((a) => a.id === archetype)?.category.toUpperCase() || 'CUSTOM'}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -186,49 +200,57 @@ export function AgentPersonaTab() {
                 type="button"
                 onClick={() => setArchetype(opt.id)}
                 className={cn(
-                  'text-left p-4 rounded-xl border transition-all duration-200 relative flex flex-col justify-between group',
+                  'text-left p-4 rounded-md border transition-all text-xs relative flex flex-col justify-between group cursor-pointer',
                   isSelected
-                    ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/30'
-                    : 'border-border bg-card/40 hover:bg-card/80 hover:border-border/80',
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/40'
+                    : 'border-border bg-background/50 hover:bg-background/90 hover:border-border/80',
                 )}
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <div
                         className={cn(
-                          'p-1.5 rounded-lg',
-                          isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground group-hover:text-foreground',
+                          'p-1.5 rounded border',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-muted/40 text-muted-foreground border-border group-hover:text-foreground',
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-3.5 w-3.5" />
                       </div>
-                      <span className="font-semibold text-xs text-foreground">{opt.title}</span>
+                      <span className="font-semibold text-foreground text-[12.5px]">{opt.name}</span>
                     </div>
-                    <span
+
+                    <div
                       className={cn(
-                        'text-[10px] px-2 py-0.5 rounded-full font-mono font-medium',
-                        isSelected ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
+                        'w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0',
+                        isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/30',
                       )}
                     >
-                      {opt.badge}
-                    </span>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
                   </div>
+
                   <p className="text-[11.5px] text-muted-foreground leading-relaxed">
                     {opt.description}
                   </p>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                  <span>{opt.subtitle}</span>
-                  <div
-                    className={cn(
-                      'w-3 h-3 rounded-full border flex items-center justify-center',
-                      isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/40',
-                    )}
-                  >
-                    {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />}
-                  </div>
+                <div className="mt-3 pt-2.5 border-t border-border/50 flex flex-wrap items-center gap-1.5">
+                  {opt.capabilities.map((cap) => (
+                    <span
+                      key={cap}
+                      className={cn(
+                        'text-[10px] font-mono px-1.5 py-0.5 rounded border',
+                        isSelected
+                          ? 'border-primary/30 text-primary bg-primary/10'
+                          : 'border-border/60 text-muted-foreground/80 bg-muted/20',
+                      )}
+                    >
+                      {cap}
+                    </span>
+                  ))}
                 </div>
               </button>
             );
@@ -237,75 +259,114 @@ export function AgentPersonaTab() {
       </div>
 
       {/* ── 2. Brand Voice & Tone ─────────────────────────────────────────── */}
-      <div className="space-y-2 pt-2 border-t border-border">
-        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Volume2 className="h-4 w-4 text-primary" />
-          Brand Voice & Tone Description
-        </label>
-        <p className="text-xs text-muted-foreground">
-          Describe the personality, attitude, and tone ORA should adopt when speaking with visitors.
-        </p>
+      <div className="rounded-lg border border-border bg-card/40 p-5 space-y-3">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-2">
+            <MessageSquare className="h-3.5 w-3.5 text-primary" />
+            Brand Voice & Communication Tone
+          </h2>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
+            Defines the demeanor, cadence, and sales style ORA maintains during conversations.
+          </p>
+        </div>
+
+        {/* Preset quick-tags */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="text-[11px] text-muted-foreground font-mono mr-1">Presets:</span>
+          {TONE_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setBrandVoice(preset)}
+              className={cn(
+                'text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer',
+                brandVoice.toLowerCase().includes(preset.toLowerCase())
+                  ? 'border-primary text-primary bg-primary/10'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/40',
+              )}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+
         <input
           type="text"
           value={brandVoice}
           onChange={(e) => setBrandVoice(e.target.value)}
-          placeholder="e.g. Highly articulate, passionate software architect, concise, and enthusiastic."
-          className="w-full px-3.5 py-2.5 bg-background border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="e.g. Consultative, concise, highly professional, direct, and solution-driven."
+          className="w-full px-3 py-2 bg-background border border-border rounded-md text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
-      {/* ── 3. Creator / Business Summary ─────────────────────────────────── */}
-      <div className="space-y-2 pt-2 border-t border-border">
-        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <FileText className="h-4 w-4 text-primary" />
-          Creator Bio / Business Summary
-        </label>
-        <p className="text-xs text-muted-foreground">
-          High-level overview of who you are or what your business does.
-        </p>
+      {/* ── 3. Store & Business Overview ──────────────────────────────────── */}
+      <div className="rounded-lg border border-border bg-card/40 p-5 space-y-3">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5 text-primary" />
+            Store Overview & Mission
+          </h2>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
+            A concise overview of what your store sells or what your business provides. ORA uses this as core identity grounding.
+          </p>
+        </div>
+
         <textarea
           rows={3}
           value={businessSummary}
           onChange={(e) => setBusinessSummary(e.target.value)}
-          placeholder="e.g. Enamul Bokshi — Full-Stack Software Engineer & Distributed Systems Architect specializing in real-time AI agents and high-throughput microservices."
-          className="w-full px-3.5 py-2.5 bg-background border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+          placeholder="e.g. Apex Apparel is a premier sustainable activewear brand delivering high-durability performance gear with eco-certified fabrics and express worldwide shipping."
+          className="w-full px-3 py-2 bg-background border border-border rounded-md text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none leading-relaxed"
         />
       </div>
 
-      {/* ── 4. Custom Directives & Key Sections ───────────────────────────── */}
-      <div className="space-y-2 pt-2 border-t border-border">
-        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          Custom Directives, Key Sections & Anchors
-        </label>
-        <p className="text-xs text-muted-foreground">
-          Special instructions given to ORA. You can specify exact in-page sections (e.g. `#projects`, `#experience`, `#cv`, `#contact`), key talking points, or rules.
-        </p>
+      {/* ── 4. Operational Directives & Policies ───────────────────────────── */}
+      <div className="rounded-lg border border-border bg-card/40 p-5 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-2">
+              <Terminal className="h-3.5 w-3.5 text-primary" />
+              Operational Directives, Store Policies & Anchors
+            </h2>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              Specific operating rules, promotion codes, return policy guidelines, and navigation anchors (e.g. <code className="font-mono text-primary text-[11px]">#pricing</code>, <code className="font-mono text-primary text-[11px]">#products</code>).
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Active Memory</span>
+          </div>
+        </div>
+
         <textarea
           rows={5}
           value={customDirectives}
           onChange={(e) => setCustomDirectives(e.target.value)}
-          placeholder={`e.g.\n• When asked about sections or navigating, refer to: #projects (featured work), #experience (past roles), #cv (resume download), and #contact (get in touch).\n• Highlight my project 'HyperFlow Distributed Event Pipeline' as my flagship architecture demo.\n• If a recruiter asks for a meeting, invite them to send an email or click the contact link.`}
-          className="w-full px-3.5 py-2.5 bg-background border border-border rounded-lg text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+          placeholder={`# Operating Directives\n• Offer 10% discount code "SAVE10" to customers hesitating on checkout.\n• Free shipping applies to orders above $75.\n• When customers ask for navigation, refer to: #products, #pricing, #contact.\n• For support escalations, direct inquiries to support@store.com.`}
+          className="w-full px-3 py-2 bg-background border border-border rounded-md text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
         />
       </div>
 
-      {/* ── Save Action Button ────────────────────────────────────────────── */}
-      <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
+      {/* ── Save Action Bar ───────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between pt-2">
+        <span className="text-[11.5px] text-muted-foreground font-mono">
+          Changes take effect instantly on live store voice & chat sessions.
+        </span>
+
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-semibold text-xs rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-semibold text-xs rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
         >
           {saving ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>Saving Changes...</span>
+              <span>Saving...</span>
             </>
           ) : (
             <>
               <Save className="h-3.5 w-3.5" />
-              <span>Save Persona Settings</span>
+              <span>Save Configuration</span>
             </>
           )}
         </button>

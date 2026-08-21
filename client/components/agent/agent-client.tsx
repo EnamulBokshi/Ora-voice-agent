@@ -7,7 +7,7 @@ import {
   Database,
   Radio,
   ExternalLink,
-  Sparkles,
+  SlidersHorizontal,
   Mic,
   FileText,
   Package,
@@ -33,7 +33,7 @@ import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 type AgentSection = 'persona' | 'voice' | 'documents' | 'products' | 'integration';
 
 const AGENT_TABS: { id: AgentSection; label: string; icon: React.ElementType }[] = [
-  { id: 'persona', label: 'Persona & Archetype', icon: Sparkles },
+  { id: 'persona', label: 'Persona & Archetype', icon: SlidersHorizontal },
   { id: 'voice', label: 'Talk to ORA', icon: Mic },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'products', label: 'Product Catalog', icon: Package },
