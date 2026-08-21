@@ -4,6 +4,9 @@ import {
   ProfileResponseData,
   OtpResponseData,
   RefreshResponseData,
+  ForgotPasswordResponseData,
+  VerifyResetTokenResponseData,
+  ResetPasswordResponseData,
   User,
 } from '@/types/auth';
 
@@ -129,3 +132,34 @@ export async function resendOnboardingApi(
     headers,
   });
 }
+
+export async function forgotPasswordApi(payload: {
+  email: string;
+}): Promise<ForgotPasswordResponseData> {
+  return apiClient<ForgotPasswordResponseData>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function verifyResetTokenApi(
+  token: string,
+): Promise<VerifyResetTokenResponseData> {
+  return apiClient<VerifyResetTokenResponseData>(
+    `/auth/verify-reset-token?token=${encodeURIComponent(token)}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function resetPasswordApi(payload: {
+  token: string;
+  password: string;
+}): Promise<ResetPasswordResponseData> {
+  return apiClient<ResetPasswordResponseData>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+

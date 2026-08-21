@@ -9,11 +9,13 @@ import { AuthResponseData } from '@/types/auth';
 interface LoginFormProps {
   onSuccess: (data: AuthResponseData) => void;
   onSwitchToRegister: () => void;
+  onSwitchToForgotPassword?: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSuccess,
   onSwitchToRegister,
+  onSwitchToForgotPassword,
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,7 +74,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-xs font-medium text-foreground">Password</label>
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-medium text-foreground">Password</label>
+          {onSwitchToForgotPassword && (
+            <button
+              type="button"
+              onClick={onSwitchToForgotPassword}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Forgot password?
+            </button>
+          )}
+        </div>
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
             <Lock className="h-4 w-4" />

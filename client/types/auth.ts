@@ -36,6 +36,20 @@ export interface OtpResponseData {
   emailVerified?: boolean;
 }
 
+export interface ForgotPasswordResponseData {
+  message: string;
+  devToken?: string;
+}
+
+export interface VerifyResetTokenResponseData {
+  valid: boolean;
+  email?: string;
+}
+
+export interface ResetPasswordResponseData {
+  message: string;
+}
+
 export interface ApiError {
   code: string;
   message: string;

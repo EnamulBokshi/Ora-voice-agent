@@ -1,23 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AuthHeader } from './AuthHeader';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { OtpVerificationForm } from './OtpVerificationForm';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
+import { ResetPasswordForm } from './ResetPasswordForm';
 import { AuthResponseData } from '@/types/auth';
 import { getMeApi } from '@/services/auth-service';
 
 export const AuthCard: React.FC = () => {
   const searchParams = useSearchParams();
   const redirectTarget = searchParams.get('from') || '/dashboard';
-  const initialMode = searchParams.get('mode') === 'login' ? 'login' : 'register';
   const planParam = searchParams.get('plan');
+  const modeParam = searchParams.get('mode');
+  const tokenParam = searchParams.get('token');
 
-  const [mode, setMode] = useState<'login' | 'register' | 'otp'>(initialMode);
+  const getInitialMode = (): 'login' | 'register' | 'otp' | 'forgot-password' | 'reset-password' => {
+    if (tokenParam || modeParam === 'reset-password') return 'reset-password';
+    if (modeParam === 'forgot-password') return 'forgot-password';
+    if (modeParam === 'login') return 'login';
+    return 'register';
+  };
+
+  const [mode, setMode] = useState<'login' | 'register' | 'otp' | 'forgot-password' | 'reset-password'>(getInitialMode);
   const [sessionToken, setSessionToken] = useState<string | undefined>(undefined);
   const [registeredEmail, setRegisteredEmail] = useState<string | undefined>(undefined);
+  const [resetToken, setResetToken] = useState<string>(tokenParam || '');
+
+  useEffect(() => {
+    if (tokenParam) {
+      setResetToken(tokenParam);
+      setMode('reset-password');
+    } else if (modeParam === 'forgot-password') {
+      setMode('forgot-password');
+    } else if (modeParam === 'login') {
+      setMode('login');
+    } else if (modeParam === 'register') {
+      setMode('register');
+    }
+  }, [modeParam, tokenParam]);
 
   const resolveTargetUrl = (role?: string) => {
     if (role === 'admin' || role === 'super_admin') {
@@ -87,6 +111,7 @@ export const AuthCard: React.FC = () => {
           <LoginForm
             onSuccess={handleLoginSuccess}
             onSwitchToRegister={() => setMode('register')}
+            onSwitchToForgotPassword={() => setMode('forgot-password')}
           />
         )}
 
@@ -102,6 +127,20 @@ export const AuthCard: React.FC = () => {
             accessToken={sessionToken}
             onSuccess={handleOtpVerifiedSuccess}
             onBackToLogin={() => setMode('login')}
+          />
+        )}
+
+        {mode === 'forgot-password' && (
+          <ForgotPasswordForm
+            onBackToLogin={() => setMode('login')}
+          />
+        )}
+
+        {mode === 'reset-password' && (
+          <ResetPasswordForm
+            token={resetToken}
+            onSuccess={() => setMode('login')}
+            onRequestNewLink={() => setMode('forgot-password')}
           />
         )}
       </div>

@@ -14,6 +14,8 @@ import { MailService } from '../mail/mail.service';
 import { OnboardingEmailService } from './services/onboarding-email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { AdminRole } from '../users/enums/admin-role.enum';
 
@@ -425,6 +427,133 @@ export class AuthService {
     });
 
     return { message: 'New verification OTP sent to your email.' };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.usersService.findByEmail(email);
+
+    // Anti-enumeration: return generic success message if user not found
+    if (!user) {
+      this.logger.log(`[AuthService] Password reset requested for non-existent email: ${email}`);
+      return {
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Generate 32-byte cryptographically secure random token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const resetPasswordTokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const resetPasswordExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      resetPasswordTokenHash,
+      resetPasswordExpiresAt,
+    });
+
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const resetUrl = `${frontendUrl}/auth?mode=reset-password&token=${rawToken}`;
+
+    try {
+      await this.mailService.sendForgotPasswordEmail(user.email, {
+        recipientName: user.name,
+        resetUrl,
+        expireMinutes: 30,
+      });
+    } catch (mailErr: any) {
+      this.logger.error(
+        `[AuthService] Failed to send password reset email: ${mailErr.message}`,
+      );
+    }
+
+    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
+
+    return {
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      devToken: isDev ? rawToken : undefined,
+    };
+  }
+
+  async verifyResetToken(token: string) {
+    if (!token) {
+      throw new DomainException(
+        'INVALID_RESET_TOKEN',
+        'Reset token is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const user = await this.usersService.findByResetTokenHash(tokenHash);
+    if (
+      !user ||
+      !user.resetPasswordExpiresAt ||
+      new Date() > new Date(user.resetPasswordExpiresAt)
+    ) {
+      throw new DomainException(
+        'EXPIRED_RESET_TOKEN',
+        'Password reset link is invalid or has expired. Please request a new one.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return {
+      valid: true,
+      email: user.email,
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    if (!dto.token || !dto.password) {
+      throw new DomainException(
+        'INVALID_PAYLOAD',
+        'Token and new password are required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(dto.token)
+      .digest('hex');
+
+    const user = await this.usersService.findByResetTokenHash(tokenHash);
+    if (
+      !user ||
+      !user.resetPasswordExpiresAt ||
+      new Date() > new Date(user.resetPasswordExpiresAt)
+    ) {
+      throw new DomainException(
+        'EXPIRED_RESET_TOKEN',
+        'Password reset link is invalid or has expired. Please request a new one.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const newPasswordHash = await bcrypt.hash(dto.password, 10);
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      passwordHash: newPasswordHash,
+      resetPasswordTokenHash: undefined,
+      resetPasswordExpiresAt: undefined,
+    });
+
+    // Invalidate all active user sessions upon password reset for security
+    await this.redisService.revokeUserSessions(user._id.toString());
+
+    return {
+      message: 'Your password has been successfully reset. You can now log in.',
+    };
   }
 
   async getProfile(adminUserId: string) {

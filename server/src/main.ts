@@ -6,6 +6,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { VoiceProxyGateway } from './ai-voice/voice-proxy.gateway';
 
+// ORA Main Entry Point - Auth Forgot/Reset Enabled
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 

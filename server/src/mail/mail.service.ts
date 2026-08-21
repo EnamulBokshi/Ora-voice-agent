@@ -5,9 +5,11 @@ import {
   renderVerifyEmailTemplate,
   renderOtpTemplate,
   renderCongratulationsTemplate,
+  renderForgotPasswordTemplate,
   VerifyEmailData,
   OtpEmailData,
   CongratulationsEmailData,
+  ForgotPasswordData,
 } from './email-templates';
 
 @Injectable()
@@ -105,6 +107,49 @@ export class MailService {
     } catch (err: any) {
       this.logger.error(
         `[MailService] OTP email rendering/delivery error: ${err.message}`,
+      );
+    }
+  }
+
+  async sendForgotPasswordEmail(
+    to: string,
+    data: ForgotPasswordData,
+  ): Promise<void> {
+    try {
+      const html = renderForgotPasswordTemplate(data);
+      const from =
+        this.configService.get<string>('RESEND_FROM_EMAIL') ||
+        this.configService.get<string>('SMTP_FROM') ||
+        'ORA Security <security@resend.dev>';
+
+      if (this.resend) {
+        try {
+          const response = await this.resend.emails.send({
+            from,
+            to,
+            subject: 'Reset your ORA password',
+            html,
+          });
+          this.logger.log(
+            `[MailService] Forgot password email sent to ${to} via Resend (ID: ${response.data?.id})`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `[MailService] Failed to send forgot password email via Resend: ${err.message}`,
+          );
+        }
+      } else {
+        this.logger.log(
+          `==================================================\n` +
+            `[DEV EMAIL LOG] Forgot Password Email to: ${to}\n` +
+            `[DEV EMAIL LOG] Reset URL: ${data.resetUrl}\n` +
+            `[DEV EMAIL LOG] Expire: ${data.expireMinutes || 30} mins\n` +
+            `==================================================`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `[MailService] Forgot password email rendering/delivery error: ${err.message}`,
       );
     }
   }

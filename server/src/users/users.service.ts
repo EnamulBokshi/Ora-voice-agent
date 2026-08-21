@@ -95,6 +95,10 @@ export class UsersService implements OnModuleInit {
     return this.adminUserModel.findById(id).exec();
   }
 
+  async findByResetTokenHash(tokenHash: string): Promise<AdminUserDocument | null> {
+    return this.adminUserModel.findOne({ resetPasswordTokenHash: tokenHash }).exec();
+  }
+
   async findBusinessById(id: string): Promise<BusinessDocument | null> {
     return this.businessModel.findById(id).exec();
   }
