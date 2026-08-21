@@ -85,22 +85,36 @@ export class GeminiLiveClient {
     this.stop(true);
   };
 
-  private resetIdleTimer() {
-    if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => {
-      // If agent is actively speaking or user is currently talking, defer timer
-      if (this.isAgentSpeaking || this.userHasSpoken) {
-        this.resetIdleTimer();
+  private lastActivityTime: number = Date.now();
+  private idleWatcherInterval: any = null;
+
+  private recordActivity() {
+    this.lastActivityTime = Date.now();
+  }
+
+  private startIdleWatcher() {
+    if (this.idleWatcherInterval) clearInterval(this.idleWatcherInterval);
+    this.lastActivityTime = Date.now();
+
+    this.idleWatcherInterval = setInterval(() => {
+      // If agent is actively speaking / playing audio, conversation is ongoing
+      if (this.isAgentSpeaking || this.activeSources.length > 0) {
+        this.lastActivityTime = Date.now();
         return;
       }
-      this.options.onTranscript?.('system', '⏱️ Session closed due to 10s inactivity.');
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        try {
-          this.ws.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: this.options.sessionId }));
-        } catch {}
+
+      const idleDurationMs = Date.now() - this.lastActivityTime;
+      if (idleDurationMs >= 10000) {
+        console.log('[GeminiLiveClient] Inactivity timeout (10s) reached. Gracefully closing session.');
+        this.options.onTranscript?.('system', '⏱️ Session closed due to 10s inactivity.');
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          try {
+            this.ws.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: this.options.sessionId }));
+          } catch {}
+        }
+        this.stop();
       }
-      this.stop();
-    }, 10000);
+    }, 1000);
   }
 
   public async start(): Promise<void> {
@@ -189,18 +203,18 @@ export class GeminiLiveClient {
         try {
           const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
           const message = JSON.parse(raw);
-          this.resetIdleTimer();
 
           switch (message.type) {
             case 'setup_complete':
               this.setupConfirmed = true;
               this.isAgentSpeaking = false;
-              this.resetIdleTimer();
+              this.recordActivity();
               onStatusChange?.('listening');
               onTranscript?.('system', '🎙️ ORA is live and listening! Speak into your mic.');
               break;
 
             case 'audio':
+              this.recordActivity();
               if (this.outputAudioCtx && this.outputAudioCtx.state !== 'closed') {
                 this.playPcm24kBase64(message.data);
               } else {
@@ -209,6 +223,7 @@ export class GeminiLiveClient {
               break;
 
             case 'text':
+              this.recordActivity();
               if (message.text) {
                 const cleanText = message.text.trim();
                 if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
@@ -218,21 +233,23 @@ export class GeminiLiveClient {
               break;
 
             case 'interrupted':
+              this.recordActivity();
               this.flushPlaybackQueue();
               this.isAgentSpeaking = false;
               onStatusChange?.('listening');
               break;
 
             case 'turn_complete':
+              this.recordActivity();
               if (this.activeSources.length === 0 && this.outputAudioCtx) {
                 this.nextPlayTime = this.outputAudioCtx.currentTime;
                 this.isAgentSpeaking = false;
                 onStatusChange?.('listening');
-                this.resetIdleTimer();
               }
               break;
 
             case 'tool_result':
+              this.recordActivity();
               onTranscript?.('system', `⚡ ORA executed: ${message.toolName}`);
               if (message.action) {
                 this.options.onAction?.(message.action);
@@ -354,6 +371,7 @@ export class GeminiLiveClient {
       if (this.setupConfirmed) {
         onStatusChange?.('listening');
       }
+      this.startIdleWatcher();
 
       const connectionRtt = Math.round(performance.now() - startTime);
       this.options.onLatency?.(connectionRtt);
@@ -376,15 +394,14 @@ export class GeminiLiveClient {
         const level = Math.min(100, Math.round((avg / 128) * 100));
         this.options.onAudioLevel?.(level);
 
-        // VAD (Voice Activity Detection): User is actively speaking
-        if (level > 10 && !this.isAgentSpeaking) {
+        // VAD (Voice Activity Detection): Visual state indication
+        if (level > 24 && !this.isAgentSpeaking) {
           this.userHasSpoken = true;
           this.silenceStartTime = 0;
-          this.resetIdleTimer();
           if (this.setupConfirmed) {
             onStatusChange?.('listening');
           }
-        } else if (this.userHasSpoken && level <= 10 && !this.isAgentSpeaking) {
+        } else if (this.userHasSpoken && level <= 24 && !this.isAgentSpeaking) {
           // User just finished their utterance -> transition to thinking
           if (!this.silenceStartTime) {
             this.silenceStartTime = Date.now();
@@ -511,7 +528,7 @@ export class GeminiLiveClient {
         if (this.activeSources.length === 0 || (this.outputAudioCtx && this.outputAudioCtx.currentTime >= this.nextPlayTime - 0.05)) {
           this.isAgentSpeaking = false;
           this.options.onStatusChange?.('listening');
-          this.resetIdleTimer();
+          this.recordActivity();
         }
       };
     } catch (err: any) {
@@ -539,9 +556,9 @@ export class GeminiLiveClient {
     this.userHasSpoken = false;
     this.silenceStartTime = 0;
 
-    if (this.idleTimer) {
-      clearTimeout(this.idleTimer);
-      this.idleTimer = null;
+    if (this.idleWatcherInterval) {
+      clearInterval(this.idleWatcherInterval);
+      this.idleWatcherInterval = null;
     }
 
     this.flushPlaybackQueue();

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
+import { refreshApi } from '@/services/auth-service';
 
 /**
  * Voice session states — matching the NestJS VoiceProxyGateway & Gemini Live state machine
@@ -305,7 +306,18 @@ export function FloatingOrbWidget() {
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     const apiBaseUrl = getApiBase();
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    let token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+    // If access token is absent in localStorage, attempt silent refresh from session cookie
+    if (!token && typeof window !== 'undefined') {
+      try {
+        const refreshRes = await refreshApi().catch(() => null);
+        if (refreshRes && refreshRes.accessToken) {
+          token = refreshRes.accessToken;
+          localStorage.setItem('accessToken', token);
+        }
+      } catch {}
+    }
     try {
       const client = new GeminiLiveClient({
         publishableKey: PUBLISHABLE_KEY,

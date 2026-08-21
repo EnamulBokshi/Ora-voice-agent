@@ -128,7 +128,7 @@ export class VoiceProxyGateway {
                 id: (userDoc._id as any).toString(),
                 name: userDoc.name || 'Merchant User',
                 email: userDoc.email,
-                role: userDoc.role || 'owner',
+                role: userDoc.role || decoded.role || 'owner',
                 businessId: uBizId,
               };
               this.userCache.set(decoded.sub, {
@@ -139,12 +139,51 @@ export class VoiceProxyGateway {
           }
           if (authenticatedUser) {
             this.logger.log(
-              `[VoiceProxyGateway] 👤 Authenticated user connected: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}, biz: ${authenticatedUser.businessId}) for session ${sessionId}`,
+              `[VoiceProxyGateway] 👤 Authenticated user connected via JWT: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}) for session ${sessionId}`,
             );
           }
         }
       } catch (authErr: any) {
         this.logger.warn(`[VoiceProxyGateway] Auth token verification notice for session ${sessionId}: ${authErr.message}`);
+      }
+    }
+
+    // If not authenticated via query token, attempt resolving via session cookie stored in Redis
+    if (!authenticatedUser && request.headers.cookie) {
+      try {
+        const cookieHeader = request.headers.cookie;
+        const cookiePairs = cookieHeader.split(';');
+        let cookieSessionId: string | undefined = undefined;
+
+        for (const pair of cookiePairs) {
+          const [key, val] = pair.split('=');
+          if (key && key.trim() === 'sessionId' && val) {
+            cookieSessionId = decodeURIComponent(val.trim());
+            break;
+          }
+        }
+
+        if (cookieSessionId) {
+          const sessionData = await this.redisService.getSession(cookieSessionId);
+          if (sessionData && sessionData.adminUserId) {
+            const userDoc = await this.adminUserModel.findById(sessionData.adminUserId).exec();
+            if (userDoc) {
+              const uBizId = userDoc.businessId ? (userDoc.businessId as any).toString() : sessionData.businessId;
+              authenticatedUser = {
+                id: (userDoc._id as any).toString(),
+                name: userDoc.name || 'Merchant User',
+                email: userDoc.email,
+                role: userDoc.role || sessionData.role || 'owner',
+                businessId: uBizId,
+              };
+              this.logger.log(
+                `[VoiceProxyGateway] 👤 Authenticated user resolved via session cookie (${cookieSessionId}): ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}) for session ${sessionId}`,
+              );
+            }
+          }
+        }
+      } catch (cookieErr: any) {
+        this.logger.warn(`[VoiceProxyGateway] Cookie session resolution notice for session ${sessionId}: ${cookieErr.message}`);
       }
     }
 
@@ -460,6 +499,9 @@ export class VoiceProxyGateway {
           } catch (e) {}
           sendToClient({ type: 'session_suspended', resumptionToken: rToken });
           cleanup();
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(1000, 'Session suspended on idle');
+          }
           return;
         }
 
