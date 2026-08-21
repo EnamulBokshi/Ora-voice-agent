@@ -202,8 +202,8 @@ function AgentClientContent() {
           {activeSection === 'persona' && (
             <>
               <SectionHeader
-                title="Agent Persona & Business Archetype"
-                description="Configure ORA's business model (Portfolio, E-Commerce, SaaS, Agency), brand voice description, creator bio, and custom directives."
+                title="Persona & Operating Archetype"
+                description="Configure your store's operating model, communication tone, and operational directives."
               />
               <AgentPersonaTab />
             </>
