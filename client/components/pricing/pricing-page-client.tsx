@@ -290,8 +290,8 @@ export function PricingPageClient() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 padding: '0.35rem',
-                backgroundColor: 'var(--lp-dark-elevated)',
-                border: '1px solid var(--lp-dark-border)',
+                backgroundColor: 'var(--lp-bg-white)',
+                border: '1px solid var(--lp-border)',
                 borderRadius: 'var(--lp-radius-xl)',
                 gap: '0.35rem',
                 boxShadow: 'var(--lp-shadow-card)',
@@ -388,7 +388,7 @@ export function PricingPageClient() {
                     backgroundColor: isSelected ? 'var(--lp-dark-elevated)' : 'var(--lp-bg-white)',
                     border: isSelected ? '2px solid var(--lp-primary)' : '1px solid var(--lp-border)',
                     boxShadow: isSelected
-                      ? '0 12px 36px -8px rgba(200, 240, 49, 0.18)'
+                      ? '0 16px 40px -8px rgba(200, 240, 49, 0.22), 0 0 0 1px rgba(200, 240, 49, 0.15)'
                       : 'var(--lp-shadow-card)',
                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                   }}
@@ -425,7 +425,7 @@ export function PricingPageClient() {
                       style={{
                         fontSize: '1.375rem',
                         fontWeight: 700,
-                        color: 'var(--lp-text-primary)',
+                        color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
                         marginBottom: '0.5rem',
                       }}
                     >
@@ -434,7 +434,7 @@ export function PricingPageClient() {
                     <p
                       style={{
                         fontSize: '0.8125rem',
-                        color: 'var(--lp-text-secondary)',
+                        color: isSelected ? 'var(--lp-text-on-dark-dim)' : 'var(--lp-text-secondary)',
                         lineHeight: 1.5,
                         minHeight: '2.5rem',
                       }}
@@ -455,7 +455,9 @@ export function PricingPageClient() {
                       gap: '0.25rem',
                       marginBottom: '1.75rem',
                       paddingBottom: '1.75rem',
-                      borderBottom: '1px solid var(--lp-border)',
+                      borderBottom: isSelected
+                        ? '1px solid var(--lp-dark-border)'
+                        : '1px solid var(--lp-border)',
                     }}
                   >
                     <span
@@ -463,7 +465,7 @@ export function PricingPageClient() {
                       style={{
                         fontSize: '2.75rem',
                         fontWeight: 800,
-                        color: 'var(--lp-text-primary)',
+                        color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
                         letterSpacing: '-0.03em',
                       }}
                     >
@@ -473,7 +475,7 @@ export function PricingPageClient() {
                     <span
                       style={{
                         fontSize: '0.8125rem',
-                        color: 'var(--lp-text-secondary)',
+                        color: isSelected ? 'var(--lp-text-on-dark-dim)' : 'var(--lp-text-secondary)',
                         fontWeight: 500,
                       }}
                     >
@@ -490,7 +492,7 @@ export function PricingPageClient() {
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         letterSpacing: '0.08em',
-                        color: 'var(--lp-text-tertiary)',
+                        color: isSelected ? 'var(--lp-primary-dim)' : 'var(--lp-text-tertiary)',
                         marginBottom: '1rem',
                       }}
                     >
@@ -498,35 +500,95 @@ export function PricingPageClient() {
                     </div>
 
                     <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.8125rem', color: 'var(--lp-text-primary)' }}>
+                      <li
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.65rem',
+                          fontSize: '0.8125rem',
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                        }}
+                      >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
-                          <strong>{plan.limits.conversationMinutes.toLocaleString()}</strong> Voice AI conversation minutes
+                          <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
+                            {plan.limits.conversationMinutes.toLocaleString()}
+                          </strong>{' '}
+                          Voice AI conversation minutes
                         </span>
                       </li>
-                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.8125rem', color: 'var(--lp-text-primary)' }}>
+                      <li
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.65rem',
+                          fontSize: '0.8125rem',
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                        }}
+                      >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
-                          <strong>{plan.limits.ordersPerMonth.toLocaleString()}</strong> Automated checkout orders/mo
+                          <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
+                            {plan.limits.ordersPerMonth.toLocaleString()}
+                          </strong>{' '}
+                          Automated checkout orders/mo
                         </span>
                       </li>
-                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.8125rem', color: 'var(--lp-text-primary)' }}>
+                      <li
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.65rem',
+                          fontSize: '0.8125rem',
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                        }}
+                      >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
-                          <strong>{plan.limits.connectedStores}</strong> Store connector{plan.limits.connectedStores > 1 ? 's' : ''} (Shopify / WooCommerce)
+                          <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
+                            {plan.limits.connectedStores}
+                          </strong>{' '}
+                          Store connector{plan.limits.connectedStores > 1 ? 's' : ''} (Shopify / WooCommerce)
                         </span>
                       </li>
-                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.8125rem', color: 'var(--lp-text-primary)' }}>
+                      <li
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.65rem',
+                          fontSize: '0.8125rem',
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                        }}
+                      >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
-                          <strong>{plan.limits.seats}</strong> Admin & staff dashboard seat{plan.limits.seats > 1 ? 's' : ''}
+                          <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
+                            {plan.limits.seats}
+                          </strong>{' '}
+                          Admin & staff dashboard seat{plan.limits.seats > 1 ? 's' : ''}
                         </span>
                       </li>
-                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.8125rem', color: 'var(--lp-text-primary)' }}>
+                      <li
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.65rem',
+                          fontSize: '0.8125rem',
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                        }}
+                      >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>Full RAG catalog vector indexing & live search</span>
                       </li>
-                      <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', fontSize: '0.8125rem', color: 'var(--lp-text-primary)' }}>
+                      <li
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.65rem',
+                          fontSize: '0.8125rem',
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                        }}
+                      >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>Instant publishable widget key & embed script</span>
                       </li>
@@ -605,13 +667,17 @@ export function PricingPageClient() {
                 style={{
                   padding: '0.75rem',
                   borderRadius: 'var(--lp-radius-lg)',
-                  backgroundColor: 'var(--lp-dark-elevated)',
-                  border: '1px solid var(--lp-dark-border)',
-                  color: 'var(--lp-primary)',
+                  backgroundColor: 'var(--lp-bg-white)',
+                  border: '1px solid var(--lp-border)',
+                  color: 'var(--lp-primary-dim)',
+                  boxShadow: 'var(--lp-shadow-card)',
                   flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Zap size={22} />
+                <Zap size={22} style={{ color: 'var(--lp-text-primary)' }} />
               </div>
               <div>
                 <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
@@ -628,13 +694,17 @@ export function PricingPageClient() {
                 style={{
                   padding: '0.75rem',
                   borderRadius: 'var(--lp-radius-lg)',
-                  backgroundColor: 'var(--lp-dark-elevated)',
-                  border: '1px solid var(--lp-dark-border)',
-                  color: 'var(--lp-primary)',
+                  backgroundColor: 'var(--lp-bg-white)',
+                  border: '1px solid var(--lp-border)',
+                  color: 'var(--lp-primary-dim)',
+                  boxShadow: 'var(--lp-shadow-card)',
                   flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Shield size={22} />
+                <Shield size={22} style={{ color: 'var(--lp-text-primary)' }} />
               </div>
               <div>
                 <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
@@ -651,13 +721,17 @@ export function PricingPageClient() {
                 style={{
                   padding: '0.75rem',
                   borderRadius: 'var(--lp-radius-lg)',
-                  backgroundColor: 'var(--lp-dark-elevated)',
-                  border: '1px solid var(--lp-dark-border)',
-                  color: 'var(--lp-primary)',
+                  backgroundColor: 'var(--lp-bg-white)',
+                  border: '1px solid var(--lp-border)',
+                  color: 'var(--lp-primary-dim)',
+                  boxShadow: 'var(--lp-shadow-card)',
                   flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Sparkles size={22} />
+                <Sparkles size={22} style={{ color: 'var(--lp-text-primary)' }} />
               </div>
               <div>
                 <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
