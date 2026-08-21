@@ -78,11 +78,13 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
-    // Send verification email
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
+
     try {
       await this.mailService.sendVerificationEmail(user.email, {
         recipientName: user.name,
-        verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/auth?mode=otp`,
+        verifyUrl,
         code: otpCode,
         expireMinutes: 10,
       });
@@ -332,18 +334,40 @@ export class AuthService {
     return { message: 'Successfully logged out.' };
   }
 
-  async verifyOtp(adminUserId: string, code: string) {
-    const user = await this.usersService.findById(adminUserId);
+  async verifyOtp(
+    adminUserId: string | undefined,
+    code: string,
+    email?: string,
+    reqInfo?: { userAgent?: string; ip?: string },
+  ) {
+    let user: any = null;
+    if (adminUserId) {
+      user = await this.usersService.findById(adminUserId);
+    } else if (email) {
+      user = await this.usersService.findByEmail(email.toLowerCase().trim());
+    }
+
     if (!user) {
       throw new DomainException(
         'USER_NOT_FOUND',
-        'Admin user profile not found.',
+        'User profile not found. Please provide a valid email or sign in.',
         HttpStatus.NOT_FOUND,
       );
     }
 
     if (user.emailVerified) {
-      return { message: 'Email address is already verified.', emailVerified: true };
+      return {
+        message: 'Email address is already verified.',
+        emailVerified: true,
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          businessId: user.businessId?.toString(),
+          emailVerified: true,
+        },
+      };
     }
 
     if (!user.pendingOtpHash || !user.otpExpiresAt) {
@@ -389,9 +413,41 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
+    const sessionId = crypto.randomUUID();
+    const tokens = await this.generateTokens(
+      user._id.toString(),
+      user.businessId?.toString() || '',
+      user.email,
+      user.role,
+      sessionId,
+    );
+
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+
+    await this.redisService.setSession(sessionId, {
+      adminUserId: user._id.toString(),
+      businessId: user.businessId?.toString() || '',
+      email: user.email,
+      role: user.role,
+      refreshTokenHash,
+      userAgent: reqInfo?.userAgent || 'Browser',
+      ip: reqInfo?.ip || '127.0.0.1',
+      createdAt: new Date().toISOString(),
+    });
+
     return {
       message: 'Email address successfully verified.',
       emailVerified: true,
+      tokens,
+      sessionId,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        businessId: user.businessId?.toString(),
+        emailVerified: true,
+      },
     };
   }
 
@@ -419,9 +475,12 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
+
     await this.mailService.sendVerificationEmail(user.email, {
       recipientName: user.name,
-      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/auth?mode=otp`,
+      verifyUrl,
       code: otpCode,
       expireMinutes: 10,
     });

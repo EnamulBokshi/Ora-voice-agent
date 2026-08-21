@@ -90,18 +90,20 @@ export async function changePasswordApi(
 }
 
 export async function verifyOtpApi(
-  code: string,
+  payload: { code: string; email?: string } | string,
   accessToken?: string,
-): Promise<OtpResponseData> {
+): Promise<OtpResponseData & { accessToken?: string; user?: User }> {
   const headers: Record<string, string> = {};
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  return apiClient<OtpResponseData>('/auth/verify-otp', {
+  const body = typeof payload === 'string' ? { code: payload } : payload;
+
+  return apiClient<OtpResponseData & { accessToken?: string; user?: User }>('/auth/verify-otp', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(body),
   });
 }
 

@@ -1,33 +1,50 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { ShieldCheck, RefreshCw, CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { verifyOtpApi, resendOtpApi } from '@/services/auth-service';
 import { ApiClientError } from '@/lib/api-client';
+import { OtpResponseData, User } from '@/types/auth';
 
 interface OtpVerificationFormProps {
   accessToken?: string;
-  onSuccess: () => void;
+  initialCode?: string;
+  email?: string;
+  onSuccess: (data?: OtpResponseData & { accessToken?: string; user?: User }) => void;
   onBackToLogin: () => void;
 }
 
 export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
   accessToken,
+  initialCode,
+  email,
   onSuccess,
   onBackToLogin,
 }) => {
-  const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
+  const getInitialDigits = () => {
+    if (initialCode && /^\d{6}$/.test(initialCode.trim())) {
+      return initialCode.trim().split('');
+    }
+    return Array(6).fill('');
+  };
+
+  const [digits, setDigits] = useState<string[]>(getInitialDigits);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(60);
+  const hasPreFilled = Boolean(initialCode && /^\d{6}$/.test(initialCode.trim()));
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
+    if (initialCode && /^\d{6}$/.test(initialCode.trim())) {
+      setDigits(initialCode.trim().split(''));
+    } else {
+      inputRefs.current[0]?.focus();
+    }
+  }, [initialCode]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -67,8 +84,8 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const code = digits.join('');
     if (code.length !== 6) {
       setError('Please enter all 6 digits of your verification code.');
@@ -79,11 +96,14 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
     setError(null);
 
     try {
-      const res = await verifyOtpApi(code, accessToken);
+      const res = await verifyOtpApi(
+        { code, email: email || undefined },
+        accessToken,
+      );
       setSuccessMsg(res.message || 'Email successfully verified.');
       setTimeout(() => {
-        onSuccess();
-      }, 1500);
+        onSuccess(res);
+      }, 1200);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.message || 'Invalid verification code.');
@@ -121,6 +141,13 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {hasPreFilled && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2.5 text-xs text-primary animate-in fade-in">
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span>Verification code pre-filled from your email link.</span>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-start gap-3 rounded-md border border-error/30 bg-error/10 p-3.5 text-xs text-error animate-in fade-in">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -157,16 +184,16 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
       <button
         type="submit"
         disabled={loading || digits.join('').length !== 6}
-        className="group relative flex w-full items-center justify-center gap-2 rounded-md bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="group relative flex w-full items-center justify-center gap-2 rounded-md bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
       >
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Verifying code...
+            Verifying email...
           </>
         ) : (
           <>
-            Confirm verification
+            Confirm verification & Proceed
             <ShieldCheck className="h-4 w-4" />
           </>
         )}

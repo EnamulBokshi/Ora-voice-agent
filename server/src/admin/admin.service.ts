@@ -1096,9 +1096,12 @@ export class AdminService implements OnModuleInit {
           otpAttemptCount: 0,
         });
 
+        const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+        const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
+
         await this.mailService.sendVerificationEmail(user.email, {
           recipientName: user.name,
-          verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/auth?mode=otp`,
+          verifyUrl,
           code: otpCode,
           expireMinutes: 10,
         });

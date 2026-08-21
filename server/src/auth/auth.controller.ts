@@ -18,6 +18,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
@@ -31,10 +32,9 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.register(dto, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.register(dto, { userAgent, ip });
 
     this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
@@ -52,10 +52,9 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.login(dto, { userAgent, ip });
 
     this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
@@ -74,11 +73,13 @@ export class AuthController {
   ) {
     const refreshToken = req.cookies?.['refreshToken'];
     const sessionId = req.cookies?.['sessionId'];
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
 
     try {
       const tokens = await this.authService.refresh(refreshToken, sessionId, {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip,
+        userAgent,
+        ip,
       });
 
       this.setAuthCookies(res, tokens.refreshToken, sessionId, tokens.role);
@@ -112,14 +113,29 @@ export class AuthController {
     return this.authService.getProfile(user.sub);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(
-    @CurrentUser() user: JwtPayloadUser,
+    @CurrentUser() user: JwtPayloadUser | null,
     @Body() dto: VerifyOtpDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.verifyOtp(user.sub, dto.code);
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.verifyOtp(user?.sub, dto.code, dto.email, { userAgent, ip });
+
+    if (result.tokens && result.sessionId) {
+      this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user?.role);
+    }
+
+    return {
+      message: result.message,
+      emailVerified: result.emailVerified,
+      accessToken: result.tokens?.accessToken,
+      user: result.user,
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -191,5 +207,4 @@ export class AuthController {
     res.clearCookie('sessionId', cookieOptions);
     res.clearCookie('userRole', { ...cookieOptions, httpOnly: false });
   }
-
 }
