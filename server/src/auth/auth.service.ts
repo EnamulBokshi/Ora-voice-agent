@@ -44,28 +44,66 @@ export class AuthService {
     reqInfo: { userAgent?: string; ip?: string },
   ) {
     const existingUser = await this.usersService.findByEmail(dto.email);
+    let user: any;
+    let business: any;
+
     if (existingUser) {
-      throw new DomainException(
-        'EMAIL_ALREADY_EXISTS',
-        'Email address is already registered.',
-        HttpStatus.CONFLICT,
+      if (existingUser.emailVerified) {
+        throw new DomainException(
+          'EMAIL_ALREADY_EXISTS',
+          'Email address is already registered and verified. Please sign in.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      // User registered previously but did not complete email OTP verification.
+      // Allow updating name/password/business and resending a fresh OTP code.
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+      user = await this.usersService.updateAdminUser(existingUser._id.toString(), {
+        name: dto.name,
+        passwordHash,
+      });
+      if (!user) {
+        user = existingUser;
+      }
+
+      business = await this.usersService.findBusinessById(
+        existingUser.businessId?.toString() || '',
       );
+
+      if (business) {
+        business = await this.usersService.updateBusiness(business._id.toString(), {
+          name: dto.businessName,
+          domain: dto.domain,
+        });
+      } else {
+        business = await this.usersService.createBusiness(
+          dto.businessName,
+          dto.domain,
+        );
+        user = await this.usersService.updateAdminUser(existingUser._id.toString(), {
+          businessId: business._id as any,
+        });
+        if (!user) {
+          user = existingUser;
+        }
+      }
+    } else {
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+
+      business = await this.usersService.createBusiness(
+        dto.businessName,
+        dto.domain,
+      );
+
+      user = await this.usersService.createAdminUser({
+        businessId: business._id.toString(),
+        email: dto.email,
+        passwordHash,
+        name: dto.name,
+        role: AdminRole.USER,
+      });
     }
-
-    const passwordHash = await bcrypt.hash(dto.password, 10);
-
-    const business = await this.usersService.createBusiness(
-      dto.businessName,
-      dto.domain,
-    );
-
-    const user = await this.usersService.createAdminUser({
-      businessId: business._id.toString(),
-      email: dto.email,
-      passwordHash,
-      name: dto.name,
-      role: AdminRole.USER,
-    });
 
     // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();

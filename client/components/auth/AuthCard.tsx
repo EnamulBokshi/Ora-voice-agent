@@ -93,7 +93,14 @@ export const AuthCard: React.FC = () => {
       localStorage.setItem('accessToken', data.accessToken);
     }
     syncUserCookie(data.user.role);
-    window.location.href = resolveTargetUrl(data.user.role);
+
+    if (!data.user.emailVerified) {
+      setSessionToken(data.accessToken);
+      setRegisteredEmail(data.user.email);
+      setMode('otp');
+    } else {
+      window.location.href = resolveTargetUrl(data.user.role);
+    }
   };
 
   const handleOtpVerifiedSuccess = async (res?: OtpResponseData & { accessToken?: string; user?: User }) => {

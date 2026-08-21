@@ -30,7 +30,7 @@ describe('AuthService', () => {
     passwordHash: '$2a$10$e8W/X2...mockhash',
     name: 'Jane Doe',
     role: AdminRole.USER,
-    emailVerified: false,
+    emailVerified: true,
     pendingOtpHash: '$2a$10$mockotphash',
     otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
     otpAttemptCount: 0,
@@ -45,6 +45,7 @@ describe('AuthService', () => {
       createBusiness: jest.fn(),
       createAdminUser: jest.fn(),
       updateAdminUser: jest.fn(),
+      updateBusiness: jest.fn(),
     };
 
     jwtService = {
