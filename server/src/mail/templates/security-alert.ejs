@@ -1,13 +1,14 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%">
   <tr>
     <td>
-      <div style="display: inline-block; background-color: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.25); border-radius: 20px; padding: 4px 12px; margin-bottom: 12px;">
-        <span style="color: #DC2626; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">
+      <!-- Badge -->
+      <div style="display: inline-block; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 20px; padding: 4px 12px; margin-bottom: 14px;">
+        <span style="color: #EF4444; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">
           Security Notification
         </span>
       </div>
-      <h1 style="margin: 0 0 12px 0; color: #15151F; font-size: 24px; font-weight: 800;">Security Alert: <%= eventName %></h1>
-      <p style="margin: 0 0 20px 0; color: #4A4A6A; font-size: 15px; line-height: 24px;">
+      <h1 style="margin: 0 0 12px 0; color: #FAFAFA; font-size: 23px; font-weight: 800; letter-spacing: -0.5px;">Security Alert: <%= eventName %></h1>
+      <p style="margin: 0 0 22px 0; color: #D1D5DB; font-size: 14px; line-height: 22px;">
         Hi <strong><%= recipientName %></strong>,<br>
         We detected a security-sensitive event associated with your ORA merchant account:
       </p>
@@ -16,29 +17,29 @@
 
   <!-- Event Details Card -->
   <tr>
-    <td style="background-color: #FFF5F5; border: 1px solid #FEE2E2; border-radius: 12px; padding: 18px 22px; margin-bottom: 24px;">
+    <td style="background-color: #181111; border: 1px solid #331A1A; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
       <table border="0" cellpadding="0" cellspacing="0" width="100%">
         <tr>
-          <td style="padding-bottom: 8px; color: #991B1B; font-size: 13px;">
-            <strong>Event:</strong> <%= eventName %>
+          <td style="padding-bottom: 8px; color: #FCA5A5; font-size: 13px;">
+            <strong style="color: #FAFAFA;">Event:</strong> <%= eventName %>
           </td>
         </tr>
         <tr>
-          <td style="padding-bottom: 8px; color: #991B1B; font-size: 13px;">
-            <strong>Timestamp:</strong> <%= timestamp %>
+          <td style="padding-bottom: 8px; color: #FCA5A5; font-size: 13px;">
+            <strong style="color: #FAFAFA;">Timestamp:</strong> <%= timestamp %>
           </td>
         </tr>
         <% if (device) { %>
         <tr>
-          <td style="padding-bottom: 8px; color: #991B1B; font-size: 13px;">
-            <strong>Device/Browser:</strong> <%= device %>
+          <td style="padding-bottom: 8px; color: #FCA5A5; font-size: 13px;">
+            <strong style="color: #FAFAFA;">Device / Browser:</strong> <%= device %>
           </td>
         </tr>
         <% } %>
         <% if (location) { %>
         <tr>
-          <td style="color: #991B1B; font-size: 13px;">
-            <strong>Location:</strong> <%= location %>
+          <td style="color: #FCA5A5; font-size: 13px;">
+            <strong style="color: #FAFAFA;">Location:</strong> <%= location %>
           </td>
         </tr>
         <% } %>
@@ -48,11 +49,11 @@
 
   <!-- Action Button -->
   <tr>
-    <td align="center" style="padding: 10px 0 24px 0;">
+    <td align="center" style="padding: 6px 0 24px 0;">
       <table border="0" cellpadding="0" cellspacing="0">
         <tr>
-          <td align="center" style="border-radius: 10px; background-color: #DC2626; box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35);">
-            <a href="<%= secureAccountUrl %>" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #FFFFFF; text-decoration: none; border-radius: 10px; padding: 14px 32px; display: inline-block; font-weight: 700;">
+          <td align="center" style="border-radius: 8px; background-color: #EF4444; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);">
+            <a href="<%= secureAccountUrl %>" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #FFFFFF; text-decoration: none; border-radius: 8px; padding: 13px 32px; display: inline-block; font-weight: 800; letter-spacing: 0.2px;">
               Secure My Account &rarr;
             </a>
           </td>
@@ -62,9 +63,9 @@
   </tr>
 
   <tr>
-    <td style="padding-top: 16px; border-top: 1px solid #F0F0F8;">
-      <p style="margin: 0; color: #8B8BB0; font-size: 13px;">
-        If this was you, no further action is required. If you did not authorize this action, please lock your account immediately.
+    <td style="padding-top: 18px; border-top: 1px solid #1F1F1F;">
+      <p style="margin: 0; color: #6B7280; font-size: 12px; line-height: 18px;">
+        If this was you, no further action is required. If you did not authorize this activity, please lock your account or reset your password immediately.
       </p>
     </td>
   </tr>
