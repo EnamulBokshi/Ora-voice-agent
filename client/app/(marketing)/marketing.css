@@ -259,9 +259,8 @@
 /* ── Cards ─────────────────────────────────────────────────────────────────── */
 .lp-card {
   background-color: var(--lp-bg-white);
-  border: 1px solid var(--lp-border-light);
-  border-radius: var(--lp-radius-2xl);
-  box-shadow: var(--lp-shadow-card);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-sm);
 }
 
 .lp-card-padded {
@@ -297,7 +296,7 @@
   background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
   position: relative;
   overflow: hidden;
-  border-radius: var(--lp-radius-3xl);
+  border-radius: var(--lp-radius-md);
 }
 
 .lp-glow-blob {
@@ -503,7 +502,7 @@
   }
 
   .lp-dark-section {
-    border-radius: var(--lp-radius-2xl);
+    border-radius: var(--lp-radius-sm);
   }
 }
 
