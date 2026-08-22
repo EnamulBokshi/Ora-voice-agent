@@ -2,6 +2,8 @@ import { MarketingNavbar } from '@/components/marketing/navbar';
 import { HeroSection } from '@/components/marketing/hero-section';
 import { TrustBar } from '@/components/marketing/trust-bar';
 import { FeaturesSection } from '@/components/marketing/features-section';
+import { SolutionsSection } from '@/components/marketing/solutions-section';
+import { DocsSection } from '@/components/marketing/docs-section';
 import { StatsSection } from '@/components/marketing/stats-section';
 import { TestimonialSection } from '@/components/marketing/testimonial-section';
 import { CtaSection } from '@/components/marketing/cta-section';
@@ -18,6 +20,8 @@ export default function LandingPage() {
       <HeroSection />
       <TrustBar />
       <FeaturesSection />
+      <SolutionsSection />
+      <DocsSection />
       <StatsSection />
       <TestimonialSection />
       <CtaSection />
@@ -25,4 +29,5 @@ export default function LandingPage() {
     </>
   );
 }
+
 
