@@ -160,7 +160,7 @@ export function MarketingNavbar() {
             <li><Link href="/#features">Features</Link></li>
             <li><Link href="/#solutions">Solutions</Link></li>
             <li><Link href="/pricing">Pricing</Link></li>
-            <li><Link href="/#docs">Docs</Link></li>
+            <li><Link href="/docs">Docs</Link></li>
           </ul>
         </nav>
 
