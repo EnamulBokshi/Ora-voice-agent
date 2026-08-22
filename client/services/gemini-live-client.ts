@@ -56,6 +56,7 @@ export class GeminiLiveClient {
   private setupConfirmed: boolean = false;
   private broadcastChannel: BroadcastChannel | null = null;
   private pendingAudioQueue: string[] = [];
+  private recognition: any = null;
 
   constructor(options: LiveClientOptions) {
     this.options = options;
@@ -76,6 +77,28 @@ export class GeminiLiveClient {
         JSON.stringify({
           type: 'client_context_update',
           ...context,
+        }),
+      );
+    }
+  }
+
+  public sendUserTranscript(text: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && text?.trim()) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'user_transcript',
+          text: text.trim(),
+        }),
+      );
+    }
+  }
+
+  public sendTextMessage(text: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && text?.trim()) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'text',
+          text: text.trim(),
         }),
       );
     }
@@ -209,6 +232,7 @@ export class GeminiLiveClient {
               this.setupConfirmed = true;
               this.isAgentSpeaking = false;
               this.recordActivity();
+              this.startSpeechRecognition();
               onStatusChange?.('listening');
               onTranscript?.('system', '🎙️ ORA is live and listening! Speak into your mic.');
               break;
@@ -610,9 +634,72 @@ export class GeminiLiveClient {
       this.broadcastChannel = null;
     }
 
+    this.stopSpeechRecognition();
+
     if (!silent) {
       this.options.onStatusChange?.('idle');
       this.options.onAudioLevel?.(0);
+    }
+  }
+
+  private startSpeechRecognition() {
+    if (typeof window === 'undefined') return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    try {
+      this.stopSpeechRecognition();
+      const rec = new SpeechRec();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      rec.lang = typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US';
+
+      rec.onresult = (event: any) => {
+        if (this.isMuted || this.isAgentSpeaking || this.activeSources.length > 0) return;
+
+        let finalTranscript = '';
+        let interimTranscript = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          const res = event.results[i];
+          if (res && res[0] && res[0].transcript) {
+            if (res.isFinal) finalTranscript += res[0].transcript;
+            else interimTranscript += res[0].transcript;
+          }
+        }
+
+        const cleanFinal = finalTranscript.trim();
+        const cleanAll = (finalTranscript + ' ' + interimTranscript).trim();
+
+        if (cleanFinal && event.results[event.results.length - 1]?.isFinal) {
+          this.recordActivity();
+          this.sendUserTranscript(cleanFinal);
+          this.options.onTranscript?.('user', cleanFinal);
+        } else if (cleanAll) {
+          this.recordActivity();
+        }
+      };
+
+      rec.onend = () => {
+        if (this.setupConfirmed && !this.isMuted && this.recognition) {
+          try { this.recognition.start(); } catch {}
+        }
+      };
+
+      rec.start();
+      this.recognition = rec;
+    } catch (e) {
+      console.debug('[GeminiLiveClient] SpeechRecognition notice:', e);
+    }
+  }
+
+  private stopSpeechRecognition() {
+    if (this.recognition) {
+      try {
+        this.recognition.onend = null;
+        this.recognition.abort();
+      } catch {}
+      this.recognition = null;
     }
   }
 

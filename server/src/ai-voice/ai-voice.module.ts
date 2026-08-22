@@ -20,11 +20,13 @@ import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 import { Customer, CustomerSchema } from '../customers/schemas/customer.schema';
 import { CustomersModule } from '../customers/customers.module';
 import { BillingModule } from '../billing/billing.module';
+import { ConversationsModule } from '../conversations/conversations.module';
 
 @Module({
   imports: [
     ConfigModule,
     BillingModule,
+    ConversationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

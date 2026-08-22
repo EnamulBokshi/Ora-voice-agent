@@ -10,6 +10,9 @@ import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
 import { GeminiVoiceService, GeminiVoiceSessionControls } from './gemini-voice.service';
 import { RedisService } from '../common/redis/redis.service';
+import { ConversationsService } from '../conversations/conversations.service';
+import { ConversationChannel, ConversationStatus } from '../conversations/schemas/conversation.schema';
+import { MessageRole } from '../conversations/schemas/message.schema';
 
 import { CustomersService } from '../customers/customers.service';
 
@@ -18,6 +21,8 @@ interface ProxySession {
   sessionControls: GeminiVoiceSessionControls;
   businessId: string;
   customerId: string;
+  conversationId: string | null;
+  bufferedAiText: string;
   isAnonymous: boolean;
   closed: boolean;
 }
@@ -40,6 +45,7 @@ export class VoiceProxyGateway {
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
+    private readonly conversationsService: ConversationsService,
   ) { }
 
 
@@ -321,19 +327,64 @@ export class VoiceProxyGateway {
       this.sessions.delete(sessionId);
     }
 
+    // ── Find or Create Conversation Document in MongoDB ─────────────────────
+    let conversationId: string | null = null;
+    try {
+      const conv = await this.conversationsService.findOrCreateSession(
+        businessId,
+        sessionId,
+        ConversationChannel.WIDGET_VOICE,
+        {
+          customerName: resolvedName,
+          initialPath: currentPathParam,
+          pageTitle: pageTitleParam,
+          authenticatedUser: authenticatedUser
+            ? {
+                name: authenticatedUser.name,
+                email: authenticatedUser.email,
+                role: authenticatedUser.role,
+              }
+            : undefined,
+        },
+        activeCustomer.id,
+      );
+      conversationId = (conv._id as any).toString();
+      this.logger.log(`[VoiceProxyGateway] 📝 Linked voice session ${sessionId} to conversation ${conversationId}`);
+    } catch (convErr: any) {
+      this.logger.warn(`[VoiceProxyGateway] Failed to initialize conversation record for session ${sessionId}: ${convErr.message}`);
+    }
+
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {
       clientWs,
       sessionControls: null as any, // filled after createVoiceSession resolves
       businessId,
       customerId: activeCustomer.id,
+      conversationId,
+      bufferedAiText: '',
       isAnonymous: isUserAnon,
       closed: false,
+    };
+
+    const flushBufferedAiText = () => {
+      if (session.bufferedAiText && session.bufferedAiText.trim() && session.conversationId) {
+        const textToSave = session.bufferedAiText.trim();
+        session.bufferedAiText = '';
+        this.conversationsService
+          .appendMessage(session.conversationId, MessageRole.ASSISTANT, textToSave)
+          .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving AI message turn: ${e.message}`));
+      }
     };
 
     const cleanup = () => {
       if (session.closed) return;
       session.closed = true;
+      flushBufferedAiText();
+      if (session.conversationId) {
+        this.conversationsService
+          .updateStatus(businessId, session.conversationId, ConversationStatus.CLOSED)
+          .catch(() => {});
+      }
       this.sessions.delete(sessionId);
       try {
         session.sessionControls?.closeSession();
@@ -361,16 +412,22 @@ export class VoiceProxyGateway {
         // Google → client: text transcript
         onTextData: (text) => {
           sendToClient({ type: 'text', text });
+          const clean = (text || '').trim();
+          if (clean && !clean.startsWith('**') && !clean.startsWith('#')) {
+            session.bufferedAiText = (session.bufferedAiText ? session.bufferedAiText + ' ' : '') + clean;
+          }
         },
 
         // Google → client: barge-in / interruption
         onInterrupted: () => {
           sendToClient({ type: 'interrupted' });
+          flushBufferedAiText();
         },
 
         // Google → client: agent finished speaking
         onTurnComplete: () => {
           sendToClient({ type: 'turn_complete' });
+          flushBufferedAiText();
         },
 
         // Tool executed server-side → notify client for UI and forward action payload if present
@@ -381,6 +438,17 @@ export class VoiceProxyGateway {
             action: result?.action,
             message: result?.message,
           });
+
+          if (session.conversationId) {
+            this.conversationsService
+              .appendMessage(
+                session.conversationId,
+                MessageRole.TOOL,
+                `⚡ Executed tool: ${toolName}`,
+                { name: toolName, result },
+              )
+              .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving tool result message: ${e.message}`));
+          }
         },
 
         // Google WS error (post-setup)
@@ -487,6 +555,13 @@ export class VoiceProxyGateway {
 
         if (msg.type === 'client_idle_suspend') {
           this.logger.log(`[VoiceProxyGateway] Session ${sessionId} suspended on client idle.`);
+          flushBufferedAiText();
+          if (session.conversationId) {
+            this.conversationsService
+              .updateStatus(businessId, session.conversationId, ConversationStatus.SUSPENDED)
+              .catch(() => {});
+          }
+
           const rToken = `res_${sessionId}_${Date.now()}`;
           try {
             const redis = this.redisService.getClient();
@@ -516,10 +591,26 @@ export class VoiceProxyGateway {
           return;
         }
 
+        if (msg.type === 'user_transcript' && msg.text) {
+          const userSpeechText = (msg.text as string).trim();
+          if (userSpeechText && session.conversationId) {
+            this.conversationsService
+              .appendMessage(session.conversationId, MessageRole.USER, userSpeechText)
+              .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving user transcript: ${e.message}`));
+          }
+          return;
+        }
+
         if (msg.type === 'audio' && msg.data) {
           sessionControls.sendAudioChunk(msg.data as string);
         } else if (msg.type === 'text' && msg.text) {
-          sessionControls.sendTextMessage(msg.text as string);
+          const userText = (msg.text as string).trim();
+          if (userText && session.conversationId) {
+            this.conversationsService
+              .appendMessage(session.conversationId, MessageRole.USER, userText)
+              .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving user text: ${e.message}`));
+          }
+          sessionControls.sendTextMessage(userText);
         }
       } catch (err: any) {
         this.logger.warn(
@@ -527,7 +618,6 @@ export class VoiceProxyGateway {
         );
       }
     });
-
 
     // ── Handle client disconnect ──────────────────────────────────────────────
     clientWs.on('close', () => {
