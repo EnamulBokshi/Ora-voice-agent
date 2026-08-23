@@ -72,6 +72,7 @@ export class GeminiLiveClient {
     history?: string[];
     activeSection?: string;
   }) {
+    this.recordActivity();
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(
         JSON.stringify({
@@ -83,6 +84,7 @@ export class GeminiLiveClient {
   }
 
   public sendUserTranscript(text: string) {
+    this.recordActivity();
     if (this.ws && this.ws.readyState === WebSocket.OPEN && text?.trim()) {
       this.ws.send(
         JSON.stringify({
@@ -94,6 +96,7 @@ export class GeminiLiveClient {
   }
 
   public sendTextMessage(text: string) {
+    this.recordActivity();
     if (this.ws && this.ws.readyState === WebSocket.OPEN && text?.trim()) {
       this.ws.send(
         JSON.stringify({
@@ -127,9 +130,9 @@ export class GeminiLiveClient {
       }
 
       const idleDurationMs = Date.now() - this.lastActivityTime;
-      if (idleDurationMs >= 10000) {
-        console.log('[GeminiLiveClient] Inactivity timeout (10s) reached. Gracefully closing session.');
-        this.options.onTranscript?.('system', '⏱️ Session closed due to 10s inactivity.');
+      if (idleDurationMs >= 90000) {
+        console.log('[GeminiLiveClient] Conversational inactivity timeout (90s) reached. Gracefully suspending session.');
+        this.options.onTranscript?.('system', '⏱️ Session suspended due to 90s inactivity.');
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           try {
             this.ws.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: this.options.sessionId }));
@@ -137,7 +140,7 @@ export class GeminiLiveClient {
         }
         this.stop();
       }
-    }, 1000);
+    }, 2000);
   }
 
   public async start(): Promise<void> {
@@ -505,6 +508,7 @@ export class GeminiLiveClient {
   /** Send a base64-encoded PCM 16kHz audio chunk to the ORA proxy */
   private sendAudioChunk(base64Pcm: string) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.recordActivity();
     this.ws.send(JSON.stringify({ type: 'audio', data: base64Pcm }));
   }
 
@@ -727,6 +731,7 @@ export class GeminiLiveClient {
   }
 
   public confirmCustomerDetails(data: { name?: string; email?: string; phone?: string; address?: string; [key: string]: any }) {
+    this.recordActivity();
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'confirm_customer_details', data }));
     }

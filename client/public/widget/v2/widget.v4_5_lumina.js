@@ -1306,13 +1306,13 @@
     if (voiceState === 'active' && !isWaitingForAi) {
       idleTimer = setTimeout(function () {
         if (voiceState === 'active' && !isWaitingForAi && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
-          console.log('[ORA Widget] Conversational idle timeout — suspending session after 10s.');
+          console.log('[ORA Widget] Conversational idle timeout — suspending session after 90s.');
           try {
             geminiWs.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: sessionId }));
           } catch (e) {}
           disconnectVoice('standby');
         }
-      }, 10000); // 10 seconds of conversational dormancy
+      }, 90000); // 90 seconds (1.5 minutes) of conversational dormancy
     }
   }
 
