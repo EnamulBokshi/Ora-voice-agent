@@ -65,25 +65,32 @@ export class KnowledgeService {
     if (chunkDocs.length > 0) {
       const createdChunks = await this.knowledgeChunkModel.insertMany(chunkDocs as any[]);
 
-      // Auto-embed knowledge chunks into VectorIndex for instant RAG search capability
+      // Auto-embed knowledge chunks into VectorIndex with bulk batch embedding
       if (this.vectorStoreService) {
-        for (const chunk of createdChunks) {
-          try {
-            await this.vectorStoreService.upsertVector(businessId, {
-              entityType: EntityType.KNOWLEDGE_CHUNK,
-              entityId: chunk._id.toString(),
-              text: chunk.text,
-              metadata: {
-                knowledgeBaseId: savedDoc._id.toString(),
-                docTitle: savedDoc.title,
-                docType: savedDoc.docType,
-              },
-            });
-          } catch (err: any) {
-            this.logger.error(
-              `[KnowledgeService] Auto-embedding failed for chunk ${chunk._id}: ${err.message}`,
-            );
-          }
+        const batchEntries = createdChunks.map((chunk) => ({
+          entityType: EntityType.KNOWLEDGE_CHUNK,
+          entityId: chunk._id.toString(),
+          text: chunk.text,
+          metadata: {
+            knowledgeBaseId: savedDoc._id.toString(),
+            docTitle: savedDoc.title,
+            docType: savedDoc.docType,
+          },
+        }));
+
+        try {
+          await this.vectorStoreService.upsertBatchVectors(businessId, batchEntries);
+          await Promise.all([
+            this.knowledgeBaseModel.findByIdAndUpdate(savedDoc._id, { $set: { isEmbedded: true } }).exec(),
+            this.knowledgeChunkModel.updateMany(
+              { _id: { $in: createdChunks.map((c) => c._id) } },
+              { $set: { isEmbedded: true } },
+            ).exec(),
+          ]);
+        } catch (err: any) {
+          this.logger.error(
+            `[KnowledgeService] Auto-embedding failed for knowledge base ${savedDoc._id}: ${err.message}`,
+          );
         }
       }
     }
@@ -333,25 +340,32 @@ export class KnowledgeService {
         const createdChunks = await this.knowledgeChunkModel.insertMany(chunkDocs as any[]);
         chunksCount = createdChunks.length;
 
-        // Auto-embed updated knowledge chunks
+        // Auto-embed updated knowledge chunks in bulk
         if (this.vectorStoreService) {
-          for (const chunk of createdChunks) {
-            try {
-              await this.vectorStoreService.upsertVector(businessId, {
-                entityType: EntityType.KNOWLEDGE_CHUNK,
-                entityId: chunk._id.toString(),
-                text: chunk.text,
-                metadata: {
-                  knowledgeBaseId: updatedDoc._id.toString(),
-                  docTitle: updatedDoc.title,
-                  docType: updatedDoc.docType,
-                },
-              });
-            } catch (err: any) {
-              this.logger.error(
-                `[KnowledgeService] Auto-embedding failed for updated chunk ${chunk._id}: ${err.message}`,
-              );
-            }
+          const batchEntries = createdChunks.map((chunk) => ({
+            entityType: EntityType.KNOWLEDGE_CHUNK,
+            entityId: chunk._id.toString(),
+            text: chunk.text,
+            metadata: {
+              knowledgeBaseId: updatedDoc._id.toString(),
+              docTitle: updatedDoc.title,
+              docType: updatedDoc.docType,
+            },
+          }));
+
+          try {
+            await this.vectorStoreService.upsertBatchVectors(businessId, batchEntries);
+            await Promise.all([
+              this.knowledgeBaseModel.findByIdAndUpdate(updatedDoc._id, { $set: { isEmbedded: true } }).exec(),
+              this.knowledgeChunkModel.updateMany(
+                { _id: { $in: createdChunks.map((c) => c._id) } },
+                { $set: { isEmbedded: true } },
+              ).exec(),
+            ]);
+          } catch (err: any) {
+            this.logger.error(
+              `[KnowledgeService] Bulk vector embedding failed for updated knowledge base ${updatedDoc._id}: ${err.message}`,
+            );
           }
         }
       }
@@ -473,9 +487,9 @@ export class KnowledgeService {
   }
 
   /**
-   * Chunks text into ~500 character snippets with 50 character overlap
+   * Chunks text into ~1000 character snippets with 100 character overlap for optimal semantic context.
    */
-  private chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
+  private chunkText(text: string, chunkSize = 1000, overlap = 100): string[] {
     if (!text || text.trim().length === 0) return [];
     const normalized = text.replace(/\r\n/g, '\n').trim();
     if (normalized.length <= chunkSize) return [normalized];

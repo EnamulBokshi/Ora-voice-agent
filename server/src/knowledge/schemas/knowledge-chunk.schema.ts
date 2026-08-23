@@ -34,6 +34,9 @@ export class KnowledgeChunk {
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   metadata: Record<string, any>;
+
+  @Prop({ default: false })
+  isEmbedded: boolean;
 }
 
 export const KnowledgeChunkSchema = SchemaFactory.createForClass(KnowledgeChunk);

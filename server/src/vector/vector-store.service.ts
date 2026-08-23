@@ -69,6 +69,65 @@ export class VectorStoreService {
     return doc;
   }
 
+  async upsertBatchVectors(
+    businessId: string,
+    entries: Array<{
+      entityType: EntityType;
+      entityId: string;
+      text: string;
+      metadata?: Record<string, any>;
+    }>,
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    const texts = entries.map((e) => e.text);
+    const embeddingResults = await this.embeddingService.generateBatchEmbeddings(texts);
+    const bId = Types.ObjectId.isValid(businessId) ? new Types.ObjectId(businessId) : businessId;
+
+    const operations = entries.map((entry, idx) => {
+      const emb = embeddingResults[idx];
+      return {
+        updateOne: {
+          filter: {
+            businessId: this.resolveBusinessIdFilter(businessId),
+            entityType: entry.entityType,
+            entityId: entry.entityId,
+          },
+          update: {
+            $set: {
+              businessId: bId,
+              text: entry.text,
+              vector: emb.vector,
+              metadata: entry.metadata || {},
+              embeddingModel: emb.embeddingModel,
+              embeddingVersion: emb.embeddingVersion,
+            },
+          },
+          upsert: true,
+        },
+      };
+    });
+
+    await this.vectorIndexModel.bulkWrite(operations as any);
+
+    // Mark products as embedded
+    const productEntityIds = entries
+      .filter((e) => e.entityType === EntityType.PRODUCT)
+      .map((e) => e.entityId);
+
+    if (productEntityIds.length > 0) {
+      this.productModel
+        .updateMany(
+          { _id: { $in: productEntityIds } },
+          { $set: { isEmbedded: true } },
+        )
+        .exec()
+        .catch((err) =>
+          this.logger.warn(`Failed to mark bulk products as embedded: ${err.message}`),
+        );
+    }
+  }
+
   async searchVectors(
     businessId: string,
     queryVector: number[],

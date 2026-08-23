@@ -125,52 +125,46 @@ export class FileIngestionService {
       embeddedNativeIds.has(p.nativeProductId),
     );
 
-    // Embed products into Gemini Vector Index with batch concurrency
+    // Embed products into Gemini Vector Index with bulk batch embedding
     let embeddedCount = 0;
-    const batchSize = 5;
-    for (let i = 0; i < toEmbed.length; i += batchSize) {
-      const chunk = toEmbed.slice(i, i + batchSize);
-      await Promise.allSettled(
-        chunk.map(async (prod) => {
-          try {
-            const specsStr = (prod as any).attributes
-              ? `Specifications: ${Object.entries((prod as any).attributes).map(([k, v]) => `${k}: ${v}`).join(', ')}.`
-              : '';
-            const brandStr = (prod as any).brand ? `Brand: ${(prod as any).brand}.` : '';
+    const batchEntries = toEmbed.map((prod) => {
+      const specsStr = (prod as any).attributes
+        ? `Specifications: ${Object.entries((prod as any).attributes).map(([k, v]) => `${k}: ${v}`).join(', ')}.`
+        : '';
+      const brandStr = (prod as any).brand ? `Brand: ${(prod as any).brand}.` : '';
 
-            const richText = [
-              `Product: ${prod.name}.`,
-              brandStr,
-              `Category: ${prod.category || 'General'}.`,
-              `Price: ${prod.price} ${prod.currency}.`,
-              prod.description ? `Description: ${prod.description}.` : '',
-              specsStr,
-            ]
-              .filter(Boolean)
-              .join(' ');
+      const richText = [
+        `Product: ${prod.name}.`,
+        brandStr,
+        `Category: ${prod.category || 'General'}.`,
+        `Price: ${prod.price} ${prod.currency}.`,
+        prod.description ? `Description: ${prod.description}.` : '',
+        specsStr,
+      ]
+        .filter(Boolean)
+        .join(' ');
 
-            await this.vectorStoreService.upsertVector(businessId, {
-              entityType: EntityType.PRODUCT,
-              entityId: prod._id.toString(),
-              text: richText.trim(),
-              metadata: {
-                nativeProductId: prod.nativeProductId,
-                name: prod.name,
-                brand: (prod as any).brand,
-                price: prod.price,
-                currency: prod.currency,
-                category: prod.category,
-                stockQuantity: prod.stockQuantity,
-              },
-            });
-            embeddedCount++;
-          } catch (err: any) {
-            this.logger.error(
-              `[FileIngestion] Failed to embed product '${prod.name}' (${prod._id}): ${err.message}`,
-            );
-          }
-        }),
-      );
+      return {
+        entityType: EntityType.PRODUCT,
+        entityId: prod._id.toString(),
+        text: richText.trim(),
+        metadata: {
+          nativeProductId: prod.nativeProductId,
+          name: prod.name,
+          brand: (prod as any).brand,
+          price: prod.price,
+          currency: prod.currency,
+          category: prod.category,
+          stockQuantity: prod.stockQuantity,
+        },
+      };
+    });
+
+    try {
+      await this.vectorStoreService.upsertBatchVectors(businessId, batchEntries);
+      embeddedCount = batchEntries.length;
+    } catch (err: any) {
+      this.logger.error(`[FileIngestion] Bulk vector embedding error: ${err.message}`);
     }
 
     this.logger.log(

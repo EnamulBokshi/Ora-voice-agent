@@ -45,6 +45,9 @@ export class KnowledgeBase {
 
   @Prop({ default: true, index: true })
   isActive: boolean;
+
+  @Prop({ default: false, index: true })
+  isEmbedded: boolean;
 }
 
 export const KnowledgeBaseSchema = SchemaFactory.createForClass(KnowledgeBase);

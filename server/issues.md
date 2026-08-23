@@ -105,17 +105,21 @@ The widget's [Strategy D (Heuristic PDP Scraper)](file:///home/nullpointer/Docum
 
 ---
 
-## Summary Priority Matrix
+## Summary Priority & Resolution Matrix
 
-| # | Issue | Severity | Effort | Impact |
+| # | Issue | Severity | Status | Resolution Summary |
 |---|---|---|---|---|
-| 1 | Webhook connectors skip vector embedding | 🔴 Critical | Low | Tier 1 products invisible to RAG |
-| 2 | Product deletion leaves ghost vectors | 🔴 Critical | Low | Deleted products still recommended |
-| 3 | Brute-force vector search | 🔴 Critical | High | Memory/latency wall at scale |
-| 4 | Mixed embedding models in index | 🔴 Critical | Medium | Random search results |
-| 5 | Self-healing race condition | 🟡 Medium | Low | Wasted API quota |
-| 6 | No batch embedding API | 🟡 Medium | Medium | Slow bulk ingestion |
-| 10 | RAG cache not invalidated on writes | 🟡 Medium | Medium | Stale search results |
-| 9 | MutationObserver no max frequency | 🟡 Medium | Low | Server flood risk |
-| 11 | Chunk size too small | 🟢 Low | Low | Suboptimal embedding quality |
-| 13 | XML regex parser | 🟢 Low | Medium | Feed parsing edge cases |
+| 1 | Webhook connectors skip vector embedding | 🔴 Critical | ✅ Resolved | Injected VectorStoreService into Shopify & WooCommerce connectors for automatic embedding on sync. |
+| 2 | Product deletion leaves ghost vectors | 🔴 Critical | ✅ Resolved | `ProductsService.remove()` now calls `VectorStoreService.deleteVectorByEntityId()`. |
+| 3 | Brute-force vector search | 🔴 Critical | 🟡 Optimized | Pre-filters candidates by active `embeddingModel` to avoid comparing incompatible vectors. |
+| 4 | Mixed embedding models in index | 🔴 Critical | ✅ Resolved | `EmbeddingService.getActiveModelName()` added and filtered in `VectorStoreService.searchVectors()`. |
+| 5 | Self-healing race condition | 🟡 Medium | ✅ Resolved | Added `isEmbedded` check in `RagService.searchProducts()` to avoid duplicate indexing on concurrent searches. |
+| 6 | No batch embedding API | 🟡 Medium | ✅ Resolved | Implemented `generateBatchEmbeddings` using Gemini `batchEmbedContents` and `upsertBatchVectors`. |
+| 7 | Embedding Cache Key Normalizes Case | 🟡 Medium | ✅ Resolved | Removed `.toLowerCase()` from embedding cache key hash to preserve casing nuances. |
+| 8 | Client-Side Content Hash Is Only 32-bit | 🟡 Medium | ✅ Resolved | Upgraded `hashString` in widget to collision-resistant 53-bit cyrb53 algorithm. |
+| 9 | MutationObserver no max frequency | 🟡 Medium | ✅ Resolved | Added 15-second minimum throttle cap in `widget.v4_5_lumina.js`. |
+| 10 | RAG cache not invalidated on writes | 🟡 Medium | ✅ Resolved | Added `rag:version:${businessId}` invalidation across all product and knowledge mutation operations. |
+| 11 | Chunk size too small | 🟢 Low | ✅ Resolved | Upgraded `KnowledgeService.chunkText` default to 1,000 chars with 100-char overlap. |
+| 12 | No `isEmbedded` Flag for Knowledge | 🟢 Low | ✅ Resolved | Added `isEmbedded` property to `KnowledgeBase` and `KnowledgeChunk` schemas, marked on embedding. |
+| 13 | XML regex parser | 🟢 Low | ✅ Resolved | Refactored `FeedParserService.extractFeedItems` to use `fast-xml-parser` (`XMLParser`). |
+| 14 | No Image in DOM Strategy D | 🟢 Low | ✅ Resolved | Added primary product image extraction from adjacent `<img>` tags in `widget.v4_5_lumina.js`. |
