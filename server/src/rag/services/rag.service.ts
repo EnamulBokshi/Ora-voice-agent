@@ -176,8 +176,10 @@ export class RagService {
           data: prod,
         }));
 
-        // Self-healing: asynchronously embed these Mongo-found products
+        // Self-healing: asynchronously embed these Mongo-found products if not already embedded
         for (const prod of mongoResults.items) {
+          if (prod.isEmbedded) continue;
+
           this.vectorStoreService
             .upsertVector(businessId, {
               entityType: EntityType.PRODUCT,
@@ -332,10 +334,18 @@ export class RagService {
       minPrice?: number;
     } = {},
   ) {
+    let tenantVersion = '1';
+    if (this.redisService) {
+      try {
+        const v = await this.redisService.getClient().get(`rag:version:${businessId}`);
+        if (v) tenantVersion = v;
+      } catch {}
+    }
+
     const trimmed = (queryText || '').trim();
     const queryHash = crypto
       .createHash('sha256')
-      .update(`${businessId}:${trimmed.toLowerCase()}:${JSON.stringify(options)}`)
+      .update(`${businessId}:${tenantVersion}:${trimmed.toLowerCase()}:${JSON.stringify(options)}`)
       .digest('hex');
     const cacheKey = `rag:cache:${businessId}:${queryHash}`;
 

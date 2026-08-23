@@ -8,6 +8,7 @@ import { UpdateKnowledgeDocDto } from './dto/update-knowledge-doc.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { VectorStoreService } from '../vector/vector-store.service';
 import { EntityType } from '../vector/interfaces/vector-entry.interface';
+import { RedisService } from '../common/redis/redis.service';
 
 @Injectable()
 export class KnowledgeService {
@@ -21,7 +22,18 @@ export class KnowledgeService {
     @Optional()
     @Inject(forwardRef(() => VectorStoreService))
     private readonly vectorStoreService?: VectorStoreService,
+    @Optional()
+    private readonly redisService?: RedisService,
   ) {}
+
+  private invalidateRagCache(businessId: string): void {
+    if (this.redisService) {
+      this.redisService
+        .getClient()
+        .incr(`rag:version:${businessId}`)
+        .catch(() => {});
+    }
+  }
 
   async create(
     businessId: string,
@@ -35,6 +47,7 @@ export class KnowledgeService {
     });
 
     const savedDoc = await doc.save();
+    this.invalidateRagCache(businessId);
 
     // Perform text chunking
     const chunks = this.chunkText(savedDoc.content);
@@ -344,6 +357,8 @@ export class KnowledgeService {
       }
     }
 
+    this.invalidateRagCache(businessId);
+
     return {
       document: updatedDoc,
       chunksCount,
@@ -377,6 +392,7 @@ export class KnowledgeService {
 
     // Cascade delete chunks
     await this.knowledgeChunkModel.deleteMany({ knowledgeBaseId: id as any });
+    this.invalidateRagCache(businessId);
 
     return { message: 'Knowledge base document and its chunks deleted successfully.' };
   }

@@ -76,13 +76,19 @@ export class VectorStoreService {
       entityType?: EntityType;
       limit?: number;
       confidenceThreshold?: number;
+      embeddingModel?: string;
     } = {},
   ): Promise<SearchResultItem[]> {
     const limit = options.limit || 5;
     const threshold = options.confidenceThreshold !== undefined ? options.confidenceThreshold : 0.65;
+    const activeModel = options.embeddingModel || this.embeddingService.getActiveModelName();
 
     const filter: Record<string, any> = {
       businessId: this.resolveBusinessIdFilter(businessId),
+      $or: [
+        { embeddingModel: activeModel },
+        { embeddingModel: { $exists: false } },
+      ],
     };
 
     if (options.entityType) {

@@ -30,6 +30,8 @@
         var scriptUrl = new URL(scriptEl.src);
         if (scriptUrl.hostname === 'localhost' || scriptUrl.hostname === '127.0.0.1') {
           apiBase = scriptUrl.protocol + '//' + scriptUrl.hostname + ':5000';
+        } else if (scriptUrl.hostname.indexOf('ora.ai') !== -1 || scriptUrl.hostname.indexOf('ora-ai') !== -1) {
+          apiBase = scriptUrl.origin.replace('//cdn.', '//api.').replace('//app.', '//api.');
         } else {
           apiBase = scriptUrl.origin;
         }
@@ -40,7 +42,7 @@
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       apiBase = window.location.protocol + '//' + window.location.hostname + ':5000';
     } else {
-      apiBase = window.location.origin;
+      apiBase = 'https://api.ora.ai';
     }
   }
 
@@ -443,13 +445,20 @@
               else if (/AUD/i.test(rawCurrency)) normalizedCurrency = 'AUD';
 
               if (!isNaN(cleanAmount) && cleanAmount > 0 && candidateTitle.length >= 2) {
+                var imgEl = (h1El && h1El.parentElement && h1El.parentElement.querySelector('img')) ||
+                            document.querySelector('[class*="product"] img, [class*="gallery"] img, [data-main-image] img, img[alt*="' + candidateTitle.slice(0, 20).replace(/"/g, '') + '" i]');
+                var prodImg = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || null) : null;
+                if (prodImg && !prodImg.startsWith('http')) {
+                  try { prodImg = new URL(prodImg, window.location.origin).href; } catch (e) {}
+                }
+
                 product = {
                   name: candidateTitle,
                   price: cleanAmount,
                   currency: normalizedCurrency,
                   availability: 'in_stock',
                   sku: null,
-                  image: null,
+                  image: prodImg,
                   description: metaDesc || null
                 };
               }
@@ -491,6 +500,8 @@
   }
 
   // ─── Universal Telemetry Dispatcher with Deduplication & Forced Refresh ─────
+  var lastTelemetrySyncTime = 0;
+
   function triggerUniversalTelemetrySync(force) {
     try {
       if (!publishableKey || !apiBase) return;
@@ -508,6 +519,8 @@
       var endpoint = apiBase + '/api/v1/ingestion/telemetry';
       var payload = JSON.stringify(telemetry);
 
+      lastTelemetrySyncTime = Date.now();
+
       fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -517,7 +530,13 @@
         body: payload,
       })
       .then(function(res) {
-        if (res.ok && window.sessionStorage) {
+        var hasMeaningfulContent =
+          (telemetry.headings && telemetry.headings.length > 0) ||
+          (telemetry.cards && telemetry.cards.length > 0) ||
+          !!telemetry.product ||
+          (telemetry.bodyTextSnippet && telemetry.bodyTextSnippet.length >= 80);
+
+        if (res.ok && window.sessionStorage && hasMeaningfulContent) {
           window.sessionStorage.setItem(storageKey, telemetry.contentHash);
         }
       })
@@ -541,7 +560,7 @@
         }, delay);
       });
 
-      // 2. MutationObserver for dynamic Next.js / React CSR component hydration
+      // 2. MutationObserver for dynamic Next.js / React CSR component hydration with 15s throttle
       if (typeof window !== 'undefined' && window.MutationObserver && document.body) {
         var mutationTimer = null;
         var observer = new MutationObserver(function (mutations) {
@@ -552,7 +571,10 @@
 
           if (mutationTimer) clearTimeout(mutationTimer);
           mutationTimer = setTimeout(function () {
-            triggerUniversalTelemetrySync();
+            var now = Date.now();
+            if (now - lastTelemetrySyncTime >= 15000) {
+              triggerUniversalTelemetrySync();
+            }
           }, 1000);
         });
 

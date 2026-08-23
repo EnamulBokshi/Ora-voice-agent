@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -7,6 +7,8 @@ import { ProductsService } from '../../products/products.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
+import { VectorStoreService } from '../../vector/vector-store.service';
+import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -18,6 +20,8 @@ export class ShopifyConnectorService {
     private readonly redisService: RedisService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    @Optional()
+    private readonly vectorStoreService?: VectorStoreService,
   ) {}
 
   verifyWebhookHmac(rawBody: Buffer, hmacHeader: string): boolean {
@@ -104,6 +108,30 @@ export class ShopifyConnectorService {
         },
       ],
     });
+
+    // Auto-embed into VectorIndex for instant RAG search availability
+    if (this.vectorStoreService) {
+      try {
+        const pDoc = await this.productsService.findOne(businessId, nativeProductId).catch(() => null);
+        if (pDoc) {
+          const text = `${pDoc.name} ${pDoc.description || ''} ${pDoc.category || ''}`.trim();
+          await this.vectorStoreService.upsertVector(businessId, {
+            entityType: EntityType.PRODUCT,
+            entityId: pDoc._id.toString(),
+            text,
+            metadata: {
+              nativeProductId: pDoc.nativeProductId,
+              price: pDoc.price,
+              category: pDoc.category,
+            },
+          });
+        }
+      } catch (err: any) {
+        this.logger.warn(
+          `[ShopifyConnector] Auto-embedding failed for product ${nativeProductId}: ${err.message}`,
+        );
+      }
+    }
   }
 
   private async handleProductDelete(businessId: string, payload: any) {

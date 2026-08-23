@@ -21,6 +21,23 @@ export class EmbeddingService {
   ) {}
 
   /**
+   * Returns the currently active embedding model name (e.g. "text-embedding-004" or "fallback-term-hash").
+   */
+  getActiveModelName(): string {
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    if (apiKey) {
+      const rawModel =
+        this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
+        'models/text-embedding-004';
+      const fullModel = rawModel.startsWith('models/')
+        ? rawModel
+        : `models/${rawModel}`;
+      return fullModel.replace('models/', '');
+    }
+    return 'fallback-term-hash';
+  }
+
+  /**
    * Generates 768-dimensional normalized text vector embeddings.
    * Returns the vector alongside the model name and version that produced it.
    * Checks Redis L1 cache first before issuing external API requests.

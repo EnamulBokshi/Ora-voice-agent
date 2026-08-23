@@ -54,7 +54,7 @@ export class DomSemanticStructurerService {
               stockQuantity: product.availability === 'out_of_stock' ? 0 : 10,
               availability: product.availability === 'out_of_stock' ? ProductAvailability.OUT_OF_STOCK : ProductAvailability.IN_STOCK,
               category: 'General',
-              images: [],
+              images: product.image ? [product.image] : [],
               attributes: { sourceUrl: url, contentHash: pHash },
               sourceTier: SourceTier.TIER3_PASSIVE,
               confidenceScore: 0.8,
