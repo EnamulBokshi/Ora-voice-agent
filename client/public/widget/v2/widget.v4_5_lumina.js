@@ -30,6 +30,8 @@
         var scriptUrl = new URL(scriptEl.src);
         if (scriptUrl.hostname === 'localhost' || scriptUrl.hostname === '127.0.0.1') {
           apiBase = scriptUrl.protocol + '//' + scriptUrl.hostname + ':5000';
+        } else if (scriptUrl.hostname.indexOf('ora.ai') !== -1 || scriptUrl.hostname.indexOf('ora-ai') !== -1) {
+          apiBase = scriptUrl.origin.replace('//cdn.', '//api.').replace('//app.', '//api.');
         } else {
           apiBase = scriptUrl.origin;
         }
@@ -40,12 +42,12 @@
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       apiBase = window.location.protocol + '//' + window.location.hostname + ':5000';
     } else {
-      apiBase = window.location.origin;
+      apiBase = 'https://api.ora.ai';
     }
   }
 
   if (apiBase) {
-    apiBase = apiBase.replace(/\/api\/v1\/?$/, '');
+    apiBase = apiBase.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
 
   // Positioning: 'bottom-center' (default)
@@ -67,6 +69,13 @@
   let idleTimer = null;
   let activeResumptionToken = null;
   let isWaitingForAi = false;
+
+  // Customer Details Confirmation Card State
+  let customerDetails = { name: '', email: '', phone: '', address: '' };
+  let isEditingDetails = false;
+  let isDetailsConfirmed = false;
+  let showConfirmCard = false;
+  let toastTimer = null;
 
   // Audio Contexts & Buffers
   let audioContext = null;
@@ -158,13 +167,18 @@
     return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ '/g, "'");
   }
 
-  // ─── Fast String Hasher for Client Deduplication ────────────────────────────
+  // ─── Fast Collision-Resistant 53-bit String Hasher for Deduplication ───────
   function hashString(str) {
-    var hash = 5381;
+    var h1 = 0xdeadbeef;
+    var h2 = 0x41c64e6d;
     for (var i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      var ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
     }
-    return (hash >>> 0).toString(16);
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
   }
 
   // ─── Universal Storefront, Portfolio & Viewport DOM Extractor ───────────────
@@ -265,32 +279,207 @@
         .trim()
         .slice(0, 4000);
 
-      // 5. Schema.org Product Check (if e-commerce)
+      // 5. Multi-Strategy E-Commerce Product Extractor
       var product = null;
+
+      // ── Strategy A: Schema.org JSON-LD (Mobile Safari & Blink Safe via textContent/innerHTML) ──
       var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (var i = 0; i < ldScripts.length; i++) {
         try {
-          var parsed = JSON.parse(ldScripts[i].innerText || '{}');
+          var rawJson = ldScripts[i].textContent || ldScripts[i].innerHTML || ldScripts[i].text || '';
+          if (!rawJson || !rawJson.trim()) continue;
+          var parsed = JSON.parse(rawJson);
           var items = Array.isArray(parsed) ? parsed : [parsed];
-          var flattened = items.flatMap(function(x) { return x && x['@graph'] ? x['@graph'] : [x]; });
+          var flattened = items.flatMap(function(x) { 
+            if (!x) return [];
+            if (x['@graph'] && Array.isArray(x['@graph'])) return x['@graph'];
+            return [x]; 
+          });
           var prod = flattened.find(function(node) {
-            return node && node['@type'] && (node['@type'] === 'Product' || (Array.isArray(node['@type']) && node['@type'].includes('Product')));
+            if (!node || !node['@type']) return false;
+            var t = node['@type'];
+            return t === 'Product' || (Array.isArray(t) && t.indexOf('Product') !== -1);
           });
           if (prod) {
             var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
+            var priceVal = null;
+            var currVal = 'USD';
+            var availVal = 'unknown';
+
+            if (offer) {
+              if (offer.price !== undefined && offer.price !== null && offer.price !== '') {
+                priceVal = Number(String(offer.price).replace(/[^0-9.]/g, ''));
+              } else if (offer.lowPrice !== undefined && offer.lowPrice !== null) {
+                priceVal = Number(String(offer.lowPrice).replace(/[^0-9.]/g, ''));
+              }
+              if (offer.priceCurrency) currVal = String(offer.priceCurrency).toUpperCase();
+              if (offer.availability) {
+                availVal = /instock|in_stock/i.test(String(offer.availability)) ? 'in_stock' : (/outofstock|out_of_stock/i.test(String(offer.availability)) ? 'out_of_stock' : 'unknown');
+              }
+            }
+
+            var imgVal = null;
+            if (prod.image) {
+              if (typeof prod.image === 'string') imgVal = prod.image;
+              else if (Array.isArray(prod.image) && prod.image[0]) {
+                imgVal = typeof prod.image[0] === 'string' ? prod.image[0] : (prod.image[0].url || null);
+              } else if (prod.image.url) imgVal = prod.image.url;
+            }
+
             product = {
               name: prod.name || title,
-              price: offer && offer.price ? Number(offer.price) : null,
-              currency: offer && offer.priceCurrency ? offer.priceCurrency : 'USD',
-              availability: offer && /instock/i.test(offer.availability || '') ? 'in_stock' : 'unknown',
-              sku: prod.sku || null
+              price: isNaN(priceVal) ? null : priceVal,
+              currency: currVal,
+              availability: availVal,
+              sku: prod.sku || prod.productID || prod.identifier || null,
+              image: imgVal,
+              description: prod.description ? String(prod.description).slice(0, 500) : null
             };
             break;
           }
         } catch (e) {}
       }
 
-      var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + cleanBodyText.slice(0, 500);
+      // ── Strategy B: Next.js Client State (__NEXT_DATA__) ──
+      if ((!product || product.price === null) && typeof window !== 'undefined' && window.__NEXT_DATA__ && window.__NEXT_DATA__.props) {
+        try {
+          var pageProps = window.__NEXT_DATA__.props.pageProps || {};
+          var candidate = pageProps.product || pageProps.item || (pageProps.data && pageProps.data.product) || (pageProps.initialState && pageProps.initialState.product) || null;
+          if (candidate && (candidate.title || candidate.name)) {
+            var nPrice = candidate.price || (candidate.priceRange && candidate.priceRange.minVariantPrice && candidate.priceRange.minVariantPrice.amount) || (candidate.variants && candidate.variants[0] && candidate.variants[0].price) || candidate.formattedPrice || null;
+            var numPrice = nPrice !== null ? Number(String(nPrice).replace(/[^0-9.]/g, '')) : null;
+            var nCurr = candidate.currency || candidate.currencyCode || (candidate.priceRange && candidate.priceRange.minVariantPrice && candidate.priceRange.minVariantPrice.currencyCode) || 'USD';
+            var nImg = (candidate.images && candidate.images[0] && candidate.images[0].url) || (candidate.image && candidate.image.url) || (typeof candidate.image === 'string' ? candidate.image : null);
+            var nSku = candidate.sku || candidate.id || candidate.handle || null;
+            var nAvail = candidate.availableForSale !== undefined ? (candidate.availableForSale ? 'in_stock' : 'out_of_stock') : 'unknown';
+
+            product = {
+              name: (candidate.title || candidate.name).trim(),
+              price: isNaN(numPrice) ? null : numPrice,
+              currency: String(nCurr).toUpperCase(),
+              availability: nAvail,
+              sku: nSku ? String(nSku) : null,
+              image: nImg,
+              description: candidate.description ? String(candidate.description).slice(0, 500) : null
+            };
+          }
+        } catch (e) {}
+      }
+
+      // ── Strategy C: OpenGraph & Microdata Meta Tags ──
+      if (!product || product.price === null) {
+        try {
+          var ogTitle = (document.querySelector('meta[property="og:title"]') && document.querySelector('meta[property="og:title"]').getAttribute('content')) ||
+                        (document.querySelector('meta[name="twitter:title"]') && document.querySelector('meta[name="twitter:title"]').getAttribute('content')) || '';
+          var ogPrice = (document.querySelector('meta[property="product:price:amount"]') && document.querySelector('meta[property="product:price:amount"]').getAttribute('content')) ||
+                        (document.querySelector('meta[property="og:price:amount"]') && document.querySelector('meta[property="og:price:amount"]').getAttribute('content')) ||
+                        (document.querySelector('meta[name="twitter:data1"]') && document.querySelector('meta[name="twitter:data1"]').getAttribute('content')) || '';
+          var ogCurrency = (document.querySelector('meta[property="product:price:currency"]') && document.querySelector('meta[property="product:price:currency"]').getAttribute('content')) ||
+                           (document.querySelector('meta[property="og:price:currency"]') && document.querySelector('meta[property="og:price:currency"]').getAttribute('content')) || 'USD';
+          var ogImage = (document.querySelector('meta[property="og:image"]') && document.querySelector('meta[property="og:image"]').getAttribute('content')) || '';
+          var ogAvail = (document.querySelector('meta[property="product:availability"]') && document.querySelector('meta[property="product:availability"]').getAttribute('content')) || '';
+
+          // Microdata fallback [itemtype*="Product"]
+          if (!ogTitle || !ogPrice) {
+            var itemScopeProd = document.querySelector('[itemtype*="Product"], [itemscope][itemtype*="schema.org"]');
+            if (itemScopeProd) {
+              var nameEl = itemScopeProd.querySelector('[itemprop="name"]');
+              if (nameEl) ogTitle = (nameEl.innerText || nameEl.textContent || '').trim();
+              var priceEl = itemScopeProd.querySelector('[itemprop="price"]');
+              if (priceEl) ogPrice = priceEl.getAttribute('content') || (priceEl.innerText || priceEl.textContent || '').trim();
+              var currEl = itemScopeProd.querySelector('[itemprop="priceCurrency"]');
+              if (currEl) ogCurrency = currEl.getAttribute('content') || (currEl.innerText || currEl.textContent || '').trim() || 'USD';
+            }
+          }
+
+          if (ogTitle && ogPrice) {
+            var parsedOgPrice = Number(String(ogPrice).replace(/[^0-9.]/g, ''));
+            if (!isNaN(parsedOgPrice) && parsedOgPrice > 0) {
+              product = {
+                name: ogTitle.trim(),
+                price: parsedOgPrice,
+                currency: ogCurrency.toUpperCase(),
+                availability: /instock|in_stock|available/i.test(ogAvail) ? 'in_stock' : 'unknown',
+                sku: null,
+                image: ogImage || null,
+                description: metaDesc || null
+              };
+            }
+          }
+        } catch (e) {}
+      }
+
+      // ── Strategy D: Dynamic Heuristic PDP Scraper (HTML Semantics + Price Patterns) ──
+      if (!product || product.price === null) {
+        try {
+          var addToCartBtn = document.querySelector(
+            'button[name="add"], button[id*="add-to-cart"], button[class*="add-to-cart"], button[class*="addToCart"], ' +
+            'form[action*="/cart/add"] button, [data-action="add-to-cart"], button[aria-label*="cart" i], ' +
+            'button[aria-label*="bag" i], a[href*="/checkout"], button[class*="buy-now"]'
+          );
+
+          if (!addToCartBtn) {
+            var allBtns = document.querySelectorAll('button, a.btn, a.button, input[type="submit"]');
+            for (var b = 0; b < allBtns.length; b++) {
+              var btnTxt = (allBtns[b].innerText || allBtns[b].textContent || '').trim().toLowerCase();
+              if (/add to (cart|bag)|buy now|order now|কার্ট|কিনুন|order online/i.test(btnTxt)) {
+                addToCartBtn = allBtns[b];
+                break;
+              }
+            }
+          }
+
+          var isProductUrl = /\/(products?|items?|p|dp|goods|shop)\/[^\/]+/i.test(pathname);
+          if (addToCartBtn || isProductUrl) {
+            var h1El = document.querySelector('h1:not(#ora-voice-root h1)') || 
+                       document.querySelector('[class*="product__title"], [class*="product-title"], [class*="productName"]');
+            var candidateTitle = h1El ? (h1El.innerText || h1El.textContent || '').trim() : title;
+
+            var priceEl = document.querySelector('[class*="price"]:not(#ora-voice-root *), [id*="price"], [data-price], [itemprop="price"]');
+            var priceText = priceEl ? (priceEl.innerText || priceEl.textContent || '').trim() : '';
+
+            if (!priceText && h1El && h1El.parentElement) {
+              priceText = (h1El.parentElement.innerText || h1El.parentElement.textContent || '').slice(0, 300);
+            }
+
+            var priceMatch = priceText.match(/(?:(\$|৳|€|£|₹|Rs\.?|CAD|USD|AUD|GBP|BDT|Tk)\s*([\d,]+(?:\.\d{1,2})?))|(?:([\d,]+(?:\.\d{1,2})?)\s*(\$|৳|€|£|₹|BDT|Tk|\/-))/i);
+            if (candidateTitle && priceMatch) {
+              var rawCurrency = priceMatch[1] || priceMatch[4] || 'USD';
+              var rawAmount = priceMatch[2] || priceMatch[3] || '';
+              var cleanAmount = Number(rawAmount.replace(/,/g, ''));
+
+              var normalizedCurrency = 'USD';
+              if (/৳|BDT|Tk/i.test(rawCurrency)) normalizedCurrency = 'BDT';
+              else if (/€|EUR/i.test(rawCurrency)) normalizedCurrency = 'EUR';
+              else if (/£|GBP/i.test(rawCurrency)) normalizedCurrency = 'GBP';
+              else if (/₹|Rs|INR/i.test(rawCurrency)) normalizedCurrency = 'INR';
+              else if (/CAD/i.test(rawCurrency)) normalizedCurrency = 'CAD';
+              else if (/AUD/i.test(rawCurrency)) normalizedCurrency = 'AUD';
+
+              if (!isNaN(cleanAmount) && cleanAmount > 0 && candidateTitle.length >= 2) {
+                var imgEl = (h1El && h1El.parentElement && h1El.parentElement.querySelector('img')) ||
+                            document.querySelector('[class*="product"] img, [class*="gallery"] img, [data-main-image] img, img[alt*="' + candidateTitle.slice(0, 20).replace(/"/g, '') + '" i]');
+                var prodImg = imgEl ? (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || null) : null;
+                if (prodImg && !prodImg.startsWith('http')) {
+                  try { prodImg = new URL(prodImg, window.location.origin).href; } catch (e) {}
+                }
+
+                product = {
+                  name: candidateTitle,
+                  price: cleanAmount,
+                  currency: normalizedCurrency,
+                  availability: 'in_stock',
+                  sku: null,
+                  image: prodImg,
+                  description: metaDesc || null
+                };
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + (product ? (product.name + ':' + product.price + ':' + product.currency) : '') + '|' + cleanBodyText.slice(0, 500);
       var contentHash = hashString(contentSignature);
 
       return {
@@ -322,28 +511,27 @@
     };
   }
 
-  // ─── Universal Telemetry Dispatcher with Deduplication ───────────────────────
-  function triggerUniversalTelemetrySync() {
+  // ─── Universal Telemetry Dispatcher with Deduplication & Forced Refresh ─────
+  var lastTelemetrySyncTime = 0;
+
+  function triggerUniversalTelemetrySync(force) {
     try {
       if (!publishableKey || !apiBase) return;
       var telemetry = extractUniversalDomTelemetry();
       if (!telemetry || !telemetry.url) return;
 
       var storageKey = '__ora_dom_' + telemetry.pathname;
-      if (window.sessionStorage && window.sessionStorage.getItem(storageKey) === telemetry.contentHash) {
-        // Content hasn't changed since last sync in this session — skip redundant network traffic
+      var cachedHash = window.sessionStorage ? window.sessionStorage.getItem(storageKey) : null;
+      
+      if (!force && cachedHash === telemetry.contentHash) {
+        // Content has not changed since last sync in this session — skip redundant network traffic
         return;
       }
 
       var endpoint = apiBase + '/api/v1/ingestion/telemetry';
       var payload = JSON.stringify(telemetry);
 
-      // Attempt sendBeacon or non-blocking fetch
-      var sent = false;
-      if (navigator.sendBeacon) {
-        var blob = new Blob([payload], { type: 'application/json' });
-        // Note: sendBeacon doesn't allow custom headers on all browsers, so fallback to fetch with x-publishable-key
-      }
+      lastTelemetrySyncTime = Date.now();
 
       fetch(endpoint, {
         method: 'POST',
@@ -354,7 +542,13 @@
         body: payload,
       })
       .then(function(res) {
-        if (res.ok && window.sessionStorage) {
+        var hasMeaningfulContent =
+          (telemetry.headings && telemetry.headings.length > 0) ||
+          (telemetry.cards && telemetry.cards.length > 0) ||
+          !!telemetry.product ||
+          (telemetry.bodyTextSnippet && telemetry.bodyTextSnippet.length >= 80);
+
+        if (res.ok && window.sessionStorage && hasMeaningfulContent) {
           window.sessionStorage.setItem(storageKey, telemetry.contentHash);
         }
       })
@@ -363,8 +557,47 @@
   }
 
   // Backward compatibility alias
-  function triggerPassiveStorefrontSync() {
-    triggerUniversalTelemetrySync();
+  function triggerPassiveStorefrontSync(force) {
+    triggerUniversalTelemetrySync(force);
+  }
+
+  // ─── Mobile Hydration & Dynamic DOM Observer ─────────────────────────────────
+  function initHydrationAndDomObserver() {
+    try {
+      // 1. Multi-stage initial sync to capture SSR, mid-hydration, and late mobile Next.js hydration
+      var stages = [600, 1800, 3500];
+      stages.forEach(function (delay) {
+        setTimeout(function () {
+          triggerUniversalTelemetrySync();
+        }, delay);
+      });
+
+      // 2. MutationObserver for dynamic Next.js / React CSR component hydration with 15s throttle
+      if (typeof window !== 'undefined' && window.MutationObserver && document.body) {
+        var mutationTimer = null;
+        var observer = new MutationObserver(function (mutations) {
+          var isWidgetInternal = mutations.every(function (m) {
+            return m.target && (m.target.closest && (m.target.closest('#ora-voice-root') || m.target.closest('.ora-shadow-host')));
+          });
+          if (isWidgetInternal) return;
+
+          if (mutationTimer) clearTimeout(mutationTimer);
+          mutationTimer = setTimeout(function () {
+            var now = Date.now();
+            if (now - lastTelemetrySyncTime >= 15000) {
+              triggerUniversalTelemetrySync();
+            }
+          }, 1000);
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: false,
+          characterData: false
+        });
+      }
+    } catch (e) {}
   }
 
   // ─── SPA Route Transition Listener (Next.js, Nuxt, React CSR) ───────────────
@@ -375,7 +608,9 @@
         if (window.location.pathname !== lastPath) {
           lastPath = window.location.pathname;
           // Debounce slightly to allow dynamic SPA views (Next.js/React) to render DOM
-          setTimeout(triggerUniversalTelemetrySync, 1200);
+          setTimeout(function () {
+            triggerUniversalTelemetrySync(true);
+          }, 1200);
         }
       }
 
@@ -399,6 +634,7 @@
     } catch (e) {}
   }
   initSpaRouteObserver();
+  initHydrationAndDomObserver();
 
   // ─── Customer Identity & Fail-Closed Consent Resolution ─────────────────────
   function getOrCreateDeviceId() {
@@ -594,30 +830,175 @@
       animation: ora-w-fly-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    /* ── Siri/Gemini Transcript Pill ── */
-    .ora-w-transcript-pill {
+    /* ── Customer Details Verification & Confirmation Card ── */
+    .ora-w-confirm-card {
       pointer-events: auto;
       max-width: 320px;
-      min-width: 180px;
-      padding: 10px 16px;
-      border-radius: 20px;
-      font-size: 13px;
-      line-height: 1.4;
-      color: #FFFFFF;
-      background: rgba(17, 17, 17, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      width: calc(100vw - 36px);
+      background: rgba(17, 17, 17, 0.95);
+      border: 1px solid rgba(200, 240, 49, 0.35);
+      border-radius: 16px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(200, 240, 49, 0.08);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      color: #FAFAFA;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      animation: ora-w-pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      box-sizing: border-box;
+      text-align: left;
+    }
+    @keyframes ora-w-pop-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .ora-w-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+    .ora-w-card-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: -0.01em;
+      color: #FAFAFA;
+    }
+    .ora-w-card-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ora-w-icon-btn {
+      background: transparent;
+      border: none;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s, background-color 0.15s;
+    }
+    .ora-w-icon-btn:hover {
+      color: #FAFAFA;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .ora-w-field-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .ora-w-field-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .ora-w-field-label {
+      color: #9CA3AF;
+      min-width: 65px;
+      font-weight: 500;
+    }
+    .ora-w-field-value {
+      color: #FAFAFA;
+      font-weight: 500;
+      text-align: right;
+      word-break: break-word;
+      flex: 1;
+    }
+    .ora-w-field-value.highlight {
+      color: #C8F031;
+      animation: ora-w-highlight-pulse 1.4s ease;
+    }
+    @keyframes ora-w-highlight-pulse {
+      0% { color: #C8F031; text-shadow: 0 0 8px rgba(200, 240, 49, 0.6); }
+      100% { color: #FAFAFA; text-shadow: none; }
+    }
+    .ora-w-form-group {
       margin-bottom: 8px;
-      transition: all 0.2s ease;
-      text-align: center;
     }
-    .ora-w-transcript-pill.user-turn {
-      border-color: rgba(56, 189, 248, 0.5);
+    .ora-w-form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #9CA3AF;
+      margin-bottom: 4px;
+      text-align: left;
     }
-    .ora-w-transcript-pill.agent-turn {
-      border-color: rgba(200, 240, 49, 0.5);
+    .ora-w-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #FAFAFA;
+      font-size: 12px;
+      font-family: inherit;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .ora-w-input:focus {
+      border-color: #C8F031;
+    }
+    .ora-w-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .ora-w-btn {
+      flex: 1;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: none;
+      transition: background-color 0.15s, transform 0.05s;
+    }
+    .ora-w-btn:active {
+      transform: scale(0.98);
+    }
+    .ora-w-btn-primary {
+      background: #C8F031;
+      color: #111111;
+    }
+    .ora-w-btn-primary:hover {
+      background: #B8DD28;
+    }
+    .ora-w-btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FAFAFA;
+    }
+    .ora-w-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .ora-w-confirm-toast {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #C8F031;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 6px 0;
+      animation: ora-w-pop-in 0.2s ease;
     }
 
     /* ── Control Action Buttons (Mute / Stop) ── */
@@ -888,13 +1269,28 @@
   let statusDot = null;
   let statusLabel = null;
   let reactiveAura = null;
-  let transcriptBox = null;
-  let transcriptText = null;
   let controlsBar = null;
   let muteBtn = null;
   let closeBtn = null;
   let canvasTime = 0;
   let canvasAnimId = null;
+
+  // Confirmation Card DOM refs
+  let confirmCard = null;
+  let cardView = null;
+  let cardEdit = null;
+  let fieldList = null;
+  let toggleEditBtn = null;
+  let closeCardBtn = null;
+  let editBtn = null;
+  let confirmBtn = null;
+  let cancelEditBtn = null;
+  let saveEditBtn = null;
+  let confirmToast = null;
+  let inputName = null;
+  let inputEmail = null;
+  let inputPhone = null;
+  let inputAddress = null;
 
   // ─── Idle Inactivity Timer (Conversational Standby Protocol) ───────────────
   function cancelIdleTimer() {
@@ -920,6 +1316,90 @@
     }
   }
 
+  // ─── Render Confirmation Card ──────────────────────────────────────────────
+  function renderConfirmCard(highlightField) {
+    if (!confirmCard) return;
+    if (!showConfirmCard) {
+      confirmCard.style.display = 'none';
+      return;
+    }
+
+    const hasAnyField = Boolean(
+      (customerDetails.name && customerDetails.name.trim()) ||
+      (customerDetails.email && customerDetails.email.trim()) ||
+      (customerDetails.phone && customerDetails.phone.trim()) ||
+      (customerDetails.address && customerDetails.address.trim())
+    );
+
+    if (!hasAnyField && !isEditingDetails) {
+      confirmCard.style.display = 'none';
+      return;
+    }
+
+    confirmCard.style.display = 'block';
+
+    if (isEditingDetails) {
+      if (cardView) cardView.style.display = 'none';
+      if (cardEdit) cardEdit.style.display = 'block';
+      if (confirmToast) confirmToast.style.display = 'none';
+      if (inputName) inputName.value = customerDetails.name || '';
+      if (inputEmail) inputEmail.value = customerDetails.email || '';
+      if (inputPhone) inputPhone.value = customerDetails.phone || '';
+      if (inputAddress) inputAddress.value = customerDetails.address || '';
+    } else {
+      if (cardView) cardView.style.display = 'block';
+      if (cardEdit) cardEdit.style.display = 'none';
+
+      let rowsHtml = '';
+      const fields = [
+        { key: 'name', label: 'Name', val: customerDetails.name, icon: '👤' },
+        { key: 'email', label: 'Email', val: customerDetails.email, icon: '✉️' },
+        { key: 'phone', label: 'Phone', val: customerDetails.phone, icon: '📞' },
+        { key: 'address', label: 'Address', val: customerDetails.address, icon: '📍' },
+      ];
+
+      fields.forEach(function (f) {
+        if (f.val && f.val.trim()) {
+          const isHl = highlightField === f.key || (highlightField === true);
+          rowsHtml += `
+            <div class="ora-w-field-row">
+              <span class="ora-w-field-label">${f.icon} ${f.label}</span>
+              <span class="ora-w-field-value ${isHl ? 'highlight' : ''}">${escapeHtml(f.val)}</span>
+            </div>
+          `;
+        }
+      });
+
+      if (!rowsHtml) {
+        rowsHtml = `<div class="ora-w-field-row"><span class="ora-w-field-label">Info</span><span class="ora-w-field-value">Awaiting customer details...</span></div>`;
+      }
+
+      if (fieldList) fieldList.innerHTML = rowsHtml;
+      if (confirmBtn) {
+        if (isDetailsConfirmed) {
+          confirmBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Verified';
+          confirmBtn.style.background = '#65A30D';
+          confirmBtn.style.color = '#FFFFFF';
+        } else {
+          confirmBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Confirm & Save';
+          confirmBtn.style.background = '#C8F031';
+          confirmBtn.style.color = '#111111';
+        }
+      }
+    }
+  }
+
+  function showToastNotification(msg) {
+    if (!confirmToast) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    const span = confirmToast.querySelector('span');
+    if (span) span.innerText = msg;
+    confirmToast.style.display = 'flex';
+    toastTimer = setTimeout(function () {
+      confirmToast.style.display = 'none';
+    }, 3500);
+  }
+
   // ─── Mount DOM inside Shadow Root ──────────────────────────────────────────
   function mountWidget() {
     if (host) return;
@@ -935,8 +1415,62 @@
     root.className = 'ora-w-root pos-' + position;
 
     root.innerHTML = `
-      <div id="oraWTranscript" class="ora-w-transcript-pill" style="display:none;">
-        <span id="oraWTranscriptText"></span>
+      <div id="oraWConfirmCard" class="ora-w-confirm-card" style="display:none;">
+        <div class="ora-w-card-header">
+          <div class="ora-w-card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Review Your Information</span>
+          </div>
+          <div class="ora-w-card-header-actions">
+            <button id="oraWToggleEditBtn" class="ora-w-icon-btn" title="Edit Information" type="button" aria-label="Edit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button id="oraWCloseCardBtn" class="ora-w-icon-btn" title="Dismiss" type="button" aria-label="Dismiss">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- View Mode -->
+        <div id="oraWCardView" class="ora-w-card-view">
+          <div class="ora-w-field-list" id="oraWFieldList"></div>
+          <div class="ora-w-card-actions">
+            <button id="oraWEditBtn" class="ora-w-btn ora-w-btn-secondary" type="button">Edit</button>
+            <button id="oraWConfirmBtn" class="ora-w-btn ora-w-btn-primary" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirm & Save
+            </button>
+          </div>
+        </div>
+
+        <!-- Edit Mode -->
+        <div id="oraWCardEdit" class="ora-w-card-edit" style="display:none;">
+          <div class="ora-w-form-group">
+            <label>Name</label>
+            <input type="text" id="oraWInputName" class="ora-w-input" placeholder="Your name" />
+          </div>
+          <div class="ora-w-form-group">
+            <label>Email</label>
+            <input type="email" id="oraWInputEmail" class="ora-w-input" placeholder="name@domain.com" />
+          </div>
+          <div class="ora-w-form-group">
+            <label>Phone</label>
+            <input type="tel" id="oraWInputPhone" class="ora-w-input" placeholder="+1 (555) 000-0000" />
+          </div>
+          <div class="ora-w-form-group">
+            <label>Address / Shipping</label>
+            <input type="text" id="oraWInputAddress" class="ora-w-input" placeholder="Street, City, Zip" />
+          </div>
+          <div class="ora-w-card-actions">
+            <button id="oraWCancelEditBtn" class="ora-w-btn ora-w-btn-secondary" type="button">Cancel</button>
+            <button id="oraWSaveEditBtn" class="ora-w-btn ora-w-btn-primary" type="button">Save & Confirm</button>
+          </div>
+        </div>
+
+        <div id="oraWConfirmToast" class="ora-w-confirm-toast" style="display:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Details verified & saved!</span>
+        </div>
       </div>
 
       <div id="oraWControls" class="ora-w-controls-row" style="display:none;">
@@ -977,29 +1511,36 @@
     statusDot = shadowRoot.getElementById('oraWDot');
     statusLabel = shadowRoot.getElementById('oraWStatusLabel');
     reactiveAura = shadowRoot.getElementById('oraWReactiveAura');
-    transcriptBox = shadowRoot.getElementById('oraWTranscript');
-    transcriptText = shadowRoot.getElementById('oraWTranscriptText');
     controlsBar = shadowRoot.getElementById('oraWControls');
     muteBtn = shadowRoot.getElementById('oraWMuteBtn');
     closeBtn = shadowRoot.getElementById('oraWCloseBtn');
 
+    // Confirm Card refs
+    confirmCard = shadowRoot.getElementById('oraWConfirmCard');
+    cardView = shadowRoot.getElementById('oraWCardView');
+    cardEdit = shadowRoot.getElementById('oraWCardEdit');
+    fieldList = shadowRoot.getElementById('oraWFieldList');
+    toggleEditBtn = shadowRoot.getElementById('oraWToggleEditBtn');
+    closeCardBtn = shadowRoot.getElementById('oraWCloseCardBtn');
+    editBtn = shadowRoot.getElementById('oraWEditBtn');
+    confirmBtn = shadowRoot.getElementById('oraWConfirmBtn');
+    cancelEditBtn = shadowRoot.getElementById('oraWCancelEditBtn');
+    saveEditBtn = shadowRoot.getElementById('oraWSaveEditBtn');
+    confirmToast = shadowRoot.getElementById('oraWConfirmToast');
+    inputName = shadowRoot.getElementById('oraWInputName');
+    inputEmail = shadowRoot.getElementById('oraWInputEmail');
+    inputPhone = shadowRoot.getElementById('oraWInputPhone');
+    inputAddress = shadowRoot.getElementById('oraWInputAddress');
+
     // Initialize Procedural Canvas Fluid Wave Mesh Engine
     initOrbCanvas();
 
-    // Event Listeners
-    orbBtn.addEventListener('click', function () {
+    // Event Listeners with Immediate Mobile Touch & Force-Sync
+    function handleOrbTap() {
       if (voiceState === 'connecting') return;
-      if (voiceState === 'idle' || voiceState === 'error') {
-        startVoiceSession();
-      } else if (voiceState === 'standby') {
-        startVoiceSession(activeResumptionToken);
-      } else {
-        teardown();
-      }
-    });
+      // Force live fresh DOM telemetry extraction to ensure backend & session are up-to-date
+      try { triggerUniversalTelemetrySync(true); } catch (e) {}
 
-    statusChip.addEventListener('click', function () {
-      if (voiceState === 'connecting') return;
       if (voiceState === 'idle' || voiceState === 'error') {
         startVoiceSession();
       } else if (voiceState === 'standby') {
@@ -1007,7 +1548,10 @@
       } else {
         teardown();
       }
-    });
+    }
+
+    orbBtn.addEventListener('click', handleOrbTap);
+    statusChip.addEventListener('click', handleOrbTap);
 
     muteBtn.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -1025,16 +1569,83 @@
       teardown();
     });
 
-    render();
-
-    // Trigger passive storefront context sync once verified
-    if (typeof window !== 'undefined') {
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(function () { triggerPassiveStorefrontSync(); });
-      } else {
-        setTimeout(triggerPassiveStorefrontSync, 1500);
-      }
+    function toggleEdit(enable) {
+      isEditingDetails = typeof enable === 'boolean' ? enable : !isEditingDetails;
+      renderConfirmCard();
     }
+
+    function saveAndConfirmDetails() {
+      if (inputName) customerDetails.name = inputName.value.trim();
+      if (inputEmail) customerDetails.email = inputEmail.value.trim();
+      if (inputPhone) customerDetails.phone = inputPhone.value.trim();
+      if (inputAddress) customerDetails.address = inputAddress.value.trim();
+      isEditingDetails = false;
+      isDetailsConfirmed = true;
+
+      // Send to server over WebSocket
+      if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+        geminiWs.send(JSON.stringify({
+          type: 'confirm_customer_details',
+          data: customerDetails,
+        }));
+      }
+
+      renderConfirmCard();
+      showToastNotification('Details saved & verified!');
+    }
+
+    if (toggleEditBtn) {
+      toggleEditBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleEdit();
+      });
+    }
+
+    if (closeCardBtn) {
+      closeCardBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        showConfirmCard = false;
+        renderConfirmCard();
+      });
+    }
+
+    if (editBtn) {
+      editBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleEdit(true);
+      });
+    }
+
+    if (cancelEditBtn) {
+      cancelEditBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleEdit(false);
+      });
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        isDetailsConfirmed = true;
+        if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+          geminiWs.send(JSON.stringify({
+            type: 'confirm_customer_details',
+            data: customerDetails,
+          }));
+        }
+        renderConfirmCard();
+        showToastNotification('Details verified & saved!');
+      });
+    }
+
+    if (saveEditBtn) {
+      saveEditBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        saveAndConfirmDetails();
+      });
+    }
+
+    render();
   }
 
   // ─── Procedural Canvas Fluid Wave Mesh Engine ──────────────────────────────
@@ -1261,15 +1872,6 @@
     } else {
       statusDot.className = 'ora-w-status-dot idle';
       statusLabel.innerText = 'Talk with ORA';
-    }
-
-    // Transcript Box
-    if (showTranscript && liveUtterance) {
-      transcriptBox.style.display = 'block';
-      transcriptBox.className = 'ora-w-transcript-pill ' + (liveSpeaker === 'user' ? 'user-turn' : 'agent-turn');
-      transcriptText.innerHTML = (liveSpeaker === 'user' ? '<strong>You:</strong> ' : '<strong>ORA:</strong> ') + escapeHtml(liveUtterance);
-    } else {
-      transcriptBox.style.display = 'none';
     }
 
     // Mute button icon
@@ -1594,6 +2196,13 @@
             type: 'page_context',
             data: pageCtx
           }));
+          ws.send(JSON.stringify({
+            type: 'client_context_update',
+            currentPath: pageCtx.pathname || window.location.pathname || '/',
+            title: pageCtx.title || document.title || '',
+            history: [pageCtx.pathname || window.location.pathname || '/'],
+            product: pageCtx.product || null
+          }));
           if (custPayload.identified) {
             ws.send(JSON.stringify({
               type: 'client_identify',
@@ -1695,6 +2304,19 @@
           }
 
           if (msg.type === 'tool_result') {
+            if (msg.action && msg.action.type === 'confirm_details' && msg.action.data) {
+              var actData = msg.action.data;
+              var changedField = null;
+              if (actData.name && actData.name !== customerDetails.name) { customerDetails.name = actData.name; changedField = 'name'; }
+              if (actData.email && actData.email !== customerDetails.email) { customerDetails.email = actData.email; changedField = 'email'; }
+              if (actData.phone && actData.phone !== customerDetails.phone) { customerDetails.phone = actData.phone; changedField = 'phone'; }
+              if (actData.address && actData.address !== customerDetails.address) { customerDetails.address = actData.address; changedField = 'address'; }
+
+              showConfirmCard = true;
+              isDetailsConfirmed = false;
+              renderConfirmCard(changedField || true);
+            }
+
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
               var dest = msg.action.destination;
               if (dest.startsWith('#')) {
@@ -1704,6 +2326,13 @@
                 window.location.href = dest;
               }
             }
+            return;
+          }
+
+          if (msg.type === 'customer_details_confirmed') {
+            isDetailsConfirmed = true;
+            renderConfirmCard();
+            showToastNotification('Details verified & saved!');
             return;
           }
 

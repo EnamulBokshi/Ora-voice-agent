@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../../products/products.service';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
+import { VectorStoreService } from '../../vector/vector-store.service';
+import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 
 @Injectable()
 export class WooCommerceConnectorService {
@@ -16,6 +18,8 @@ export class WooCommerceConnectorService {
     private readonly productsService: ProductsService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    @Optional()
+    private readonly vectorStoreService?: VectorStoreService,
   ) {}
 
   verifyWebhookHmac(rawBody: Buffer, signatureHeader: string): boolean {
@@ -59,10 +63,37 @@ export class WooCommerceConnectorService {
       images: p.images ? p.images.map((img: any) => img.src) : [],
     }));
 
-    return this.productsService.batchSync(businessId, {
+    const result = await this.productsService.batchSync(businessId, {
       sourceTier: SourceTier.TIER1_CONNECTOR,
       products: mappedProducts,
     });
+
+    // Auto-embed into VectorIndex for instant RAG search availability
+    if (this.vectorStoreService && mappedProducts.length > 0) {
+      try {
+        const nativeIds = mappedProducts.map((p) => p.nativeProductId);
+        const syncedDocs = await this.productsService.findManyByIds(businessId, nativeIds).catch(() => []);
+        for (const pDoc of syncedDocs) {
+          const text = `${pDoc.name} ${pDoc.description || ''} ${pDoc.category || ''}`.trim();
+          await this.vectorStoreService.upsertVector(businessId, {
+            entityType: EntityType.PRODUCT,
+            entityId: pDoc._id.toString(),
+            text,
+            metadata: {
+              nativeProductId: pDoc.nativeProductId,
+              price: pDoc.price,
+              category: pDoc.category,
+            },
+          }).catch((err) =>
+            this.logger.warn(`[WooCommerceConnector] Auto-embedding failed for product ${pDoc.nativeProductId}: ${err.message}`),
+          );
+        }
+      } catch (err: any) {
+        this.logger.warn(`[WooCommerceConnector] Bulk vector embedding failed: ${err.message}`);
+      }
+    }
+
+    return result;
   }
 
   /**

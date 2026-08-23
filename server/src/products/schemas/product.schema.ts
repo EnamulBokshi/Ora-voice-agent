@@ -78,6 +78,9 @@ export class Product {
   @Prop({ default: true, index: true })
   isActive: boolean;
 
+  @Prop({ default: false })
+  isEmbedded: boolean;
+
   @Prop({ type: Number, default: 0 })
   timesRecommendedByAgent: number;
 

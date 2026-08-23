@@ -34,6 +34,8 @@
       var parsed = new URL(scriptEl.src);
       if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
         apiBase = parsed.protocol + '//' + parsed.hostname + ':5000';
+      } else if (parsed.hostname.indexOf('ora.ai') !== -1 || parsed.hostname.indexOf('ora-ai') !== -1) {
+        apiBase = parsed.origin.replace('//cdn.', '//api.').replace('//app.', '//api.');
       } else {
         apiBase = parsed.origin;
       }
@@ -41,13 +43,15 @@
   }
 
   if (!apiBase) {
-    apiBase = (w.location.hostname === 'localhost' || w.location.hostname === '127.0.0.1')
-      ? w.location.protocol + '//' + w.location.hostname + ':5000'
-      : w.location.origin;
+    if (w.location.hostname === 'localhost' || w.location.hostname === '127.0.0.1') {
+      apiBase = w.location.protocol + '//' + w.location.hostname + ':5000';
+    } else {
+      apiBase = 'https://api.ora.ai';
+    }
   }
 
   if (apiBase) {
-    apiBase = apiBase.replace(/\/api\/v1\/?$/, '');
+    apiBase = apiBase.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
 
   // Ensure window.ORA_CONFIG is populated for downstream bundle

@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus, Optional } from '@nestjs/common';
+import { Injectable, HttpStatus, Optional, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -10,16 +10,32 @@ import { QueryProductsDto } from './dto/query-products.dto';
 import { BatchSyncProductsDto } from './dto/batch-sync-products.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { RedisService } from '../common/redis/redis.service';
+import { VectorStoreService } from '../vector/vector-store.service';
+import { EntityType } from '../vector/interfaces/vector-entry.interface';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
     private readonly configService: ConfigService,
     @Optional()
     private readonly redisService?: RedisService,
+    @Optional()
+    @Inject(forwardRef(() => VectorStoreService))
+    private readonly vectorStoreService?: VectorStoreService,
   ) { }
+
+  private invalidateRagCache(businessId: string): void {
+    if (this.redisService) {
+      this.redisService
+        .getClient()
+        .incr(`rag:version:${businessId}`)
+        .catch(() => {});
+    }
+  }
 
   async create(businessId: string, dto: CreateProductDto): Promise<ProductDocument> {
     const existing = await this.productModel
@@ -43,7 +59,9 @@ export class ProductsService {
       lastVerifiedAt: new Date(),
     });
 
-    return product.save();
+    const saved = await product.save();
+    this.invalidateRagCache(businessId);
+    return saved;
   }
 
   async findAll(businessId: string, query: QueryProductsDto) {
@@ -257,6 +275,7 @@ export class ProductsService {
       );
     }
 
+    this.invalidateRagCache(businessId);
     return product;
   }
 
@@ -282,16 +301,43 @@ export class ProductsService {
 
     const saved = await product.save();
 
-    // Invalidate Redis stock cache
+    // Invalidate Redis stock cache and RAG cache
     if (this.redisService) {
       const cacheKey = `live_stock:${businessId}:${id}`;
       this.redisService.getClient().del(cacheKey).catch(() => { });
+    }
+    this.invalidateRagCache(businessId);
+
+    // Re-embed modified product in vector store
+    if (this.vectorStoreService) {
+      const text = `${saved.name} ${saved.description || ''} ${saved.category || ''}`.trim();
+      this.vectorStoreService
+        .upsertVector(businessId, {
+          entityType: EntityType.PRODUCT,
+          entityId: saved._id.toString(),
+          text,
+          metadata: {
+            nativeProductId: saved.nativeProductId,
+            price: saved.price,
+            category: saved.category,
+          },
+        })
+        .catch((err) =>
+          this.logger?.warn?.(`[ProductsService] Vector re-embedding failed for product ${saved._id}: ${err.message}`),
+        );
     }
 
     return saved;
   }
 
   async remove(businessId: string, id: string): Promise<{ message: string }> {
+    // Purge corresponding vector embedding if it exists
+    if (this.vectorStoreService) {
+      await this.vectorStoreService
+        .deleteVectorByEntityId(businessId, id)
+        .catch(() => {});
+    }
+
     const result = await this.productModel
       .deleteOne({
         _id: id as any,
@@ -307,6 +353,7 @@ export class ProductsService {
       );
     }
 
+    this.invalidateRagCache(businessId);
     return { message: 'Product deleted successfully.' };
   }
 
@@ -327,6 +374,7 @@ export class ProductsService {
     }));
 
     const result = await this.productModel.bulkWrite(operations as any);
+    this.invalidateRagCache(businessId);
 
     return {
       upsertedCount: result.upsertedCount,

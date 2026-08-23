@@ -73,6 +73,9 @@ export class AiToolsExecutor {
         case 'update_customer_profile':
         case 'save_customer_name':
           return await this.handleUpdateCustomerProfile(businessId, sessionId, args);
+        case 'get_customer_profile':
+        case 'get_customer_info':
+          return await this.handleGetCustomerProfile(businessId, sessionId);
         case 'update_agent_directives':
         case 'save_merchant_directives':
           return await this.handleUpdateAgentDirectives(businessId, args);
@@ -479,12 +482,13 @@ export class AiToolsExecutor {
     if (args.name) updates.name = args.name;
     if (args.preferences) updates.extractedPreferences = args.preferences;
 
-    if (args.email || args.phone) {
+    if (args.email || args.phone || args.address || args.shippingAddress) {
       // Store unverified spoken claims in metadata (Zero-Leak isolation)
       updates.metadata = {
         unverifiedSpokenClaims: {
           email: args.email,
           phone: args.phone,
+          address: args.address || args.shippingAddress,
           capturedAt: new Date(),
         },
       };
@@ -501,10 +505,78 @@ export class AiToolsExecutor {
       await redis.set(`session:${sessionId}:customer`, JSON.stringify(parsed), 'EX', 86400);
     } catch {}
 
+    const detailsData: Record<string, any> = {};
+    if (args.name || updated.name) detailsData.name = args.name || updated.name;
+    if (args.email) detailsData.email = args.email;
+    if (args.phone) detailsData.phone = args.phone;
+    if (args.address || args.shippingAddress) detailsData.address = args.address || args.shippingAddress;
+    if (args.preferences || updated.extractedPreferences) detailsData.preferences = args.preferences || updated.extractedPreferences;
+
+    const summaryStr = [
+      detailsData.name ? `Name: "${detailsData.name}"` : null,
+      detailsData.email ? `Email: "${detailsData.email}"` : null,
+      detailsData.phone ? `Phone: "${detailsData.phone}"` : null,
+      detailsData.address ? `Address: "${detailsData.address}"` : null,
+    ].filter(Boolean).join(', ');
+
     return {
       success: true,
-      message: `Customer profile successfully saved with name: ${updated.name}`,
+      message: `Customer profile successfully saved in memory (${summaryStr}). You can now answer the customer using these saved details!`,
+      customer: detailsData,
+      action: {
+        type: 'confirm_details',
+        data: detailsData,
+        reason: 'Prompt user to review and verify their contact or shipping information',
+      },
     };
+  }
+
+  private async handleGetCustomerProfile(businessId: string, sessionId: string) {
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
+    if (!customerId || !this.customersService) {
+      return { success: false, message: 'No customer profile found in memory yet.' };
+    }
+
+    try {
+      const customer = await this.customersService.findOne(businessId, customerId);
+      if (!customer) {
+        return { success: false, message: 'No customer profile found.' };
+      }
+
+      const email = customer.email || (customer.metadata as any)?.verifiedContactDetails?.email || (customer.metadata as any)?.unverifiedSpokenClaims?.email || null;
+      const phone = customer.phone || (customer.metadata as any)?.verifiedContactDetails?.phone || (customer.metadata as any)?.unverifiedSpokenClaims?.phone || null;
+      const address = (customer.metadata as any)?.shippingAddress || (customer.metadata as any)?.verifiedContactDetails?.address || (customer.metadata as any)?.unverifiedSpokenClaims?.address || null;
+
+      const profileSummary = [
+        customer.name ? `Name: "${customer.name}"` : 'Name: Guest',
+        email ? `Email: "${email}"` : 'Email: Not provided',
+        phone ? `Phone: "${phone}"` : 'Phone: Not provided',
+        address ? `Address: "${address}"` : 'Address: Not provided',
+      ].join(', ');
+
+      return {
+        success: true,
+        profile: {
+          name: customer.name,
+          email,
+          phone,
+          address,
+          preferences: customer.extractedPreferences,
+        },
+        message: `Saved customer profile: ${profileSummary}. Answer the customer's question directly using this information.`,
+      };
+    } catch (err: any) {
+      return { success: false, message: 'Could not retrieve customer details.' };
+    }
   }
 
   private async handleGetPricingPlans(businessId: string, args: Record<string, any>) {
@@ -742,8 +814,19 @@ export class AiToolsExecutor {
 
     return {
       success: true,
-      message: `Thank you${name ? ` ${name}` : ''}! Your contact details (${email}) have been saved. Our team will follow up promptly.`,
+      message: `Thank you${name ? ` ${name}` : ''}! Your contact details (${email}) have been saved. Prompting review on screen.`,
       leadCaptured: { name, email, storeUrl, interestedPlan },
+      action: {
+        type: 'confirm_details',
+        data: {
+          name,
+          email,
+          phone,
+          storeUrl,
+          notes,
+        },
+        reason: 'Prompt user to review lead contact information',
+      },
     };
   }
 

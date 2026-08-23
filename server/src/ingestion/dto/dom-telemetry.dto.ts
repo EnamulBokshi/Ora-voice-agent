@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsObject } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, IsObject, ValidateNested, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class HeadingItemDto {
   @IsString()
@@ -35,6 +36,36 @@ export class ContactChannelsDto {
   links?: string[];
 }
 
+export class ProductTelemetryDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  availability?: string;
+
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @IsOptional()
+  @IsString()
+  image?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 export class DomTelemetryDto {
   @IsString()
   @IsNotEmpty()
@@ -54,14 +85,20 @@ export class DomTelemetryDto {
 
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HeadingItemDto)
   headings?: HeadingItemDto[];
 
   @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CardItemDto)
   cards?: CardItemDto[];
 
   @IsOptional()
   @IsObject()
+  @ValidateNested()
+  @Type(() => ContactChannelsDto)
   contacts?: ContactChannelsDto;
 
   @IsOptional()
@@ -69,13 +106,10 @@ export class DomTelemetryDto {
   bodyTextSnippet?: string;
 
   @IsOptional()
-  product?: {
-    name?: string;
-    price?: number;
-    currency?: string;
-    availability?: string;
-    sku?: string;
-  };
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ProductTelemetryDto)
+  product?: ProductTelemetryDto;
 
   @IsOptional()
   @IsString()

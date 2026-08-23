@@ -11,6 +11,7 @@ import { KnowledgeService } from '../knowledge/knowledge.service';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
+import { EncryptionUtil } from '../common/utils/encryption.util';
 
 export interface GeminiVoiceSessionOptions {
   businessId: string;
@@ -652,22 +653,37 @@ ACTIVE VISITOR CONTEXT (Authenticated Logged-In User):
 
         const devId = deviceId || (cust?.deviceIds && cust.deviceIds[0]) || null;
 
+        const custEmail = cust?.emailEncrypted
+          ? EncryptionUtil.decrypt(cust.emailEncrypted)
+          : (cust?.metadata as any)?.verifiedContactDetails?.email || (cust?.metadata as any)?.unverifiedSpokenClaims?.email || null;
+        const custPhone = cust?.phoneEncrypted
+          ? EncryptionUtil.decrypt(cust.phoneEncrypted)
+          : (cust?.metadata as any)?.verifiedContactDetails?.phone || (cust?.metadata as any)?.unverifiedSpokenClaims?.phone || null;
+        const custAddress =
+          (cust?.metadata as any)?.shippingAddress ||
+          (cust?.metadata as any)?.verifiedContactDetails?.address ||
+          (cust?.metadata as any)?.unverifiedSpokenClaims?.address ||
+          null;
+
         customerContext = `
 ACTIVE USER & RECOGNITION CONTEXT (Guest Visitor):
 - Customer Name: ${isKnownName ? cust!.name : 'Guest Visitor (Unauthenticated)'}
+- Saved Email: ${custEmail || 'Not yet provided'}
+- Saved Phone: ${custPhone || 'Not yet provided'}
+- Saved Address: ${custAddress || 'Not yet provided'}
 - Account Status: Guest Visitor (Unauthenticated)
 - Device ID: ${devId || 'Active Browser Session'}
 ${prefs ? `- Saved Preferences: ${prefs}` : ''}
 
-* GUEST DISCOVERY & INFORMATION GATHERING PLAYBOOK:
-1. If the visitor asks "do you know me?" or "who am I?":
-   - If their name is known ("${isKnownName ? cust!.name : ''}"), warmly greet them by name ("Yes! You are ${isKnownName ? cust!.name : ''}. Great to see you again!").
-   - If unknown, answer naturally: "You are visiting as a guest right now! May I have your name and email so I can assist you better?"
+* GUEST DISCOVERY & MEMORY PLAYBOOK:
+1. If the visitor asks "do you know me?", "who am I?", "what is my email?", "what is my phone?", "what details do you have for me?", or "where will you ship?":
+   - Answer IMMEDIATELY and accurately from your captured memory above (or invoke get_customer_profile if needed).
 2. When a guest asks to access or go to the dashboard:
    - Tell them: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
    - Call navigate_to_page with "/auth?mode=login&from=/dashboard".
 3. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their personal details (such as Name, Email, Phone number, Store/Company URL, or specific business requirements).
-4. When the visitor introduces themselves (e.g. "I am Enamul", "My name is Enamul", "my email is ...") or shares contact details/preferences, IMMEDIATELY call the update_customer_profile or capture_sales_lead tool in the background so you remember them!`;
+4. When the visitor introduces themselves (e.g. "I am David", "My name is David", "my email is david@gmail.com") or shares contact details/preferences:
+   - IMMEDIATELY call the update_customer_profile or capture_sales_lead tool so you remember them and display the verification card on screen!`;
       } catch (err: any) {
         this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
       }

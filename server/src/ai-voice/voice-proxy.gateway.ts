@@ -592,6 +592,61 @@ export class VoiceProxyGateway {
           return;
         }
 
+        if (msg.type === 'confirm_customer_details') {
+          this.logger.log(`[VoiceProxyGateway] Customer confirmed/modified details for session ${sessionId}: ${JSON.stringify(msg.data)}`);
+          try {
+            const clientData = msg.data || {};
+            const updates: any = {};
+            if (clientData.name) updates.name = clientData.name;
+            if (clientData.email) updates.email = clientData.email;
+            if (clientData.phone) updates.phone = clientData.phone;
+            if (clientData.address) {
+              updates.metadata = {
+                shippingAddress: clientData.address,
+                verifiedAt: new Date(),
+              };
+            }
+
+            if (session.customerId && this.customersService) {
+              await this.customersService.update(businessId, session.customerId, updates).catch((err: any) => {
+                this.logger.warn(`[VoiceProxyGateway] Failed to update customer record on confirm: ${err.message}`);
+              });
+            }
+
+            // Update Redis customer cache
+            try {
+              const redis = this.redisService.getClient();
+              const existing = await redis.get(`session:${sessionId}:customer`);
+              const parsed = existing ? JSON.parse(existing) : {};
+              if (clientData.name) parsed.name = clientData.name;
+              await redis.set(`session:${sessionId}:customer`, JSON.stringify(parsed), 'EX', 86400);
+            } catch {}
+
+            sendToClient({
+              type: 'customer_details_confirmed',
+              success: true,
+              data: clientData,
+            });
+
+            // Inform Gemini Live session of the verified information
+            const summaryParts = [
+              clientData.name ? `Name: "${clientData.name}"` : null,
+              clientData.email ? `Email: "${clientData.email}"` : null,
+              clientData.phone ? `Phone: "${clientData.phone}"` : null,
+              clientData.address ? `Address: "${clientData.address}"` : null,
+            ].filter(Boolean);
+
+            if (summaryParts.length > 0) {
+              sessionControls.sendTextMessage(
+                `[SYSTEM_UPDATE: The customer just reviewed and saved their contact details on screen: ${summaryParts.join(', ')}. Keep these details in your memory and answer with them if asked.]`,
+              );
+            }
+          } catch (e: any) {
+            this.logger.warn(`[VoiceProxyGateway] Error processing confirmed customer details: ${e.message}`);
+          }
+          return;
+        }
+
         if (msg.type === 'client_idle_suspend') {
           this.logger.log(`[VoiceProxyGateway] Session ${sessionId} suspended on client idle.`);
           flushBufferedAiText();

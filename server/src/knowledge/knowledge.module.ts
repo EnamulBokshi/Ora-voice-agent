@@ -5,10 +5,12 @@ import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeBase, KnowledgeBaseSchema } from './schemas/knowledge-base.schema';
 import { KnowledgeChunk, KnowledgeChunkSchema } from './schemas/knowledge-chunk.schema';
 import { VectorModule } from '../vector/vector.module';
+import { RedisModule } from '../common/redis/redis.module';
 
 @Module({
   imports: [
     VectorModule,
+    RedisModule,
     MongooseModule.forFeature([
       { name: KnowledgeBase.name, schema: KnowledgeBaseSchema },
       { name: KnowledgeChunk.name, schema: KnowledgeChunkSchema },

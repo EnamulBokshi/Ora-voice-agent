@@ -109,7 +109,7 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'update_customer_profile',
     description:
-      'Save or update the customer name, email, phone, or extracted preferences (e.g. name, favorite color, size, budget) into persistent memory whenever the customer introduces themselves or shares preferences.',
+      'Save or update the customer name, email, phone, shipping address, or extracted preferences into persistent memory and trigger on-screen verification whenever the customer introduces themselves or shares contact/delivery info.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -125,11 +125,24 @@ export const ORA_TOOL_DECLARATIONS = [
           type: 'STRING',
           description: 'The phone number of the customer if provided.',
         },
+        address: {
+          type: 'STRING',
+          description: 'The shipping or delivery address if provided by customer.',
+        },
         preferences: {
           type: 'OBJECT',
           description: 'Key-value preferences or interests extracted from conversation.',
         },
       },
+    },
+  },
+  {
+    name: 'get_customer_profile',
+    description:
+      'Retrieve the active customer profile, name, verified email, phone number, shipping address, and preferences currently stored in memory or database. Call this whenever the user asks what details, email, phone, or name you have saved for them.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
     },
   },
   {

@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { parse as parseCsv } from 'csv-parse/sync';
+import { XMLParser } from 'fast-xml-parser';
 import { ProductsService } from '../../products/products.service';
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
 
@@ -90,26 +91,52 @@ export class FeedParserService {
 
     // 1. Parse XML RSS / Atom Google Merchant Feed
     if (trimmed.startsWith('<') || trimmed.includes('<rss') || trimmed.includes('<feed')) {
-      const items: Array<Record<string, any>> = [];
-      const itemMatches = content.match(/<(item|entry)>[\s\S]*?<\/\1>/gi) || [];
+      try {
+        const parser = new XMLParser({
+          ignoreAttributes: false,
+          attributeNamePrefix: '@_',
+          trimValues: true,
+          cdataPropName: '__cdata',
+        });
+        const parsed = parser.parse(content);
 
-      for (const itemXml of itemMatches) {
-        const itemObj: Record<string, any> = {};
-        const tagRegex = /<([a-z0-9_:]+)>(.*?)<\/\1>/gi;
-        let match: RegExpExecArray | null;
+        // RSS 2.0: parsed.rss.channel.item | Atom: parsed.feed.entry
+        let rawItems =
+          parsed?.rss?.channel?.item ||
+          parsed?.channel?.item ||
+          parsed?.feed?.entry ||
+          parsed?.items?.item ||
+          [];
 
-        while ((match = tagRegex.exec(itemXml)) !== null) {
-          const key = match[1].replace(/^g:/, 'g_');
-          const value = match[2].replace(/<!\[CDATA\[(.*?)\]\]>/gi, '$1').trim();
-          itemObj[key] = value;
+        if (!Array.isArray(rawItems)) {
+          rawItems = [rawItems];
         }
 
-        if (itemObj.title || itemObj.id || itemObj.g_id) {
-          items.push(itemObj);
+        const items = rawItems
+          .map((item: any) => {
+            const itemObj: Record<string, any> = {};
+            for (const [key, rawVal] of Object.entries(item)) {
+              const cleanKey = key.replace(/^g:/i, 'g_');
+              let val: any = rawVal;
+              if (val && typeof val === 'object' && val.__cdata !== undefined) {
+                val = val.__cdata;
+              } else if (val && typeof val === 'object' && val['#text'] !== undefined) {
+                val = val['#text'];
+              }
+              itemObj[cleanKey] = typeof val === 'string' ? val.trim() : val;
+            }
+            return itemObj;
+          })
+          .filter((itemObj: any) => itemObj.title || itemObj.id || itemObj.g_id);
+
+        if (items.length > 0) {
+          return items;
         }
+      } catch (err: any) {
+        this.logger.warn(
+          `[FeedParserService] fast-xml-parser note: ${err.message}. Trying fallback parser.`,
+        );
       }
-
-      return items;
     }
 
     // 2. Parse CSV Feed
