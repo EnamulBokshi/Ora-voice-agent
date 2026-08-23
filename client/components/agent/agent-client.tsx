@@ -6,22 +6,17 @@ import { useSearchParams } from 'next/navigation';
 import {
   Database,
   Radio,
-  ExternalLink,
-  SlidersHorizontal,
   Mic,
   FileText,
   Package,
-  Key,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TopHeader } from '@/components/dashboard/top-header';
-import { MerchantCredentialsCard } from './merchant-credentials-card';
 import { VoiceTestModal } from './modals/voice-test-modal';
 import { VoiceFeedTab } from './feed/voice-feed-tab';
 import { DocumentsFeedTab } from './feed/documents-feed-tab';
 import { ProductDetailsFeedTab } from './feed/product-details-feed-tab';
 import { KnowledgeFeedList } from './feed/knowledge-feed-list';
-import { AgentPersonaTab } from './persona/agent-persona-tab';
 import { getMeApi } from '@/services/auth-service';
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
@@ -30,14 +25,12 @@ import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AgentSection = 'persona' | 'voice' | 'documents' | 'products' | 'integration';
+type AgentSection = 'voice' | 'documents' | 'products';
 
 const AGENT_TABS: { id: AgentSection; label: string; icon: React.ElementType }[] = [
-  { id: 'persona', label: 'Persona & Archetype', icon: SlidersHorizontal },
   { id: 'voice', label: 'Talk to ORA', icon: Mic },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'products', label: 'Product Catalog', icon: Package },
-  { id: 'integration', label: 'Integration & Keys', icon: Key },
 ];
 
 // ─── Section header ───────────────────────────────────────────────────────────
@@ -68,18 +61,14 @@ function AgentClientContent() {
   const searchParams = useSearchParams();
   const rawTab       = searchParams.get('tab') as AgentSection;
   const activeSection: AgentSection =
-    rawTab && ['persona', 'voice', 'documents', 'products', 'integration'].includes(rawTab)
+    rawTab && ['voice', 'documents', 'products'].includes(rawTab)
       ? rawTab
-      : 'persona';
+      : 'voice';
 
   const fallbackKey = demoProfile?.business?.publishableKey ?? null;
-  const fallbackName = demoProfile?.business?.name ?? 'My Store';
 
   const [publishableKey, setPublishableKey] = useState<string | null>(
     DEMO_MODE_ENABLED ? fallbackKey : null,
-  );
-  const [businessName, setBusinessName]     = useState(
-    DEMO_MODE_ENABLED ? fallbackName : 'My Store',
   );
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [docs, setDocs]             = useState<KnowledgeDoc[]>([]);
@@ -102,16 +91,12 @@ function AgentClientContent() {
       .then((res) => {
         const key = withDemoFallback(res?.business?.publishableKey ?? null, fallbackKey);
         setPublishableKey(key);
-        const name = withDemoFallback(res?.business?.name ?? null, fallbackName);
-        if (name) setBusinessName(name);
       })
       .catch(() => {
         setPublishableKey(withDemoFallback(null, fallbackKey));
       });
     loadDocs();
-  }, [loadDocs, fallbackKey, fallbackName]);
-
-  const hasKey = Boolean(publishableKey);
+  }, [loadDocs, fallbackKey]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
@@ -137,39 +122,6 @@ function AgentClientContent() {
           </div>
         }
       />
-
-      {/* ── Widget Active Status Strip (Shown across all Agent tabs) ── */}
-      <div className="flex items-center justify-between px-6 lg:px-8 py-2.5 bg-surface-high/40 border-b border-border text-[12px] flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                'w-1.5 h-1.5 rounded-full flex-shrink-0',
-                hasKey
-                  ? 'bg-[color:var(--status-online)] animate-pulse-ring'
-                  : 'bg-[color:var(--status-error)]',
-              )}
-            />
-            <span className="font-semibold text-foreground">
-              {hasKey ? 'Widget Active' : 'No Active Key'}
-            </span>
-          </div>
-          <span className="text-border">·</span>
-          <span className="text-muted-foreground font-mono font-medium">
-            {businessName}
-          </span>
-        </div>
-
-        {activeSection !== 'integration' && (
-          <Link
-            href="/agent?tab=integration"
-            className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground font-medium transition-colors"
-          >
-            <span>Widget Embed & API Keys</span>
-            <ExternalLink size={11} />
-          </Link>
-        )}
-      </div>
 
       {/* ── In-Page Agent Tabs Navigation ── */}
       <div className="flex items-center gap-1.5 px-6 lg:px-8 pt-4 pb-0 bg-background border-b border-border overflow-x-auto no-scrollbar flex-shrink-0">
@@ -197,17 +149,6 @@ function AgentClientContent() {
       {/* ── Full-Width Content Area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar bg-background">
         <div className="max-w-[1400px] w-full mx-auto px-6 lg:px-8 py-6 flex flex-col gap-6">
-
-          {/* ── Persona & Archetype section ── */}
-          {activeSection === 'persona' && (
-            <>
-              <SectionHeader
-                title="Persona & Operating Archetype"
-                description="Configure your store's operating model, communication tone, and operational directives."
-              />
-              <AgentPersonaTab />
-            </>
-          )}
 
           {/* ── Voice section ── */}
           {activeSection === 'voice' && (
@@ -264,22 +205,6 @@ function AgentClientContent() {
                 description="View and manage items synced from your storefront or uploaded files."
               />
               <ProductDetailsFeedTab onFed={loadDocs} />
-            </>
-          )}
-
-          {/* ── Integration section ── */}
-          {activeSection === 'integration' && (
-            <>
-              <SectionHeader
-                title="Integration & API Keys"
-                description="Manage your publishable widget key and embed ORA on your storefront. Copy the snippet for HTML, Shopify, WooCommerce, or React."
-              />
-              <MerchantCredentialsCard
-                businessName={businessName}
-                publishableKey={publishableKey}
-                onKeyChange={(newKey) => setPublishableKey(newKey)}
-                onOpenTestModal={() => setIsVoiceModalOpen(true)}
-              />
             </>
           )}
 
