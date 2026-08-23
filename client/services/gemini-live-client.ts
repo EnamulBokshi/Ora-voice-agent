@@ -673,7 +673,9 @@ export class GeminiLiveClient {
 
         if (cleanFinal && event.results[event.results.length - 1]?.isFinal) {
           this.recordActivity();
-          this.sendUserTranscript(cleanFinal);
+          // Persistence is handled by server-side Gemini inputTranscription (onInputTranscript callback).
+          // Browser SpeechRecognition is kept here ONLY for instant real-time UI display so the user
+          // can read their own words as they speak, without waiting for the server round-trip.
           this.options.onTranscript?.('user', cleanFinal);
         } else if (cleanAll) {
           this.recordActivity();

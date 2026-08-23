@@ -23,6 +23,7 @@ interface ProxySession {
   customerId: string;
   conversationId: string | null;
   bufferedAiText: string;
+  bufferedUserText: string;   // accumulates user's speech chunks from Gemini inputTranscription
   isAnonymous: boolean;
   closed: boolean;
 }
@@ -362,6 +363,7 @@ export class VoiceProxyGateway {
       customerId: activeCustomer.id,
       conversationId,
       bufferedAiText: '',
+      bufferedUserText: '',
       isAnonymous: isUserAnon,
       closed: false,
     };
@@ -376,9 +378,22 @@ export class VoiceProxyGateway {
       }
     };
 
+    // Assembles fragmented user speech chunks into one coherent utterance and persists it.
+    // Gemini streams inputTranscription in real-time; we accumulate until finished=true or turn boundary.
+    const flushBufferedUserText = () => {
+      if (session.bufferedUserText && session.bufferedUserText.trim() && session.conversationId) {
+        const textToSave = session.bufferedUserText.trim();
+        session.bufferedUserText = '';
+        this.conversationsService
+          .appendMessage(session.conversationId, MessageRole.USER, textToSave)
+          .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving user transcript: ${e.message}`));
+      }
+    };
+
     const cleanup = () => {
       if (session.closed) return;
       session.closed = true;
+      flushBufferedUserText(); // save any partial user speech before closing
       flushBufferedAiText();
       if (session.conversationId) {
         this.conversationsService
@@ -421,13 +436,37 @@ export class VoiceProxyGateway {
         // Google → client: barge-in / interruption
         onInterrupted: () => {
           sendToClient({ type: 'interrupted' });
+          flushBufferedUserText(); // user spoke again; save whatever they said before the barge-in
           flushBufferedAiText();
         },
 
         // Google → client: agent finished speaking
         onTurnComplete: () => {
           sendToClient({ type: 'turn_complete' });
+          flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
+        },
+
+        // Server-side user input transcription — Gemini’s own STT of the user’s microphone audio.
+        // Comes in small chunks while the user is still speaking; isFinal=true signals end of utterance.
+        // Buffers fragments (“hello” + “ I want” + “ shoes”) into one complete message before saving.
+        onInputTranscript: (text, isFinal) => {
+          if (!text.trim()) return;
+          session.bufferedUserText = (session.bufferedUserText ? session.bufferedUserText + ' ' : '') + text.trim();
+          if (isFinal) {
+            flushBufferedUserText();
+          }
+        },
+
+        // Server-side ORA output transcription — Gemini reads back its own synthesised audio as text.
+        // This is the ONLY source of ORA’s spoken text when responseModalities=[AUDIO].
+        // Fragments are buffered into bufferedAiText; isFinal=true or onTurnComplete triggers the DB write.
+        onOutputTranscript: (text, isFinal) => {
+          if (!text.trim()) return;
+          session.bufferedAiText = (session.bufferedAiText ? session.bufferedAiText + ' ' : '') + text.trim();
+          if (isFinal) {
+            flushBufferedAiText();
+          }
         },
 
         // Tool executed server-side → notify client for UI and forward action payload if present

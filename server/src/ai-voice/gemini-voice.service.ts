@@ -37,6 +37,10 @@ export interface GeminiVoiceSessionOptions {
   onTurnComplete?: () => void;
   /** Called after each tool is executed server-side (toolName & result for UI actions) */
   onToolResult?: (toolName: string, result?: any) => void;
+  /** Called with each chunk of the user's spoken input transcription (server-side, from Gemini's STT) */
+  onInputTranscript?: (text: string, isFinal: boolean) => void;
+  /** Called with each chunk of ORA's audio output transcription (server-side, Gemini reads back what it spoke) */
+  onOutputTranscript?: (text: string, isFinal: boolean) => void;
   onError?: (err: any) => void;
   onClose?: () => void;
 }
@@ -223,6 +227,13 @@ export class GeminiVoiceService {
                 functionDeclarations: getToolsForArchetype(archetype),
               },
             ],
+            // ── Server-side transcription (parallel to audio, zero latency impact) ───
+            // inputAudioTranscription: Gemini transcribes the user's microphone audio server-side.
+            //   Chunks arrive as serverContent.inputTranscription.text (no browser SpeechRecognition needed).
+            // outputAudioTranscription: Gemini transcribes its own synthesised audio back to text.
+            //   Chunks arrive as serverContent.outputTranscription.text (solves the AUDIO-only modality gap).
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
           },
         };
 
@@ -278,6 +289,26 @@ export class GeminiVoiceService {
                   options.onTextData(text);
                 }
               }
+            }
+          }
+
+          // Process server-side input transcription (user's spoken words → text)
+          // Chunks arrive in real-time while the user speaks; finished=true marks end of utterance
+          if (response.serverContent?.inputTranscription?.text) {
+            const iText = (response.serverContent.inputTranscription.text as string).trim();
+            const iFinished: boolean = response.serverContent.inputTranscription.finished ?? false;
+            if (iText) {
+              options.onInputTranscript?.(iText, iFinished);
+            }
+          }
+
+          // Process server-side output transcription (ORA's spoken audio → text)
+          // Arrives alongside audio PCM chunks; finished=true marks end of ORA's turn audio
+          if (response.serverContent?.outputTranscription?.text) {
+            const oText = (response.serverContent.outputTranscription.text as string).trim();
+            const oFinished: boolean = response.serverContent.outputTranscription.finished ?? false;
+            if (oText) {
+              options.onOutputTranscript?.(oText, oFinished);
             }
           }
 
