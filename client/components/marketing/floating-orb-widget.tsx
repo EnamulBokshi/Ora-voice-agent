@@ -12,10 +12,10 @@ export type VoiceState = 'idle' | 'connecting' | 'active' | 'thinking' | 'ora-sp
 // ─── Socket / API URL Resolution ──────────────────────────────────────────────
 const getApiBase = (): string => {
   if (typeof window !== 'undefined') {
-    return window.location.origin;
+    return window.location.origin.replace(/\/+$/, '');
   }
   if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, '');
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
   return 'http://localhost:5000';
 };

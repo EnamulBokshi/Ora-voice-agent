@@ -47,7 +47,7 @@
   }
 
   if (apiBase) {
-    apiBase = apiBase.replace(/\/api\/v1\/?$/, '');
+    apiBase = apiBase.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
 
   // Positioning: 'bottom-center' (default)

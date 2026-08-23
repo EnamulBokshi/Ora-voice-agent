@@ -51,7 +51,7 @@
   }
 
   if (apiBase) {
-    apiBase = apiBase.replace(/\/api\/v1\/?$/, '');
+    apiBase = apiBase.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
 
   // Ensure window.ORA_CONFIG is populated for downstream bundle
