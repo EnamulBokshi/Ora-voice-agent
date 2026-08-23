@@ -226,8 +226,38 @@ export function FloatingOrbWidget() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
+  const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isCardHoveredRef = useRef(false);
   const pageHistoryRef = useRef<string[]>([pathname || '/']);
   const lastSentPathRef = useRef<string>(pathname || '/');
+
+  const cancelAutoDismiss = useCallback(() => {
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+      autoDismissTimerRef.current = null;
+    }
+  }, []);
+
+  const armAutoDismiss = useCallback((delayMs = 7000) => {
+    cancelAutoDismiss();
+    autoDismissTimerRef.current = setTimeout(() => {
+      if (!isCardHoveredRef.current) {
+        setShowConfirmModal(false);
+      }
+    }, delayMs);
+  }, [cancelAutoDismiss]);
+
+  const handleConfirmSuccess = useCallback((details: any) => {
+    setIsDetailsConfirmed(true);
+    setIsEditingDetails(false);
+    liveClientRef.current?.confirmCustomerDetails(details);
+    setToastMsg('Details verified & saved!');
+    cancelAutoDismiss();
+    setTimeout(() => {
+      setShowConfirmModal(false);
+      setToastMsg(null);
+    }, 1800);
+  }, [cancelAutoDismiss]);
 
   // Real-time dynamic page & browsing context sync (only when route actually changes)
   useEffect(() => {
@@ -357,6 +387,7 @@ export function FloatingOrbWidget() {
             setShowConfirmModal(true);
             setIsEditingDetails(false);
             setIsDetailsConfirmed(false);
+            armAutoDismiss(8000);
             setTimeout(() => setHighlightField(null), 1500);
           }
           if (action?.type === 'navigate' && action.destination) {
@@ -419,7 +450,7 @@ export function FloatingOrbWidget() {
       setErrorMsg(err.message || 'Could not connect to Voice Gateway');
       setVoiceState('error');
     }
-  }, [pathname, router]);
+  }, [pathname, router, armAutoDismiss]);
 
   // ── Global event trigger support (e.g. from Hero CTA button) ───────────────
   const voiceStateRef = useRef<VoiceState>(voiceState);
@@ -442,7 +473,9 @@ export function FloatingOrbWidget() {
     setLiveSpeaker(null);
     setUserMicLevel(0);
     setSpeakingLevel(0);
-  }, []);
+    setShowConfirmModal(false);
+    cancelAutoDismiss();
+  }, [cancelAutoDismiss]);
 
   const handleToggleMute = useCallback(() => {
     const nextMuted = !isMuted;
@@ -471,7 +504,20 @@ export function FloatingOrbWidget() {
     <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
       {/* ── Interactive Customer Details Confirmation Modal ── */}
       {showConfirmModal && (
-        <div className="lp-orb-confirm-card" aria-live="polite">
+        <div
+          className="lp-orb-confirm-card"
+          aria-live="polite"
+          onMouseEnter={() => {
+            isCardHoveredRef.current = true;
+            cancelAutoDismiss();
+          }}
+          onMouseLeave={() => {
+            isCardHoveredRef.current = false;
+            if (!isEditingDetails && !isDetailsConfirmed) {
+              armAutoDismiss(3500);
+            }
+          }}
+        >
           <div className="lp-orb-card-header">
             <div className="lp-orb-card-title">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" strokeWidth="2">
@@ -483,7 +529,15 @@ export function FloatingOrbWidget() {
               <button
                 type="button"
                 className="lp-orb-icon-btn"
-                onClick={() => setIsEditingDetails(!isEditingDetails)}
+                onClick={() => {
+                  const nextEdit = !isEditingDetails;
+                  setIsEditingDetails(nextEdit);
+                  if (nextEdit) {
+                    cancelAutoDismiss();
+                  } else {
+                    armAutoDismiss(5000);
+                  }
+                }}
                 title="Edit Information"
                 aria-label="Edit"
               >
@@ -495,7 +549,10 @@ export function FloatingOrbWidget() {
               <button
                 type="button"
                 className="lp-orb-icon-btn"
-                onClick={() => setShowConfirmModal(false)}
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  cancelAutoDismiss();
+                }}
                 title="Dismiss"
                 aria-label="Dismiss"
               >
@@ -548,19 +605,17 @@ export function FloatingOrbWidget() {
                 <button
                   type="button"
                   className="lp-orb-action-btn secondary"
-                  onClick={() => setIsEditingDetails(true)}
+                  onClick={() => {
+                    setIsEditingDetails(true);
+                    cancelAutoDismiss();
+                  }}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   className={`lp-orb-action-btn ${isDetailsConfirmed ? 'verified' : 'primary'}`}
-                  onClick={() => {
-                    setIsDetailsConfirmed(true);
-                    liveClientRef.current?.confirmCustomerDetails(customerDetails);
-                    setToastMsg('Details verified & saved!');
-                    setTimeout(() => setToastMsg(null), 3000);
-                  }}
+                  onClick={() => handleConfirmSuccess(customerDetails)}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="20 6 9 17 4 12" />
@@ -616,20 +671,17 @@ export function FloatingOrbWidget() {
                 <button
                   type="button"
                   className="lp-orb-action-btn secondary"
-                  onClick={() => setIsEditingDetails(false)}
+                  onClick={() => {
+                    setIsEditingDetails(false);
+                    armAutoDismiss(5000);
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   className="lp-orb-action-btn primary"
-                  onClick={() => {
-                    setIsEditingDetails(false);
-                    setIsDetailsConfirmed(true);
-                    liveClientRef.current?.confirmCustomerDetails(customerDetails);
-                    setToastMsg('Details verified & saved!');
-                    setTimeout(() => setToastMsg(null), 3000);
-                  }}
+                  onClick={() => handleConfirmSuccess(customerDetails)}
                 >
                   Save & Confirm
                 </button>

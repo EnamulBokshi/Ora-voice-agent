@@ -1389,6 +1389,38 @@
     }
   }
 
+  let cardAutoDismissTimer = null;
+  let isCardHovered = false;
+
+  function cancelCardAutoDismiss() {
+    if (cardAutoDismissTimer) {
+      clearTimeout(cardAutoDismissTimer);
+      cardAutoDismissTimer = null;
+    }
+  }
+
+  function armCardAutoDismiss(delayMs) {
+    cancelCardAutoDismiss();
+    if (!showConfirmCard || isEditingDetails) return;
+    cardAutoDismissTimer = setTimeout(function () {
+      if (!isEditingDetails && !isCardHovered) {
+        showConfirmCard = false;
+        renderConfirmCard();
+      }
+    }, delayMs || 7000);
+  }
+
+  function handleConfirmSuccess() {
+    isDetailsConfirmed = true;
+    renderConfirmCard();
+    showToastNotification('Details verified & saved!');
+    cancelCardAutoDismiss();
+    setTimeout(function () {
+      showConfirmCard = false;
+      renderConfirmCard();
+    }, 1800);
+  }
+
   function showToastNotification(msg) {
     if (!confirmToast) return;
     if (toastTimer) clearTimeout(toastTimer);
@@ -1571,6 +1603,11 @@
 
     function toggleEdit(enable) {
       isEditingDetails = typeof enable === 'boolean' ? enable : !isEditingDetails;
+      if (isEditingDetails) {
+        cancelCardAutoDismiss();
+      } else {
+        armCardAutoDismiss(5000);
+      }
       renderConfirmCard();
     }
 
@@ -1580,7 +1617,6 @@
       if (inputPhone) customerDetails.phone = inputPhone.value.trim();
       if (inputAddress) customerDetails.address = inputAddress.value.trim();
       isEditingDetails = false;
-      isDetailsConfirmed = true;
 
       // Send to server over WebSocket
       if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
@@ -1590,8 +1626,20 @@
         }));
       }
 
-      renderConfirmCard();
-      showToastNotification('Details saved & verified!');
+      handleConfirmSuccess();
+    }
+
+    if (confirmCard) {
+      confirmCard.addEventListener('mouseenter', function () {
+        isCardHovered = true;
+        cancelCardAutoDismiss();
+      });
+      confirmCard.addEventListener('mouseleave', function () {
+        isCardHovered = false;
+        if (showConfirmCard && !isEditingDetails && !isDetailsConfirmed) {
+          armCardAutoDismiss(3500);
+        }
+      });
     }
 
     if (toggleEditBtn) {
@@ -1605,6 +1653,7 @@
       closeCardBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         showConfirmCard = false;
+        cancelCardAutoDismiss();
         renderConfirmCard();
       });
     }
@@ -1626,15 +1675,13 @@
     if (confirmBtn) {
       confirmBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        isDetailsConfirmed = true;
         if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
           geminiWs.send(JSON.stringify({
             type: 'confirm_customer_details',
             data: customerDetails,
           }));
         }
-        renderConfirmCard();
-        showToastNotification('Details verified & saved!');
+        handleConfirmSuccess();
       });
     }
 
@@ -1981,12 +2028,15 @@
     liveUtterance = '';
     liveSpeaker = null;
     showTranscript = false;
+    showConfirmCard = false;
+    cancelCardAutoDismiss();
     lastSpeaker = null;
     userMicLevel = 0;
     speakingLevel = 0;
     audioQueueTime = 0;
     activeResumptionToken = null;
     stopVisualizer();
+    renderConfirmCard();
 
     if (processorNode) { try { processorNode.disconnect(); } catch (e) {} processorNode = null; }
     if (muteGainNode) { try { muteGainNode.disconnect(); } catch (e) {} muteGainNode = null; }
@@ -2315,6 +2365,7 @@
               showConfirmCard = true;
               isDetailsConfirmed = false;
               renderConfirmCard(changedField || true);
+              armCardAutoDismiss(8000);
             }
 
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
@@ -2330,9 +2381,7 @@
           }
 
           if (msg.type === 'customer_details_confirmed') {
-            isDetailsConfirmed = true;
-            renderConfirmCard();
-            showToastNotification('Details verified & saved!');
+            handleConfirmSuccess();
             return;
           }
 
