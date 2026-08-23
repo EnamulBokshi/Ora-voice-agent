@@ -32,7 +32,7 @@ export interface LiveClientOptions {
   onTranscript?: (sender: 'user' | 'agent' | 'system', text: string) => void;
   onAudioLevel?: (level: number) => void;
   onLatency?: (rttMs: number) => void;
-  onAction?: (action: { type: string; destination: string; reason?: string }) => void;
+  onAction?: (action: { type: string; destination?: string; reason?: string; data?: any }) => void;
   onError?: (errMessage: string) => void;
 }
 
@@ -725,4 +725,11 @@ export class GeminiLiveClient {
     }
     return btoa(binary);
   }
+
+  public confirmCustomerDetails(data: { name?: string; email?: string; phone?: string; address?: string; [key: string]: any }) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'confirm_customer_details', data }));
+    }
+  }
 }
+

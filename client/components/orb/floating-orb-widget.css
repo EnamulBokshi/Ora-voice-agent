@@ -570,6 +570,197 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* ── Interactive Customer Details Confirmation Modal ── */
+.lp-orb-confirm-card {
+  position: relative;
+  width: min(360px, calc(100vw - 32px));
+  max-width: 360px;
+  background: rgba(18, 18, 22, 0.95);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(200, 240, 49, 0.35);
+  border-radius: 20px;
+  padding: 1rem 1.2rem;
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 24px rgba(200, 240, 49, 0.08);
+  pointer-events: auto;
+  z-index: 130;
+  animation: lp-gemini-pill-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  color: #FAFAFA;
+}
+
+.lp-orb-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.lp-orb-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #FAFAFA;
+}
+
+.lp-orb-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.lp-orb-icon-btn {
+  background: transparent;
+  border: none;
+  color: #9CA3AF;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.lp-orb-icon-btn:hover {
+  color: #FAFAFA;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lp-orb-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.lp-orb-field-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.lp-orb-field-label {
+  color: #9CA3AF;
+  font-weight: 500;
+  min-width: 65px;
+}
+
+.lp-orb-field-val {
+  color: #FAFAFA;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+  flex: 1;
+}
+
+.lp-orb-field-val.highlight {
+  color: #C8F031;
+  animation: lp-orb-hl-pulse 1.4s ease;
+}
+
+@keyframes lp-orb-hl-pulse {
+  0% { color: #C8F031; text-shadow: 0 0 8px rgba(200, 240, 49, 0.6); }
+  100% { color: #FAFAFA; text-shadow: none; }
+}
+
+.lp-orb-form-group {
+  margin-bottom: 0.5rem;
+}
+
+.lp-orb-form-group label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #9CA3AF;
+  margin-bottom: 0.2rem;
+  text-align: left;
+}
+
+.lp-orb-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  color: #FAFAFA;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.lp-orb-input:focus {
+  border-color: #C8F031;
+}
+
+.lp-orb-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.lp-orb-action-btn {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.lp-orb-action-btn.primary {
+  background: #C8F031;
+  color: #111111;
+}
+
+.lp-orb-action-btn.primary:hover {
+  background: #B8DD28;
+}
+
+.lp-orb-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FAFAFA;
+}
+
+.lp-orb-action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.lp-orb-action-btn.verified {
+  background: #65A30D;
+  color: #FFFFFF;
+}
+
+.lp-orb-toast {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: #C8F031;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.35rem 0;
+  animation: lp-gemini-pill-in 0.2s ease;
+}
+
 /* ── Mobile Responsive Adjustments ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .lp-orb-root {
@@ -600,5 +791,10 @@
   .lp-orb-gemini-text {
     font-size: 0.875rem;
     line-height: 1.4;
+  }
+  .lp-orb-confirm-card {
+    width: min(320px, calc(100vw - 24px));
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
   }
 }

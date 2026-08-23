@@ -211,7 +211,19 @@ export function FloatingOrbWidget() {
   const [speakingLevel, setSpeakingLevel] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [isMuted, setIsMuted] = useState(false);
-  const [showTranscript, setShowTranscript] = useState(true);
+
+  // Customer Details Confirmation State
+  const [customerDetails, setCustomerDetails] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  }>({});
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isDetailsConfirmed, setIsDetailsConfirmed] = useState(false);
+  const [highlightField, setHighlightField] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const pageHistoryRef = useRef<string[]>([pathname || '/']);
@@ -294,7 +306,6 @@ export function FloatingOrbWidget() {
     setLiveUtterance('');
     setLiveSpeaker(null);
     setIsMuted(false);
-    setShowTranscript(true);
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     const apiBaseUrl = getApiBase();
@@ -324,11 +335,9 @@ export function FloatingOrbWidget() {
           if (sender === 'agent') {
             setLiveSpeaker('agent');
             setLiveUtterance(text);
-            setShowTranscript(true);
           } else if (sender === 'user') {
             setLiveSpeaker('user');
             setLiveUtterance(text);
-            setShowTranscript(true);
           }
         },
         onAudioLevel: (level) => {
@@ -341,6 +350,15 @@ export function FloatingOrbWidget() {
         },
         onAction: (action) => {
           if (!isMountedRef.current) return;
+          if (action?.type === 'confirm_details' && action.data) {
+            const data = action.data;
+            setCustomerDetails((prev) => ({ ...prev, ...data }));
+            setHighlightField(Object.keys(data)[0] || null);
+            setShowConfirmModal(true);
+            setIsEditingDetails(false);
+            setIsDetailsConfirmed(false);
+            setTimeout(() => setHighlightField(null), 1500);
+          }
           if (action?.type === 'navigate' && action.destination) {
             let dest = action.destination.trim();
             if (dest === '/register' || dest === '/signup' || dest === '/auth/register') {
@@ -451,31 +469,182 @@ export function FloatingOrbWidget() {
 
   return (
     <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
-      {/* ── Gemini Mobile Style Live Transcribe Overlay (Pill) ── */}
-      {showTranscript && liveUtterance && (
-        <div
-          className={`lp-orb-gemini-transcript ${liveSpeaker === 'user' ? 'user-turn' : 'agent-turn'}`}
-          aria-live="polite"
-        >
-          <div className="lp-orb-gemini-content">
-            <p className="lp-orb-gemini-text">
-              {liveUtterance}
-              {liveSpeaker === 'user' && (
-                <span className="lp-orb-typing-cursor" aria-hidden="true" />
-              )}
-            </p>
+      {/* ── Interactive Customer Details Confirmation Modal ── */}
+      {showConfirmModal && (
+        <div className="lp-orb-confirm-card" aria-live="polite">
+          <div className="lp-orb-card-header">
+            <div className="lp-orb-card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              <span>Review Your Information</span>
+            </div>
+            <div className="lp-orb-card-header-actions">
+              <button
+                type="button"
+                className="lp-orb-icon-btn"
+                onClick={() => setIsEditingDetails(!isEditingDetails)}
+                title="Edit Information"
+                aria-label="Edit"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="lp-orb-icon-btn"
+                onClick={() => setShowConfirmModal(false)}
+                title="Dismiss"
+                aria-label="Dismiss"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <button
-            aria-label="Dismiss transcript"
-            className="lp-orb-gemini-close"
-            onClick={() => setShowTranscript(false)}
-            type="button"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+
+          {!isEditingDetails ? (
+            <div className="lp-orb-card-view">
+              <div className="lp-orb-field-list">
+                {customerDetails.name && (
+                  <div className="lp-orb-field-row">
+                    <span className="lp-orb-field-label">👤 Name</span>
+                    <span className={`lp-orb-field-val ${highlightField === 'name' ? 'highlight' : ''}`}>
+                      {customerDetails.name}
+                    </span>
+                  </div>
+                )}
+                {customerDetails.email && (
+                  <div className="lp-orb-field-row">
+                    <span className="lp-orb-field-label">✉️ Email</span>
+                    <span className={`lp-orb-field-val ${highlightField === 'email' ? 'highlight' : ''}`}>
+                      {customerDetails.email}
+                    </span>
+                  </div>
+                )}
+                {customerDetails.phone && (
+                  <div className="lp-orb-field-row">
+                    <span className="lp-orb-field-label">📞 Phone</span>
+                    <span className={`lp-orb-field-val ${highlightField === 'phone' ? 'highlight' : ''}`}>
+                      {customerDetails.phone}
+                    </span>
+                  </div>
+                )}
+                {customerDetails.address && (
+                  <div className="lp-orb-field-row">
+                    <span className="lp-orb-field-label">📍 Address</span>
+                    <span className={`lp-orb-field-val ${highlightField === 'address' ? 'highlight' : ''}`}>
+                      {customerDetails.address}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="lp-orb-card-actions">
+                <button
+                  type="button"
+                  className="lp-orb-action-btn secondary"
+                  onClick={() => setIsEditingDetails(true)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className={`lp-orb-action-btn ${isDetailsConfirmed ? 'verified' : 'primary'}`}
+                  onClick={() => {
+                    setIsDetailsConfirmed(true);
+                    liveClientRef.current?.confirmCustomerDetails(customerDetails);
+                    setToastMsg('Details verified & saved!');
+                    setTimeout(() => setToastMsg(null), 3000);
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {isDetailsConfirmed ? 'Verified' : 'Confirm & Save'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="lp-orb-card-edit">
+              <div className="lp-orb-form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  className="lp-orb-input"
+                  value={customerDetails.name || ''}
+                  onChange={(e) => setCustomerDetails((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Your name"
+                />
+              </div>
+              <div className="lp-orb-form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  className="lp-orb-input"
+                  value={customerDetails.email || ''}
+                  onChange={(e) => setCustomerDetails((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="name@domain.com"
+                />
+              </div>
+              <div className="lp-orb-form-group">
+                <label>Phone</label>
+                <input
+                  type="tel"
+                  className="lp-orb-input"
+                  value={customerDetails.phone || ''}
+                  onChange={(e) => setCustomerDetails((prev) => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+1 (555) 000-0000"
+                />
+              </div>
+              <div className="lp-orb-form-group">
+                <label>Address / Shipping</label>
+                <input
+                  type="text"
+                  className="lp-orb-input"
+                  value={customerDetails.address || ''}
+                  onChange={(e) => setCustomerDetails((prev) => ({ ...prev, address: e.target.value }))}
+                  placeholder="Street, City, Zip"
+                />
+              </div>
+
+              <div className="lp-orb-card-actions">
+                <button
+                  type="button"
+                  className="lp-orb-action-btn secondary"
+                  onClick={() => setIsEditingDetails(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="lp-orb-action-btn primary"
+                  onClick={() => {
+                    setIsEditingDetails(false);
+                    setIsDetailsConfirmed(true);
+                    liveClientRef.current?.confirmCustomerDetails(customerDetails);
+                    setToastMsg('Details verified & saved!');
+                    setTimeout(() => setToastMsg(null), 3000);
+                  }}
+                >
+                  Save & Confirm
+                </button>
+              </div>
+            </div>
+          )}
+
+          {toastMsg && (
+            <div className="lp-orb-toast">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>{toastMsg}</span>
+            </div>
+          )}
         </div>
       )}
 

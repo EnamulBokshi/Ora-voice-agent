@@ -70,6 +70,13 @@
   let activeResumptionToken = null;
   let isWaitingForAi = false;
 
+  // Customer Details Confirmation Card State
+  let customerDetails = { name: '', email: '', phone: '', address: '' };
+  let isEditingDetails = false;
+  let isDetailsConfirmed = false;
+  let showConfirmCard = false;
+  let toastTimer = null;
+
   // Audio Contexts & Buffers
   let audioContext = null;
   let playbackContext = null;
@@ -823,30 +830,175 @@
       animation: ora-w-fly-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    /* ── Siri/Gemini Transcript Pill ── */
-    .ora-w-transcript-pill {
+    /* ── Customer Details Verification & Confirmation Card ── */
+    .ora-w-confirm-card {
       pointer-events: auto;
       max-width: 320px;
-      min-width: 180px;
-      padding: 10px 16px;
-      border-radius: 20px;
-      font-size: 13px;
-      line-height: 1.4;
-      color: #FFFFFF;
-      background: rgba(17, 17, 17, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      width: calc(100vw - 36px);
+      background: rgba(17, 17, 17, 0.95);
+      border: 1px solid rgba(200, 240, 49, 0.35);
+      border-radius: 16px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(200, 240, 49, 0.08);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      color: #FAFAFA;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      animation: ora-w-pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      box-sizing: border-box;
+      text-align: left;
+    }
+    @keyframes ora-w-pop-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .ora-w-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+    .ora-w-card-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: -0.01em;
+      color: #FAFAFA;
+    }
+    .ora-w-card-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ora-w-icon-btn {
+      background: transparent;
+      border: none;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s, background-color 0.15s;
+    }
+    .ora-w-icon-btn:hover {
+      color: #FAFAFA;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .ora-w-field-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .ora-w-field-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .ora-w-field-label {
+      color: #9CA3AF;
+      min-width: 65px;
+      font-weight: 500;
+    }
+    .ora-w-field-value {
+      color: #FAFAFA;
+      font-weight: 500;
+      text-align: right;
+      word-break: break-word;
+      flex: 1;
+    }
+    .ora-w-field-value.highlight {
+      color: #C8F031;
+      animation: ora-w-highlight-pulse 1.4s ease;
+    }
+    @keyframes ora-w-highlight-pulse {
+      0% { color: #C8F031; text-shadow: 0 0 8px rgba(200, 240, 49, 0.6); }
+      100% { color: #FAFAFA; text-shadow: none; }
+    }
+    .ora-w-form-group {
       margin-bottom: 8px;
-      transition: all 0.2s ease;
-      text-align: center;
     }
-    .ora-w-transcript-pill.user-turn {
-      border-color: rgba(56, 189, 248, 0.5);
+    .ora-w-form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #9CA3AF;
+      margin-bottom: 4px;
+      text-align: left;
     }
-    .ora-w-transcript-pill.agent-turn {
-      border-color: rgba(200, 240, 49, 0.5);
+    .ora-w-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #FAFAFA;
+      font-size: 12px;
+      font-family: inherit;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .ora-w-input:focus {
+      border-color: #C8F031;
+    }
+    .ora-w-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .ora-w-btn {
+      flex: 1;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: none;
+      transition: background-color 0.15s, transform 0.05s;
+    }
+    .ora-w-btn:active {
+      transform: scale(0.98);
+    }
+    .ora-w-btn-primary {
+      background: #C8F031;
+      color: #111111;
+    }
+    .ora-w-btn-primary:hover {
+      background: #B8DD28;
+    }
+    .ora-w-btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FAFAFA;
+    }
+    .ora-w-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .ora-w-confirm-toast {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: #C8F031;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 6px 0;
+      animation: ora-w-pop-in 0.2s ease;
     }
 
     /* ── Control Action Buttons (Mute / Stop) ── */
@@ -1117,13 +1269,28 @@
   let statusDot = null;
   let statusLabel = null;
   let reactiveAura = null;
-  let transcriptBox = null;
-  let transcriptText = null;
   let controlsBar = null;
   let muteBtn = null;
   let closeBtn = null;
   let canvasTime = 0;
   let canvasAnimId = null;
+
+  // Confirmation Card DOM refs
+  let confirmCard = null;
+  let cardView = null;
+  let cardEdit = null;
+  let fieldList = null;
+  let toggleEditBtn = null;
+  let closeCardBtn = null;
+  let editBtn = null;
+  let confirmBtn = null;
+  let cancelEditBtn = null;
+  let saveEditBtn = null;
+  let confirmToast = null;
+  let inputName = null;
+  let inputEmail = null;
+  let inputPhone = null;
+  let inputAddress = null;
 
   // ─── Idle Inactivity Timer (Conversational Standby Protocol) ───────────────
   function cancelIdleTimer() {
@@ -1149,6 +1316,90 @@
     }
   }
 
+  // ─── Render Confirmation Card ──────────────────────────────────────────────
+  function renderConfirmCard(highlightField) {
+    if (!confirmCard) return;
+    if (!showConfirmCard) {
+      confirmCard.style.display = 'none';
+      return;
+    }
+
+    const hasAnyField = Boolean(
+      (customerDetails.name && customerDetails.name.trim()) ||
+      (customerDetails.email && customerDetails.email.trim()) ||
+      (customerDetails.phone && customerDetails.phone.trim()) ||
+      (customerDetails.address && customerDetails.address.trim())
+    );
+
+    if (!hasAnyField && !isEditingDetails) {
+      confirmCard.style.display = 'none';
+      return;
+    }
+
+    confirmCard.style.display = 'block';
+
+    if (isEditingDetails) {
+      if (cardView) cardView.style.display = 'none';
+      if (cardEdit) cardEdit.style.display = 'block';
+      if (confirmToast) confirmToast.style.display = 'none';
+      if (inputName) inputName.value = customerDetails.name || '';
+      if (inputEmail) inputEmail.value = customerDetails.email || '';
+      if (inputPhone) inputPhone.value = customerDetails.phone || '';
+      if (inputAddress) inputAddress.value = customerDetails.address || '';
+    } else {
+      if (cardView) cardView.style.display = 'block';
+      if (cardEdit) cardEdit.style.display = 'none';
+
+      let rowsHtml = '';
+      const fields = [
+        { key: 'name', label: 'Name', val: customerDetails.name, icon: '👤' },
+        { key: 'email', label: 'Email', val: customerDetails.email, icon: '✉️' },
+        { key: 'phone', label: 'Phone', val: customerDetails.phone, icon: '📞' },
+        { key: 'address', label: 'Address', val: customerDetails.address, icon: '📍' },
+      ];
+
+      fields.forEach(function (f) {
+        if (f.val && f.val.trim()) {
+          const isHl = highlightField === f.key || (highlightField === true);
+          rowsHtml += `
+            <div class="ora-w-field-row">
+              <span class="ora-w-field-label">${f.icon} ${f.label}</span>
+              <span class="ora-w-field-value ${isHl ? 'highlight' : ''}">${escapeHtml(f.val)}</span>
+            </div>
+          `;
+        }
+      });
+
+      if (!rowsHtml) {
+        rowsHtml = `<div class="ora-w-field-row"><span class="ora-w-field-label">Info</span><span class="ora-w-field-value">Awaiting customer details...</span></div>`;
+      }
+
+      if (fieldList) fieldList.innerHTML = rowsHtml;
+      if (confirmBtn) {
+        if (isDetailsConfirmed) {
+          confirmBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Verified';
+          confirmBtn.style.background = '#65A30D';
+          confirmBtn.style.color = '#FFFFFF';
+        } else {
+          confirmBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Confirm & Save';
+          confirmBtn.style.background = '#C8F031';
+          confirmBtn.style.color = '#111111';
+        }
+      }
+    }
+  }
+
+  function showToastNotification(msg) {
+    if (!confirmToast) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    const span = confirmToast.querySelector('span');
+    if (span) span.innerText = msg;
+    confirmToast.style.display = 'flex';
+    toastTimer = setTimeout(function () {
+      confirmToast.style.display = 'none';
+    }, 3500);
+  }
+
   // ─── Mount DOM inside Shadow Root ──────────────────────────────────────────
   function mountWidget() {
     if (host) return;
@@ -1164,8 +1415,62 @@
     root.className = 'ora-w-root pos-' + position;
 
     root.innerHTML = `
-      <div id="oraWTranscript" class="ora-w-transcript-pill" style="display:none;">
-        <span id="oraWTranscriptText"></span>
+      <div id="oraWConfirmCard" class="ora-w-confirm-card" style="display:none;">
+        <div class="ora-w-card-header">
+          <div class="ora-w-card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Review Your Information</span>
+          </div>
+          <div class="ora-w-card-header-actions">
+            <button id="oraWToggleEditBtn" class="ora-w-icon-btn" title="Edit Information" type="button" aria-label="Edit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button id="oraWCloseCardBtn" class="ora-w-icon-btn" title="Dismiss" type="button" aria-label="Dismiss">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- View Mode -->
+        <div id="oraWCardView" class="ora-w-card-view">
+          <div class="ora-w-field-list" id="oraWFieldList"></div>
+          <div class="ora-w-card-actions">
+            <button id="oraWEditBtn" class="ora-w-btn ora-w-btn-secondary" type="button">Edit</button>
+            <button id="oraWConfirmBtn" class="ora-w-btn ora-w-btn-primary" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirm & Save
+            </button>
+          </div>
+        </div>
+
+        <!-- Edit Mode -->
+        <div id="oraWCardEdit" class="ora-w-card-edit" style="display:none;">
+          <div class="ora-w-form-group">
+            <label>Name</label>
+            <input type="text" id="oraWInputName" class="ora-w-input" placeholder="Your name" />
+          </div>
+          <div class="ora-w-form-group">
+            <label>Email</label>
+            <input type="email" id="oraWInputEmail" class="ora-w-input" placeholder="name@domain.com" />
+          </div>
+          <div class="ora-w-form-group">
+            <label>Phone</label>
+            <input type="tel" id="oraWInputPhone" class="ora-w-input" placeholder="+1 (555) 000-0000" />
+          </div>
+          <div class="ora-w-form-group">
+            <label>Address / Shipping</label>
+            <input type="text" id="oraWInputAddress" class="ora-w-input" placeholder="Street, City, Zip" />
+          </div>
+          <div class="ora-w-card-actions">
+            <button id="oraWCancelEditBtn" class="ora-w-btn ora-w-btn-secondary" type="button">Cancel</button>
+            <button id="oraWSaveEditBtn" class="ora-w-btn ora-w-btn-primary" type="button">Save & Confirm</button>
+          </div>
+        </div>
+
+        <div id="oraWConfirmToast" class="ora-w-confirm-toast" style="display:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F031" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Details verified & saved!</span>
+        </div>
       </div>
 
       <div id="oraWControls" class="ora-w-controls-row" style="display:none;">
@@ -1206,11 +1511,26 @@
     statusDot = shadowRoot.getElementById('oraWDot');
     statusLabel = shadowRoot.getElementById('oraWStatusLabel');
     reactiveAura = shadowRoot.getElementById('oraWReactiveAura');
-    transcriptBox = shadowRoot.getElementById('oraWTranscript');
-    transcriptText = shadowRoot.getElementById('oraWTranscriptText');
     controlsBar = shadowRoot.getElementById('oraWControls');
     muteBtn = shadowRoot.getElementById('oraWMuteBtn');
     closeBtn = shadowRoot.getElementById('oraWCloseBtn');
+
+    // Confirm Card refs
+    confirmCard = shadowRoot.getElementById('oraWConfirmCard');
+    cardView = shadowRoot.getElementById('oraWCardView');
+    cardEdit = shadowRoot.getElementById('oraWCardEdit');
+    fieldList = shadowRoot.getElementById('oraWFieldList');
+    toggleEditBtn = shadowRoot.getElementById('oraWToggleEditBtn');
+    closeCardBtn = shadowRoot.getElementById('oraWCloseCardBtn');
+    editBtn = shadowRoot.getElementById('oraWEditBtn');
+    confirmBtn = shadowRoot.getElementById('oraWConfirmBtn');
+    cancelEditBtn = shadowRoot.getElementById('oraWCancelEditBtn');
+    saveEditBtn = shadowRoot.getElementById('oraWSaveEditBtn');
+    confirmToast = shadowRoot.getElementById('oraWConfirmToast');
+    inputName = shadowRoot.getElementById('oraWInputName');
+    inputEmail = shadowRoot.getElementById('oraWInputEmail');
+    inputPhone = shadowRoot.getElementById('oraWInputPhone');
+    inputAddress = shadowRoot.getElementById('oraWInputAddress');
 
     // Initialize Procedural Canvas Fluid Wave Mesh Engine
     initOrbCanvas();
@@ -1248,6 +1568,82 @@
       e.stopPropagation();
       teardown();
     });
+
+    function toggleEdit(enable) {
+      isEditingDetails = typeof enable === 'boolean' ? enable : !isEditingDetails;
+      renderConfirmCard();
+    }
+
+    function saveAndConfirmDetails() {
+      if (inputName) customerDetails.name = inputName.value.trim();
+      if (inputEmail) customerDetails.email = inputEmail.value.trim();
+      if (inputPhone) customerDetails.phone = inputPhone.value.trim();
+      if (inputAddress) customerDetails.address = inputAddress.value.trim();
+      isEditingDetails = false;
+      isDetailsConfirmed = true;
+
+      // Send to server over WebSocket
+      if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+        geminiWs.send(JSON.stringify({
+          type: 'confirm_customer_details',
+          data: customerDetails,
+        }));
+      }
+
+      renderConfirmCard();
+      showToastNotification('Details saved & verified!');
+    }
+
+    if (toggleEditBtn) {
+      toggleEditBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleEdit();
+      });
+    }
+
+    if (closeCardBtn) {
+      closeCardBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        showConfirmCard = false;
+        renderConfirmCard();
+      });
+    }
+
+    if (editBtn) {
+      editBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleEdit(true);
+      });
+    }
+
+    if (cancelEditBtn) {
+      cancelEditBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleEdit(false);
+      });
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        isDetailsConfirmed = true;
+        if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+          geminiWs.send(JSON.stringify({
+            type: 'confirm_customer_details',
+            data: customerDetails,
+          }));
+        }
+        renderConfirmCard();
+        showToastNotification('Details verified & saved!');
+      });
+    }
+
+    if (saveEditBtn) {
+      saveEditBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        saveAndConfirmDetails();
+      });
+    }
 
     render();
   }
@@ -1476,15 +1872,6 @@
     } else {
       statusDot.className = 'ora-w-status-dot idle';
       statusLabel.innerText = 'Talk with ORA';
-    }
-
-    // Transcript Box
-    if (showTranscript && liveUtterance) {
-      transcriptBox.style.display = 'block';
-      transcriptBox.className = 'ora-w-transcript-pill ' + (liveSpeaker === 'user' ? 'user-turn' : 'agent-turn');
-      transcriptText.innerHTML = (liveSpeaker === 'user' ? '<strong>You:</strong> ' : '<strong>ORA:</strong> ') + escapeHtml(liveUtterance);
-    } else {
-      transcriptBox.style.display = 'none';
     }
 
     // Mute button icon
@@ -1917,6 +2304,19 @@
           }
 
           if (msg.type === 'tool_result') {
+            if (msg.action && msg.action.type === 'confirm_details' && msg.action.data) {
+              var actData = msg.action.data;
+              var changedField = null;
+              if (actData.name && actData.name !== customerDetails.name) { customerDetails.name = actData.name; changedField = 'name'; }
+              if (actData.email && actData.email !== customerDetails.email) { customerDetails.email = actData.email; changedField = 'email'; }
+              if (actData.phone && actData.phone !== customerDetails.phone) { customerDetails.phone = actData.phone; changedField = 'phone'; }
+              if (actData.address && actData.address !== customerDetails.address) { customerDetails.address = actData.address; changedField = 'address'; }
+
+              showConfirmCard = true;
+              isDetailsConfirmed = false;
+              renderConfirmCard(changedField || true);
+            }
+
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
               var dest = msg.action.destination;
               if (dest.startsWith('#')) {
@@ -1926,6 +2326,13 @@
                 window.location.href = dest;
               }
             }
+            return;
+          }
+
+          if (msg.type === 'customer_details_confirmed') {
+            isDetailsConfirmed = true;
+            renderConfirmCard();
+            showToastNotification('Details verified & saved!');
             return;
           }
 
