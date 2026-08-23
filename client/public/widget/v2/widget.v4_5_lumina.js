@@ -265,32 +265,200 @@
         .trim()
         .slice(0, 4000);
 
-      // 5. Schema.org Product Check (if e-commerce)
+      // 5. Multi-Strategy E-Commerce Product Extractor
       var product = null;
+
+      // ── Strategy A: Schema.org JSON-LD (Mobile Safari & Blink Safe via textContent/innerHTML) ──
       var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (var i = 0; i < ldScripts.length; i++) {
         try {
-          var parsed = JSON.parse(ldScripts[i].innerText || '{}');
+          var rawJson = ldScripts[i].textContent || ldScripts[i].innerHTML || ldScripts[i].text || '';
+          if (!rawJson || !rawJson.trim()) continue;
+          var parsed = JSON.parse(rawJson);
           var items = Array.isArray(parsed) ? parsed : [parsed];
-          var flattened = items.flatMap(function(x) { return x && x['@graph'] ? x['@graph'] : [x]; });
+          var flattened = items.flatMap(function(x) { 
+            if (!x) return [];
+            if (x['@graph'] && Array.isArray(x['@graph'])) return x['@graph'];
+            return [x]; 
+          });
           var prod = flattened.find(function(node) {
-            return node && node['@type'] && (node['@type'] === 'Product' || (Array.isArray(node['@type']) && node['@type'].includes('Product')));
+            if (!node || !node['@type']) return false;
+            var t = node['@type'];
+            return t === 'Product' || (Array.isArray(t) && t.indexOf('Product') !== -1);
           });
           if (prod) {
             var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
+            var priceVal = null;
+            var currVal = 'USD';
+            var availVal = 'unknown';
+
+            if (offer) {
+              if (offer.price !== undefined && offer.price !== null && offer.price !== '') {
+                priceVal = Number(String(offer.price).replace(/[^0-9.]/g, ''));
+              } else if (offer.lowPrice !== undefined && offer.lowPrice !== null) {
+                priceVal = Number(String(offer.lowPrice).replace(/[^0-9.]/g, ''));
+              }
+              if (offer.priceCurrency) currVal = String(offer.priceCurrency).toUpperCase();
+              if (offer.availability) {
+                availVal = /instock|in_stock/i.test(String(offer.availability)) ? 'in_stock' : (/outofstock|out_of_stock/i.test(String(offer.availability)) ? 'out_of_stock' : 'unknown');
+              }
+            }
+
+            var imgVal = null;
+            if (prod.image) {
+              if (typeof prod.image === 'string') imgVal = prod.image;
+              else if (Array.isArray(prod.image) && prod.image[0]) {
+                imgVal = typeof prod.image[0] === 'string' ? prod.image[0] : (prod.image[0].url || null);
+              } else if (prod.image.url) imgVal = prod.image.url;
+            }
+
             product = {
               name: prod.name || title,
-              price: offer && offer.price ? Number(offer.price) : null,
-              currency: offer && offer.priceCurrency ? offer.priceCurrency : 'USD',
-              availability: offer && /instock/i.test(offer.availability || '') ? 'in_stock' : 'unknown',
-              sku: prod.sku || null
+              price: isNaN(priceVal) ? null : priceVal,
+              currency: currVal,
+              availability: availVal,
+              sku: prod.sku || prod.productID || prod.identifier || null,
+              image: imgVal,
+              description: prod.description ? String(prod.description).slice(0, 500) : null
             };
             break;
           }
         } catch (e) {}
       }
 
-      var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + cleanBodyText.slice(0, 500);
+      // ── Strategy B: Next.js Client State (__NEXT_DATA__) ──
+      if ((!product || product.price === null) && typeof window !== 'undefined' && window.__NEXT_DATA__ && window.__NEXT_DATA__.props) {
+        try {
+          var pageProps = window.__NEXT_DATA__.props.pageProps || {};
+          var candidate = pageProps.product || pageProps.item || (pageProps.data && pageProps.data.product) || (pageProps.initialState && pageProps.initialState.product) || null;
+          if (candidate && (candidate.title || candidate.name)) {
+            var nPrice = candidate.price || (candidate.priceRange && candidate.priceRange.minVariantPrice && candidate.priceRange.minVariantPrice.amount) || (candidate.variants && candidate.variants[0] && candidate.variants[0].price) || candidate.formattedPrice || null;
+            var numPrice = nPrice !== null ? Number(String(nPrice).replace(/[^0-9.]/g, '')) : null;
+            var nCurr = candidate.currency || candidate.currencyCode || (candidate.priceRange && candidate.priceRange.minVariantPrice && candidate.priceRange.minVariantPrice.currencyCode) || 'USD';
+            var nImg = (candidate.images && candidate.images[0] && candidate.images[0].url) || (candidate.image && candidate.image.url) || (typeof candidate.image === 'string' ? candidate.image : null);
+            var nSku = candidate.sku || candidate.id || candidate.handle || null;
+            var nAvail = candidate.availableForSale !== undefined ? (candidate.availableForSale ? 'in_stock' : 'out_of_stock') : 'unknown';
+
+            product = {
+              name: (candidate.title || candidate.name).trim(),
+              price: isNaN(numPrice) ? null : numPrice,
+              currency: String(nCurr).toUpperCase(),
+              availability: nAvail,
+              sku: nSku ? String(nSku) : null,
+              image: nImg,
+              description: candidate.description ? String(candidate.description).slice(0, 500) : null
+            };
+          }
+        } catch (e) {}
+      }
+
+      // ── Strategy C: OpenGraph & Microdata Meta Tags ──
+      if (!product || product.price === null) {
+        try {
+          var ogTitle = (document.querySelector('meta[property="og:title"]') && document.querySelector('meta[property="og:title"]').getAttribute('content')) ||
+                        (document.querySelector('meta[name="twitter:title"]') && document.querySelector('meta[name="twitter:title"]').getAttribute('content')) || '';
+          var ogPrice = (document.querySelector('meta[property="product:price:amount"]') && document.querySelector('meta[property="product:price:amount"]').getAttribute('content')) ||
+                        (document.querySelector('meta[property="og:price:amount"]') && document.querySelector('meta[property="og:price:amount"]').getAttribute('content')) ||
+                        (document.querySelector('meta[name="twitter:data1"]') && document.querySelector('meta[name="twitter:data1"]').getAttribute('content')) || '';
+          var ogCurrency = (document.querySelector('meta[property="product:price:currency"]') && document.querySelector('meta[property="product:price:currency"]').getAttribute('content')) ||
+                           (document.querySelector('meta[property="og:price:currency"]') && document.querySelector('meta[property="og:price:currency"]').getAttribute('content')) || 'USD';
+          var ogImage = (document.querySelector('meta[property="og:image"]') && document.querySelector('meta[property="og:image"]').getAttribute('content')) || '';
+          var ogAvail = (document.querySelector('meta[property="product:availability"]') && document.querySelector('meta[property="product:availability"]').getAttribute('content')) || '';
+
+          // Microdata fallback [itemtype*="Product"]
+          if (!ogTitle || !ogPrice) {
+            var itemScopeProd = document.querySelector('[itemtype*="Product"], [itemscope][itemtype*="schema.org"]');
+            if (itemScopeProd) {
+              var nameEl = itemScopeProd.querySelector('[itemprop="name"]');
+              if (nameEl) ogTitle = (nameEl.innerText || nameEl.textContent || '').trim();
+              var priceEl = itemScopeProd.querySelector('[itemprop="price"]');
+              if (priceEl) ogPrice = priceEl.getAttribute('content') || (priceEl.innerText || priceEl.textContent || '').trim();
+              var currEl = itemScopeProd.querySelector('[itemprop="priceCurrency"]');
+              if (currEl) ogCurrency = currEl.getAttribute('content') || (currEl.innerText || currEl.textContent || '').trim() || 'USD';
+            }
+          }
+
+          if (ogTitle && ogPrice) {
+            var parsedOgPrice = Number(String(ogPrice).replace(/[^0-9.]/g, ''));
+            if (!isNaN(parsedOgPrice) && parsedOgPrice > 0) {
+              product = {
+                name: ogTitle.trim(),
+                price: parsedOgPrice,
+                currency: ogCurrency.toUpperCase(),
+                availability: /instock|in_stock|available/i.test(ogAvail) ? 'in_stock' : 'unknown',
+                sku: null,
+                image: ogImage || null,
+                description: metaDesc || null
+              };
+            }
+          }
+        } catch (e) {}
+      }
+
+      // ── Strategy D: Dynamic Heuristic PDP Scraper (HTML Semantics + Price Patterns) ──
+      if (!product || product.price === null) {
+        try {
+          var addToCartBtn = document.querySelector(
+            'button[name="add"], button[id*="add-to-cart"], button[class*="add-to-cart"], button[class*="addToCart"], ' +
+            'form[action*="/cart/add"] button, [data-action="add-to-cart"], button[aria-label*="cart" i], ' +
+            'button[aria-label*="bag" i], a[href*="/checkout"], button[class*="buy-now"]'
+          );
+
+          if (!addToCartBtn) {
+            var allBtns = document.querySelectorAll('button, a.btn, a.button, input[type="submit"]');
+            for (var b = 0; b < allBtns.length; b++) {
+              var btnTxt = (allBtns[b].innerText || allBtns[b].textContent || '').trim().toLowerCase();
+              if (/add to (cart|bag)|buy now|order now|কার্ট|কিনুন|order online/i.test(btnTxt)) {
+                addToCartBtn = allBtns[b];
+                break;
+              }
+            }
+          }
+
+          var isProductUrl = /\/(products?|items?|p|dp|goods|shop)\/[^\/]+/i.test(pathname);
+          if (addToCartBtn || isProductUrl) {
+            var h1El = document.querySelector('h1:not(#ora-voice-root h1)') || 
+                       document.querySelector('[class*="product__title"], [class*="product-title"], [class*="productName"]');
+            var candidateTitle = h1El ? (h1El.innerText || h1El.textContent || '').trim() : title;
+
+            var priceEl = document.querySelector('[class*="price"]:not(#ora-voice-root *), [id*="price"], [data-price], [itemprop="price"]');
+            var priceText = priceEl ? (priceEl.innerText || priceEl.textContent || '').trim() : '';
+
+            if (!priceText && h1El && h1El.parentElement) {
+              priceText = (h1El.parentElement.innerText || h1El.parentElement.textContent || '').slice(0, 300);
+            }
+
+            var priceMatch = priceText.match(/(?:(\$|৳|€|£|₹|Rs\.?|CAD|USD|AUD|GBP|BDT|Tk)\s*([\d,]+(?:\.\d{1,2})?))|(?:([\d,]+(?:\.\d{1,2})?)\s*(\$|৳|€|£|₹|BDT|Tk|\/-))/i);
+            if (candidateTitle && priceMatch) {
+              var rawCurrency = priceMatch[1] || priceMatch[4] || 'USD';
+              var rawAmount = priceMatch[2] || priceMatch[3] || '';
+              var cleanAmount = Number(rawAmount.replace(/,/g, ''));
+
+              var normalizedCurrency = 'USD';
+              if (/৳|BDT|Tk/i.test(rawCurrency)) normalizedCurrency = 'BDT';
+              else if (/€|EUR/i.test(rawCurrency)) normalizedCurrency = 'EUR';
+              else if (/£|GBP/i.test(rawCurrency)) normalizedCurrency = 'GBP';
+              else if (/₹|Rs|INR/i.test(rawCurrency)) normalizedCurrency = 'INR';
+              else if (/CAD/i.test(rawCurrency)) normalizedCurrency = 'CAD';
+              else if (/AUD/i.test(rawCurrency)) normalizedCurrency = 'AUD';
+
+              if (!isNaN(cleanAmount) && cleanAmount > 0 && candidateTitle.length >= 2) {
+                product = {
+                  name: candidateTitle,
+                  price: cleanAmount,
+                  currency: normalizedCurrency,
+                  availability: 'in_stock',
+                  sku: null,
+                  image: null,
+                  description: metaDesc || null
+                };
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + (product ? (product.name + ':' + product.price + ':' + product.currency) : '') + '|' + cleanBodyText.slice(0, 500);
       var contentHash = hashString(contentSignature);
 
       return {
@@ -322,28 +490,23 @@
     };
   }
 
-  // ─── Universal Telemetry Dispatcher with Deduplication ───────────────────────
-  function triggerUniversalTelemetrySync() {
+  // ─── Universal Telemetry Dispatcher with Deduplication & Forced Refresh ─────
+  function triggerUniversalTelemetrySync(force) {
     try {
       if (!publishableKey || !apiBase) return;
       var telemetry = extractUniversalDomTelemetry();
       if (!telemetry || !telemetry.url) return;
 
       var storageKey = '__ora_dom_' + telemetry.pathname;
-      if (window.sessionStorage && window.sessionStorage.getItem(storageKey) === telemetry.contentHash) {
-        // Content hasn't changed since last sync in this session — skip redundant network traffic
+      var cachedHash = window.sessionStorage ? window.sessionStorage.getItem(storageKey) : null;
+      
+      if (!force && cachedHash === telemetry.contentHash) {
+        // Content has not changed since last sync in this session — skip redundant network traffic
         return;
       }
 
       var endpoint = apiBase + '/api/v1/ingestion/telemetry';
       var payload = JSON.stringify(telemetry);
-
-      // Attempt sendBeacon or non-blocking fetch
-      var sent = false;
-      if (navigator.sendBeacon) {
-        var blob = new Blob([payload], { type: 'application/json' });
-        // Note: sendBeacon doesn't allow custom headers on all browsers, so fallback to fetch with x-publishable-key
-      }
 
       fetch(endpoint, {
         method: 'POST',
@@ -363,8 +526,44 @@
   }
 
   // Backward compatibility alias
-  function triggerPassiveStorefrontSync() {
-    triggerUniversalTelemetrySync();
+  function triggerPassiveStorefrontSync(force) {
+    triggerUniversalTelemetrySync(force);
+  }
+
+  // ─── Mobile Hydration & Dynamic DOM Observer ─────────────────────────────────
+  function initHydrationAndDomObserver() {
+    try {
+      // 1. Multi-stage initial sync to capture SSR, mid-hydration, and late mobile Next.js hydration
+      var stages = [600, 1800, 3500];
+      stages.forEach(function (delay) {
+        setTimeout(function () {
+          triggerUniversalTelemetrySync();
+        }, delay);
+      });
+
+      // 2. MutationObserver for dynamic Next.js / React CSR component hydration
+      if (typeof window !== 'undefined' && window.MutationObserver && document.body) {
+        var mutationTimer = null;
+        var observer = new MutationObserver(function (mutations) {
+          var isWidgetInternal = mutations.every(function (m) {
+            return m.target && (m.target.closest && (m.target.closest('#ora-voice-root') || m.target.closest('.ora-shadow-host')));
+          });
+          if (isWidgetInternal) return;
+
+          if (mutationTimer) clearTimeout(mutationTimer);
+          mutationTimer = setTimeout(function () {
+            triggerUniversalTelemetrySync();
+          }, 1000);
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: false,
+          characterData: false
+        });
+      }
+    } catch (e) {}
   }
 
   // ─── SPA Route Transition Listener (Next.js, Nuxt, React CSR) ───────────────
@@ -375,7 +574,9 @@
         if (window.location.pathname !== lastPath) {
           lastPath = window.location.pathname;
           // Debounce slightly to allow dynamic SPA views (Next.js/React) to render DOM
-          setTimeout(triggerUniversalTelemetrySync, 1200);
+          setTimeout(function () {
+            triggerUniversalTelemetrySync(true);
+          }, 1200);
         }
       }
 
@@ -399,6 +600,7 @@
     } catch (e) {}
   }
   initSpaRouteObserver();
+  initHydrationAndDomObserver();
 
   // ─── Customer Identity & Fail-Closed Consent Resolution ─────────────────────
   function getOrCreateDeviceId() {
@@ -986,20 +1188,12 @@
     // Initialize Procedural Canvas Fluid Wave Mesh Engine
     initOrbCanvas();
 
-    // Event Listeners
-    orbBtn.addEventListener('click', function () {
+    // Event Listeners with Immediate Mobile Touch & Force-Sync
+    function handleOrbTap() {
       if (voiceState === 'connecting') return;
-      if (voiceState === 'idle' || voiceState === 'error') {
-        startVoiceSession();
-      } else if (voiceState === 'standby') {
-        startVoiceSession(activeResumptionToken);
-      } else {
-        teardown();
-      }
-    });
+      // Force live fresh DOM telemetry extraction to ensure backend & session are up-to-date
+      try { triggerUniversalTelemetrySync(true); } catch (e) {}
 
-    statusChip.addEventListener('click', function () {
-      if (voiceState === 'connecting') return;
       if (voiceState === 'idle' || voiceState === 'error') {
         startVoiceSession();
       } else if (voiceState === 'standby') {
@@ -1007,7 +1201,10 @@
       } else {
         teardown();
       }
-    });
+    }
+
+    orbBtn.addEventListener('click', handleOrbTap);
+    statusChip.addEventListener('click', handleOrbTap);
 
     muteBtn.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -1026,15 +1223,6 @@
     });
 
     render();
-
-    // Trigger passive storefront context sync once verified
-    if (typeof window !== 'undefined') {
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(function () { triggerPassiveStorefrontSync(); });
-      } else {
-        setTimeout(triggerPassiveStorefrontSync, 1500);
-      }
-    }
   }
 
   // ─── Procedural Canvas Fluid Wave Mesh Engine ──────────────────────────────
@@ -1588,6 +1776,13 @@
           ws.send(JSON.stringify({
             type: 'page_context',
             data: pageCtx
+          }));
+          ws.send(JSON.stringify({
+            type: 'client_context_update',
+            currentPath: pageCtx.pathname || window.location.pathname || '/',
+            title: pageCtx.title || document.title || '',
+            history: [pageCtx.pathname || window.location.pathname || '/'],
+            product: pageCtx.product || null
           }));
           if (custPayload.identified) {
             ws.send(JSON.stringify({

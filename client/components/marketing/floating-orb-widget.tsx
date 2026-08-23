@@ -259,7 +259,7 @@ export function FloatingOrbWidget() {
         }
       });
 
-      const bodyText = (document.body.innerText || '')
+      const bodyText = (document.body.innerText || document.body.textContent || '')
         .replace(/\s+/g, ' ')
         .slice(0, 4000);
 
