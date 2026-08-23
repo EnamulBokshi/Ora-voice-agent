@@ -10,7 +10,6 @@ import {
   CreditCard,
   ChevronDown,
   Loader2,
-  User as UserIcon,
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { getMeApi, logoutApi } from '@/services/auth-service';
@@ -93,21 +92,6 @@ export function MarketingNavbar() {
     }
   };
 
-  const getCtaLink = () => {
-    if (!isLoggedIn || !user) return '/auth';
-    if (user.role === 'admin' || user.role === 'super_admin') return '/admin';
-    if (user.role === 'owner' || user.role === 'staff') return '/dashboard';
-    if (user.role === 'user') return '/pricing';
-    return '/auth';
-  };
-
-  const getCtaLabel = () => {
-    if (!isLoggedIn || !user) return 'Get Started';
-    if (user.role === 'admin' || user.role === 'super_admin') return 'Admin Portal';
-    if (user.role === 'owner' || user.role === 'staff') return 'Dashboard';
-    if (user.role === 'user') return 'Choose Plan';
-    return 'Get Started';
-  };
 
   const getUserInitials = () => {
     if (!user) return 'U';
@@ -168,14 +152,16 @@ export function MarketingNavbar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <ThemeToggle />
 
-          {/* Primary CTA */}
-          <Link
-            href={getCtaLink()}
-            className="lp-btn-primary lp-nav-cta"
-            id="nav-get-started-cta"
-          >
-            {getCtaLabel()}
-          </Link>
+          {/* Primary CTA (shown only when logged out) */}
+          {!isLoggedIn && (
+            <Link
+              href="/auth"
+              className="lp-btn-primary lp-nav-cta"
+              id="nav-get-started-cta"
+            >
+              Get Started
+            </Link>
+          )}
 
           {/* Profile Dropdown (when logged in) */}
           {isLoggedIn && user && (
