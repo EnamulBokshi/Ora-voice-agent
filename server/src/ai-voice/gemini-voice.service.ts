@@ -51,7 +51,7 @@ export interface GeminiVoiceSessionControls {
 @Injectable()
 export class GeminiVoiceService {
   private readonly logger = new Logger(GeminiVoiceService.name);
-  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; expiresAt: number }>();
+  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; voiceName: string; expiresAt: number }>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -198,7 +198,11 @@ export class GeminiVoiceService {
           `[GeminiVoiceService] WebSocket transport connected for session ${options.sessionId}`,
         );
 
-        // Send Setup Handshake Payload
+        const cached = this.instructionCache.get(options.businessId);
+        const archetype = cached?.archetype || 'general';
+        const voiceName = cached?.voiceName || 'Aoede';
+
+        // Send Setup Handshake Payload with dynamic merchant voice
         const setupPayload = {
           setup: {
             model: geminiModel,
@@ -210,7 +214,7 @@ export class GeminiVoiceService {
               speechConfig: {
                 voiceConfig: {
                   prebuiltVoiceConfig: {
-                    voiceName: 'Puck',
+                    voiceName: voiceName,
                   },
                 },
               },
@@ -228,7 +232,7 @@ export class GeminiVoiceService {
 
         ws.send(JSON.stringify(setupPayload));
         this.logger.log(
-          `[GeminiVoiceService] Setup payload sent (Archetype: ${archetype}), waiting for Gemini acknowledgement...`,
+          `[GeminiVoiceService] Setup payload sent (Archetype: ${archetype}, Voice: ${voiceName}), waiting for Gemini acknowledgement...`,
         );
       });
 
@@ -587,10 +591,13 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
         .filter(Boolean)
         .join('\n');
 
+      const voiceName = agentConfig?.voice?.voiceId || 'Aoede';
+
       // Cache base template for 5 minutes
       this.instructionCache.set(businessId, {
         instruction: baseInstruction,
         archetype: businessArchetype,
+        voiceName: voiceName,
         expiresAt: Date.now() + 5 * 60 * 1000,
       });
     }
@@ -666,5 +673,13 @@ REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
 
   getToolDeclarations(archetype?: string) {
     return getToolsForArchetype(archetype);
+  }
+
+  public invalidateInstructionCache(businessId?: string): void {
+    if (businessId) {
+      this.instructionCache.delete(businessId);
+    } else {
+      this.instructionCache.clear();
+    }
   }
 }

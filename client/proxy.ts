@@ -17,6 +17,7 @@ export function proxy(request: NextRequest) {
   // Merchant dashboard routes
   const isDashboardRoute =
     pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/setup') ||
     pathname.startsWith('/agent') ||
     pathname.startsWith('/live-desk') ||
     pathname.startsWith('/customers') ||
@@ -74,7 +75,7 @@ export function proxy(request: NextRequest) {
 
   // 4. Proxy /api requests to NestJS backend on port 5000
   if (pathname.startsWith('/api/')) {
-    const backendUrl = process.env.NESTJS_BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = process.env.NESTJS_BACKEND_URL || 'http://127.0.0.1:5000';
     const destination = new URL(pathname, backendUrl);
     destination.search = request.nextUrl.search;
 

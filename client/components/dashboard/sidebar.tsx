@@ -14,20 +14,15 @@ import {
   Bot,
   PanelLeftClose,
   PanelLeftOpen,
-  Mic,
-  FileText,
-  Package,
-  Key,
-  SlidersHorizontal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
 import { ThemeToggle } from '../marketing/theme-toggle';
 import { getMeApi } from '@/services/auth-service';
 import { demoProfile } from '@/lib/demo-data';
+import { useSetupProgress } from '@/hooks/use-setup-progress';
 import {
   NavLink,
-  NavSubLink,
   NavIconButton,
   type NavGroupDef,
 } from './nav-item';
@@ -40,19 +35,7 @@ const navGroups: NavGroupDef[] = [
     items: [
       { id: 'dashboard', label: 'Overview', href: '/dashboard', icon: <LayoutDashboard size={15} /> },
       { id: 'live-desk', label: 'Live Desk', href: '/live-desk', icon: <Radio size={15} /> },
-      {
-        id: 'agent',
-        label: 'ORA Agent',
-        href: '/agent',
-        icon: <Bot size={15} />,
-        subItems: [
-          { id: 'agent-persona', label: 'Persona & Archetype', href: '/agent?tab=persona', icon: <SlidersHorizontal size={13} />, tabKey: 'persona' },
-          { id: 'agent-voice', label: 'Talk to ORA', href: '/agent?tab=voice', icon: <Mic size={13} />, tabKey: 'voice' },
-          { id: 'agent-documents', label: 'Documents', href: '/agent?tab=documents', icon: <FileText size={13} />, tabKey: 'documents' },
-          { id: 'agent-products', label: 'Product Catalog', href: '/agent?tab=products', icon: <Package size={13} />, tabKey: 'products' },
-          { id: 'agent-integration', label: 'Integration', href: '/agent?tab=integration', icon: <Key size={13} />, tabKey: 'integration' },
-        ],
-      },
+      { id: 'agent', label: 'ORA Agent', href: '/agent', icon: <Bot size={15} /> },
     ],
   },
   {
@@ -85,6 +68,7 @@ function getActiveNavId(
   pathname: string,
   searchParams: { get: (name: string) => string | null },
 ): string {
+  if (pathname.startsWith('/setup')) return 'setup';
   if (pathname === '/' || pathname.startsWith('/dashboard')) return 'dashboard';
   if (pathname.startsWith('/live-desk')) return 'live-desk';
   if (pathname.startsWith('/agent')) return 'agent';
@@ -101,8 +85,6 @@ function getActiveNavId(
   return match?.id ?? 'dashboard';
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -113,8 +95,8 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'voice';
   const activeId = getActiveNavId(pathname, searchParams);
+  const { completedCount, totalSteps, progressPercent, isAllCompleted } = useSetupProgress();
 
   const [userName, setUserName] = useState<string>('Profile');
   const [userRole, setUserRole] = useState<string>('Owner');
@@ -221,59 +203,81 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
                 if (collapsed) {
                   return (
-                    <div key={item.id} className="flex flex-col items-center gap-1">
-                      <NavIconButton item={item} isActive={isParentActive} />
-                      {/* Collapsed sub-items: tiny dots below parent icon */}
-                      {isParentActive && item.subItems && (
-                        <div className="flex flex-col gap-1 items-center pb-1">
-                          {item.subItems.map((sub) => {
-                            const isSubActive =
-                              pathname.startsWith('/agent') && activeTab === sub.tabKey;
-                            return (
-                              <Link
-                                key={sub.id}
-                                href={sub.href}
-                                aria-label={sub.label}
-                                title={sub.label}
-                                className={cn(
-                                  'w-7 h-7 rounded-md flex items-center justify-center text-xs transition-colors',
-                                  isSubActive
-                                    ? 'bg-surface-high text-primary'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
-                                )}
-                              >
-                                {sub.icon}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <NavIconButton key={item.id} item={item} isActive={isParentActive} />
                   );
                 }
 
                 return (
-                  <div key={item.id}>
-                    <NavLink item={item} isActive={isParentActive} />
-                    {/* Sub-items tree */}
-                    {isParentActive && item.subItems && (
-                      <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
-                        {item.subItems.map((sub) => {
-                          const isSubActive =
-                            pathname.startsWith('/agent') && activeTab === sub.tabKey;
-                          return (
-                            <NavSubLink key={sub.id} sub={sub} isActive={isSubActive} />
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <NavLink key={item.id} item={item} isActive={isParentActive} />
                 );
               })}
             </div>
           </div>
         ))}
       </nav>
+
+      {/* ── Setup Guide CTA ─────────────────────────────────────────────── */}
+      {collapsed ? (
+        <div className="pb-2 flex flex-col items-center flex-shrink-0">
+          <Link
+            href="/setup"
+            aria-label={`Get set up (${completedCount}/${totalSteps} steps completed)`}
+            title={`Get set up (${completedCount}/${totalSteps} steps completed)`}
+            className={cn(
+              'w-9 h-9 rounded-md flex items-center justify-center transition-colors relative',
+              activeId === 'setup'
+                ? 'bg-surface-high text-primary ring-1 ring-primary/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+            )}
+          >
+            <svg className="w-4 h-4 -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="14" className="stroke-muted-foreground/30" strokeWidth="4" fill="none" />
+              <circle
+                cx="18"
+                cy="18"
+                r="14"
+                className="stroke-primary transition-all duration-300"
+                strokeWidth="4"
+                strokeDasharray={`${progressPercent}, 100`}
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+          </Link>
+        </div>
+      ) : (
+        <div className="px-3 pb-2 flex-shrink-0">
+          <Link
+            href="/setup"
+            className={cn(
+              'group flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border',
+              activeId === 'setup'
+                ? 'bg-surface-high text-foreground border-primary/50 shadow-xs ring-1 ring-primary/20'
+                : 'bg-surface-low/50 text-foreground/80 hover:text-foreground hover:bg-surface-high border-border/60 hover:border-border',
+            )}
+          >
+            <div className="relative w-4 h-4 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="14" className="stroke-muted-foreground/30" strokeWidth="4" fill="none" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  className="stroke-primary transition-all duration-300"
+                  strokeWidth="4"
+                  strokeDasharray={`${progressPercent}, 100`}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+            </div>
+            <span className="truncate flex-1 font-medium">Get set up</span>
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
+              {completedCount}/{totalSteps}
+            </span>
+          </Link>
+        </div>
+      )}
 
       {/* ── Divider ──────────────────────────────────────────────────────── */}
       <div className={cn('h-px bg-border flex-shrink-0', collapsed ? 'mx-2' : 'mx-3')} />

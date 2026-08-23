@@ -15,6 +15,7 @@ import {
   ArrowRight,
   X,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
@@ -24,6 +25,7 @@ import { demoProfile, demoDashboardStats, demoOrders, demoConversations } from '
 import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
+import { useSetupProgress } from '@/hooks/use-setup-progress';
 
 // ── Reusable components ──────────────────────────────────────────────────────
 import { TopHeader }              from '@/components/dashboard/top-header';
@@ -74,6 +76,7 @@ export function OverviewClient() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const { completedCount, totalSteps, isAllCompleted } = useSetupProgress();
 
   const load = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true);
@@ -230,18 +233,18 @@ export function OverviewClient() {
         isRefreshing={refreshing}
       />
 
-      {/* Onboarding banner — full-width strip, dismissible */}
-      {stats.productTotal === 0 && !bannerDismissed && (
-        <div className="flex items-center justify-between gap-4 px-6 py-2.5 bg-surface-high/60 border-b border-border flex-shrink-0">
+      {/* Onboarding / Setup Guide banner — full-width strip, dismissible */}
+      {!isAllCompleted && !bannerDismissed && (
+        <div className="flex items-center justify-between gap-4 px-6 py-2.5 bg-primary/10 border-b border-primary/20 flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Globe size={13} className="text-muted-foreground flex-shrink-0" />
+            <Sparkles size={13} className="text-primary flex-shrink-0" />
             <span className="text-[12.5px] text-foreground font-medium truncate">
-              Your store has no products yet —{' '}
+              Store setup in progress ({completedCount}/{totalSteps} steps completed) —{' '}
               <Link
-                href="/agent?tab=products"
-                className="font-semibold text-foreground hover:underline inline-flex items-center gap-1"
+                href="/setup"
+                className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
               >
-                Import your product catalog
+                Complete Setup Guide
                 <ArrowRight size={11} />
               </Link>
             </span>

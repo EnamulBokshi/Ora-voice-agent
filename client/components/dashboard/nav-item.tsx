@@ -19,6 +19,7 @@ export interface NavItemDef {
   href: string;
   icon: React.ReactNode;
   subItems?: NavSubItem[];
+  badge?: React.ReactNode;
 }
 
 export interface NavGroupDef {
@@ -53,7 +54,8 @@ export function NavLink({ item, isActive }: NavLinkProps) {
       >
         {item.icon}
       </span>
-      <span className="truncate">{item.label}</span>
+      <span className="truncate flex-1">{item.label}</span>
+      {item.badge && <span className="flex-shrink-0">{item.badge}</span>}
     </Link>
   );
 }
