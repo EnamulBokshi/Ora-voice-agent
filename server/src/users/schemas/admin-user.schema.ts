@@ -49,6 +49,12 @@ export class AdminUser {
 
   @Prop({ default: 0 })
   otpAttemptCount: number;
+
+  @Prop({ index: true, sparse: true })
+  resetPasswordTokenHash?: string;
+
+  @Prop()
+  resetPasswordExpiresAt?: Date;
 }
 
 export const AdminUserSchema = SchemaFactory.createForClass(AdminUser);

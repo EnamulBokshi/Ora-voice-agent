@@ -4,6 +4,9 @@ import {
   ProfileResponseData,
   OtpResponseData,
   RefreshResponseData,
+  ForgotPasswordResponseData,
+  VerifyResetTokenResponseData,
+  ResetPasswordResponseData,
   User,
 } from '@/types/auth';
 
@@ -87,18 +90,20 @@ export async function changePasswordApi(
 }
 
 export async function verifyOtpApi(
-  code: string,
+  payload: { code: string; email?: string } | string,
   accessToken?: string,
-): Promise<OtpResponseData> {
+): Promise<OtpResponseData & { accessToken?: string; user?: User }> {
   const headers: Record<string, string> = {};
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  return apiClient<OtpResponseData>('/auth/verify-otp', {
+  const body = typeof payload === 'string' ? { code: payload } : payload;
+
+  return apiClient<OtpResponseData & { accessToken?: string; user?: User }>('/auth/verify-otp', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -129,3 +134,34 @@ export async function resendOnboardingApi(
     headers,
   });
 }
+
+export async function forgotPasswordApi(payload: {
+  email: string;
+}): Promise<ForgotPasswordResponseData> {
+  return apiClient<ForgotPasswordResponseData>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function verifyResetTokenApi(
+  token: string,
+): Promise<VerifyResetTokenResponseData> {
+  return apiClient<VerifyResetTokenResponseData>(
+    `/auth/verify-reset-token?token=${encodeURIComponent(token)}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function resetPasswordApi(payload: {
+  token: string;
+  password: string;
+}): Promise<ResetPasswordResponseData> {
+  return apiClient<ResetPasswordResponseData>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+

@@ -30,6 +30,7 @@ describe('OrdersService', () => {
           provide: NotificationsService,
           useValue: {
             create: jest.fn().mockResolvedValue({}),
+            createNotification: jest.fn().mockResolvedValue({}),
           },
         },
       ],

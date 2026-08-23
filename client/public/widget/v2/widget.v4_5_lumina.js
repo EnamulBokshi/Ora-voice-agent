@@ -1626,6 +1626,11 @@
           // Only set thinking state when a final phrase has been uttered
           if (event.results[event.results.length - 1] && event.results[event.results.length - 1].isFinal) {
             isWaitingForAi = true;
+            if (finalTranscript.trim() && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+              try {
+                geminiWs.send(JSON.stringify({ type: 'user_transcript', text: finalTranscript.trim() }));
+              } catch (e) {}
+            }
           }
           render();
         }

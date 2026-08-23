@@ -1,10 +1,31 @@
 import Link from 'next/link';
 
-const footerLinks = {
-  Product: ['Features', 'Solutions', 'Pricing', 'Changelog'],
-  Resources: ['Docs', 'Guides', 'Blog', 'Help Center'],
-  Company: ['About', 'Careers', 'Privacy', 'Terms'],
-};
+const footerSections = [
+  {
+    heading: 'Product',
+    links: [
+      { label: 'Features', href: '/#features' },
+      { label: 'Solutions', href: '/#solutions' },
+      { label: 'Pricing', href: '/pricing' },
+    ],
+  },
+  {
+    heading: 'Resources',
+    links: [
+      { label: 'Docs', href: '/docs' },
+      { label: 'Quickstart', href: '/docs#quickstart' },
+      { label: 'API Reference', href: '/docs#api-standards' },
+    ],
+  },
+  {
+    heading: 'Company',
+    links: [
+      { label: 'About', href: '#' },
+      { label: 'Privacy', href: '#' },
+      { label: 'Terms', href: '#' },
+    ],
+  },
+];
 
 export function MarketingFooter() {
   return (
@@ -12,7 +33,7 @@ export function MarketingFooter() {
       <div
         className="lp-container"
         style={{
-          paddingTop: '5rem',
+          paddingTop: '4.5rem',
           paddingBottom: '2.5rem',
         }}
       >
@@ -22,7 +43,7 @@ export function MarketingFooter() {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: '3rem',
-            marginBottom: '4rem',
+            marginBottom: '3.5rem',
           }}
         >
           {/* Brand col */}
@@ -40,7 +61,7 @@ export function MarketingFooter() {
                 letterSpacing: '-0.02em',
                 color: 'var(--lp-text-primary)',
                 textDecoration: 'none',
-                marginBottom: '1.25rem',
+                marginBottom: '1rem',
               }}
             >
               <div
@@ -65,15 +86,15 @@ export function MarketingFooter() {
               style={{
                 fontSize: '0.875rem',
                 color: 'var(--lp-text-secondary)',
-                lineHeight: 1.65,
-                marginBottom: '1.5rem',
-                maxWidth: '16rem',
+                lineHeight: 1.6,
+                marginBottom: '1.25rem',
+                maxWidth: '15rem',
               }}
             >
-              The AI sales brain for every merchant. Automate. Recover. Accelerate.
+              The AI sales brain for every merchant.
             </p>
             {/* Social icons */}
-            <div style={{ display: 'flex', gap: '1rem' }} aria-label="Social media links">
+            <div style={{ display: 'flex', gap: '0.75rem' }} aria-label="Social media links">
               {[
                 {
                   label: 'Twitter',
@@ -106,23 +127,23 @@ export function MarketingFooter() {
           </div>
 
           {/* Link columns */}
-          {Object.entries(footerLinks).map(([heading, links]) => (
+          {footerSections.map(({ heading, links }) => (
             <div key={heading}>
               <h4
                 style={{
                   fontWeight: 700,
                   fontSize: '0.875rem',
                   color: 'var(--lp-text-primary)',
-                  marginBottom: '1.25rem',
+                  marginBottom: '1rem',
                 }}
               >
                 {heading}
               </h4>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {links.map((link) => (
-                  <li key={link}>
-                    <Link href="#" className="lp-footer-link">
-                      {link}
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {links.map(({ label, href }) => (
+                  <li key={label}>
+                    <Link href={href} className="lp-footer-link">
+                      {label}
                     </Link>
                   </li>
                 ))}
@@ -134,7 +155,7 @@ export function MarketingFooter() {
         {/* Bottom bar */}
         <div
           style={{
-            paddingTop: '2rem',
+            paddingTop: '1.75rem',
             borderTop: '1px solid var(--lp-border-light)',
             display: 'flex',
             alignItems: 'center',
@@ -146,7 +167,7 @@ export function MarketingFooter() {
           }}
         >
           <span>© {new Date().getFullYear()} ORA by Hype Corporation. All rights reserved.</span>
-          <span>Made with ♥ for merchants everywhere</span>
+          <span>Autonomous AI Sales</span>
         </div>
       </div>
     </footer>

@@ -30,7 +30,7 @@ describe('AuthService', () => {
     passwordHash: '$2a$10$e8W/X2...mockhash',
     name: 'Jane Doe',
     role: AdminRole.USER,
-    emailVerified: false,
+    emailVerified: true,
     pendingOtpHash: '$2a$10$mockotphash',
     otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
     otpAttemptCount: 0,
@@ -40,10 +40,12 @@ describe('AuthService', () => {
     usersService = {
       findByEmail: jest.fn(),
       findById: jest.fn(),
+      findByResetTokenHash: jest.fn(),
       findBusinessById: jest.fn(),
       createBusiness: jest.fn(),
       createAdminUser: jest.fn(),
       updateAdminUser: jest.fn(),
+      updateBusiness: jest.fn(),
     };
 
     jwtService = {
@@ -54,11 +56,13 @@ describe('AuthService', () => {
       setSession: jest.fn().mockResolvedValue(undefined),
       getSession: jest.fn(),
       revokeSession: jest.fn().mockResolvedValue(undefined),
+      revokeUserSessions: jest.fn().mockResolvedValue(1),
     };
 
     mailService = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
       sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+      sendForgotPasswordEmail: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -122,6 +126,83 @@ describe('AuthService', () => {
       expect(result.business.name).toBe('Acme Store');
       expect(mailService.sendVerificationEmail).toHaveBeenCalled();
       expect(redisService.setSession).toHaveBeenCalled();
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should return anti-enumeration generic message even if email is not found', async () => {
+      usersService.findByEmail.mockResolvedValue(null);
+
+      const result = await service.forgotPassword({ email: 'nonexistent@example.com' });
+      expect(result.message).toContain('If an account with that email exists');
+      expect(mailService.sendForgotPasswordEmail).not.toHaveBeenCalled();
+    });
+
+    it('should generate token, update user, and send reset email when user exists', async () => {
+      usersService.findByEmail.mockResolvedValue(mockUser);
+      usersService.updateAdminUser.mockResolvedValue(mockUser);
+
+      const result = await service.forgotPassword({ email: 'merchant@acme.com' });
+      expect(result.message).toContain('If an account with that email exists');
+      expect(usersService.updateAdminUser).toHaveBeenCalledWith(
+        mockUser._id,
+        expect.objectContaining({
+          resetPasswordTokenHash: expect.any(String),
+          resetPasswordExpiresAt: expect.any(Date),
+        }),
+      );
+      expect(mailService.sendForgotPasswordEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        expect.objectContaining({
+          recipientName: mockUser.name,
+          resetUrl: expect.stringContaining('/auth?mode=reset-password&token='),
+        }),
+      );
+    });
+  });
+
+  describe('verifyResetToken', () => {
+    it('should throw if token is expired or invalid', async () => {
+      usersService.findByResetTokenHash.mockResolvedValue(null);
+
+      await expect(service.verifyResetToken('invalid-token')).rejects.toThrow(DomainException);
+    });
+
+    it('should return valid true if token is valid and unexpired', async () => {
+      usersService.findByResetTokenHash.mockResolvedValue({
+        ...mockUser,
+        resetPasswordExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      const result = await service.verifyResetToken('valid-token');
+      expect(result.valid).toBe(true);
+      expect(result.email).toBe(mockUser.email);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should reset password and revoke all active sessions', async () => {
+      usersService.findByResetTokenHash.mockResolvedValue({
+        ...mockUser,
+        resetPasswordExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
+      usersService.updateAdminUser.mockResolvedValue(mockUser);
+
+      const result = await service.resetPassword({
+        token: 'valid-token',
+        password: 'NewSecurePassword123!',
+      });
+
+      expect(result.message).toContain('successfully reset');
+      expect(usersService.updateAdminUser).toHaveBeenCalledWith(
+        mockUser._id,
+        expect.objectContaining({
+          passwordHash: expect.any(String),
+          resetPasswordTokenHash: undefined,
+          resetPasswordExpiresAt: undefined,
+        }),
+      );
+      expect(redisService.revokeUserSessions).toHaveBeenCalledWith(mockUser._id);
     });
   });
 

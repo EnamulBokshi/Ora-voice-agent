@@ -14,6 +14,8 @@ import { MailService } from '../mail/mail.service';
 import { OnboardingEmailService } from './services/onboarding-email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { AdminRole } from '../users/enums/admin-role.enum';
 
@@ -42,28 +44,66 @@ export class AuthService {
     reqInfo: { userAgent?: string; ip?: string },
   ) {
     const existingUser = await this.usersService.findByEmail(dto.email);
+    let user: any;
+    let business: any;
+
     if (existingUser) {
-      throw new DomainException(
-        'EMAIL_ALREADY_EXISTS',
-        'Email address is already registered.',
-        HttpStatus.CONFLICT,
+      if (existingUser.emailVerified) {
+        throw new DomainException(
+          'EMAIL_ALREADY_EXISTS',
+          'Email address is already registered and verified. Please sign in.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      // User registered previously but did not complete email OTP verification.
+      // Allow updating name/password/business and resending a fresh OTP code.
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+      user = await this.usersService.updateAdminUser(existingUser._id.toString(), {
+        name: dto.name,
+        passwordHash,
+      });
+      if (!user) {
+        user = existingUser;
+      }
+
+      business = await this.usersService.findBusinessById(
+        existingUser.businessId?.toString() || '',
       );
+
+      if (business) {
+        business = await this.usersService.updateBusiness(business._id.toString(), {
+          name: dto.businessName,
+          domain: dto.domain,
+        });
+      } else {
+        business = await this.usersService.createBusiness(
+          dto.businessName,
+          dto.domain,
+        );
+        user = await this.usersService.updateAdminUser(existingUser._id.toString(), {
+          businessId: business._id as any,
+        });
+        if (!user) {
+          user = existingUser;
+        }
+      }
+    } else {
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+
+      business = await this.usersService.createBusiness(
+        dto.businessName,
+        dto.domain,
+      );
+
+      user = await this.usersService.createAdminUser({
+        businessId: business._id.toString(),
+        email: dto.email,
+        passwordHash,
+        name: dto.name,
+        role: AdminRole.USER,
+      });
     }
-
-    const passwordHash = await bcrypt.hash(dto.password, 10);
-
-    const business = await this.usersService.createBusiness(
-      dto.businessName,
-      dto.domain,
-    );
-
-    const user = await this.usersService.createAdminUser({
-      businessId: business._id.toString(),
-      email: dto.email,
-      passwordHash,
-      name: dto.name,
-      role: AdminRole.USER,
-    });
 
     // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -76,11 +116,13 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
-    // Send verification email
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
+
     try {
       await this.mailService.sendVerificationEmail(user.email, {
         recipientName: user.name,
-        verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+        verifyUrl,
         code: otpCode,
         expireMinutes: 10,
       });
@@ -330,18 +372,40 @@ export class AuthService {
     return { message: 'Successfully logged out.' };
   }
 
-  async verifyOtp(adminUserId: string, code: string) {
-    const user = await this.usersService.findById(adminUserId);
+  async verifyOtp(
+    adminUserId: string | undefined,
+    code: string,
+    email?: string,
+    reqInfo?: { userAgent?: string; ip?: string },
+  ) {
+    let user: any = null;
+    if (adminUserId) {
+      user = await this.usersService.findById(adminUserId);
+    } else if (email) {
+      user = await this.usersService.findByEmail(email.toLowerCase().trim());
+    }
+
     if (!user) {
       throw new DomainException(
         'USER_NOT_FOUND',
-        'Admin user profile not found.',
+        'User profile not found. Please provide a valid email or sign in.',
         HttpStatus.NOT_FOUND,
       );
     }
 
     if (user.emailVerified) {
-      return { message: 'Email address is already verified.', emailVerified: true };
+      return {
+        message: 'Email address is already verified.',
+        emailVerified: true,
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          businessId: user.businessId?.toString(),
+          emailVerified: true,
+        },
+      };
     }
 
     if (!user.pendingOtpHash || !user.otpExpiresAt) {
@@ -387,9 +451,41 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
+    const sessionId = crypto.randomUUID();
+    const tokens = await this.generateTokens(
+      user._id.toString(),
+      user.businessId?.toString() || '',
+      user.email,
+      user.role,
+      sessionId,
+    );
+
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+
+    await this.redisService.setSession(sessionId, {
+      adminUserId: user._id.toString(),
+      businessId: user.businessId?.toString() || '',
+      email: user.email,
+      role: user.role,
+      refreshTokenHash,
+      userAgent: reqInfo?.userAgent || 'Browser',
+      ip: reqInfo?.ip || '127.0.0.1',
+      createdAt: new Date().toISOString(),
+    });
+
     return {
       message: 'Email address successfully verified.',
       emailVerified: true,
+      tokens,
+      sessionId,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        businessId: user.businessId?.toString(),
+        emailVerified: true,
+      },
     };
   }
 
@@ -417,14 +513,144 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
+
     await this.mailService.sendVerificationEmail(user.email, {
       recipientName: user.name,
-      verifyUrl: `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/verify-otp`,
+      verifyUrl,
       code: otpCode,
       expireMinutes: 10,
     });
 
     return { message: 'New verification OTP sent to your email.' };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.usersService.findByEmail(email);
+
+    // Anti-enumeration: return generic success message if user not found
+    if (!user) {
+      this.logger.log(`[AuthService] Password reset requested for non-existent email: ${email}`);
+      return {
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Generate 32-byte cryptographically secure random token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const resetPasswordTokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const resetPasswordExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      resetPasswordTokenHash,
+      resetPasswordExpiresAt,
+    });
+
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const resetUrl = `${frontendUrl}/auth?mode=reset-password&token=${rawToken}`;
+
+    try {
+      await this.mailService.sendForgotPasswordEmail(user.email, {
+        recipientName: user.name,
+        resetUrl,
+        expireMinutes: 30,
+      });
+    } catch (mailErr: any) {
+      this.logger.error(
+        `[AuthService] Failed to send password reset email: ${mailErr.message}`,
+      );
+    }
+
+    const isDev = this.configService.get<string>('NODE_ENV') !== 'production';
+
+    return {
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      devToken: isDev ? rawToken : undefined,
+    };
+  }
+
+  async verifyResetToken(token: string) {
+    if (!token) {
+      throw new DomainException(
+        'INVALID_RESET_TOKEN',
+        'Reset token is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const user = await this.usersService.findByResetTokenHash(tokenHash);
+    if (
+      !user ||
+      !user.resetPasswordExpiresAt ||
+      new Date() > new Date(user.resetPasswordExpiresAt)
+    ) {
+      throw new DomainException(
+        'EXPIRED_RESET_TOKEN',
+        'Password reset link is invalid or has expired. Please request a new one.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return {
+      valid: true,
+      email: user.email,
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    if (!dto.token || !dto.password) {
+      throw new DomainException(
+        'INVALID_PAYLOAD',
+        'Token and new password are required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(dto.token)
+      .digest('hex');
+
+    const user = await this.usersService.findByResetTokenHash(tokenHash);
+    if (
+      !user ||
+      !user.resetPasswordExpiresAt ||
+      new Date() > new Date(user.resetPasswordExpiresAt)
+    ) {
+      throw new DomainException(
+        'EXPIRED_RESET_TOKEN',
+        'Password reset link is invalid or has expired. Please request a new one.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const newPasswordHash = await bcrypt.hash(dto.password, 10);
+
+    await this.usersService.updateAdminUser(user._id.toString(), {
+      passwordHash: newPasswordHash,
+      resetPasswordTokenHash: undefined,
+      resetPasswordExpiresAt: undefined,
+    });
+
+    // Invalidate all active user sessions upon password reset for security
+    await this.redisService.revokeUserSessions(user._id.toString());
+
+    return {
+      message: 'Your password has been successfully reset. You can now log in.',
+    };
   }
 
   async getProfile(adminUserId: string) {

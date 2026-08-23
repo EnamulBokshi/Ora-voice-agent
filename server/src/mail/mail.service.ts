@@ -5,9 +5,11 @@ import {
   renderVerifyEmailTemplate,
   renderOtpTemplate,
   renderCongratulationsTemplate,
+  renderForgotPasswordTemplate,
   VerifyEmailData,
   OtpEmailData,
   CongratulationsEmailData,
+  ForgotPasswordData,
 } from './email-templates';
 
 @Injectable()
@@ -27,16 +29,27 @@ export class MailService {
     }
   }
 
+  private getFromAddress(displayName: string): string {
+    const rawFrom =
+      this.configService.get<string>('RESEND_FROM_EMAIL') ||
+      this.configService.get<string>('SMTP_FROM') ||
+      'onboarding@noreply.magicfunnel.io';
+
+    const match =
+      rawFrom.match(/<([^>]+)>/) ||
+      rawFrom.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    const emailAddress = match ? match[1] || match[0] : rawFrom.trim();
+
+    return `"${displayName}" <${emailAddress}>`;
+  }
+
   async sendVerificationEmail(
     to: string,
     data: VerifyEmailData,
   ): Promise<void> {
     try {
       const html = renderVerifyEmailTemplate(data);
-      const from =
-        this.configService.get<string>('RESEND_FROM_EMAIL') ||
-        this.configService.get<string>('SMTP_FROM') ||
-        'ORA Onboarding <onboarding@resend.dev>';
+      const from = this.getFromAddress('ORA Verification');
 
       if (this.resend) {
         try {
@@ -73,10 +86,7 @@ export class MailService {
   async sendOtpEmail(to: string, data: OtpEmailData): Promise<void> {
     try {
       const html = renderOtpTemplate(data);
-      const from =
-        this.configService.get<string>('RESEND_FROM_EMAIL') ||
-        this.configService.get<string>('SMTP_FROM') ||
-        'ORA Security <security@resend.dev>';
+      const from = this.getFromAddress('ORA Security');
 
       if (this.resend) {
         try {
@@ -109,12 +119,49 @@ export class MailService {
     }
   }
 
+  async sendForgotPasswordEmail(
+    to: string,
+    data: ForgotPasswordData,
+  ): Promise<void> {
+    try {
+      const html = renderForgotPasswordTemplate(data);
+      const from = this.getFromAddress('ORA Security');
+
+      if (this.resend) {
+        try {
+          const response = await this.resend.emails.send({
+            from,
+            to,
+            subject: 'Reset your ORA password',
+            html,
+          });
+          this.logger.log(
+            `[MailService] Forgot password email sent to ${to} via Resend (ID: ${response.data?.id})`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `[MailService] Failed to send forgot password email via Resend: ${err.message}`,
+          );
+        }
+      } else {
+        this.logger.log(
+          `==================================================\n` +
+            `[DEV EMAIL LOG] Forgot Password Email to: ${to}\n` +
+            `[DEV EMAIL LOG] Reset URL: ${data.resetUrl}\n` +
+            `[DEV EMAIL LOG] Expire: ${data.expireMinutes || 30} mins\n` +
+            `==================================================`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `[MailService] Forgot password email rendering/delivery error: ${err.message}`,
+      );
+    }
+  }
+
   async sendCongratulationsEmail(to: string, data: CongratulationsEmailData): Promise<void> {
     const html = renderCongratulationsTemplate(data);
-    const from =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ||
-      this.configService.get<string>('SMTP_FROM') ||
-      'ORA Subscriptions <billing@resend.dev>';
+    const from = this.getFromAddress('ORA Subscriptions');
 
     if (this.resend) {
       try {

@@ -34,7 +34,9 @@ export function mapApiConversationToUi(
   const lastMsg = messages[messages.length - 1];
   const previewMessage = lastMsg
     ? `"${lastMsg.content.slice(0, 80)}${lastMsg.content.length > 80 ? '...' : ''}"`
-    : 'No messages yet';
+    : conv.metadata?.lastMessage
+      ? `"${conv.metadata.lastMessage.slice(0, 80)}${conv.metadata.lastMessage.length > 80 ? '...' : ''}"`
+      : 'No messages yet';
 
   const customerName =
     conv.metadata?.customerName ||
@@ -54,7 +56,7 @@ export function mapApiConversationToUi(
 
 export function mapApiMessagesToUi(messages: Message[]): ChatMessage[] {
   return messages.map((m) => {
-    const isOra = m.role === 'assistant' || m.role === 'system';
+    const isOra = m.role === 'assistant' || m.role === 'system' || m.role === 'tool';
     return {
       id: m._id,
       sender: isOra ? 'ora' : 'customer',

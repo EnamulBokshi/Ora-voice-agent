@@ -27,8 +27,12 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
   const ordersLimit = limits.ordersPerMonth || 25;
   const ordersPct = Math.min(100, Math.round((ordersUsed / Math.max(1, ordersLimit)) * 100));
 
-  const seatsUsed = 1;
-  const seatsLimit = limits.seats || 3;
+  const storesUsed = usage.connectedStores ?? 0;
+  const storesLimit = limits.connectedStores || 1;
+  const storesPct = Math.min(100, Math.round((storesUsed / Math.max(1, storesLimit)) * 100));
+
+  const seatsUsed = usage.seats ?? 1;
+  const seatsLimit = limits.seats || 1;
   const seatsPct = Math.min(100, Math.round((seatsUsed / Math.max(1, seatsLimit)) * 100));
 
   const periodEndFormatted = sub?.currentPeriodEnd
@@ -66,11 +70,11 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
     },
     {
       label: 'Connected Stores',
-      used: 1,
-      limit: limits.connectedStores || 1,
+      used: storesUsed,
+      limit: storesLimit,
       unit: 'store',
-      pct: Math.min(100, Math.round((1 / Math.max(1, limits.connectedStores || 1)) * 100)),
-      remaining: `${Math.max(0, (limits.connectedStores || 1) - 1)} available`,
+      pct: storesPct,
+      remaining: `${Math.max(0, storesLimit - storesUsed)} available`,
     },
     {
       label: 'Team Seats',

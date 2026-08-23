@@ -1,21 +1,27 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <!-- Badge -->
   <tr>
     <td>
-      <h1 style="margin: 0 0 12px 0; color: #15151F; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">Verify your email address</h1>
-      <p style="margin: 0 0 20px 0; color: #4A4A6A; font-size: 15px; line-height: 24px;">
+      <div style="display: inline-block; background-color: rgba(200, 240, 49, 0.12); border: 1px solid rgba(200, 240, 49, 0.28); border-radius: 20px; padding: 4px 12px; margin-bottom: 14px;">
+        <span style="color: #C8F031; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">
+          Email Verification
+        </span>
+      </div>
+      <h1 style="margin: 0 0 12px 0; color: #FAFAFA; font-size: 23px; font-weight: 800; letter-spacing: -0.5px;">Verify your merchant email</h1>
+      <p style="margin: 0 0 22px 0; color: #D1D5DB; font-size: 14px; line-height: 22px;">
         Hi <strong><%= recipientName %></strong>,<br>
-        Welcome to <strong>ORA Sales Command Center</strong>! Please verify your email address to activate your merchant account and launch your AI sales agents.
+        Welcome to <strong>ORA Sales Command Center</strong>. Confirm your email address to activate your store workspace and start deploying autonomous AI sales agents.
       </p>
     </td>
   </tr>
 
   <!-- CTA Button -->
   <tr>
-    <td align="center" style="padding: 10px 0 24px 0;">
+    <td align="center" style="padding: 6px 0 26px 0;">
       <table border="0" cellpadding="0" cellspacing="0">
         <tr>
-          <td align="center" style="border-radius: 10px; background: linear-gradient(135deg, #6C5CE7 0%, #5645C7 100%); box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
-            <a href="<%= verifyUrl %>" target="_blank" style="font-size: 15px; font-family: sans-serif; color: #FFFFFF; text-decoration: none; border-radius: 10px; padding: 14px 32px; display: inline-block; font-weight: 700; letter-spacing: 0.2px;">
+          <td align="center" style="border-radius: 8px; background-color: #C8F031; box-shadow: 0 4px 14px rgba(200, 240, 49, 0.3);">
+            <a href="<%= verifyUrl %>" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #111111; text-decoration: none; border-radius: 8px; padding: 13px 32px; display: inline-block; font-weight: 800; letter-spacing: 0.2px;">
               Verify Email Address &rarr;
             </a>
           </td>
@@ -26,24 +32,24 @@
 
   <!-- Verification Code Box -->
   <tr>
-    <td style="background-color: #F7F7FB; border: 1px solid #E4E4EE; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
-      <span style="color: #6B6B8A; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
-        Or copy your 6-digit confirmation code
+    <td style="background-color: #080808; border: 1px dashed rgba(200, 240, 49, 0.4); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 22px;">
+      <span style="color: #9CA3AF; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
+        Or enter this 6-digit confirmation code
       </span>
-      <div class="otp-code" style="font-family: 'Courier New', Courier, monospace; font-size: 30px; font-weight: 800; color: #6C5CE7; letter-spacing: 8px; background-color: #FFFFFF; padding: 10px 20px; border-radius: 8px; display: inline-block; border: 1px dashed #6C5CE7;">
+      <div class="otp-code" style="font-family: 'JetBrains Mono', 'Courier New', Courier, monospace; font-size: 32px; font-weight: 800; color: #C8F031; letter-spacing: 8px; background-color: #111111; padding: 10px 20px; border-radius: 8px; display: inline-block; border: 1px solid #262626;">
         <%= code %>
       </div>
-      <span style="color: #8B8BB0; font-size: 12px; display: block; margin-top: 10px;">
-        This verification link and code expire in <strong><%= expireMinutes || 15 %> minutes</strong>.
+      <span style="color: #888888; font-size: 12px; display: block; margin-top: 10px;">
+        This code and verification link expire in <strong style="color: #FAFAFA;"><%= expireMinutes || 15 %> minutes</strong>.
       </span>
     </td>
   </tr>
 
   <!-- Security Notice -->
   <tr>
-    <td style="padding-top: 20px; border-top: 1px solid #F0F0F8;">
-      <p style="margin: 0; color: #8B8BB0; font-size: 13px; line-height: 18px;">
-        If you did not create an account on ORA, no action is required. You can safely ignore this message.
+    <td style="padding-top: 22px; border-top: 1px solid #1F1F1F;">
+      <p style="margin: 0; color: #6B7280; font-size: 12px; line-height: 18px;">
+        If you did not register for an ORA merchant account, you can safely ignore this message. No account will be activated without verification.
       </p>
     </td>
   </tr>

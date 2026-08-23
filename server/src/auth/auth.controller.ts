@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -14,7 +15,10 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
@@ -28,10 +32,9 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.register(dto, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.register(dto, { userAgent, ip });
 
     this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
@@ -49,10 +52,9 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.login(dto, { userAgent, ip });
 
     this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
@@ -71,11 +73,13 @@ export class AuthController {
   ) {
     const refreshToken = req.cookies?.['refreshToken'];
     const sessionId = req.cookies?.['sessionId'];
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
 
     try {
       const tokens = await this.authService.refresh(refreshToken, sessionId, {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip,
+        userAgent,
+        ip,
       });
 
       this.setAuthCookies(res, tokens.refreshToken, sessionId, tokens.role);
@@ -109,14 +113,29 @@ export class AuthController {
     return this.authService.getProfile(user.sub);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(
-    @CurrentUser() user: JwtPayloadUser,
+    @CurrentUser() user: JwtPayloadUser | null,
     @Body() dto: VerifyOtpDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.verifyOtp(user.sub, dto.code);
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.verifyOtp(user?.sub, dto.code, dto.email, { userAgent, ip });
+
+    if (result.tokens && result.sessionId) {
+      this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user?.role);
+    }
+
+    return {
+      message: result.message,
+      emailVerified: result.emailVerified,
+      accessToken: result.tokens?.accessToken,
+      user: result.user,
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -131,6 +150,23 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resendOnboardingEmail(@CurrentUser() user: JwtPayloadUser) {
     return this.authService.resendOnboardingEmail(user.sub);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Get('verify-reset-token')
+  async verifyResetToken(@Query('token') token: string) {
+    return this.authService.verifyResetToken(token);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   private setAuthCookies(
@@ -171,5 +207,4 @@ export class AuthController {
     res.clearCookie('sessionId', cookieOptions);
     res.clearCookie('userRole', { ...cookieOptions, httpOnly: false });
   }
-
 }

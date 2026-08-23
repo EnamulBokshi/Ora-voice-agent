@@ -3,21 +3,26 @@ import * as path from 'path';
 import * as ejs from 'ejs';
 
 /**
- * ORA Brand Theme Baseline
- * Electric Violet (`#6C5CE7`), Cyan Teal (`#2DD4C8`), Void Dark (`#12121A`).
+ * ORA Brand Theme Baseline (Stitch / Obsidian Dark + Lime)
+ * Primary (`#C8F031`), Background (`#050505`), Card (`#111111`), Border (`#262626`).
  */
 export const ORA_EMAIL_THEME = {
-  primary: '#6C5CE7',       // Electric Violet
-  primaryDark: '#5645C7',   // Dark Violet CTA
-  secondary: '#2DD4C8',     // Cyan Teal Accent
-  bgVoid: '#12121A',        // Header Dark BG
-  bgLight: '#F7F7FB',       // Light Canvas BG
-  bgWhite: '#FFFFFF',       // Card Container
-  borderLight: '#E4E4EE',   // Structural Border
-  textPrimary: '#15151F',   // Main Heading Text
-  textSecondary: '#4A4A6A', // Body Text
-  textMuted: '#6B6B8A',     // Subtitle Text
-  textLight: '#8B8BB0',     // Secondary Muted Text
+  primary: '#C8F031',           // Signature ORA Lime
+  primaryHover: '#D4F536',      // Lime Dim / Hover
+  primaryForeground: '#111111', // Dark text on lime
+  bgCanvas: '#050505',          // Deep Canvas Background
+  bgCard: '#111111',            // Primary Container Card
+  bgSurface: '#181818',         // Inner Info Panel
+  bgInput: '#080808',           // Code / OTP Input Box
+  border: '#262626',            // Container Border
+  borderHighlight: '#333333',   // Highlighted Border
+  textPrimary: '#FAFAFA',       // Headings & High-contrast Text
+  textSecondary: '#D1D5DB',     // Body Copy
+  textMuted: '#9CA3AF',         // Subtitles & Secondary Labels
+  textDim: '#6B7280',           // Footnotes & Meta
+  statusOnline: '#C8F031',      // Online / Success
+  statusWarning: '#F59E0B',     // Warning
+  statusError: '#EF4444',       // Critical / Security
 };
 
 export interface VerifyEmailData {
@@ -99,7 +104,7 @@ function getTemplatePath(fileName: string): string | null {
 }
 
 /**
- * Clean responsive fallback HTML template used when disk templates are missing
+ * Clean responsive fallback HTML template matching ORA Obsidian + Lime design system
  */
 function getFallbackHtml(data: Record<string, any>, meta: { title: string; preheader: string }): string {
   const code = data.code || '';
@@ -113,22 +118,39 @@ function getFallbackHtml(data: Record<string, any>, meta: { title: string; prehe
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${meta.title}</title>
 </head>
-<body style="margin:0;padding:40px 20px;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#FAFAFA;">
-  <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background-color:#111111;border:1px solid #2A2A2A;border-radius:12px;overflow:hidden;">
+<body style="margin:0;padding:36px 12px;background-color:#050505;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FAFAFA;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width:580px;background-color:#111111;border:1px solid #262626;border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.7);">
     <tr>
-      <td style="padding:32px 32px 24px 32px;background-color:#0A0A0A;border-bottom:1px solid #222222;">
-        <span style="font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#C8F031;">ORA</span>
-        <span style="font-size:12px;color:#888888;margin-left:8px;text-transform:uppercase;letter-spacing:1px;">AI Sales Platform</span>
+      <td style="background:linear-gradient(90deg, #C8F031 0%, #D4F536 100%);height:4px;font-size:0;line-height:0;">&nbsp;</td>
+    </tr>
+    <tr>
+      <td style="padding:22px 32px;background-color:#0A0A0A;border-bottom:1px solid #222222;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td valign="middle" style="width:36px;">
+              <div style="width:32px;height:32px;border-radius:8px;background-color:#C8F031;text-align:center;line-height:32px;color:#111111;font-weight:900;font-size:15px;">O</div>
+            </td>
+            <td valign="middle" style="padding-left:10px;">
+              <span style="font-size:19px;font-weight:800;letter-spacing:-0.5px;color:#FAFAFA;display:block;line-height:1.1;">ORA</span>
+              <span style="font-size:10px;color:#C8F031;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;display:block;margin-top:2px;">AI Sales Platform</span>
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
     <tr>
       <td style="padding:32px;">
-        <h2 style="font-size:20px;font-weight:700;color:#FAFAFA;margin:0 0 12px 0;">${meta.title}</h2>
-        <p style="font-size:15px;line-height:1.6;color:#CCCCCC;margin:0 0 16px 0;">Hi ${name},</p>
-        <p style="font-size:15px;line-height:1.6;color:#AAAAAA;margin:0 0 24px 0;">${meta.preheader}</p>
-        ${code ? `<div style="background-color:#050505;border:1px solid #2A2A2A;border-radius:8px;padding:20px;text-align:center;margin:24px 0;"><span style="font-size:32px;letter-spacing:8px;font-weight:700;color:#C8F031;font-family:monospace;">${code}</span></div>` : ''}
-        ${url !== '#' ? `<div style="text-align:center;margin:28px 0;"><a href="${url}" style="background-color:#C8F031;color:#111111;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Proceed to ORA</a></div>` : ''}
-        <p style="font-size:12px;color:#666666;margin:32px 0 0 0;padding-top:20px;border-top:1px solid #222222;">If you did not request this email, you can safely ignore it.</p>
+        <h2 style="font-size:22px;font-weight:800;letter-spacing:-0.5px;color:#FAFAFA;margin:0 0 12px 0;">${meta.title}</h2>
+        <p style="font-size:14px;line-height:1.6;color:#D1D5DB;margin:0 0 16px 0;">Hi <strong>${name}</strong>,</p>
+        <p style="font-size:14px;line-height:1.6;color:#9CA3AF;margin:0 0 24px 0;">${meta.preheader}</p>
+        ${code ? `<div style="background-color:#080808;border:1px dashed rgba(200, 240, 49, 0.4);border-radius:12px;padding:20px;text-align:center;margin:22px 0;"><span style="font-size:32px;letter-spacing:8px;font-weight:800;color:#C8F031;font-family:'JetBrains Mono','Courier New',monospace;">${code}</span></div>` : ''}
+        ${url !== '#' ? `<div style="text-align:center;margin:26px 0;"><a href="${url}" style="background-color:#C8F031;color:#111111;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:800;font-size:14px;display:inline-block;letter-spacing:0.2px;">Proceed to ORA &rarr;</a></div>` : ''}
+        <p style="font-size:12px;color:#6B7280;margin:28px 0 0 0;padding-top:18px;border-top:1px solid #1F1F1F;line-height:18px;">If you did not request this email, you can safely ignore it.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="background-color:#0A0A0A;padding:20px 32px;border-top:1px solid #222222;text-align:center;">
+        <span style="color:#6B7280;font-size:11px;">&copy; ${new Date().getFullYear()} ORA Inc. Multi-Tenant AI Commerce.</span>
       </td>
     </tr>
   </table>

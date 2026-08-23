@@ -1,26 +1,40 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 
 const docs = [
   {
     id: 'quickstart',
     label: 'Getting Started',
-    title: 'Quickstart Guide',
+    title: 'Quickstart & Storefront Embed',
     meta: '5 min read',
     href: '/docs#quickstart',
   },
   {
-    id: 'api',
-    label: 'API Reference',
-    title: 'REST API & WebSocket',
-    meta: 'v1',
-    href: '/docs#rest-api',
+    id: 'widget-sdk',
+    label: 'Integration',
+    title: 'Widget SDK & JavaScript Events',
+    meta: 'All platforms',
+    href: '/docs#widget-sdk',
   },
   {
-    id: 'widget',
-    label: 'Integration',
-    title: 'Widget & Embed Setup',
-    meta: 'All platforms',
-    href: '/docs#widget-install',
+    id: 'voice-websocket',
+    label: 'Voice Gateway',
+    title: 'Voice WebSocket Protocol',
+    meta: '24kHz PCM',
+    href: '/docs#voice-websocket',
+  },
+  {
+    id: 'store-connectors',
+    label: 'Catalog Sync',
+    title: 'Store Connectors & Ingestion',
+    meta: 'Shopify / Woo',
+    href: '/docs#store-connectors',
+  },
+  {
+    id: 'api-standards',
+    label: 'API Reference',
+    title: 'REST API & Webhooks',
+    meta: 'v1 Endpoints',
+    href: '/docs#api-standards',
   },
 ];
 
@@ -53,7 +67,7 @@ export function DocsSection() {
           </p>
         </div>
 
-        {/* Flat doc rows — bordered, no cards */}
+        {/* Flat doc rows — bordered, minimalist, no cards */}
         <div
           role="list"
           aria-label="Documentation sections"
@@ -68,13 +82,14 @@ export function DocsSection() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '1.75rem 0',
+                padding: '1.75rem 0.5rem',
                 borderBottom: '1px solid var(--lp-border)',
                 textDecoration: 'none',
+                transition: 'opacity 0.15s ease',
               }}
             >
               {/* Left: label + title */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <span
                   className="lp-mono"
                   style={{
@@ -82,7 +97,7 @@ export function DocsSection() {
                     color: 'var(--lp-text-tertiary)',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
-                    minWidth: '8rem',
+                    minWidth: '8.5rem',
                   }}
                 >
                   {doc.label}
@@ -96,7 +111,7 @@ export function DocsSection() {
               </div>
 
               {/* Right: meta + arrow */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0, marginLeft: '1rem' }}>
                 <span
                   className="lp-mono"
                   style={{ fontSize: '0.75rem', color: 'var(--lp-text-tertiary)' }}

@@ -1,23 +1,56 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AuthHeader } from './AuthHeader';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { OtpVerificationForm } from './OtpVerificationForm';
-import { AuthResponseData } from '@/types/auth';
+import { ForgotPasswordForm } from './ForgotPasswordForm';
+import { ResetPasswordForm } from './ResetPasswordForm';
+import { AuthResponseData, OtpResponseData, User } from '@/types/auth';
 import { getMeApi } from '@/services/auth-service';
 
 export const AuthCard: React.FC = () => {
   const searchParams = useSearchParams();
   const redirectTarget = searchParams.get('from') || '/dashboard';
-  const initialMode = searchParams.get('mode') === 'login' ? 'login' : 'register';
   const planParam = searchParams.get('plan');
+  const modeParam = searchParams.get('mode');
+  const tokenParam = searchParams.get('token');
+  const codeParam = searchParams.get('code') || searchParams.get('otp');
+  const emailParam = searchParams.get('email');
 
-  const [mode, setMode] = useState<'login' | 'register' | 'otp'>(initialMode);
+  const getInitialMode = (): 'login' | 'register' | 'otp' | 'forgot-password' | 'reset-password' => {
+    if (tokenParam || modeParam === 'reset-password') return 'reset-password';
+    if (codeParam || modeParam === 'otp') return 'otp';
+    if (modeParam === 'forgot-password') return 'forgot-password';
+    if (modeParam === 'login') return 'login';
+    return 'register';
+  };
+
+  const [mode, setMode] = useState<'login' | 'register' | 'otp' | 'forgot-password' | 'reset-password'>(getInitialMode);
   const [sessionToken, setSessionToken] = useState<string | undefined>(undefined);
-  const [registeredEmail, setRegisteredEmail] = useState<string | undefined>(undefined);
+  const [registeredEmail, setRegisteredEmail] = useState<string | undefined>(emailParam || undefined);
+  const [resetToken, setResetToken] = useState<string>(tokenParam || '');
+
+  useEffect(() => {
+    if (tokenParam) {
+      setResetToken(tokenParam);
+      setMode('reset-password');
+    } else if (codeParam || modeParam === 'otp') {
+      setMode('otp');
+    } else if (modeParam === 'forgot-password') {
+      setMode('forgot-password');
+    } else if (modeParam === 'login') {
+      setMode('login');
+    } else if (modeParam === 'register') {
+      setMode('register');
+    }
+
+    if (emailParam) {
+      setRegisteredEmail(emailParam);
+    }
+  }, [modeParam, tokenParam, codeParam, emailParam]);
 
   const resolveTargetUrl = (role?: string) => {
     if (role === 'admin' || role === 'super_admin') {
@@ -60,10 +93,28 @@ export const AuthCard: React.FC = () => {
       localStorage.setItem('accessToken', data.accessToken);
     }
     syncUserCookie(data.user.role);
-    window.location.href = resolveTargetUrl(data.user.role);
+
+    if (!data.user.emailVerified) {
+      setSessionToken(data.accessToken);
+      setRegisteredEmail(data.user.email);
+      setMode('otp');
+    } else {
+      window.location.href = resolveTargetUrl(data.user.role);
+    }
   };
 
-  const handleOtpVerifiedSuccess = async () => {
+  const handleOtpVerifiedSuccess = async (res?: OtpResponseData & { accessToken?: string; user?: User }) => {
+    if (res?.accessToken) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', res.accessToken);
+      }
+      if (res.user?.role) {
+        syncUserCookie(res.user.role);
+      }
+      window.location.href = resolveTargetUrl(res.user?.role);
+      return;
+    }
+
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : sessionToken;
       const profile = await getMeApi(token || undefined);
@@ -87,6 +138,7 @@ export const AuthCard: React.FC = () => {
           <LoginForm
             onSuccess={handleLoginSuccess}
             onSwitchToRegister={() => setMode('register')}
+            onSwitchToForgotPassword={() => setMode('forgot-password')}
           />
         )}
 
@@ -100,8 +152,24 @@ export const AuthCard: React.FC = () => {
         {mode === 'otp' && (
           <OtpVerificationForm
             accessToken={sessionToken}
+            initialCode={codeParam || ''}
+            email={registeredEmail}
             onSuccess={handleOtpVerifiedSuccess}
             onBackToLogin={() => setMode('login')}
+          />
+        )}
+
+        {mode === 'forgot-password' && (
+          <ForgotPasswordForm
+            onBackToLogin={() => setMode('login')}
+          />
+        )}
+
+        {mode === 'reset-password' && (
+          <ResetPasswordForm
+            token={resetToken}
+            onSuccess={() => setMode('login')}
+            onRequestNewLink={() => setMode('forgot-password')}
           />
         )}
       </div>
