@@ -5,10 +5,8 @@ import Link from 'next/link';
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   ExternalLink,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,136 +43,107 @@ export function SetupStepCard({
   previewComponent,
 }: SetupStepCardProps) {
   return (
-    <div
-      className={cn(
-        'rounded-2xl border transition-all duration-300 overflow-hidden relative',
-        isOpen
-          ? 'border-primary/50 bg-surface-container/80 shadow-xl shadow-black/40 ring-1 ring-primary/25'
-          : 'border-border/70 bg-surface-lowest/70 hover:border-border hover:bg-surface-lowest/95 shadow-sm',
-      )}
-    >
-      {/* Active accent top stripe */}
-      {isOpen && (
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-primary/60 to-transparent" />
-      )}
-
-      {/* ── Collapsed / Summary Row Header ── */}
+    <div className={cn('border-b border-border/60 transition-colors relative', isOpen && 'border-border')}>
+      {/* Left primary indicator — only visible on the open step */}
+      {isOpen && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />}
+      {/* ── Header row — same rhythm as SalesFunnel / AnalyticsPanel rows ── */}
       <div
         className={cn(
-          'flex items-center justify-between p-4 sm:p-5.5 cursor-pointer transition-colors select-none',
-          isOpen && 'border-b border-border/40 pb-4.5 bg-surface-high/20',
+          'flex items-center justify-between py-4 cursor-pointer select-none group pl-4 transition-colors',
+          isOpen ? 'bg-primary/[0.03]' : 'hover:bg-muted/10',
         )}
         onClick={onToggleOpen}
       >
         <div className="flex items-center gap-4 min-w-0">
-          {/* Checkbox / Completion status indicator */}
+          {/* Completion circle — minimal, like a checkbox */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleComplete();
-            }}
-            title={isCompleted ? 'Mark step as incomplete' : 'Mark step as complete'}
+            onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
+            title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
             className={cn(
-              'w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 cursor-pointer',
+              'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 cursor-pointer border',
               isCompleted
-                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/40 ring-2 ring-primary/30'
-                : 'border-2 border-muted-foreground/40 hover:border-primary text-transparent hover:text-primary/40 bg-surface-lowest',
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'border-border bg-transparent group-hover:border-muted-foreground',
             )}
           >
-            <Check size={14} strokeWidth={3} className={isCompleted ? 'opacity-100' : 'opacity-0'} />
+            <Check size={11} strokeWidth={3} className={cn('transition-opacity', isCompleted ? 'opacity-100' : 'opacity-0')} />
           </button>
 
-          {/* Title & Step Number */}
-          <div className="min-w-0 space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                Step 0{stepNumber}
-              </span>
-              {isCompleted ? (
-                <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.2 rounded-full bg-primary/10 border border-primary/25">
-                  ✓ Configured
-                </span>
-              ) : (
-                <span className="text-[10px] font-mono font-medium text-muted-foreground/80 px-2 py-0.2 rounded-full bg-surface-high border border-border/60">
-                  Pending
-                </span>
-              )}
-            </div>
+          {/* Step label + title inline */}
+          <div className="min-w-0 flex items-center gap-3">
+            <span className="text-[11px] font-mono font-semibold text-muted-foreground/60 flex-shrink-0 tabular-nums">
+              {String(stepNumber).padStart(2, '0')}
+            </span>
             <h3
               className={cn(
-                'text-[15px] sm:text-[16px] font-bold tracking-tight truncate transition-colors',
-                isCompleted ? 'text-foreground/90' : 'text-foreground',
+                'text-[13.5px] font-semibold truncate transition-colors',
+                isCompleted ? 'text-muted-foreground' : isOpen ? 'text-foreground' : 'text-foreground/80',
               )}
             >
               {title}
             </h3>
+            {isCompleted && (
+              <span className="text-[10.5px] font-mono text-primary flex-shrink-0">Done</span>
+            )}
           </div>
         </div>
 
-        {/* Expand / Collapse Action */}
-        <div className="flex items-center gap-3 flex-shrink-0 text-muted-foreground">
-          <span className="text-[11.5px] font-medium hidden sm:inline-block font-mono text-muted-foreground/70">
+        {/* Collapse toggle — right side, understated */}
+        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+          <span className="text-[11px] text-muted-foreground/60 hidden sm:block">
             {isOpen ? 'Collapse' : 'Configure'}
           </span>
-          <div
-            className={cn(
-              'w-8 h-8 rounded-lg flex items-center justify-center bg-surface-high/60 border border-border/50 hover:bg-surface-highest transition-all duration-200',
-              isOpen && 'rotate-180 text-foreground bg-primary/15 border-primary/30 text-primary',
-            )}
-          >
-            <ChevronDown size={16} />
-          </div>
+          <ChevronDown
+            size={14}
+            className={cn('text-muted-foreground transition-transform duration-200', isOpen && 'rotate-180')}
+          />
         </div>
       </div>
 
-      {/* ── Expanded Content ── */}
+      {/* ── Expanded body ── */}
       {isOpen && (
-        <div className="p-4 sm:p-6 sm:pt-5 space-y-5 animate-in fade-in duration-200">
-          {/* Step description & fast action header bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-border/40">
-            <p className="text-[13px] sm:text-[13.5px] leading-relaxed text-muted-foreground max-w-3xl">
+        <div className="pb-6 space-y-5 animate-in fade-in duration-150 pl-4">
+          {/* Description + action inline */}
+          <div className="flex flex-col md:flex-row md:items-start gap-4 pl-9">
+            <p className="text-[13px] leading-relaxed text-muted-foreground flex-1 max-w-2xl">
               {description}
             </p>
-
-            <div className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {ctaText && (
-                <>
-                  {ctaHref ? (
-                    <Link
-                      href={ctaHref}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 active:scale-98 transition-all shadow-xs"
-                    >
-                      <span>{ctaText}</span>
-                      <ArrowRight size={12} />
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={onCtaClick}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 active:scale-98 transition-all shadow-xs cursor-pointer"
-                    >
-                      <span>{ctaText}</span>
-                      <ArrowRight size={12} />
-                    </button>
-                  )}
-                </>
+                ctaHref ? (
+                  <Link
+                    href={ctaHref}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    {ctaText}
+                    <ArrowRight size={11} />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onCtaClick}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                  >
+                    {ctaText}
+                    <ArrowRight size={11} />
+                  </button>
+                )
               )}
-
               {learnMoreHref && (
                 <Link
                   href={learnMoreHref}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors px-2 py-1 rounded hover:bg-surface-high"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
                 >
-                  <span>{learnMoreText || 'Open workspace'}</span>
-                  <ExternalLink size={11} />
+                  {learnMoreText || 'Open workspace'}
+                  <ExternalLink size={10} />
                 </Link>
               )}
             </div>
           </div>
 
-          {/* Interactive Workspace Component */}
-          <div className="w-full">{previewComponent}</div>
+          {/* Preview panel — indented to align with title */}
+          <div className="pl-9">{previewComponent}</div>
         </div>
       )}
     </div>

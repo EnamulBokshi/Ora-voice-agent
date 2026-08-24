@@ -60,7 +60,7 @@ export class VoiceSettings {
   })
   businessId: Types.ObjectId;
 
-  @Prop({ default: 'alloy' })
+  @Prop({ default: 'Aoede' })
   voiceId: string;
 
   @Prop({ default: 'en' })

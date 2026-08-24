@@ -13,6 +13,32 @@ import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema
 import { Customer, CustomerDocument } from '../customers/schemas/customer.schema';
 import { EncryptionUtil } from '../common/utils/encryption.util';
 
+// Map of supported Gemini Live voices & fallback mapper for legacy OpenAI voice names
+const VALID_GEMINI_VOICES = new Set(['Aoede', 'Fenrir', 'Kore', 'Puck', 'Charon']);
+
+const LEGACY_VOICE_MAP: Record<string, string> = {
+  alloy: 'Aoede',
+  echo: 'Fenrir',
+  fable: 'Puck',
+  onyx: 'Charon',
+  nova: 'Kore',
+  shimmer: 'Aoede',
+};
+
+export function normalizeGeminiVoice(rawVoice?: string): string {
+  if (!rawVoice) return 'Aoede';
+  if (VALID_GEMINI_VOICES.has(rawVoice)) return rawVoice;
+
+  const lower = rawVoice.toLowerCase();
+  if (LEGACY_VOICE_MAP[lower]) {
+    return LEGACY_VOICE_MAP[lower];
+  }
+  for (const v of VALID_GEMINI_VOICES) {
+    if (v.toLowerCase() === lower) return v;
+  }
+  return 'Aoede';
+}
+
 export interface GeminiVoiceSessionOptions {
   businessId: string;
   sessionId: string;
@@ -205,7 +231,7 @@ export class GeminiVoiceService {
 
         const cached = this.instructionCache.get(options.businessId);
         const archetype = cached?.archetype || 'general';
-        const voiceName = cached?.voiceName || 'Aoede';
+        const voiceName = normalizeGeminiVoice(cached?.voiceName);
 
         // Send Setup Handshake Payload with dynamic merchant voice
         const setupPayload = {
@@ -623,7 +649,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
         .filter(Boolean)
         .join('\n');
 
-      const voiceName = agentConfig?.voice?.voiceId || 'Aoede';
+      const voiceName = normalizeGeminiVoice(agentConfig?.voice?.voiceId);
 
       // Cache base template for 5 minutes
       this.instructionCache.set(businessId, {

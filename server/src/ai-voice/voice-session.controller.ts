@@ -11,6 +11,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { BootstrapVoiceSessionDto } from './dto/voice-session.dto';
 import { BootstrapRateLimitGuard } from './guards/bootstrap-rate-limit.guard';
+import { normalizeGeminiVoice } from './gemini-voice.service';
 
 @Controller('voice')
 export class VoiceSessionController {
@@ -57,7 +58,7 @@ export class VoiceSessionController {
   async previewVoiceSample(
     @Body() body: { voiceId?: string; sampleText?: string },
   ) {
-    const voiceId = body.voiceId || 'Aoede';
+    const voiceId = normalizeGeminiVoice(body.voiceId);
     const text =
       body.sampleText ||
       'Welcome to our store! I am your AI sales assistant, ready to help you find the best products.';
