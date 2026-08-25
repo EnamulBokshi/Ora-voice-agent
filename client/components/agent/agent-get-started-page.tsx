@@ -50,7 +50,7 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
     heroTitle: 'ORA for Voice drives purchases on your store',
     heroDesc:
       'ORA for Voice connects seamlessly with your store catalog to aid with product discovery, answer sizing questions, and reduce buying friction.',
-    heroImageSrc: '/previews/ecom-hero.jpg',
+    heroImageSrc: '/previews/role-voice-v2.jpg',
     cta1Label: 'Set up ORA for Voice',
     cta1Href: '/agent?role=voice&view=feed',
     cta2Label: 'Learn more',
@@ -61,28 +61,28 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         title: 'ORA engages shoppers on your store',
         description:
           "ORA greets visitors proactively on high-intent product pages — whether they arrive with a specific question, land on a product page, or are just browsing.",
-        imageSrc: '/previews/ecom-step1.jpg',
+        imageSrc: '/previews/step-engage-v2.jpg',
       },
       {
         stepLabel: '2. UNDERSTAND',
         title: 'ORA understands shopper needs',
         description:
           'Through natural voice conversation, ORA figures out what the customer actually needs. It asks the right questions about size, use case, preferences, and budget.',
-        imageSrc: '/previews/ecom-step2.jpg',
+        imageSrc: '/previews/step-understand-v2.jpg',
       },
       {
         stepLabel: '3. DISCOVER',
         title: 'ORA guides product discovery',
         description:
           "ORA searches your catalog and recommends products that match. It can compare options, explain differences, suggest alternatives if something's out of stock, and answer detailed product questions.",
-        imageSrc: '/previews/ecom-step3.jpg',
+        imageSrc: '/previews/step-discover-v2.jpg',
       },
       {
         stepLabel: '4. CONVERT',
         title: 'ORA drives purchases',
         description:
           'Once the customer is ready, ORA manages the cart, handles last-minute questions about shipping or returns, and guides them directly to checkout.',
-        imageSrc: '/previews/ecom-step4.jpg',
+        imageSrc: '/previews/step-convert-v2.jpg',
       },
     ],
     faqs: [
@@ -113,7 +113,7 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
     heroTitle: 'ORA for Knowledge makes your store smarter',
     heroDesc:
       "ORA's knowledge base connects seamlessly with your store documents to provide accurate, instant answers — eliminating hallucinations.",
-    heroImageSrc: '/previews/saas-hero.jpg',
+    heroImageSrc: '/previews/role-docs-v2.jpg',
     cta1Label: 'Set up Knowledge Base',
     cta1Href: '/agent?role=documents&view=feed',
     cta2Label: 'Learn more',
@@ -124,28 +124,28 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         title: 'Upload your store documents',
         description:
           'Add store policies, shipping guidelines, size charts, warranty terms, and FAQs. ORA accepts PDF, DOCX, TXT, and Markdown.',
-        imageSrc: '/previews/enterprise-hero.jpg',
+        imageSrc: '/previews/role-docs-v2.jpg',
       },
       {
         stepLabel: '2. INDEX',
         title: 'ORA indexes and vectorises content',
         description:
           "ORA's vector engine chunks and embeds your documents into high-dimensional space for sub-85ms semantic similarity retrieval.",
-        imageSrc: '/previews/ecom-step2.jpg',
+        imageSrc: '/previews/step-understand-v2.jpg',
       },
       {
         stepLabel: '3. ANSWER',
         title: 'ORA answers questions accurately',
         description:
           'When a shopper asks about return windows or warranty terms, ORA retrieves the verified document passage and quotes precise facts.',
-        imageSrc: '/previews/saas-hero.jpg',
+        imageSrc: '/previews/step-discover-v2.jpg',
       },
       {
         stepLabel: '4. IMPROVE',
         title: 'Knowledge improves over time',
         description:
           'Update documents anytime and ORA re-indexes in seconds. Discover unanswered customer queries to close knowledge gaps.',
-        imageSrc: '/previews/ecom-step4.jpg',
+        imageSrc: '/previews/step-convert-v2.jpg',
       },
     ],
     faqs: [
@@ -176,7 +176,7 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
     heroTitle: 'ORA Catalog keeps your products searchable',
     heroDesc:
       'Sync your product inventory so ORA can answer stock availability, recommend items, and guide shoppers through checkout using live catalog data.',
-    heroImageSrc: '/previews/agency-hero.jpg',
+    heroImageSrc: '/previews/role-products-v2.jpg',
     cta1Label: 'Sync Product Catalog',
     cta1Href: '/agent?role=products&view=feed',
     cta2Label: 'Learn more',
@@ -187,28 +187,28 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         title: 'Connect your store inventory',
         description:
           'Connect your Shopify, WooCommerce, or custom CSV catalog. ORA imports titles, descriptions, prices, variants, and live stock counts.',
-        imageSrc: '/previews/ecom-step1.jpg',
+        imageSrc: '/previews/role-products-v2.jpg',
       },
       {
         stepLabel: '2. SEARCH',
         title: 'Real-time semantic product search',
         description:
           'Shoppers describe what they need in natural speech or text. ORA matches intent against your catalog with instant stock checks.',
-        imageSrc: '/previews/portfolio-hero.jpg',
+        imageSrc: '/previews/step-understand-v2.jpg',
       },
       {
         stepLabel: '3. RECOMMEND',
         title: 'Smart upsells and alternative matching',
         description:
           'If an item is out of stock, ORA suggests matching alternatives. It cross-sells complementary products based on shopper preferences.',
-        imageSrc: '/previews/ecom-step3.jpg',
+        imageSrc: '/previews/step-discover-v2.jpg',
       },
       {
         stepLabel: '4. CONVERT',
         title: 'Direct cart adding and checkout',
         description:
           'Shoppers add products to their cart directly during the voice conversation. ORA provides instant checkout links for high conversion.',
-        imageSrc: '/previews/ecom-step4.jpg',
+        imageSrc: '/previews/step-convert-v2.jpg',
       },
     ],
     faqs: [

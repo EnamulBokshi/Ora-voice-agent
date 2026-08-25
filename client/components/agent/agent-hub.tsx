@@ -33,7 +33,7 @@ const AGENT_ROLES: AgentRoleCard[] = [
     category: 'Speech AI',
     Icon: Mic,
     description: 'Real-time bidirectional speech to train, test, and tune voice persona',
-    imageSrc: '/previews/ecom-step1.jpg',
+    imageSrc: '/previews/role-voice-v2.jpg',
     href: '/agent?role=voice',
   },
   {
@@ -42,7 +42,7 @@ const AGENT_ROLES: AgentRoleCard[] = [
     category: 'Knowledge Base',
     Icon: FileText,
     description: 'Upload store policies, FAQs, and documentation for verified RAG search',
-    imageSrc: '/previews/ecom-step2.jpg',
+    imageSrc: '/previews/role-docs-v2.jpg',
     href: '/agent?role=documents',
   },
   {
@@ -51,7 +51,7 @@ const AGENT_ROLES: AgentRoleCard[] = [
     category: 'Catalog & Cart',
     Icon: Package,
     description: 'Sync live Shopify, WooCommerce, or CSV products with instant cart tools',
-    imageSrc: '/previews/ecom-step3.jpg',
+    imageSrc: '/previews/role-products-v2.jpg',
     href: '/agent?role=products',
   },
 ];
