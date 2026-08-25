@@ -15,7 +15,7 @@ import {
   ArrowRight,
   X,
   Loader2,
-  Sparkles,
+  Activity,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
@@ -237,7 +237,7 @@ export function OverviewClient() {
       {!isAllCompleted && !bannerDismissed && (
         <div className="flex items-center justify-between gap-4 px-6 py-2.5 bg-primary/10 border-b border-primary/20 flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Sparkles size={13} className="text-primary flex-shrink-0" />
+            <Activity size={13} className="text-primary flex-shrink-0" />
             <span className="text-[12.5px] text-foreground font-medium truncate">
               Store setup in progress ({completedCount}/{totalSteps} steps completed) —{' '}
               <Link

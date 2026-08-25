@@ -55,7 +55,7 @@ export function AdminVoiceMonitorView() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-foreground">Gemini Live Voice Gateway</h2>
+                <h2 className="text-base font-bold text-foreground">ORA Live Voice Gateway</h2>
                 <span className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary border border-primary/40">
                   ONLINE
                 </span>

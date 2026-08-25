@@ -1,201 +1,234 @@
 'use client';
 
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
-import { ChevronDown, ArrowRight, ExternalLink } from 'lucide-react';
+import {
+  Mic,
+  FileText,
+  Package,
+  ChevronDown,
+  ArrowRight,
+  BookOpen,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type AgentRole } from './agent-section-nav';
 
-// ─── Content definitions per role ─────────────────────────────────────────────
+// ─── Per-Role Editorial & Image Definitions ───────────────────────────────────
 
 type HowRow = {
   stepLabel: string;
   title: string;
   description: string;
   imageSrc: string;
-  containerClass: string; // bg tint class for the screenshot container
 };
 
 type FaqItem = { q: string; a: string };
-type GetStartedStep = { action: string; desc: string; href: string };
 
 type RolePageContent = {
   Icon: React.ElementType;
-  iconClass: string;
+  iconBgClass: string;
+  iconTextClass: string;
+  roleName: string;
   heroTitle: string;
   heroDesc: string;
+  heroImageSrc: string;
   cta1Label: string;
   cta1Href: string;
   cta2Label: string;
-  heroImageSrc: string;
   howLabel: string;
   rows: HowRow[];
   faqs: FaqItem[];
-  gettingStarted: GetStartedStep[];
-  gsImageSrc: string;
 };
-
-import { Mic, FileText, Package } from 'lucide-react';
 
 const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
   voice: {
     Icon: Mic,
-    iconClass: 'text-primary',
-    heroTitle: 'ORA Voice drives purchases on your store',
-    heroDesc: 'ORA connects seamlessly with your store to aid with product discovery and reduce buying friction through real-time voice AI.',
-    cta1Label: 'Set up ORA Voice',
-    cta1Href: '/setup',
+    iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
+    iconTextClass: 'text-foreground',
+    roleName: 'ORA for Voice',
+    heroTitle: 'ORA for Voice drives purchases on your store',
+    heroDesc:
+      'ORA for Voice connects seamlessly with your store catalog to aid with product discovery, answer sizing questions, and reduce buying friction.',
+    heroImageSrc: '/previews/ecom-hero.jpg',
+    cta1Label: 'Set up ORA for Voice',
+    cta1Href: '/agent?role=voice&view=feed',
     cta2Label: 'Learn more',
-    heroImageSrc: '/previews/voice-preview.jpg',
-    howLabel: 'HOW ORA VOICE WORKS',
+    howLabel: 'HOW ORA FOR VOICE WORKS',
     rows: [
       {
         stepLabel: '1. ENGAGE',
         title: 'ORA engages shoppers on your store',
-        description: "ORA greets visitors and picks up on what they're looking for — whether they arrive with a specific question, land on a product page, or are just browsing.",
-        imageSrc: '/previews/voice-preview.jpg',
-        containerClass: 'bg-primary/[0.08]',
+        description:
+          "ORA greets visitors proactively on high-intent product pages — whether they arrive with a specific question, land on a product page, or are just browsing.",
+        imageSrc: '/previews/ecom-step1.jpg',
       },
       {
         stepLabel: '2. UNDERSTAND',
         title: 'ORA understands shopper needs',
-        description: 'Through natural voice conversation, ORA finds out what the customer actually needs. It asks the right questions about size, use case, preferences, and budget.',
-        imageSrc: '/previews/voice-preview.jpg',
-        containerClass: 'bg-primary/[0.08]',
+        description:
+          'Through natural voice conversation, ORA figures out what the customer actually needs. It asks the right questions about size, use case, preferences, and budget.',
+        imageSrc: '/previews/ecom-step2.jpg',
       },
       {
         stepLabel: '3. DISCOVER',
         title: 'ORA guides product discovery',
-        description: "ORA searches your catalog and recommends products that match. It can compare options, explain differences, and suggest alternatives if something's out of stock.",
-        imageSrc: '/previews/products-preview.jpg',
-        containerClass: 'bg-primary/[0.08]',
+        description:
+          "ORA searches your catalog and recommends products that match. It can compare options, explain differences, suggest alternatives if something's out of stock, and answer detailed product questions.",
+        imageSrc: '/previews/ecom-step3.jpg',
       },
       {
         stepLabel: '4. CONVERT',
         title: 'ORA drives purchases',
-        description: 'Once the customer is ready, ORA manages the cart, handles last-minute questions about shipping or returns, and guides them to checkout — all without leaving the conversation.',
-        imageSrc: '/previews/products-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-info)]/[0.08]',
+        description:
+          'Once the customer is ready, ORA manages the cart, handles last-minute questions about shipping or returns, and guides them directly to checkout.',
+        imageSrc: '/previews/ecom-step4.jpg',
       },
     ],
     faqs: [
-      { q: 'Can I use ORA Voice without Shopify?', a: 'Yes. ORA works with any platform. Embed the widget on any site using a script tag. Shopify and WooCommerce have native integrations.' },
-      { q: 'How is ORA different from a regular chatbot?', a: 'ORA is a real-time speech-to-speech AI that speaks and listens. Unlike text chatbots, it handles complex multi-turn voice conversations naturally.' },
-      { q: 'How does ORA engage shoppers?', a: "ORA initiates conversations proactively based on the shopper's context — product page, cart, or search query — and responds to their voice naturally." },
-      { q: 'How does ORA connect to my store?', a: 'Via your Publishable Key. Copy the widget snippet from the Setup page and paste it into your store theme or layout.' },
+      {
+        q: 'Can I use ORA for Voice if I do not use Shopify?',
+        a: 'Yes. ORA works with any web platform. You can embed the widget on any site with a single script tag. Native connectors are also provided for WooCommerce and custom React storefronts.',
+      },
+      {
+        q: 'How is it different from a regular chatbot?',
+        a: 'ORA is an ultra-low-latency real-time voice AI that speaks, listens, and understands context. Unlike text bots, it has conversational human timing, natural interruptions, and consultative selling ability.',
+      },
+      {
+        q: 'How does ORA engage shoppers?',
+        a: 'ORA can trigger proactive greetings based on visitor behavior (e.g. dwell time on high-intent product pages or cart abandonment) and responds dynamically to natural customer queries.',
+      },
+      {
+        q: 'How does ORA connect to my store?',
+        a: 'Via your Publishable Key. Copy the one-line embed script from the Setup section and paste it into your theme layout to go live instantly.',
+      },
     ],
-    gettingStarted: [
-      { action: 'Train ORA with your products →', desc: 'Upload store policies and use voice training to feed product knowledge directly to ORA.', href: '/agent?role=voice&view=feed' },
-      { action: 'Deploy ORA to your store →', desc: 'Embed the ORA widget on your storefront with a single script tag.', href: '/setup' },
-    ],
-    gsImageSrc: '/previews/voice-preview.jpg',
   },
 
   documents: {
     Icon: FileText,
-    iconClass: 'text-[color:var(--ora-info)]',
-    heroTitle: 'ORA Knowledge makes your store smarter',
-    heroDesc: "ORA's knowledge base connects seamlessly with your store documents to provide accurate, instant answers — eliminating hallucinations and improving trust.",
-    cta1Label: 'Set up Knowledge',
-    cta1Href: '/setup',
+    iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
+    iconTextClass: 'text-foreground',
+    roleName: 'ORA for Knowledge',
+    heroTitle: 'ORA for Knowledge makes your store smarter',
+    heroDesc:
+      "ORA's knowledge base connects seamlessly with your store documents to provide accurate, instant answers — eliminating hallucinations.",
+    heroImageSrc: '/previews/saas-hero.jpg',
+    cta1Label: 'Set up Knowledge Base',
+    cta1Href: '/agent?role=documents&view=feed',
     cta2Label: 'Learn more',
-    heroImageSrc: '/previews/docs-preview.jpg',
-    howLabel: 'HOW KNOWLEDGE WORKS',
+    howLabel: 'HOW ORA KNOWLEDGE WORKS',
     rows: [
       {
         stepLabel: '1. UPLOAD',
         title: 'Upload your store documents',
-        description: 'Add policies, shipping guides, FAQs, warranty documents, and any reference files. ORA accepts PDF, DOCX, TXT, and plain text.',
-        imageSrc: '/previews/docs-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-info)]/[0.08]',
+        description:
+          'Add store policies, shipping guidelines, size charts, warranty terms, and FAQs. ORA accepts PDF, DOCX, TXT, and Markdown.',
+        imageSrc: '/previews/enterprise-hero.jpg',
       },
       {
         stepLabel: '2. INDEX',
         title: 'ORA indexes and vectorises content',
-        description: "ORA's RAG engine processes your documents, splits them into chunks, and stores them in a vector database for sub-85ms retrieval.",
-        imageSrc: '/previews/docs-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-info)]/[0.08]',
+        description:
+          "ORA's vector engine chunks and embeds your documents into high-dimensional space for sub-85ms semantic similarity retrieval.",
+        imageSrc: '/previews/ecom-step2.jpg',
       },
       {
         stepLabel: '3. ANSWER',
         title: 'ORA answers questions accurately',
-        description: 'When a shopper asks about return windows, shipping times, or warranty terms, ORA retrieves the precise document passage and responds accurately.',
-        imageSrc: '/previews/docs-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-info)]/[0.08]',
+        description:
+          'When a shopper asks about return windows or warranty terms, ORA retrieves the verified document passage and quotes precise facts.',
+        imageSrc: '/previews/saas-hero.jpg',
       },
       {
         stepLabel: '4. IMPROVE',
         title: 'Knowledge improves over time',
-        description: 'Update documents and ORA re-indexes instantly. Track which topics shoppers ask about most, and fill knowledge gaps proactively.',
-        imageSrc: '/previews/docs-preview.jpg',
-        containerClass: 'bg-primary/[0.08]',
+        description:
+          'Update documents anytime and ORA re-indexes in seconds. Discover unanswered customer queries to close knowledge gaps.',
+        imageSrc: '/previews/ecom-step4.jpg',
       },
     ],
     faqs: [
-      { q: 'What file types does ORA accept?', a: 'ORA accepts PDF, DOCX, TXT, and plain text files. Spreadsheets can be exported as CSV or PDF for upload.' },
-      { q: 'How many documents can I upload?', a: 'There is no hard limit on document count. The plan limit applies to total indexed tokens.' },
-      { q: 'How quickly does ORA index new documents?', a: 'Indexing is near-instant for most documents (under 30 seconds). Larger files may take a few minutes.' },
-      { q: 'Can I update or delete documents?', a: 'Yes. From the knowledge base view you can re-upload, update, or permanently delete any document.' },
+      {
+        q: 'What file types does ORA accept?',
+        a: 'ORA accepts PDF, DOCX, TXT, and Markdown files. You can also paste raw text directly into the knowledge editor.',
+      },
+      {
+        q: 'How quickly does ORA index new documents?',
+        a: 'Indexing is near-instant (under 30 seconds for most documents). Vector embeddings are stored and ready immediately.',
+      },
+      {
+        q: 'Does ORA hallucinate answers?',
+        a: 'No. ORA uses strict grounded RAG retrieval. If an answer cannot be verified from your uploaded documents, it gracefully offers human escalation.',
+      },
+      {
+        q: 'Can I delete or update documents?',
+        a: 'Yes. You can edit, update, or permanently delete documents from the Knowledge view at any time.',
+      },
     ],
-    gettingStarted: [
-      { action: 'Upload your store policies →', desc: 'Add return policies, shipping guides, and FAQ documents to ORA.', href: '/agent?role=documents&view=feed' },
-      { action: 'Sync your product catalog →', desc: 'Connect Shopify or WooCommerce so ORA has live product data.', href: '/agent?role=products' },
-    ],
-    gsImageSrc: '/previews/docs-preview.jpg',
   },
 
   products: {
     Icon: Package,
-    iconClass: 'text-[color:var(--ora-warning)]',
+    iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
+    iconTextClass: 'text-foreground',
+    roleName: 'ORA for Catalog',
     heroTitle: 'ORA Catalog keeps your products searchable',
-    heroDesc: 'Sync your product inventory so ORA can answer availability questions, recommend items, and guide shoppers through checkout using live catalog data.',
-    cta1Label: 'Sync your catalog',
-    cta1Href: '/setup',
+    heroDesc:
+      'Sync your product inventory so ORA can answer stock availability, recommend items, and guide shoppers through checkout using live catalog data.',
+    heroImageSrc: '/previews/agency-hero.jpg',
+    cta1Label: 'Sync Product Catalog',
+    cta1Href: '/agent?role=products&view=feed',
     cta2Label: 'Learn more',
-    heroImageSrc: '/previews/products-preview.jpg',
-    howLabel: 'HOW PRODUCT CATALOG WORKS',
+    howLabel: 'HOW ORA CATALOG WORKS',
     rows: [
       {
         stepLabel: '1. SYNC',
-        title: 'Connect your Shopify or WooCommerce',
-        description: 'Link your store via the native Shopify or WooCommerce integration. ORA pulls live product data — titles, descriptions, prices, variants, and inventory.',
-        imageSrc: '/previews/products-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-warning)]/[0.08]',
+        title: 'Connect your store inventory',
+        description:
+          'Connect your Shopify, WooCommerce, or custom CSV catalog. ORA imports titles, descriptions, prices, variants, and live stock counts.',
+        imageSrc: '/previews/ecom-step1.jpg',
       },
       {
-        stepLabel: '2. INDEX',
-        title: 'Products are indexed for fast search',
-        description: "ORA's vector engine indexes your entire catalog. Shoppers can search by natural language — 'a lightweight running shoe under $80' — and ORA finds matches instantly.",
-        imageSrc: '/previews/products-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-warning)]/[0.08]',
+        stepLabel: '2. SEARCH',
+        title: 'Real-time semantic product search',
+        description:
+          'Shoppers describe what they need in natural speech or text. ORA matches intent against your catalog with instant stock checks.',
+        imageSrc: '/previews/portfolio-hero.jpg',
       },
       {
         stepLabel: '3. RECOMMEND',
-        title: 'ORA recommends relevant products',
-        description: 'ORA matches shopper intent to catalog items, handles variant selection, compares alternatives, and answers detailed product questions without human help.',
-        imageSrc: '/previews/products-preview.jpg',
-        containerClass: 'bg-[color:var(--ora-warning)]/[0.08]',
+        title: 'Smart upsells and alternative matching',
+        description:
+          'If an item is out of stock, ORA suggests matching alternatives. It cross-sells complementary products based on shopper preferences.',
+        imageSrc: '/previews/ecom-step3.jpg',
       },
       {
         stepLabel: '4. CONVERT',
-        title: 'ORA guides shoppers to checkout',
-        description: 'Once a shopper selects a product, ORA assists with cart management, applies discount codes, answers last-minute shipping questions, and guides them to complete the purchase.',
-        imageSrc: '/previews/products-preview.jpg',
-        containerClass: 'bg-primary/[0.08]',
+        title: 'Direct cart adding and checkout',
+        description:
+          'Shoppers add products to their cart directly during the voice conversation. ORA provides instant checkout links for high conversion.',
+        imageSrc: '/previews/ecom-step4.jpg',
       },
     ],
     faqs: [
-      { q: 'Does ORA work without Shopify?', a: 'Yes. You can upload a CSV product file or connect WooCommerce. Shopify has the deepest native integration.' },
-      { q: 'How often does ORA sync product data?', a: 'ORA syncs on-demand. Click "Sync now" in the catalog view, or we will auto-sync every 24 hours.' },
-      { q: 'Can ORA handle product variants?', a: 'Yes. ORA understands size, color, material, and other variant attributes and helps shoppers select the right one.' },
-      { q: 'What happens when a product is out of stock?', a: 'ORA detects out-of-stock status and proactively suggests alternatives from your catalog.' },
+      {
+        q: 'How does ORA keep track of inventory changes?',
+        a: 'ORA syncs stock counts automatically via webhook on every purchase or stock update from Shopify and WooCommerce.',
+      },
+      {
+        q: 'Can ORA handle variant options like size and color?',
+        a: 'Yes. ORA understands multi-variant SKUs, asking clarifying questions about color, size, and style before adding to cart.',
+      },
+      {
+        q: 'What if a product is out of stock?',
+        a: 'ORA checks live stock before recommending items and proactively suggests similar in-stock alternatives.',
+      },
+      {
+        q: 'Can ORA apply promotional discount codes?',
+        a: 'Yes. ORA can apply valid coupon codes directly to the cart session.',
+      },
     ],
-    gettingStarted: [
-      { action: 'Connect your store →', desc: 'Link your store so ORA can access your product catalog, inventory, and order data.', href: '/agent?role=products&view=catalog' },
-      { action: 'Deploy ORA to your store →', desc: 'Embed the ORA widget on your storefront so shoppers can start using it.', href: '/setup' },
-    ],
-    gsImageSrc: '/previews/products-preview.jpg',
   },
 };
 
@@ -206,81 +239,113 @@ interface AgentGetStartedPageProps {
 }
 
 export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
-  const content = ROLE_CONTENT[role];
-  const { Icon, iconClass, heroTitle, heroDesc, cta1Label, cta1Href, cta2Label, heroImageSrc, howLabel, rows, faqs, gettingStarted, gsImageSrc } = content;
+  const content = ROLE_CONTENT[role] || ROLE_CONTENT.voice;
+  const {
+    Icon,
+    iconBgClass,
+    iconTextClass,
+    heroTitle,
+    heroDesc,
+    heroImageSrc,
+    cta1Label,
+    cta1Href,
+    cta2Label,
+    howLabel,
+    rows,
+    faqs,
+  } = content;
+
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
-      <div className="w-full px-8 lg:px-10 pt-8 pb-14">
+      <div className="max-w-5xl mx-auto px-8 lg:px-12 pt-8 pb-16">
 
-        {/* ── Hero — icon+text LEFT | screenshot RIGHT ── */}
-        <div className="flex items-start gap-10 mb-10">
-          {/* Left text */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <Icon size={22} className={iconClass} />
+        {/* ── 1. HERO SECTION (INTERCOM FIN AI AGENT STYLE) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-14">
+          {/* Left Text Column (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col gap-3">
+            {/* Top Icon Badge */}
+            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shadow-md mb-1', iconBgClass)}>
+              <Icon size={18} className={iconTextClass} />
             </div>
-            <h1 className="text-[26px] font-bold text-foreground tracking-tight leading-snug mb-3">
+
+            {/* Display Title in Editorial Serif */}
+            <h1 className="text-[28px] lg:text-[32px] font-semibold text-foreground tracking-tight leading-[1.2] font-serif">
               {heroTitle}
             </h1>
-            <p className="text-[13px] text-muted-foreground leading-relaxed mb-5 max-w-lg">
+
+            {/* Subtitle */}
+            <p className="text-[13.5px] text-muted-foreground/90 leading-relaxed max-w-lg mb-2">
               {heroDesc}
             </p>
-            <div className="flex items-center gap-2">
+
+            {/* CTA Buttons */}
+            <div className="flex items-center gap-2.5 pt-1">
               <Link
                 href={cta1Href}
-                className="inline-flex items-center h-8 px-4 rounded-md border border-border text-[12px] font-medium text-foreground hover:bg-surface-container transition-colors"
+                className="inline-flex items-center h-8.5 px-4 rounded-lg bg-foreground text-background font-semibold text-[12.5px] hover:opacity-90 transition-opacity shadow-sm"
               >
                 {cta1Label}
               </Link>
-              <button className="inline-flex items-center gap-1 h-8 px-3 text-[12px] text-muted-foreground hover:text-foreground transition-colors font-medium">
-                <span className="w-3.5 h-3.5 border border-current rounded-sm flex items-center justify-center text-[8px]">?</span>
-                {cta2Label}
-              </button>
+              <Link
+                href="/docs"
+                className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg border border-border/70 bg-surface-container/60 hover:bg-surface-container text-[12.5px] font-medium text-foreground transition-colors"
+              >
+                <BookOpen size={12} className="text-muted-foreground" />
+                <span>{cta2Label}</span>
+              </Link>
             </div>
           </div>
 
-          {/* Right: screenshot */}
-          <div className="relative w-[300px] h-[175px] flex-shrink-0 rounded-xl overflow-hidden bg-surface-container">
-            <Image src={heroImageSrc} alt={heroTitle} fill className="object-cover object-top" sizes="300px" />
+          {/* Right Mockup Card (5 cols) */}
+          <div className="lg:col-span-5 h-[200px] w-full relative rounded-2xl overflow-hidden border border-border/40 shadow-2xl bg-surface-container">
+            <Image
+              src={heroImageSrc}
+              alt={heroTitle}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 420px"
+              priority
+            />
           </div>
         </div>
 
-        {/* ── HOW IT WORKS — section label ── */}
-        <div className="flex items-center gap-2 mb-7">
-          <span className="w-[3px] h-3.5 rounded-full bg-primary flex-shrink-0" />
-          <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {/* ── 2. SECTION DIVIDER: HOW IT WORKS ── */}
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <p className="text-[10.5px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
             {howLabel}
           </p>
         </div>
 
-        {/* ── HOW IT WORKS rows ── */}
-        <div className="space-y-8 mb-12">
+        {/* ── 3. STEP ROWS (COMPACT PREMIUM CARDS ON LEFT, EDITORIAL ON RIGHT) ── */}
+        <div className="space-y-8 mb-16">
           {rows.map((row, i) => (
-            <div key={i} className="flex gap-8 items-center">
-              {/* Left: colored container with screenshot */}
-              <div className={cn('flex-1 min-w-0 rounded-xl overflow-hidden', row.containerClass)}>
-                <div className="relative w-full" style={{ paddingTop: '60%' }}>
-                  <Image
-                    src={row.imageSrc}
-                    alt={row.stepLabel}
-                    fill
-                    className="object-cover object-top"
-                    sizes="(max-width: 1200px) 50vw, 600px"
-                  />
-                </div>
+            <div
+              key={i}
+              className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center py-2"
+            >
+              {/* Left Column: Visual Mockup Box (5 cols) */}
+              <div className="md:col-span-5 h-[190px] w-full relative rounded-2xl overflow-hidden border border-border/40 shadow-lg bg-surface-container">
+                <Image
+                  src={row.imageSrc}
+                  alt={row.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 380px"
+                />
               </div>
 
-              {/* Right: step info */}
-              <div className="w-[320px] flex-shrink-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+              {/* Right Column: Editorial Step Info (7 cols) */}
+              <div className="md:col-span-7 flex flex-col gap-2 pl-0 md:pl-2">
+                <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground/80">
                   {row.stepLabel}
                 </p>
-                <h2 className="text-[19px] font-bold text-foreground leading-snug mb-2">
+                <h2 className="text-[22px] font-semibold text-foreground tracking-tight leading-snug font-serif">
                   {row.title}
                 </h2>
-                <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+                <p className="text-[14px] text-muted-foreground leading-relaxed max-w-xl">
                   {row.description}
                 </p>
               </div>
@@ -288,82 +353,64 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
           ))}
         </div>
 
-        {/* ── FREQUENTLY ASKED QUESTIONS ── */}
-        <div className="flex items-center gap-2 mb-5">
-          <span className="w-[3px] h-3.5 rounded-full bg-primary flex-shrink-0" />
-          <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {/* ── 4. FREQUENTLY ASKED QUESTIONS (INTERCOM ACCORDION STYLE) ── */}
+        <div className="flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
             Frequently Asked Questions
           </p>
         </div>
 
-        <div className="flex gap-10 mb-12">
-          {/* Left: can't find + contact */}
-          <div className="w-[220px] flex-shrink-0 pt-1">
-            <p className="text-[12.5px] text-muted-foreground leading-relaxed mb-2">
-              Can't find the answer here?
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start mb-8">
+          {/* Left: Ask ORA link */}
+          <div className="md:col-span-4 flex flex-col gap-2 pt-1">
+            <p className="text-[13.5px] text-muted-foreground leading-relaxed">
+              Can&apos;t find the answer here?
             </p>
-            <Link href="/live-desk" className="inline-flex items-center gap-1 text-[12.5px] text-primary font-medium hover:underline">
-              Ask ORA AI Agent <ArrowRight size={11} />
+            <Link
+              href="/setup?step=persona"
+              className="inline-flex items-center gap-1.5 text-[13.5px] text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
+            >
+              <span>Ask ORA Agent</span>
+              <ArrowRight size={13} />
             </Link>
           </div>
 
-          {/* Right: FAQ accordion */}
-          <div className="flex-1 divide-y divide-border/30">
-            {faqs.map((faq, i) => (
-              <div key={i}>
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between py-3 text-left hover:opacity-75 transition-opacity"
+          {/* Right: FAQ Accordions */}
+          <div className="md:col-span-8 space-y-2.5">
+            {faqs.map((faq, i) => {
+              const isOpen = openFaq === i;
+              return (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border/50 bg-surface-container/30 hover:border-border/80 transition-colors overflow-hidden"
                 >
-                  <span className="text-[13px] font-medium text-foreground pr-4">{faq.q}</span>
-                  <ChevronDown
-                    size={13}
-                    className={cn('text-muted-foreground flex-shrink-0 transition-transform duration-150', openFaq === i && 'rotate-180')}
-                  />
-                </button>
-                {openFaq === i && (
-                  <div className="pb-3 animate-in fade-in duration-150">
-                    <p className="text-[12.5px] text-muted-foreground leading-relaxed">{faq.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── HOW TO GET STARTED ── */}
-        <div className="flex items-center gap-2 mb-5">
-          <span className="w-[3px] h-3.5 rounded-full bg-primary flex-shrink-0" />
-          <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">
-            How to Get Started
-          </p>
-        </div>
-
-        <div className="flex gap-10 items-start">
-          {/* Left: numbered steps */}
-          <div className="flex-1 space-y-4">
-            {gettingStarted.map((step, i) => (
-              <div key={i} className="flex gap-3">
-                <span className="text-[12px] text-muted-foreground font-medium w-4 flex-shrink-0 mt-0.5">{i + 1}.</span>
-                <div>
-                  <Link href={step.href} className="text-[13px] font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1">
-                    {step.action} <ArrowRight size={11} className="flex-shrink-0" />
-                  </Link>
-                  <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">{step.desc}</p>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    className="w-full flex items-center justify-between p-4 text-left transition-colors cursor-pointer"
+                  >
+                    <span className="text-[14px] font-medium text-foreground pr-4">
+                      {faq.q}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        'text-muted-foreground flex-shrink-0 transition-transform duration-200',
+                        isOpen && 'rotate-180 text-foreground',
+                      )}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-0 animate-in fade-in duration-150 border-t border-border/30 mt-1">
+                      <p className="text-[13.5px] text-muted-foreground leading-relaxed pt-2.5">
+                        {faq.a}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-            <div className="pt-1">
-              <Link href="/docs" className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground font-medium transition-colors">
-                <span className="w-3.5 h-3.5 border border-current rounded-sm flex items-center justify-center text-[8px]">i</span>
-                Learn more
-              </Link>
-            </div>
-          </div>
-
-          {/* Right: screenshot */}
-          <div className="relative w-[280px] h-[180px] flex-shrink-0 rounded-xl overflow-hidden bg-surface-container">
-            <Image src={gsImageSrc} alt="Get started" fill className="object-cover object-top" sizes="280px" />
+              );
+            })}
           </div>
         </div>
 

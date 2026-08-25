@@ -1,79 +1,52 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  ShoppingBag,
-  Layers,
-  Briefcase,
-  Globe,
-  Building2,
-  Sparkles,
   Check,
-  Bot,
   Loader2,
   CheckCircle2,
-  Volume2,
   Square,
   Play,
-  Zap,
+  Save,
+  RotateCcw,
+  Sliders,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  getAgentConfigApi,
-  updateAgentConfigApi,
-} from '@/services/agent-config-service';
+import { getAgentConfigApi, updateAgentConfigApi } from '@/services/agent-config-service';
 import { getVoiceSampleApi } from '@/services/voice-service';
 import { playGeminiAudioBase64, stopCurrentAudio } from '@/lib/audio-player';
 
 interface PersonaPreviewProps {
+  archetype?: string | null;
   onSaved?: () => void;
 }
 
-interface ArchetypeItem {
-  id: string;
-  name: string;
-  category: string;
-  tag: string;
-  icon: React.ElementType;
-}
+// ─── Preset Tones ────────────────────────────────────────────────────────────
 
-const ARCHETYPES: ArchetypeItem[] = [
+const TONE_PRESETS = [
   {
-    id: 'ecommerce',
-    name: 'E-Commerce Store',
-    category: 'Retail',
-    tag: 'Catalog search, live stock & cart recovery',
-    icon: ShoppingBag,
+    label: 'Consultative',
+    tone: 'Warm, consultative, and empathetic. Focuses on discovering customer needs without pressure.',
+    directives: 'Ask clarifying questions on size, use case, and budget. Mention our 30-day guarantee when shoppers hesitate.',
   },
   {
-    id: 'saas',
-    name: 'SaaS Product',
-    category: 'Software',
-    tag: 'Subscription tiers, features & trials',
-    icon: Layers,
+    label: 'Active Closer',
+    tone: 'High-energy, assertive, direct, and focused on driving purchases and highlighting urgency.',
+    directives: 'Highlight limited stock and fast delivery. Proactively offer to add matching items to cart.',
   },
   {
-    id: 'agency',
-    name: 'Agency & Services',
-    category: 'Services',
-    tag: 'Service packages, scoping & booking',
-    icon: Briefcase,
+    label: 'Polite & Precise',
+    tone: 'Professional, calm, accurate, and fact-focused with clear concise structure.',
+    directives: 'Quote exact return windows and warranty details from store policies. Never speculate on dates.',
   },
   {
-    id: 'portfolio',
-    name: 'Creator & Portfolio',
-    category: 'Personal',
-    tag: 'Showcase projects & direct bookings',
-    icon: Globe,
-  },
-  {
-    id: 'general',
-    name: 'Enterprise & FAQ',
-    category: 'Enterprise',
-    tag: 'Store policies, RAG search & support',
-    icon: Building2,
+    label: 'Friendly & Casual',
+    tone: 'Approachable, upbeat, conversational, and energetic like an expert store associate.',
+    directives: 'Keep replies concise. Recommend trending new arrivals and offer personalized styling tips.',
   },
 ];
+
+// ─── 6 Symmetric Voice Options (3 per row) ───────────────────────────────────
 
 interface VoiceOption {
   voiceId: string;
@@ -88,87 +61,226 @@ const VOICE_OPTIONS: VoiceOption[] = [
     voiceId: 'Aoede',
     toneName: 'Consultative Sales',
     tagline: 'Warm, empathetic & conversational',
-    gender: 'Female · Melodic',
-    samplePhrase: 'Welcome to our store! I am here to help you find the perfect match for your needs and answer any questions.',
+    gender: 'Female',
+    samplePhrase:
+      'Welcome to our store! I am here to help you find the perfect match for your needs and answer any questions.',
   },
   {
     voiceId: 'Fenrir',
     toneName: 'Active Closer',
-    tagline: 'High-energy, dynamic & conversion-driven',
-    gender: 'Male · Assertive',
-    samplePhrase: 'Hey there! We have limited stock available on this item today, let me secure your free priority shipping right now.',
+    tagline: 'High-energy & conversion-driven',
+    gender: 'Male',
+    samplePhrase:
+      'Hey there! We have limited stock available on this item today, let me secure your free priority shipping right now.',
   },
   {
     voiceId: 'Kore',
     toneName: 'Polite & Precise',
     tagline: 'Clear, professional & fact-oriented',
-    gender: 'Female · Crisp',
-    samplePhrase: 'Hello. I can assist you with product specifications, return policies, warranty coverage, and sizing recommendations.',
+    gender: 'Female',
+    samplePhrase:
+      'Hello. I can assist you with product specifications, return policies, warranty coverage, and sizing recommendations.',
   },
   {
     voiceId: 'Puck',
     toneName: 'Friendly & Casual',
-    tagline: 'Approachable, upbeat & conversational',
-    gender: 'Male · Upbeat',
-    samplePhrase: 'Hey! Check out our newest arrivals. Let me know if you want me to add anything directly to your cart for checkout.',
+    tagline: 'Approachable & upbeat tone',
+    gender: 'Male',
+    samplePhrase:
+      'Hey! Check out our newest arrivals. Let me know if you want me to add anything directly to your cart for checkout.',
   },
   {
     voiceId: 'Charon',
     toneName: 'Direct & Concise',
-    tagline: 'Deep, authoritative & enterprise-grade',
-    gender: 'Male · Deep',
-    samplePhrase: 'Good day. I am ready to assist with enterprise scoping, bulk wholesale pricing, and verified checkout flow.',
+    tagline: 'Authoritative & enterprise-grade',
+    gender: 'Male',
+    samplePhrase:
+      'Good day. I am ready to assist with enterprise scoping, bulk wholesale pricing, and verified checkout flow.',
+  },
+  {
+    voiceId: 'Zephyr',
+    toneName: 'Calm & Helpful',
+    tagline: 'Gentle, supportive & reassuring',
+    gender: 'Female',
+    samplePhrase:
+      'Hi there. Take your time browsing, and let me know if you need any recommendations or help at checkout.',
   },
 ];
 
-export function PersonaPreview({ onSaved }: PersonaPreviewProps) {
-  const [selectedArchetype, setSelectedArchetype] = useState<string>('ecommerce');
+// ─── ElevenLabs-Style Mini Waveform Player ─────────────────────────────────────
+
+function WaveformAudioControl({
+  isPlaying,
+  isLoading,
+  onToggle,
+}: {
+  isPlaying: boolean;
+  isLoading: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+}) {
+  const bars = [35, 65, 90, 45, 80, 100, 70, 50, 85, 40, 60, 95, 55, 75];
+
+  return (
+    <div
+      onClick={onToggle}
+      className={cn(
+        'flex items-center gap-2 py-1.5 px-3 rounded-lg border transition-all cursor-pointer select-none group/player',
+        isPlaying
+          ? 'bg-[#C8F031]/10 border-[#C8F031]/40 text-[#C8F031]'
+          : 'bg-surface-lowest/70 border-border/50 hover:border-border/80 text-muted-foreground hover:text-foreground',
+      )}
+      title={isPlaying ? 'Stop audio' : 'Play voice preview'}
+    >
+      <div
+        className={cn(
+          'w-5 h-5 rounded-full flex items-center justify-center transition-all flex-shrink-0',
+          isPlaying
+            ? 'bg-[#C8F031] text-neutral-950'
+            : 'bg-surface-high group-hover/player:bg-surface-highest text-foreground',
+        )}
+      >
+        {isLoading ? (
+          <Loader2 size={10} className="animate-spin text-[#C8F031]" />
+        ) : isPlaying ? (
+          <Square size={8} fill="currentColor" />
+        ) : (
+          <Play size={8} fill="currentColor" className="ml-0.5 text-foreground" />
+        )}
+      </div>
+
+      {/* Equalizer Bars */}
+      <div className="flex items-center gap-[2px] h-3.5 flex-1">
+        {bars.map((height, i) => (
+          <span
+            key={i}
+            className={cn(
+              'w-[2px] rounded-full transition-all duration-150',
+              isPlaying
+                ? 'bg-[#C8F031] animate-pulse'
+                : 'bg-muted-foreground/30 group-hover/player:bg-muted-foreground/60',
+            )}
+            style={{
+              height: isPlaying ? `${Math.max(30, (height * ((i % 3) + 1)) % 100)}%` : `${height * 0.4}%`,
+              animationDelay: `${(i * 65) % 450}ms`,
+            }}
+          />
+        ))}
+      </div>
+
+      <span className="text-[10px] font-mono uppercase tracking-wider opacity-80">
+        {isPlaying ? 'Playing' : 'Preview'}
+      </span>
+    </div>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPreviewProps) {
+  // Baseline values (from DB)
+  const [initialVoiceId, setInitialVoiceId] = useState<string>('Aoede');
+  const [initialToneDesc, setInitialToneDesc] = useState<string>(
+    'Warm, helpful and consultative sales assistant. Never hallucinate stock or policy facts.',
+  );
+  const [initialDirectives, setInitialDirectives] = useState<string>(
+    'Guide customers to relevant items, mention 30-day money-back guarantee when objections arise.',
+  );
+  const [initialLanguage, setInitialLanguage] = useState<string>('en');
+
+  // Working state
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>('Aoede');
-  const [selectedTone, setSelectedTone] = useState<string>('Consultative Sales');
+  const [brandVoiceDesc, setBrandVoiceDesc] = useState<string>(initialToneDesc);
+  const [customDirectives, setCustomDirectives] = useState<string>(initialDirectives);
+  const [language, setLanguage] = useState<string>(initialLanguage);
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [loadingAudioVoiceId, setLoadingAudioVoiceId] = useState<string | null>(null);
+  const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
-  // Load real configuration from NestJS API
+  // Determine active preset (if current text matches any preset)
+  const activePresetLabel = useMemo(() => {
+    const found = TONE_PRESETS.find((p) => p.tone.trim() === brandVoiceDesc.trim());
+    return found ? found.label : 'Custom';
+  }, [brandVoiceDesc]);
+
+  // Active voice metadata
+  const currentVoiceObj = useMemo(() => {
+    return VOICE_OPTIONS.find((v) => v.voiceId === selectedVoiceId) || VOICE_OPTIONS[0];
+  }, [selectedVoiceId]);
+
+  // Check if form has unsaved edits
+  const hasChanges = useMemo(() => {
+    return (
+      selectedVoiceId !== initialVoiceId ||
+      brandVoiceDesc.trim() !== initialToneDesc.trim() ||
+      customDirectives.trim() !== initialDirectives.trim() ||
+      language !== initialLanguage
+    );
+  }, [
+    selectedVoiceId,
+    initialVoiceId,
+    brandVoiceDesc,
+    initialToneDesc,
+    customDirectives,
+    initialDirectives,
+    language,
+    initialLanguage,
+  ]);
+
+  // Load existing config
   useEffect(() => {
     let active = true;
     getAgentConfigApi()
       .then((res) => {
         if (!active) return;
-        if (res?.config?.businessArchetype) {
-          setSelectedArchetype(res.config.businessArchetype);
-        }
-        if (res?.config?.brandVoiceDescription) {
-          setSelectedTone(res.config.brandVoiceDescription);
-        }
-        if (res?.voice?.voiceId) {
-          setSelectedVoiceId(res.voice.voiceId);
-        }
-      })
-      .catch((err) => {
-        console.error('[PersonaPreview] Failed to load agent config:', err);
-      });
+        const voiceId = res?.voice?.voiceId || 'Aoede';
+        const toneDesc =
+          res?.config?.brandVoiceDescription ||
+          'Warm, helpful and consultative sales assistant. Never hallucinate stock or policy facts.';
+        const directives =
+          res?.config?.customDirectives ||
+          'Guide customers to relevant items, mention 30-day money-back guarantee when objections arise.';
+        const lang = res?.config?.language || 'en';
 
+        setInitialVoiceId(voiceId);
+        setInitialToneDesc(toneDesc);
+        setInitialDirectives(directives);
+        setInitialLanguage(lang);
+
+        setSelectedVoiceId(voiceId);
+        setBrandVoiceDesc(toneDesc);
+        setCustomDirectives(directives);
+        setLanguage(lang);
+      })
+      .catch((err) => console.error('[PersonaPreview] Failed to load agent config:', err));
     return () => {
       active = false;
       stopCurrentAudio();
     };
   }, []);
 
-  // Save via real PATCH /agent-config endpoint
-  const saveConfig = async (arch: string, tone: string, voiceId: string) => {
+  // Save handler
+  const handleSave = async (overrideVoiceId?: string) => {
     setSaving(true);
+    const targetVoiceId = overrideVoiceId ?? selectedVoiceId;
     try {
       await updateAgentConfigApi({
-        businessArchetype: arch,
-        brandVoiceDescription: tone,
-        voiceId: voiceId,
+        businessArchetype: archetype || 'ecommerce',
+        brandVoiceDescription: brandVoiceDesc,
+        customDirectives: customDirectives,
+        language: language,
+        voiceId: targetVoiceId,
       });
+
+      setInitialVoiceId(targetVoiceId);
+      setInitialToneDesc(brandVoiceDesc);
+      setInitialDirectives(customDirectives);
+      setInitialLanguage(language);
+
       setSavedSuccess(true);
       if (onSaved) onSaved();
-      setTimeout(() => setSavedSuccess(false), 2200);
+      setTimeout(() => setSavedSuccess(false), 2400);
     } catch (err) {
       console.error('[PersonaPreview] Failed to update agent config:', err);
     } finally {
@@ -176,287 +288,286 @@ export function PersonaPreview({ onSaved }: PersonaPreviewProps) {
     }
   };
 
-  const handleSelectArchetype = (archId: string) => {
-    setSelectedArchetype(archId);
-    saveConfig(archId, selectedTone, selectedVoiceId);
+  const handleDiscard = () => {
+    setSelectedVoiceId(initialVoiceId);
+    setBrandVoiceDesc(initialToneDesc);
+    setCustomDirectives(initialDirectives);
+    setLanguage(initialLanguage);
   };
 
-  const handleSelectVoice = (voice: VoiceOption) => {
-    setSelectedVoiceId(voice.voiceId);
-    setSelectedTone(voice.toneName);
-    saveConfig(selectedArchetype, voice.toneName, voice.voiceId);
+  const handleApplyPreset = (preset: (typeof TONE_PRESETS)[0]) => {
+    setBrandVoiceDesc(preset.tone);
+    setCustomDirectives(preset.directives);
   };
 
   const handlePlayVoiceSample = async (voice: VoiceOption, e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // If already playing this voice, stop it
     if (playingVoiceId === voice.voiceId) {
       stopCurrentAudio();
       setPlayingVoiceId(null);
-      setLoadingAudioVoiceId(null);
+      setLoadingAudioId(null);
       return;
     }
-
-    stopCurrentAudio();
-    setLoadingAudioVoiceId(voice.voiceId);
-
+    setLoadingAudioId(voice.voiceId);
     try {
-      // 1. Call real Gemini voice audio generation endpoint on backend
       const res = await getVoiceSampleApi({
         voiceId: voice.voiceId,
         sampleText: voice.samplePhrase,
       });
-
-      if (res?.success && res?.audioBase64) {
-        setLoadingAudioVoiceId(null);
-        setPlayingVoiceId(voice.voiceId);
-        await playGeminiAudioBase64(res.audioBase64, res.mimeType, () => {
-          setPlayingVoiceId(null);
-        });
-        return;
-      }
-
-      // 2. Fallback to browser Speech Synthesis if Gemini backend key not yet provisioned
-      throw new Error(res?.error || 'Gemini Audio not available');
-    } catch (err) {
-      console.warn('[PersonaPreview] Real Gemini API audio not returned, using browser speech fallback:', err);
-      setLoadingAudioVoiceId(null);
-
+      if (!res?.audioBase64) throw new Error('No audio returned');
+      setLoadingAudioId(null);
+      setPlayingVoiceId(voice.voiceId);
+      await playGeminiAudioBase64(res.audioBase64, res.mimeType || 'audio/mp4');
+      setPlayingVoiceId(null);
+    } catch {
+      setLoadingAudioId(null);
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(voice.samplePhrase);
-        utterance.pitch = voice.gender.startsWith('Female') ? 1.05 : 0.92;
+        utterance.pitch = voice.gender === 'Female' ? 1.05 : 0.92;
         utterance.rate = 1.0;
-
         const voices = window.speechSynthesis.getVoices();
         const preferred =
           voices.find(
             (v) =>
               v.lang.startsWith('en') &&
-              (voice.gender.startsWith('Female')
-                ? v.name.toLowerCase().includes('female') || v.name.includes('Samantha') || v.name.includes('Zira')
+              (voice.gender === 'Female'
+                ? v.name.toLowerCase().includes('female') ||
+                  v.name.includes('Samantha') ||
+                  v.name.includes('Zira')
                 : v.name.toLowerCase().includes('male') || v.name.includes('David')),
           ) || voices[0];
         if (preferred) utterance.voice = preferred;
-
         utterance.onstart = () => setPlayingVoiceId(voice.voiceId);
         utterance.onend = () => setPlayingVoiceId(null);
         utterance.onerror = () => setPlayingVoiceId(null);
-
         window.speechSynthesis.speak(utterance);
       }
     }
   };
 
   return (
-    <div className="w-full h-full min-h-[320px] rounded-xl border border-border/80 bg-surface-lowest/95 p-5 sm:p-6 flex flex-col justify-between select-none relative overflow-hidden group shadow-sm">
-      {/* Subtle backdrop glow */}
-      <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Top Header */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-border/50">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center text-primary border border-primary/25">
-            <Bot size={15} />
-          </div>
-          <div>
-            <h4 className="text-[13px] font-bold text-foreground tracking-tight">
-              Archetype & Voice Persona
-            </h4>
-            <p className="text-[10.5px] text-muted-foreground font-mono">
-              Live Google Gemini Voice Engine & MongoDB <span className="text-primary font-semibold">/agent-config</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {saving && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] text-primary bg-primary/10 border border-primary/25 font-mono font-medium animate-pulse">
-              <Loader2 size={11} className="animate-spin" />
-              Saving to DB…
-            </span>
-          )}
-          {savedSuccess && !saving && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] text-primary bg-primary/10 border border-primary/30 font-mono font-medium animate-in fade-in">
-              <CheckCircle2 size={11} strokeWidth={2.5} />
-              Saved Live
-            </span>
-          )}
-          {!saving && !savedSuccess && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-medium bg-surface-high text-foreground border border-border/80 font-mono">
-              <Sparkles size={11} className="text-primary" />
-              Gemini Live Synced
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* 1. Archetype selection grid */}
-      <div className="my-3.5">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider font-mono">
-            1. Store Business Archetype
+    <div className="w-full space-y-10">
+      {/* ── 1. VOICE MODELS: 3 CARDS PER ROW (SYMMETRIC 2x3 GRID) ── */}
+      <div>
+        <div className="flex items-center justify-between mb-3.5">
+          <span className="text-[12px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+            Voice Models & Tone Options
           </span>
-          <span className="text-[10.5px] text-muted-foreground">
-            Customizes sales directives & catalog workflow
+          <span className="text-[11.5px] font-mono text-muted-foreground">
+            Selected: <span className="text-foreground dark:text-[#C8F031] font-semibold">{currentVoiceObj.voiceId}</span> ({currentVoiceObj.gender})
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {ARCHETYPES.map((arch) => {
-            const Icon = arch.icon;
-            const isSelected = selectedArchetype === arch.id;
-            return (
-              <button
-                key={arch.id}
-                type="button"
-                onClick={() => handleSelectArchetype(arch.id)}
-                className={cn(
-                  'flex flex-col p-2.5 rounded-xl border text-left transition-all duration-150 relative cursor-pointer group/btn',
-                  isSelected
-                    ? 'border-primary bg-surface-high/95 shadow-xs shadow-primary/20 ring-1 ring-primary/40'
-                    : 'border-border/60 bg-surface-low/40 hover:bg-surface-high/60 hover:border-border text-muted-foreground',
-                )}
-              >
-                <div className="flex items-center justify-between mb-1.5 w-full">
-                  <Icon
-                    size={14}
-                    className={cn(
-                      'transition-colors',
-                      isSelected ? 'text-primary' : 'text-muted-foreground group-hover/btn:text-foreground',
-                    )}
-                  />
-                  {isSelected ? (
-                    <div className="w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-xs shadow-primary/40">
-                      <Check size={9} strokeWidth={3} />
-                    </div>
-                  ) : (
-                    <span className="text-[9px] font-mono text-muted-foreground/60 px-1 py-0.2 rounded bg-surface-lowest">
-                      {arch.category}
-                    </span>
-                  )}
-                </div>
-                <p
-                  className={cn(
-                    'text-[11px] font-bold tracking-tight truncate',
-                    isSelected ? 'text-foreground' : 'text-foreground/80',
-                  )}
-                >
-                  {arch.name}
-                </p>
-                <p className="text-[9.5px] text-muted-foreground mt-0.5 line-clamp-1 leading-tight">
-                  {arch.tag}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2. Voice & Tone Persona Selection with Listen Buttons */}
-      <div className="pt-3.5 border-t border-border/50 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider font-mono">
-            2. Choose AI Voice Model & Brand Tone
-          </span>
-          <span className="text-[10.5px] text-muted-foreground font-mono flex items-center gap-1">
-            <Volume2 size={11} className="text-primary" />
-            Click ▶ to hear Gemini speech tone
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {VOICE_OPTIONS.map((voice) => {
             const isSelected = selectedVoiceId === voice.voiceId;
             const isPlaying = playingVoiceId === voice.voiceId;
-            const isLoadingAudio = loadingAudioVoiceId === voice.voiceId;
+            const isLoadingAudio = loadingAudioId === voice.voiceId;
 
             return (
               <div
                 key={voice.voiceId}
-                onClick={() => handleSelectVoice(voice)}
+                onClick={() => setSelectedVoiceId(voice.voiceId)}
                 className={cn(
-                  'flex flex-col justify-between p-3 rounded-xl border transition-all duration-150 relative cursor-pointer',
+                  'p-4.5 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col justify-between gap-3.5 select-none',
                   isSelected
-                    ? 'border-primary bg-surface-high/90 ring-1 ring-primary/40 shadow-xs'
-                    : 'border-border/60 bg-surface-low/30 hover:border-border hover:bg-surface-high/50',
+                    ? 'border-foreground/50 dark:border-[#C8F031]/60 bg-surface-high/70 shadow-[0_0_15px_rgba(200,240,49,0.06)] ring-1 ring-border/80 dark:ring-[#C8F031]/30'
+                    : 'border-border/50 bg-surface-container/30 hover:bg-surface-container/60 hover:border-border/80',
                 )}
               >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span
-                        className={cn(
-                          'w-2 h-2 rounded-full flex-shrink-0',
-                          isSelected ? 'bg-primary' : 'bg-muted-foreground/40',
-                        )}
-                      />
-                      <p className="text-[12px] font-bold text-foreground truncate">
-                        {voice.voiceId}
-                      </p>
-                      <span className="text-[9.5px] font-mono text-muted-foreground">
-                        ({voice.gender})
-                      </span>
+                {/* Header: Radio dot + Name + Gender + Active */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={cn(
+                        'w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
+                        isSelected ? 'border-foreground bg-foreground dark:border-[#C8F031] dark:bg-[#C8F031]' : 'border-border/70',
+                      )}
+                    >
+                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-background dark:bg-neutral-950" />}
                     </div>
-
-                    {isSelected && (
-                      <span className="text-[9px] font-mono font-bold text-primary px-1.5 py-0.2 rounded bg-primary/15 border border-primary/30">
-                        Active
-                      </span>
-                    )}
+                    <span className="text-[14px] font-semibold text-foreground truncate">
+                      {voice.voiceId}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.2 rounded bg-surface-lowest border border-border/40">
+                      {voice.gender}
+                    </span>
                   </div>
 
-                  <p className="text-[11px] font-semibold text-primary/90 mt-0.5">
+                  {isSelected && (
+                    <span className="text-[9.5px] font-semibold text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-mono flex-shrink-0">
+                      Selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Subtitle & Tagline */}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-foreground/90 leading-snug">
                     {voice.toneName}
                   </p>
-                  <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                  <p className="text-[12px] text-muted-foreground leading-snug mt-0.5 truncate">
                     {voice.tagline}
                   </p>
                 </div>
 
-                {/* Voice listen bar */}
-                <div className="pt-2.5 mt-2.5 border-t border-border/40 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={(e) => handlePlayVoiceSample(voice, e)}
-                    disabled={isLoadingAudio}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-all cursor-pointer shadow-xs',
-                      isPlaying
-                        ? 'bg-primary text-primary-foreground animate-pulse'
-                        : 'bg-surface-high hover:bg-surface-highest text-foreground border border-border/70',
-                    )}
-                  >
-                    {isLoadingAudio ? (
-                      <>
-                        <Loader2 size={10} className="animate-spin text-primary" />
-                        <span>Generating…</span>
-                      </>
-                    ) : isPlaying ? (
-                      <>
-                        <Square size={9} fill="currentColor" />
-                        <span>Stop Voice</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play size={9} fill="currentColor" className="text-primary" />
-                        <span>Hear Voice</span>
-                      </>
-                    )}
-                  </button>
-
-                  {isPlaying && (
-                    <div className="flex items-center gap-0.5 h-3">
-                      <span className="w-1 bg-primary h-full animate-pulse rounded-full" />
-                      <span className="w-1 bg-primary h-2/3 animate-pulse delay-75 rounded-full" />
-                      <span className="w-1 bg-primary h-4/5 animate-pulse delay-150 rounded-full" />
-                    </div>
-                  )}
+                {/* ElevenLabs-Style Waveform Player */}
+                <div className="pt-2.5 border-t border-border/30">
+                  <WaveformAudioControl
+                    isPlaying={isPlaying}
+                    isLoading={!!isLoadingAudio}
+                    onToggle={(e) => handlePlayVoiceSample(voice, e)}
+                  />
                 </div>
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* ── Section Divider ── */}
+      <div className="h-px bg-border/40 my-9" />
+
+      {/* ── 2. CURRENTLY APPLIED TONE & DIRECTIVES ── */}
+      <div className="space-y-5">
+        {/* Section Header with Active Tone badge and Presets */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/40">
+          <div className="flex items-center gap-3">
+            <span className="text-[12px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+              Applied Directives & Tone
+            </span>
+
+            {/* Currently Active Tone Pill */}
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-surface-high dark:bg-[#C8F031]/10 text-foreground dark:text-[#C8F031] border border-border dark:border-[#C8F031]/30 font-semibold">
+              <Sliders size={11} />
+              <span>Applied: {activePresetLabel}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11.5px] text-muted-foreground mr-1">Tone presets:</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {TONE_PRESETS.map((preset) => {
+                const isPresetActive = activePresetLabel === preset.label;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => handleApplyPreset(preset)}
+                    className={cn(
+                      'inline-flex items-center px-3 py-1 rounded-lg text-[12px] border transition-all cursor-pointer',
+                      isPresetActive
+                        ? 'border-foreground bg-foreground text-background dark:border-[#C8F031] dark:bg-[#C8F031] dark:text-neutral-950 font-semibold shadow-sm'
+                        : 'border-border/60 bg-surface-container/40 hover:bg-surface-high text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 2-Column Applied Tone & Directives Textareas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Tone & Demeanor */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[13px] font-medium text-foreground">
+                Brand Tone & Demeanor
+              </label>
+              <span className="text-[10.5px] font-mono text-muted-foreground/70">
+                {brandVoiceDesc.length} chars
+              </span>
+            </div>
+            <textarea
+              rows={5}
+              value={brandVoiceDesc}
+              onChange={(e) => setBrandVoiceDesc(e.target.value)}
+              placeholder="e.g. Consultative, warm, concise, and focused on helping shoppers find the right fit."
+              className="w-full px-4 py-3 text-[13px] bg-surface-lowest/70 border border-border/60 rounded-xl text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/80 dark:focus:border-[#C8F031]/80 transition-colors leading-relaxed resize-none font-sans"
+            />
+          </div>
+
+          {/* Custom Directives */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[13px] font-medium text-foreground">
+                Directives & Rules of Engagement
+              </label>
+              <span className="text-[10.5px] font-mono text-muted-foreground/70">
+                {customDirectives.length} chars
+              </span>
+            </div>
+            <textarea
+              rows={5}
+              value={customDirectives}
+              onChange={(e) => setCustomDirectives(e.target.value)}
+              placeholder="e.g. Always check stock before confirming availability. Mention 30-day return policy for hesitant buyers."
+              className="w-full px-4 py-3 text-[13px] bg-surface-lowest/70 border border-border/60 rounded-xl text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/80 dark:focus:border-[#C8F031]/80 transition-colors leading-relaxed resize-none font-sans"
+            />
+          </div>
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="pt-3 flex items-center justify-between gap-3 min-h-[44px]">
+          <div className="flex items-center gap-3">
+            {savedSuccess && !saving && (
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] text-foreground dark:text-[#C8F031] font-mono bg-surface-high dark:bg-[#C8F031]/10 px-2.5 py-1 rounded-md border border-border dark:border-[#C8F031]/30">
+                <CheckCircle2 size={12} /> Saved live
+              </span>
+            )}
+            {!savedSuccess && hasChanges && (
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] text-amber-500 dark:text-amber-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" /> Unsaved changes
+              </span>
+            )}
+            {!savedSuccess && !hasChanges && (
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#C8F031] shadow-[0_0_6px_rgba(200,240,49,0.8)]" /> Configuration Synced
+              </span>
+            )}
+
+            {hasChanges && (
+              <button
+                type="button"
+                onClick={handleDiscard}
+                disabled={saving}
+                className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-[12px] text-muted-foreground hover:text-foreground border border-border/60 hover:bg-surface-high transition-colors cursor-pointer"
+              >
+                <RotateCcw size={11} />
+                Discard
+              </button>
+            )}
+          </div>
+
+          {(hasChanges || saving || savedSuccess) && (
+            <button
+              type="button"
+              onClick={() => handleSave()}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-[13px] font-semibold transition-all cursor-pointer shadow-sm bg-foreground text-background dark:bg-[#C8F031] dark:text-neutral-950 hover:opacity-90"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>Saving Changes…</span>
+                </>
+              ) : savedSuccess ? (
+                <>
+                  <Check size={13} strokeWidth={2.5} />
+                  <span>Saved Live</span>
+                </>
+              ) : (
+                <>
+                  <Save size={13} />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

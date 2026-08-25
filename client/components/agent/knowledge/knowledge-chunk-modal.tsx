@@ -59,7 +59,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Vector chunk segments indexed in Gemini RAG store (~500 chars with 50 char overlap)
+                Vector chunk segments indexed in ORA Semantic RAG store (~500 chars with 50 char overlap)
               </p>
             </div>
           </div>

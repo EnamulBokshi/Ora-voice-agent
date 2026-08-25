@@ -706,7 +706,7 @@ export function FloatingOrbWidget() {
           {voiceState === 'connecting' && (
             <div className="lp-orb-island-pill connecting">
               <span className="lp-orb-status-dot connecting" />
-              <span className="lp-orb-shimmer-text">Connecting to Gemini Live…</span>
+              <span className="lp-orb-shimmer-text">Connecting to ORA Live…</span>
             </div>
           )}
 

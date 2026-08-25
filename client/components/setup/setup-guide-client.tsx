@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, ArrowRight, ExternalLink, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Check, ArrowRight, ArrowLeft, ExternalLink, CheckCircle2, ChevronDown, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
 import { SetupSectionNav, type SetupArchetype, ARCHETYPES } from './setup-section-nav';
@@ -54,10 +54,10 @@ const STEP_CONFIGS: Record<SetupStepId, StepConfig> = {
     learnMoreHref: '/agent?role=products', learnMoreText: 'Product catalog',
   },
   voice_test: {
-    id: 'voice_test', stepNumber: 4, stepLabel: 'Voice Test',
-    title: 'Run a live voice test before launching',
-    description: 'Have a real speech-to-speech conversation with ORA. Test product recommendations, navigation commands, and checkout flows before going live.',
-    ctaText: 'Start Voice Test', ctaAction: 'launchVoice',
+    id: 'voice_test', stepNumber: 4, stepLabel: 'Test ORA Live',
+    title: 'Test ORA live before launching',
+    description: 'Speak directly with ORA in real-time. Test product recommendations, catalog queries, and checkout guidance before going live on your store.',
+    ctaText: 'Test ORA Live', ctaAction: 'launchVoice',
     learnMoreHref: '/agent?role=voice&view=feed', learnMoreText: 'Voice workspace',
   },
 };
@@ -65,119 +65,185 @@ const STEP_CONFIGS: Record<SetupStepId, StepConfig> = {
 const ALL_STEP_IDS: SetupStepId[] = ['persona', 'integration', 'knowledge', 'voice_test'];
 const VALID_ARCHETYPES = ['ecommerce', 'saas', 'agency', 'portfolio', 'general'];
 
-// ─── All Store Types hub ───────────────────────────────────────────────────────
+import Image from 'next/image';
+
+const ARCHETYPE_IMAGES: Record<SetupArchetype, string> = {
+  ecommerce: '/previews/ecom-hero.jpg',
+  saas: '/previews/saas-hero.jpg',
+  agency: '/previews/agency-hero.jpg',
+  portfolio: '/previews/portfolio-hero.jpg',
+  general: '/previews/enterprise-hero.jpg',
+};
+
+// ─── Setup Hub (Archetype Selection Screen) ──────────────────────────────────
 
 function SetupHub() {
+  const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const FAQS = [
-    { q: 'Which store type should I choose?', a: 'Choose the archetype that best matches your business model. If you sell physical or digital products, choose E-Commerce. For software, choose SaaS. You can reconfigure at any time.' },
-    { q: 'Are the setup steps the same for all archetypes?', a: 'The 4 configuration steps (Persona, Widget Embed, Knowledge, Voice Test) are the same for all archetypes. Each archetype simply gets a tailored intro and persona defaults.' },
-    { q: 'Can I change my archetype later?', a: 'Yes. You can re-run the Persona setup step at any time to switch your store archetype and update ORA\'s behavior.' },
-    { q: 'How long does setup take?', a: 'Most stores are live in 3–5 minutes. The voice test adds another 2 minutes but is strongly recommended before going live.' },
+  const faqs = [
+    {
+      q: 'Which archetype should I choose?',
+      a: 'Choose the archetype that best matches your primary business model. If you sell physical or digital goods, choose E-Commerce. For software products, choose SaaS. You can reconfigure and switch archetypes at any time.',
+    },
+    {
+      q: 'Are the configuration steps the same for all store archetypes?',
+      a: 'Yes. The 4 core setup steps (Persona & Voice, Widget Embed, Store Knowledge, and Simulation Lab) are identical across all archetypes. Each archetype provides tailored default directives, voice tones, and contextual guidance.',
+    },
+    {
+      q: 'Can I test ORA before embedding the snippet on my live site?',
+      a: 'Absolutely. Step 4 lets you run a full interactive voice simulation directly in your browser without adding any code to your store.',
+    },
+    {
+      q: 'How long does full onboarding take?',
+      a: 'Most merchants complete configuration in under 2 minutes. Syncing your product catalog or knowledge docs takes less than 60 seconds.',
+    },
   ];
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
-      <div className="w-full px-8 lg:px-10 pt-8 pb-14">
+      <div className="max-w-5xl mx-auto px-8 lg:px-12 pt-10 pb-20">
 
-        {/* Hero */}
-        <div className="text-center mb-10">
-          <h1 className="text-[28px] font-bold text-foreground tracking-tight leading-tight mb-2">
-            One agent for every type of store
+        {/* ── Hub Hero Header ── */}
+        <div className="mb-10 text-center max-w-2xl mx-auto">
+          <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            Getting Started · Step 1 of 2
+          </p>
+          <h1 className="text-[32px] sm:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] font-serif mb-3.5">
+            Select your store archetype
           </h1>
-          <p className="text-[13px] text-muted-foreground leading-relaxed max-w-md mx-auto">
-            Choose your store archetype. ORA adapts its persona, knowledge, and selling strategy for your specific business.{' '}
-            <span className="text-primary cursor-pointer hover:underline">Learn more.</span>
+          <p className="text-[14.5px] text-muted-foreground leading-relaxed">
+            Choose your business model below to configure ORA with industry-tailored sales personas, knowledge retrieval models, and conversion tools.
+          </p>
+          <p className="text-[13px] text-muted-foreground/80 mt-2">
+            Need help choosing? Read our{' '}
+            <Link href="/docs" className="text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4">
+              Archetype Guide
+            </Link>
+            .
           </p>
         </div>
 
-        {/* Archetype cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          {ARCHETYPES.map((arch) => (
-            <Link
-              key={arch.id}
-              href={`/setup?archetype=${arch.id}`}
-              className="group flex flex-col rounded-lg border border-border/25 bg-surface-container overflow-hidden hover:border-border/60 transition-all duration-150"
-            >
-              {/* Color block header */}
-              <div className={cn(
-                'w-full h-[100px] flex items-center justify-center flex-shrink-0',
-                arch.id === 'ecommerce' ? 'bg-primary/[0.08]' :
-                arch.id === 'saas'      ? 'bg-[color:var(--ora-info)]/[0.08]' :
-                arch.id === 'agency'    ? 'bg-[color:var(--ora-warning)]/[0.08]' :
-                arch.id === 'portfolio' ? 'bg-[color:var(--ora-success)]/[0.08]' :
-                'bg-muted/[0.08]'
-              )}>
-                <arch.Icon size={32} className={arch.iconClass} />
-              </div>
+        {/* ── Symmetric Archetype Grid (2 cards per row) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-16">
+          {ARCHETYPES.map((arch) => {
+            const { Icon } = arch;
+            const imgSrc = ARCHETYPE_IMAGES[arch.id];
 
-              {/* Card body */}
-              <div className="p-4 flex flex-col flex-1">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <arch.Icon size={13} className={arch.iconClass} />
-                  <h2 className={cn('text-[13.5px] font-semibold', arch.iconClass)}>
-                    {arch.label}
-                  </h2>
+            return (
+              <div
+                key={arch.id}
+                onClick={() => router.push(`/setup?archetype=${arch.id}`)}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/60 bg-surface-lowest/70 hover:border-border transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md min-h-[300px]"
+              >
+                {/* Top Image Preview Frame */}
+                <div className="relative w-full h-44 bg-surface-container/50 overflow-hidden border-b border-border/40">
+                  <Image
+                    src={imgSrc}
+                    alt={arch.label}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest/90 via-transparent to-transparent" />
+                  
+                  {/* Category Pill */}
+                  <div className="absolute top-3 left-3">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-foreground font-semibold px-2.5 py-1 rounded-md bg-surface-lowest/90 backdrop-blur-md border border-border/60 shadow-xs">
+                      {arch.category}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[11.5px] text-muted-foreground mb-4 leading-snug flex-1">
-                  {arch.id === 'ecommerce' ? 'Catalog search, live stock & cart recovery'     :
-                   arch.id === 'saas'      ? 'Subscription tiers, features & trial conversion' :
-                   arch.id === 'agency'    ? 'Service packages, scoping & booking'             :
-                   arch.id === 'portfolio' ? 'Showcase projects & direct bookings'             :
-                   'Store policies, RAG search & enterprise support'}
-                </p>
-                <div>
-                  <span className="inline-flex items-center h-7 px-3 rounded border border-border/50 text-[11.5px] font-medium text-foreground group-hover:bg-surface-high group-hover:border-border transition-colors">
-                    Get started
-                  </span>
+
+                {/* Bottom Content Row */}
+                <div className="p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 group-hover:bg-surface-highest transition-colors">
+                      <Icon size={18} className="text-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-[16px] font-semibold text-foreground group-hover:text-foreground transition-colors truncate">
+                        {arch.label}
+                      </h3>
+                      <p className="text-[12.5px] text-muted-foreground truncate mt-0.5">
+                        {arch.id === 'ecommerce' && 'Physical & digital retail products with cart tools'}
+                        {arch.id === 'saas' && 'Subscription software, API tiers & onboarding flows'}
+                        {arch.id === 'agency' && 'Client consulting, project scoping & lead intake'}
+                        {arch.id === 'portfolio' && 'Creators, studios & personalized client demos'}
+                        {arch.id === 'general' && 'Support desks, documentation & general enterprise'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-8 h-8 rounded-full border border-border/60 flex items-center justify-center flex-shrink-0 text-muted-foreground group-hover:text-foreground group-hover:border-foreground/50 transition-colors">
+                    <ArrowRight size={14} />
+                  </div>
                 </div>
               </div>
-            </Link>
-          ))}
+            );
+          })}
 
           {/* More coming soon */}
-          <div className="flex items-center gap-3 border border-dashed border-border/40 py-4 px-4 rounded-lg bg-transparent md:col-span-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/20 flex-shrink-0" />
-            <span className="text-[12px] text-muted-foreground font-medium">More store archetypes coming soon</span>
+          <div className="flex flex-col items-center justify-center gap-2.5 border border-dashed border-border/50 p-6 rounded-2xl bg-surface-lowest/20 text-center min-h-[220px]">
+            <div className="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center border border-border/40 text-muted-foreground">
+              <Layers size={14} className="text-foreground dark:text-[#C8F031]" />
+            </div>
+            <span className="text-[14px] text-foreground font-semibold">More store archetypes</span>
+            <span className="text-[12.5px] text-muted-foreground/80 max-w-[220px] leading-relaxed">
+              Custom business models and multi-brand routing coming in upcoming releases.
+            </span>
           </div>
         </div>
 
-        {/* FAQ */}
-        <div className="mt-8">
-          <p className="text-[13px] font-semibold text-foreground text-center mb-5">
-            Frequently asked questions
-          </p>
-          <div className="divide-y divide-border/40">
-            {FAQS.map((faq, i) => (
-              <div key={i}>
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between py-3.5 text-left hover:opacity-75 transition-opacity"
+        {/* ── Hub FAQ Section ── */}
+        <div className="pt-10 border-t border-border/40 max-w-3xl mx-auto">
+          <div className="flex items-center gap-2 mb-6">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+              Frequently Asked Questions
+            </p>
+            <div className="h-px bg-border/40 flex-1 ml-2" />
+          </div>
+
+          <div className="space-y-3">
+            {faqs.map((faq, i) => {
+              const isOpen = openFaq === i;
+              return (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border/50 bg-surface-lowest/40 overflow-hidden transition-colors"
                 >
-                  <span className="text-[13px] font-medium text-foreground">{faq.q}</span>
-                  <ChevronDown
-                    size={13}
-                    className={cn('text-muted-foreground flex-shrink-0 transition-transform duration-150 ml-4', openFaq === i && 'rotate-180')}
-                  />
-                </button>
-                {openFaq === i && (
-                  <div className="pb-4 animate-in fade-in duration-150">
-                    <p className="text-[12.5px] text-muted-foreground leading-relaxed">{faq.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    className="w-full flex items-center justify-between p-4.5 text-left text-[14px] font-medium text-foreground hover:bg-surface-high/30 transition-colors cursor-pointer"
+                  >
+                    <span>{faq.q}</span>
+                    <ChevronDown
+                      size={16}
+                      className={cn('text-muted-foreground transition-transform duration-200 flex-shrink-0 ml-4', isOpen && 'rotate-180')}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-4.5 pb-4.5 pt-1 text-[13px] text-muted-foreground leading-relaxed border-t border-border/30">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
+
       </div>
     </div>
   );
 }
 
-// ─── Inner component (reads searchParams) ─────────────────────────────────────
+// ─── Setup Guide Client Main ──────────────────────────────────────────────────
 
 function SetupGuideClientInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const rawArch = searchParams.get('archetype');
@@ -224,9 +290,9 @@ function SetupGuideClientInner() {
   }, [markStepComplete, publishableKey, handleLaunchVoice]);
 
   const getPreview = (id: SetupStepId) => {
-    if (id === 'persona')     return <PersonaPreview onSaved={() => markStepComplete('persona')} />;
+    if (id === 'persona')     return <PersonaPreview archetype={activeArchetype} onSaved={() => markStepComplete('persona')} />;
     if (id === 'integration') return <IntegrationPreview publishableKey={publishableKey} onCopied={() => markStepComplete('integration')} />;
-    if (id === 'knowledge')   return <KnowledgePreview />;
+    if (id === 'knowledge')   return <KnowledgePreview onCompleted={() => markStepComplete('knowledge')} />;
     if (id === 'voice_test')  return <VoiceTestPreview onOpenTestModal={handleLaunchVoice} />;
   };
 
@@ -240,67 +306,118 @@ function SetupGuideClientInner() {
     if (!activeStep) return <SetupArchIntroPage archetype={activeArchetype} />;
 
     // Step page
-    return (
-      <>
-        {/* Step header */}
-        <div className="flex-shrink-0 px-8 pt-7 pb-6 border-b border-border/40">
-          <div className="flex items-center gap-2 mb-3">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {activeConfig!.stepNumber}. {activeConfig!.stepLabel}
-            </p>
-            {isAllCompleted && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10">
-                <CheckCircle2 size={10} /> All complete
-              </span>
-            )}
-          </div>
+    const currentArch = ARCHETYPES.find((a) => a.id === activeArchetype) || ARCHETYPES[0];
+    const ArchIcon = currentArch.Icon;
+    const currentStepIndex = ALL_STEP_IDS.indexOf(activeStep!);
+    const prevStep = currentStepIndex > 0 ? ALL_STEP_IDS[currentStepIndex - 1] : null;
+    const nextStep = currentStepIndex < ALL_STEP_IDS.length - 1 ? ALL_STEP_IDS[currentStepIndex + 1] : null;
 
-          <div className="flex items-start gap-3 mb-2">
-            <button
-              type="button"
-              onClick={() => toggleStep(activeStep!)}
-              title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
-              className={cn(
-                'mt-1 w-[18px] h-[18px] flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer',
-                isCompleted ? 'bg-primary border-primary text-primary-foreground' : 'border-border/60 hover:border-primary/60',
-              )}
-            >
-              <Check size={9} strokeWidth={3} className={isCompleted ? 'opacity-100' : 'opacity-0'} />
-            </button>
-            <h1 className={cn('text-[20px] font-bold tracking-tight leading-snug', isCompleted ? 'text-muted-foreground' : 'text-foreground')}>
+    return (
+      <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto px-8 lg:px-12 pt-8 pb-16">
+
+          {/* ── Editorial Step Header ── */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm">
+                  <ArchIcon size={16} className="text-foreground" />
+                </div>
+                <span className="text-[12px] font-mono uppercase tracking-wider text-muted-foreground">
+                  {currentArch.label} · Step {activeConfig!.stepNumber} of {ALL_STEP_IDS.length}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => toggleStep(activeStep!)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-[12px] font-medium transition-all cursor-pointer shadow-sm',
+                    isCompleted
+                      ? 'bg-[#C8F031]/15 border-[#C8F031]/40 text-neutral-900 dark:text-[#C8F031] font-semibold'
+                      : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-surface-high',
+                  )}
+                >
+                  <Check size={12} strokeWidth={isCompleted ? 3 : 2} className={cn(isCompleted ? 'text-neutral-900 dark:text-[#C8F031]' : 'text-muted-foreground')} />
+                  <span>{isCompleted ? 'Completed' : 'Mark complete'}</span>
+                </button>
+              </div>
+            </div>
+
+            <h1 className="text-[28px] lg:text-[34px] font-semibold text-foreground tracking-tight leading-[1.2] font-serif mb-2.5">
               {activeConfig!.title}
             </h1>
+            <p className="text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
+              {activeConfig!.description}
+            </p>
           </div>
 
-          <p className="text-[13px] text-muted-foreground leading-relaxed ml-[30px] mb-4 max-w-2xl">
-            {activeConfig!.description}
-          </p>
+          {/* ── Section Eyebrow Divider ── */}
+          <div className="flex items-center gap-2 mb-8">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+              Configure & Test
+            </p>
+            <div className="h-px bg-border/40 flex-1 ml-2" />
+          </div>
 
-          <div className="flex items-center gap-2 ml-[30px]">
-            {activeConfig!.ctaText && (
-              activeConfig!.ctaHref ? (
-                <Link href={activeConfig!.ctaHref} className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors">
-                  {activeConfig!.ctaText} <ArrowRight size={10} />
-                </Link>
-              ) : (
-                <button type="button" onClick={() => handleCta(activeConfig!)} className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer">
-                  {activeConfig!.ctaText} <ArrowRight size={10} />
-                </button>
-              )
+          {/* ── Main Configuration Workspace (Direct on Canvas, No Nested Box Bubble) ── */}
+          <div className="mb-12">
+            {getPreview(activeStep!)}
+          </div>
+
+          {/* ── Step Navigation Footer ── */}
+          <div className="flex items-center justify-between pt-6 border-t border-border/40">
+            {prevStep ? (
+              <button
+                type="button"
+                onClick={() => router.push(`/setup?archetype=${activeArchetype}&step=${prevStep}`)}
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border/70 bg-surface-high/40 hover:bg-surface-high text-[13px] font-medium text-foreground transition-all cursor-pointer"
+              >
+                <ArrowLeft size={13} />
+                <span>Previous Step</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.push(`/setup?archetype=${activeArchetype}`)}
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border/70 bg-surface-high/40 hover:bg-surface-high text-[13px] font-medium text-foreground transition-all cursor-pointer"
+              >
+                <ArrowLeft size={13} />
+                <span>Overview</span>
+              </button>
             )}
-            {activeConfig!.learnMoreHref && (
-              <Link href={activeConfig!.learnMoreHref} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
-                {activeConfig!.learnMoreText || 'Learn more'} <ExternalLink size={9} />
-              </Link>
+
+            {nextStep ? (
+              <button
+                type="button"
+                onClick={() => {
+                  markStepComplete(activeStep!);
+                  router.push(`/setup?archetype=${activeArchetype}&step=${nextStep}`);
+                }}
+                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-foreground text-background font-semibold text-[13px] hover:opacity-90 transition-all cursor-pointer shadow-sm"
+              >
+                <span>Next Step</span>
+                <ArrowRight size={13} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  markStepComplete(activeStep!);
+                  router.push('/dashboard');
+                }}
+                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-foreground text-background font-semibold text-[13px] hover:opacity-90 transition-all cursor-pointer shadow-sm"
+              >
+                <span>Go to Dashboard</span>
+                <ArrowRight size={13} />
+              </button>
             )}
           </div>
-        </div>
 
-        {/* Preview */}
-        <div className="flex-1 overflow-y-auto no-scrollbar px-8 py-6">
-          {getPreview(activeStep!)}
         </div>
-      </>
+      </div>
     );
   };
 

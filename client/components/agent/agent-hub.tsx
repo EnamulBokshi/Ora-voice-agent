@@ -1,174 +1,221 @@
 'use client';
 
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, Mic, FileText, Package, Radio } from 'lucide-react';
-import { useState } from 'react';
 import Image from 'next/image';
+import {
+  Mic,
+  FileText,
+  Package,
+  Layers,
+  ChevronDown,
+  ArrowRight,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ─── Section definitions ──────────────────────────────────────────────────────
-// Colored title + icon matching Intercom's "colored role name" pattern.
+// ─── Role Definitions ─────────────────────────────────────────────────────────
 
-const SECTIONS = [
+interface AgentRoleCard {
+  id: 'voice' | 'documents' | 'products';
+  label: string;
+  category: string;
+  Icon: React.ElementType;
+  description: string;
+  imageSrc: string;
+  href: string;
+}
+
+const AGENT_ROLES: AgentRoleCard[] = [
   {
-    id:            'voice',
-    tab:           'voice',
-    Icon:          Mic,
-    title:         'Talk to ORA',
-    titleClass:    'text-primary',              // lime
-    iconClass:     'text-primary',
-    description:   'Train your agent by speaking.',
-    descClass:     'text-primary/60',
-    bullets:       ['Real-time bidirectional voice', 'Speak products into memory', 'Instant knowledge indexing'],
-    previewSrc:    '/previews/voice-preview.jpg',
-    previewAlt:    'ORA voice interface',
+    id: 'voice',
+    label: 'Talk with ORA (Voice AI)',
+    category: 'Speech AI',
+    Icon: Mic,
+    description: 'Real-time bidirectional speech to train, test, and tune voice persona',
+    imageSrc: '/previews/ecom-step1.jpg',
+    href: '/agent?role=voice',
   },
   {
-    id:            'documents',
-    tab:           'documents',
-    Icon:          FileText,
-    title:         'Documents',
-    titleClass:    'text-[color:var(--ora-info)]',
-    iconClass:     'text-[color:var(--ora-info)]',
-    description:   'Build your knowledge base.',
-    descClass:     'text-[color:var(--ora-info)]/60',
-    bullets:       ['Store policies & guidelines', 'Return & warranty documents', 'FAQ and reference files'],
-    previewSrc:    '/previews/docs-preview.jpg',
-    previewAlt:    'ORA knowledge base',
+    id: 'documents',
+    label: 'Store Knowledge Base',
+    category: 'Knowledge Base',
+    Icon: FileText,
+    description: 'Upload store policies, FAQs, and documentation for verified RAG search',
+    imageSrc: '/previews/ecom-step2.jpg',
+    href: '/agent?role=documents',
   },
   {
-    id:            'products',
-    tab:           'products',
-    Icon:          Package,
-    title:         'Product Catalog',
-    titleClass:    'text-[color:var(--ora-warning)]',
-    iconClass:     'text-[color:var(--ora-warning)]',
-    description:   'Sync your inventory.',
-    descClass:     'text-[color:var(--ora-warning)]/60',
-    bullets:       ['Sync from Shopify or WooCommerce', 'Upload CSV product data', 'Verify live product accuracy'],
-    previewSrc:    '/previews/products-preview.jpg',
-    previewAlt:    'ORA product catalog',
+    id: 'products',
+    label: 'Product Catalog & Inventory',
+    category: 'Catalog & Cart',
+    Icon: Package,
+    description: 'Sync live Shopify, WooCommerce, or CSV products with instant cart tools',
+    imageSrc: '/previews/ecom-step3.jpg',
+    href: '/agent?role=products',
   },
-] as const;
+];
 
 // ─── FAQs ─────────────────────────────────────────────────────────────────────
 
 const FAQS = [
-  { q: 'What is ORA?', a: 'ORA is an AI-powered voice and chat sales agent for ecommerce stores. It answers product questions, guides shoppers, and drives purchases — all without human intervention.' },
-  { q: 'How do I train ORA?', a: "Use the Train section to feed ORA your store data — upload documents, sync your product catalog, or talk to ORA directly via voice to input knowledge." },
-  { q: 'Does ORA work with Shopify?', a: 'Yes. ORA integrates natively with Shopify via your Publishable Key. Product sync, order context, and checkout guidance are all supported.' },
-  { q: 'How do I deploy ORA to my store?', a: "After training, go to the Deploy section to embed the ORA widget on your storefront. You'll receive a snippet to paste into your theme." },
+  {
+    q: 'How does ORA combine Voice, Documents, and Products?',
+    a: 'ORA operates as a unified multimodal AI sales agent. When a shopper asks a question, ORA searches both your product catalog and your indexed knowledge documents in parallel, replying via voice or text in under 85ms.',
+  },
+  {
+    q: 'How do I train ORA on my specific store policies?',
+    a: 'Go to the Store Knowledge Base section and upload your shipping, return, and warranty documents or FAQ sheets. ORA chunks and vectorizes your text automatically without requiring manual prompt engineering.',
+  },
+  {
+    q: 'Can ORA connect to live Shopify and WooCommerce inventories?',
+    a: 'Yes. ORA connects natively with Shopify, WooCommerce, and custom webhooks. Inventory counts and pricing are updated in real-time so ORA never recommends out-of-stock items.',
+  },
+  {
+    q: 'Can I test my agent before deploying to live shoppers?',
+    a: 'Yes. Use the "Test ORA Live" capability from the Voice AI tab or the Setup Guide to have a real bi-directional voice conversation directly in your browser.',
+  },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AgentHub() {
+  const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
-      <div className="w-full px-10 py-10">
+      <div className="max-w-5xl mx-auto px-8 lg:px-12 pt-10 pb-20">
 
-        {/* ── Hero ── */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-surface-container mb-4">
-            <Radio size={16} className="text-muted-foreground" />
-          </div>
-          <h1 className="text-[30px] font-bold text-foreground tracking-tight leading-tight">
-            One agent for your entire store
+        {/* ── Hub Hero Header (Same as Setup Hub) ── */}
+        <div className="mb-10 text-center max-w-2xl mx-auto">
+          <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            Agent Capabilities · All Roles
+          </p>
+          <h1 className="text-[32px] sm:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] font-serif mb-3.5">
+            One AI sales agent for your entire store
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-2 max-w-md mx-auto leading-relaxed">
-            ORA switches between modes to engage shoppers at every stage.{' '}
-            <span className="text-primary cursor-pointer hover:underline">Learn more.</span>
+          <p className="text-[14.5px] text-muted-foreground leading-relaxed">
+            Feed ORA your business knowledge, product inventory, and customer policies across voice, file uploads, and live catalog connectors.
           </p>
-        </div>
-
-        {/* ── Role cards — 3 columns, fill full width ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          {SECTIONS.map((s) => (
+          <p className="text-[13px] text-muted-foreground/80 mt-2">
+            Want to learn how ORA indexes data? Read our{' '}
             <Link
-              key={s.id}
-              href={`/agent?tab=${s.tab}`}
-              className="group flex flex-col rounded-lg border border-border/25 bg-surface-container overflow-hidden hover:border-border/60 transition-all duration-150"
+              href="/docs"
+              className="text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
             >
-              {/* Screenshot — edge-to-edge, fills top of card */}
-              <div className="relative w-full h-[150px] overflow-hidden bg-surface-low flex-shrink-0">
-                <Image
-                  src={s.previewSrc}
-                  alt={s.previewAlt}
-                  fill
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                />
-              </div>
-
-              {/* Card body */}
-              <div className="p-4 flex flex-col flex-1">
-                {/* Colored icon + colored title — Intercom pattern */}
-                <div className="flex items-center gap-1.5 mb-1">
-                  <s.Icon size={13} className={s.iconClass} />
-                  <h2 className={cn('text-[13.5px] font-semibold', s.titleClass)}>
-                    {s.title}
-                  </h2>
-                </div>
-
-                {/* Colored description */}
-                <p className={cn('text-[12px] mb-4 leading-snug', s.descClass)}>
-                  {s.description}
-                </p>
-
-                {/* Bullets */}
-                <ul className="space-y-1.5 mb-5 flex-1">
-                  {s.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2 text-[11.5px] text-muted-foreground">
-                      <span className="mt-[5px] w-1 h-1 rounded-full bg-muted-foreground/35 flex-shrink-0" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Get started — auto-width, left-aligned, NOT full-width */}
-                <div>
-                  <span className="inline-flex items-center h-7 px-3 rounded border border-border/50 text-[11.5px] font-medium text-foreground group-hover:bg-surface-high group-hover:border-border transition-colors">
-                    Get started
-                  </span>
-                </div>
-              </div>
+              Agent Training Guide
             </Link>
-          ))}
-        </div>
-
-        {/* ── More roles coming soon ── */}
-        <div className="flex items-center gap-3 border border-dashed border-border/40 py-2.5 px-4 mb-10 rounded-lg">
-          <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/20 flex-shrink-0" />
-          <span className="text-[12px] text-muted-foreground font-medium">More capabilities coming soon</span>
-        </div>
-
-        {/* ── FAQ ── */}
-        <div>
-          <p className="text-[13px] font-semibold text-foreground text-center mb-5">
-            Frequently asked questions
+            .
           </p>
-          <div className="divide-y divide-border/40">
-            {FAQS.map((faq, i) => (
-              <div key={i}>
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between py-3.5 text-left hover:opacity-75 transition-opacity"
-                >
-                  <span className="text-[13px] font-medium text-foreground">{faq.q}</span>
-                  <ChevronDown
-                    size={13}
-                    className={cn('text-muted-foreground flex-shrink-0 transition-transform duration-150 ml-4', openFaq === i && 'rotate-180')}
+        </div>
+
+        {/* ── Symmetric 2x2 Grid (Exact Same Architecture as Setup Hub) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-16">
+          {AGENT_ROLES.map((role) => {
+            const { Icon } = role;
+
+            return (
+              <div
+                key={role.id}
+                onClick={() => router.push(role.href)}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/60 bg-surface-lowest/70 hover:border-border transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md min-h-[300px]"
+              >
+                {/* Top Image Preview Frame */}
+                <div className="relative w-full h-44 bg-surface-container/50 overflow-hidden border-b border-border/40">
+                  <Image
+                    src={role.imageSrc}
+                    alt={role.label}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
                   />
-                </button>
-                {openFaq === i && (
-                  <div className="pb-4 animate-in fade-in duration-150">
-                    <p className="text-[12.5px] text-muted-foreground leading-relaxed">{faq.a}</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest/90 via-transparent to-transparent" />
+
+                  {/* Category Pill */}
+                  <div className="absolute top-3 left-3">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-foreground font-semibold px-2.5 py-1 rounded-md bg-surface-lowest/90 backdrop-blur-md border border-border/60 shadow-xs">
+                      {role.category}
+                    </span>
                   </div>
-                )}
+                </div>
+
+                {/* Bottom Content Row */}
+                <div className="p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 group-hover:bg-surface-highest transition-colors">
+                      <Icon size={18} className="text-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-[16px] font-semibold text-foreground group-hover:text-foreground transition-colors truncate">
+                        {role.label}
+                      </h3>
+                      <p className="text-[12.5px] text-muted-foreground truncate mt-0.5">
+                        {role.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-8 h-8 rounded-full border border-border/60 flex items-center justify-center flex-shrink-0 text-muted-foreground group-hover:text-foreground group-hover:border-foreground/50 transition-colors">
+                    <ArrowRight size={14} />
+                  </div>
+                </div>
               </div>
-            ))}
+            );
+          })}
+
+          {/* 4th Card: More capabilities coming soon (Symmetric 2x2 card) */}
+          <div className="flex flex-col items-center justify-center gap-2.5 border border-dashed border-border/50 p-6 rounded-2xl bg-surface-lowest/20 text-center min-h-[300px]">
+            <div className="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center border border-border/40 text-muted-foreground">
+              <Layers size={14} className="text-foreground dark:text-[#C8F031]" />
+            </div>
+            <span className="text-[14px] text-foreground font-semibold">More agent capabilities</span>
+            <span className="text-[12.5px] text-muted-foreground/80 max-w-[240px] leading-relaxed">
+              Autonomous inbound phone triage, multi-agent store routing, and custom CRM webhooks coming soon.
+            </span>
+          </div>
+        </div>
+
+        {/* ── Hub FAQ Section (Intercom Accordion Style) ── */}
+        <div className="pt-10 border-t border-border/40 max-w-3xl mx-auto">
+          <div className="flex items-center gap-2 mb-6">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+              Frequently Asked Questions
+            </p>
+            <div className="h-px bg-border/40 flex-1 ml-2" />
+          </div>
+
+          <div className="space-y-3">
+            {FAQS.map((faq, i) => {
+              const isOpen = openFaq === i;
+              return (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border/50 bg-surface-lowest/40 overflow-hidden transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    className="w-full flex items-center justify-between p-4.5 text-left text-[14px] font-medium text-foreground hover:bg-surface-high/30 transition-colors cursor-pointer"
+                  >
+                    <span>{faq.q}</span>
+                    <ChevronDown
+                      size={16}
+                      className={cn(
+                        'text-muted-foreground transition-transform duration-200 flex-shrink-0 ml-4',
+                        isOpen && 'rotate-180',
+                      )}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-4.5 pb-4.5 pt-1 text-[13px] text-muted-foreground leading-relaxed border-t border-border/30">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

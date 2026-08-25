@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, Sparkles, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard, LogOut, User } from 'lucide-react';
+import { Check, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard, LogOut, User } from 'lucide-react';
 import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
 import { getMeApi, refreshApi, logoutApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
@@ -731,7 +731,7 @@ export function PricingPageClient() {
                   justifyContent: 'center',
                 }}
               >
-                <Sparkles size={22} style={{ color: 'var(--lp-text-primary)' }} />
+                <Zap size={22} style={{ color: 'var(--lp-text-primary)' }} />
               </div>
               <div>
                 <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>

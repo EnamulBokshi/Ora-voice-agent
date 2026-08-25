@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { Search, Copy, Check, Terminal, Cpu, Shield, Zap, Sparkles, Layers, Code, ArrowRight } from 'lucide-react';
+import { Search, Copy, Check, Terminal, Cpu, Shield, Zap, Layers, Code, ArrowRight } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -277,7 +277,7 @@ useHead({
           <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.7 }}>
             <li>The browser establishes a low-latency WebSocket connection to <code>/ws/voice</code>.</li>
             <li>Microphone audio is captured as 16-bit 24kHz PCM chunks and streamed to ORA Gateway.</li>
-            <li>ORA proxies the stream to Gemini 2.0/2.5 Live Multimodal API while intercepting executable function tools (e.g. <code>find_products</code>, <code>add_to_cart</code>).</li>
+            <li>ORA proxies the real-time stream through the ORA Neural Multimodal Gateway while intercepting executable function tools (e.g. <code>find_products</code>, <code>add_to_cart</code>).</li>
             <li>Tool calls execute against tenant-scoped VectorIndex & Live Store APIs, returning pre-verified stock & pricing before streaming natural speech back to the shopper.</li>
           </ol>
         </>
@@ -673,7 +673,7 @@ socket.onmessage = (event) => {
       id: 'ai-tools-runtime',
       category: 'Voice Streaming Gateway',
       title: 'Autonomous Voice Agent Tools',
-      summary: 'Executable tool functions invoked by Gemini 2.5 Live during voice conversations.',
+      summary: 'Executable tool functions invoked by ORA Neural Voice during live customer conversations.',
       content: (
         <>
           <p className="lp-docs-p">

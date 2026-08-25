@@ -21,7 +21,7 @@ import {
   CreditCard,
   Building,
   Store,
-  Sparkles,
+  Zap,
   MessageSquare,
   PhoneCall,
   ShoppingBag,
@@ -200,7 +200,7 @@ export function AdminUsersTable({
     if (sub.planId === 'scale') {
       return (
         <span className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/15 px-2 py-0.5 text-[11px] font-bold text-purple-300">
-          <Sparkles size={11} className="text-purple-400" />
+          <Zap size={11} className="text-purple-400" />
           Scale Plan
           <span className="rounded bg-purple-950/80 px-1 py-0.2 text-[9px] uppercase tracking-wider text-purple-300 font-mono">
             {sub.billingProvider}

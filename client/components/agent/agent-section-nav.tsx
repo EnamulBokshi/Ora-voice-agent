@@ -18,9 +18,9 @@ export type AgentView = 'get-started' | 'feed' | 'knowledge' | 'catalog';
 // ─── Role definitions ─────────────────────────────────────────────────────────
 
 const ROLES = [
-  { id: 'voice'     as AgentRole, label: 'Talk to ORA',    Icon: Mic,      iconClass: 'text-primary' },
-  { id: 'documents' as AgentRole, label: 'Documents',       Icon: FileText, iconClass: 'text-[color:var(--ora-info)]' },
-  { id: 'products'  as AgentRole, label: 'Product Catalog', Icon: Package,  iconClass: 'text-[color:var(--ora-warning)]' },
+  { id: 'voice'     as AgentRole, label: 'Talk to ORA',    Icon: Mic,      iconClass: 'text-foreground' },
+  { id: 'documents' as AgentRole, label: 'Documents',       Icon: FileText, iconClass: 'text-foreground' },
+  { id: 'products'  as AgentRole, label: 'Product Catalog', Icon: Package,  iconClass: 'text-foreground' },
 ];
 
 // Sub-items shown under ▾ Train when a role is active
@@ -67,60 +67,67 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const currentRole = ROLES.find((r) => r.id === activeRole) ?? null;
-
   const handleRoleSelect = (role: AgentRole | null) => {
     setDropdownOpen(false);
-    if (role === null) router.push('/agent');
-    else router.push(`/agent?role=${role}`);
+    if (role === null) {
+      router.push('/agent');
+    } else {
+      router.push(`/agent?role=${role}&view=get-started`);
+    }
   };
 
+  const currentRole = ROLES.find((r) => r.id === activeRole) ?? null;
+
   return (
-    <aside className="w-[200px] flex-shrink-0 h-full flex flex-col bg-surface-lowest border-r border-border overflow-hidden">
+    <aside className="w-[210px] flex-shrink-0 h-full flex flex-col bg-surface-lowest border-r border-border overflow-hidden">
 
       {/* ── Section title ── */}
       <div className="h-14 flex items-center gap-2.5 px-4 border-b border-border flex-shrink-0">
-        <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
-          <Bot size={11} className="text-primary-foreground" />
+        <div className="w-6 h-6 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 shadow-sm">
+          <Bot size={13} className="text-foreground" />
         </div>
-        <p className="text-[14px] font-bold text-foreground tracking-tight select-none">ORA Agent</p>
+        <p className="text-[14.5px] font-bold text-foreground tracking-tight select-none">ORA Agent</p>
       </div>
 
       {/* ── Role dropdown ── */}
       <div className="px-3 pt-3 pb-1 relative" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen((o) => !o)}
-          className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-surface-container transition-colors text-left"
+          className="w-full flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-lg hover:bg-surface-container transition-colors text-left"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            {currentRole
-              ? <currentRole.Icon size={13} className={cn(currentRole.iconClass, 'flex-shrink-0')} />
-              : <LayoutGrid size={13} className="text-muted-foreground flex-shrink-0" />
-            }
-            <span className="text-[12.5px] font-semibold text-foreground truncate">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 shadow-sm">
+              {currentRole
+                ? <currentRole.Icon size={15} className="text-foreground" />
+                : <LayoutGrid size={15} className="text-foreground" />
+              }
+            </div>
+            <span className="text-[14px] font-semibold text-foreground truncate">
               {currentRole ? currentRole.label : 'All roles'}
             </span>
           </div>
           <ChevronDown
-            size={12}
+            size={13}
             className={cn('text-muted-foreground flex-shrink-0 transition-transform duration-150', dropdownOpen && 'rotate-180')}
           />
         </button>
 
         {/* Dropdown */}
         {dropdownOpen && (
-          <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-50 bg-surface-container rounded-lg border border-border/50 overflow-hidden shadow-2xl shadow-black/40">
+          <div className="absolute left-3 right-3 top-[calc(100%-4px)] z-50 bg-surface-container rounded-xl border border-border/60 overflow-hidden shadow-2xl shadow-black/50 p-1">
             {/* All roles */}
             <button
               onClick={() => handleRoleSelect(null)}
               className={cn(
-                'w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium hover:bg-surface-high transition-colors',
-                activeRole === null ? 'text-foreground' : 'text-muted-foreground'
+                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-[14px] font-medium hover:bg-surface-high transition-colors',
+                activeRole === null ? 'text-foreground font-semibold bg-surface-high/60' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <LayoutGrid size={12} className="flex-shrink-0 text-muted-foreground" />
-              <span className="flex-1">All roles</span>
-              {activeRole === null && <Check size={10} className="text-primary flex-shrink-0" />}
+              <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 shadow-sm">
+                <LayoutGrid size={15} className="text-foreground" />
+              </div>
+              <span className="flex-1 truncate">All roles</span>
+              {activeRole === null && <Check size={13} className="text-foreground flex-shrink-0" />}
             </button>
             {/* Role options */}
             {ROLES.map((role) => (
@@ -128,13 +135,15 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
                 key={role.id}
                 onClick={() => handleRoleSelect(role.id)}
                 className={cn(
-                  'w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] font-medium hover:bg-surface-high transition-colors',
-                  activeRole === role.id ? 'text-foreground' : 'text-muted-foreground'
+                  'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-[14px] font-medium hover:bg-surface-high transition-colors',
+                  activeRole === role.id ? 'text-foreground font-semibold bg-surface-high/60' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <role.Icon size={12} className={cn(role.iconClass, 'flex-shrink-0')} />
+                <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 shadow-sm">
+                  <role.Icon size={15} className="text-foreground" />
+                </div>
                 <span className="flex-1 truncate">{role.label}</span>
-                {activeRole === role.id && <Check size={10} className="text-primary flex-shrink-0" />}
+                {activeRole === role.id && <Check size={13} className="text-foreground flex-shrink-0" />}
               </button>
             ))}
           </div>
@@ -142,7 +151,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto no-scrollbar flex flex-col gap-0.5">
+      <nav className="flex-1 px-3 py-2.5 overflow-y-auto no-scrollbar flex flex-col gap-1">
 
         {activeRole === null ? (
           /* ── All roles: simple top-level nav ── */
@@ -156,10 +165,10 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
               <Link
                 key={item.label}
                 href={item.href}
-                className="flex items-center justify-between px-2 py-1.5 rounded-md text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
+                className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
               >
                 {item.label}
-                <ChevronRight size={11} className="opacity-30" />
+                <ChevronRight size={12} className="opacity-40" />
               </Link>
             ))}
           </>
@@ -170,31 +179,34 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
             <div>
               <button
                 onClick={() => setTrainExpanded((e) => !e)}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-[12.5px] font-medium text-foreground hover:bg-surface-container transition-colors"
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-foreground hover:bg-surface-container transition-colors"
               >
                 <span>Train</span>
                 <ChevronDown
-                  size={11}
+                  size={12}
                   className={cn('text-muted-foreground transition-transform duration-150', trainExpanded && 'rotate-180')}
                 />
               </button>
 
               {trainExpanded && (
-                <div className="mt-0.5 ml-2 pl-2.5 border-l border-border/30 flex flex-col gap-0.5">
-                  {TRAIN_ITEMS[activeRole].map((item) => (
-                    <Link
-                      key={item.view}
-                      href={`/agent?role=${activeRole}&view=${item.view}`}
-                      className={cn(
-                        'flex items-center py-1.5 px-2 rounded-md text-[12px] transition-colors',
-                        activeView === item.view
-                          ? 'text-foreground font-semibold bg-surface-container'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-surface-container/60',
-                      )}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
+                <div className="mt-0.5 ml-2 pl-2.5 border-l border-border/60 flex flex-col gap-0.5">
+                  {TRAIN_ITEMS[activeRole].map((item) => {
+                    const isActive = activeView === item.view;
+                    return (
+                      <Link
+                        key={item.view}
+                        href={`/agent?role=${activeRole}&view=${item.view}`}
+                        className={cn(
+                          'flex items-center py-1.5 px-2.5 rounded-lg text-[13px] transition-colors',
+                          isActive
+                            ? 'text-foreground font-semibold bg-surface-high shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
+                        )}
+                      >
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -202,40 +214,40 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
             {/* Deploy → */}
             <Link
               href="/setup"
-              className="flex items-center justify-between px-2 py-1.5 rounded-md text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
+              className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Deploy</span>
-              <ChevronRight size={11} className="opacity-30" />
+              <ChevronRight size={12} className="opacity-40" />
             </Link>
 
             {/* Analyze → */}
             <Link
               href="/conversations"
-              className="flex items-center justify-between px-2 py-1.5 rounded-md text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
+              className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Analyze</span>
-              <ChevronRight size={11} className="opacity-30" />
+              <ChevronRight size={12} className="opacity-40" />
             </Link>
 
             {/* Settings ↗ */}
             <Link
               href="/profile"
-              className="flex items-center justify-between px-2 py-1.5 rounded-md text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
+              className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Settings</span>
-              <ArrowUpRight size={11} className="opacity-30" />
+              <ArrowUpRight size={12} className="opacity-40" />
             </Link>
 
             {/* Divider */}
-            <div className="h-px bg-border mx-1 my-1.5" />
+            <div className="h-px bg-border mx-1 my-2" />
 
             {/* Workflows */}
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-md text-[12.5px] font-medium text-muted-foreground/35 select-none cursor-default">
+            <div className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground/35 select-none cursor-default">
               <div className="flex items-center gap-2">
-                <GitBranch size={12} />
+                <GitBranch size={13} />
                 <span>Workflows</span>
               </div>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-muted-foreground/30 font-semibold tracking-wide uppercase">
+              <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-surface-container text-muted-foreground/30 font-semibold tracking-wide uppercase">
                 Soon
               </span>
             </div>

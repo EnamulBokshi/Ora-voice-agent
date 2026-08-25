@@ -16,6 +16,7 @@ export interface SetupProgressState {
 }
 
 const STORAGE_KEY = 'ora_setup_progress_v1';
+const PROGRESS_EVENT = 'ora:setup-progress-changed';
 
 const DEFAULT_STATE: SetupProgressState = {
   persona: false,
@@ -24,21 +25,61 @@ const DEFAULT_STATE: SetupProgressState = {
   voice_test: false,
 };
 
+function getStoredProgress(): Partial<SetupProgressState> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+function broadcastProgress(next: SetupProgressState) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+  window.dispatchEvent(new CustomEvent(PROGRESS_EVENT, { detail: next }));
+}
+
 export function useSetupProgress() {
-  const [progress, setProgress] = useState<SetupProgressState>(DEFAULT_STATE);
+  const [progress, setProgress] = useState<SetupProgressState>(() => ({
+    ...DEFAULT_STATE,
+    ...getStoredProgress(),
+  }));
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Load initial state from localStorage & backend APIs
-  const refreshProgress = useCallback(async () => {
-    let stored: Partial<SetupProgressState> = {};
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        stored = JSON.parse(saved);
+  // Synchronize across all components and tabs instantly
+  useEffect(() => {
+    const onProgressChange = (e: CustomEvent<SetupProgressState>) => {
+      if (e.detail) {
+        setProgress(e.detail);
       }
-    } catch {
-      // ignore JSON parse error
-    }
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          setProgress(JSON.parse(e.newValue));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener(PROGRESS_EVENT as any, onProgressChange);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(PROGRESS_EVENT as any, onProgressChange);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  // Load state from backend APIs & local storage
+  const refreshProgress = useCallback(async () => {
+    const stored = getStoredProgress();
 
     try {
       const [agentConfigRes, meRes, knowledgeRes, productsRes] = await Promise.allSettled([
@@ -53,7 +94,10 @@ export function useSetupProgress() {
       // 1. Persona step
       if (agentConfigRes.status === 'fulfilled' && agentConfigRes.value?.config) {
         const config = agentConfigRes.value.config;
-        if (config.businessArchetype || (config.brandVoiceDescription && config.brandVoiceDescription.trim().length > 0)) {
+        if (
+          config.businessArchetype ||
+          (config.brandVoiceDescription && config.brandVoiceDescription.trim().length > 0)
+        ) {
           detected.persona = true;
         }
       }
@@ -69,21 +113,20 @@ export function useSetupProgress() {
         Array.isArray(knowledgeRes.value) &&
         knowledgeRes.value.length > 0;
       const productData = productsRes.status === 'fulfilled' ? productsRes.value : null;
-      const hasProducts =
-        Boolean(productData && ((productData.pagination?.total ?? 0) > 0 || (productData.items?.length ?? 0) > 0));
+      const hasProducts = Boolean(
+        productData &&
+          ((productData.pagination?.total ?? 0) > 0 || (productData.items?.length ?? 0) > 0),
+      );
       if (hasDocs || hasProducts) {
         detected.knowledge = true;
       }
 
       setProgress(detected);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(detected));
-      } catch {
-        // ignore storage error
-      }
+      broadcastProgress(detected);
     } catch {
       // If network fails, use stored state
-      setProgress((prev) => ({ ...prev, ...stored }));
+      const fallback = { ...DEFAULT_STATE, ...stored };
+      setProgress(fallback);
     } finally {
       setLoading(false);
     }
@@ -97,11 +140,7 @@ export function useSetupProgress() {
   const toggleStep = useCallback((stepId: SetupStepId) => {
     setProgress((prev) => {
       const next = { ...prev, [stepId]: !prev[stepId] };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      broadcastProgress(next);
       return next;
     });
   }, []);
@@ -111,11 +150,7 @@ export function useSetupProgress() {
     setProgress((prev) => {
       if (prev[stepId]) return prev;
       const next = { ...prev, [stepId]: true };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      broadcastProgress(next);
       return next;
     });
   }, []);

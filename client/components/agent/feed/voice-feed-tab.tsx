@@ -14,7 +14,6 @@ import {
   Save,
   CheckCircle2,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
 import { createKnowledgeDocApi } from '@/services/knowledge-service';

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Users,
-  Sparkles,
+  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   UserPlus,
@@ -133,7 +133,7 @@ export function AdminUsersView() {
             title="Active Subscribers"
             value={stats?.activeSubscribers ?? 0}
             subtitle="Paid merchant store subscribers"
-            icon={<Sparkles className="h-4 w-4" />}
+            icon={<ShieldCheck className="h-4 w-4" />}
             trend={stats?.activeSubscribersTrend || '+21.5%'}
             trendUp={true}
             highlight={true}

@@ -217,7 +217,7 @@ export function AdminPlatformAgentCard() {
               <option value="general">General Website Representative</option>
             </select>
             <p className="text-[11px] text-muted-foreground">
-              Determines Gemini Voice toolsets (dynamic pricing lookups, navigation actions, lead capture).
+              Determines ORA Voice toolsets (dynamic pricing lookups, navigation actions, lead capture).
             </p>
           </div>
 
@@ -236,7 +236,7 @@ export function AdminPlatformAgentCard() {
               <option value="bn">Bengali / বাংলা</option>
             </select>
             <p className="text-[11px] text-muted-foreground">
-              Default spoken language for Gemini Live voice streams.
+              Default spoken language for ORA Live voice streams.
             </p>
           </div>
         </div>
@@ -273,7 +273,7 @@ export function AdminPlatformAgentCard() {
             className="w-full rounded-lg bg-surface-lowest border border-border p-3 text-xs text-foreground focus:outline-none focus:border-primary transition-colors font-mono leading-relaxed resize-y"
           />
           <p className="text-[11px] text-muted-foreground">
-            Special business rules, discount promo codes, or guidance injected directly into Gemini's system instructions.
+            Special business rules, discount promo codes, or guidance injected directly into ORA system instructions.
           </p>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, RefreshCw, CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { ShieldCheck, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { verifyOtpApi, resendOtpApi } from '@/services/auth-service';
 import { ApiClientError } from '@/lib/api-client';
 import { OtpResponseData, User } from '@/types/auth';
@@ -143,7 +143,7 @@ export const OtpVerificationForm: React.FC<OtpVerificationFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       {hasPreFilled && (
         <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2.5 text-xs text-primary animate-in fade-in">
-          <Sparkles className="h-4 w-4 shrink-0" />
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>Verification code pre-filled from your email link.</span>
         </div>
       )}

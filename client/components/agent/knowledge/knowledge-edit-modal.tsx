@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Edit3, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Edit3, Loader2, AlertCircle, Database } from 'lucide-react';
 import { updateKnowledgeDocApi } from '@/services/knowledge-service';
 import { KnowledgeDoc, DocType } from '@/types/knowledge';
 
@@ -75,7 +75,7 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
             <div>
               <h2 className="text-sm font-semibold text-foreground">Edit Knowledge Document</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Modifications will automatically re-chunk text and update Gemini vector embeddings.
+                Modifications will automatically re-chunk text and update ORA neural vector embeddings.
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
           </div>
 
           <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5 text-[11px] text-muted-foreground">
-            <Sparkles size={14} className="text-primary shrink-0" />
+            <Database size={14} className="text-primary shrink-0" />
             <span>
               Saving will re-index this document into ~500-char chunks for instant AI agent voice & text retrieval.
             </span>
