@@ -14,6 +14,7 @@ import {
   Bot,
   PanelLeftClose,
   PanelLeftOpen,
+  Compass,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -226,23 +227,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             className={cn(
               'w-9 h-9 rounded-md flex items-center justify-center transition-colors relative',
               activeId === 'setup'
-                ? 'bg-surface-high text-primary ring-1 ring-primary/30'
+                ? 'bg-surface-high text-foreground ring-1 ring-border'
                 : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
             )}
           >
-            <svg className="w-4 h-4 -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="14" className="stroke-muted-foreground/30" strokeWidth="4" fill="none" />
-              <circle
-                cx="18"
-                cy="18"
-                r="14"
-                className="stroke-primary transition-all duration-300"
-                strokeWidth="4"
-                strokeDasharray={`${progressPercent}, 100`}
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
+            <Compass size={16} className={activeId === 'setup' ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground'} />
+            {completedCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface-highest text-foreground dark:text-[#C8F031] text-[9px] font-mono font-bold flex items-center justify-center border border-border">
+                {completedCount}
+              </span>
+            )}
           </Link>
         </div>
       ) : (
@@ -252,27 +246,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             className={cn(
               'group flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border',
               activeId === 'setup'
-                ? 'bg-surface-high text-foreground border-primary/50 shadow-xs ring-1 ring-primary/20'
+                ? 'bg-surface-high text-foreground border-border shadow-xs'
                 : 'bg-surface-low/50 text-foreground/80 hover:text-foreground hover:bg-surface-high border-border/60 hover:border-border',
             )}
           >
-            <div className="relative w-4 h-4 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="14" className="stroke-muted-foreground/30" strokeWidth="4" fill="none" />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  className="stroke-primary transition-all duration-300"
-                  strokeWidth="4"
-                  strokeDasharray={`${progressPercent}, 100`}
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
+            <div className="w-5 h-5 rounded bg-surface-high flex items-center justify-center border border-border/50 flex-shrink-0 text-muted-foreground group-hover:text-foreground group-hover:border-border transition-colors">
+              <Compass size={13} className={activeId === 'setup' ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground'} />
             </div>
             <span className="truncate flex-1 font-medium">Get set up</span>
-            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
+            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-surface-high text-muted-foreground group-hover:text-foreground border border-border/50 flex-shrink-0">
               {completedCount}/{totalSteps}
             </span>
           </Link>
