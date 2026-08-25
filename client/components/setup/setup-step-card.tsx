@@ -2,17 +2,17 @@
 
 import React from 'react';
 import Link from 'next/link';
-import {
-  Check,
-  ChevronDown,
-  ExternalLink,
-  ArrowRight,
-} from 'lucide-react';
+import { Check, ExternalLink, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+// Note: isOpen / onToggleOpen removed — steps are always expanded (Intercom pattern).
+// The accordion has been replaced by scrollable, always-visible rows.
 
 export interface SetupStepCardProps {
   id: string;
   stepNumber: number;
+  stepLabel: string;       // e.g. "PERSONA", "EMBED", "KNOWLEDGE", "VOICE TEST"
   title: string;
   description: string;
   ctaText?: string;
@@ -21,14 +21,19 @@ export interface SetupStepCardProps {
   learnMoreHref?: string;
   learnMoreText?: string;
   isCompleted: boolean;
-  isOpen: boolean;
-  onToggleOpen: () => void;
   onToggleComplete: () => void;
   previewComponent: React.ReactNode;
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+// Layout: preview LEFT (flex-1) | step info RIGHT (fixed 280px)
+// Matches Intercom's "How it works" numbered row pattern.
+// No card wrapper — steps are always visible as scrollable editorial rows.
+
 export function SetupStepCard({
+  id,
   stepNumber,
+  stepLabel,
   title,
   description,
   ctaText,
@@ -37,115 +42,93 @@ export function SetupStepCard({
   learnMoreHref,
   learnMoreText,
   isCompleted,
-  isOpen,
-  onToggleOpen,
   onToggleComplete,
   previewComponent,
 }: SetupStepCardProps) {
   return (
-    <div className={cn('border-b border-border/60 transition-colors relative', isOpen && 'border-border')}>
-      {/* Left primary indicator — only visible on the open step */}
-      {isOpen && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary" />}
-      {/* ── Header row — same rhythm as SalesFunnel / AnalyticsPanel rows ── */}
-      <div
-        className={cn(
-          'flex items-center justify-between py-4 cursor-pointer select-none group pl-4 transition-colors',
-          isOpen ? 'bg-primary/[0.03]' : 'hover:bg-muted/10',
-        )}
-        onClick={onToggleOpen}
-      >
-        <div className="flex items-center gap-4 min-w-0">
-          {/* Completion circle — minimal, like a checkbox */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleComplete(); }}
-            title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
-            className={cn(
-              'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 cursor-pointer border',
-              isCompleted
-                ? 'bg-primary border-primary text-primary-foreground'
-                : 'border-border bg-transparent group-hover:border-muted-foreground',
-            )}
-          >
-            <Check size={11} strokeWidth={3} className={cn('transition-opacity', isCompleted ? 'opacity-100' : 'opacity-0')} />
-          </button>
-
-          {/* Step label + title inline */}
-          <div className="min-w-0 flex items-center gap-3">
-            <span className="text-[11px] font-mono font-semibold text-muted-foreground/60 flex-shrink-0 tabular-nums">
-              {String(stepNumber).padStart(2, '0')}
-            </span>
-            <h3
-              className={cn(
-                'text-[13.5px] font-semibold truncate transition-colors',
-                isCompleted ? 'text-muted-foreground' : isOpen ? 'text-foreground' : 'text-foreground/80',
-              )}
-            >
-              {title}
-            </h3>
-            {isCompleted && (
-              <span className="text-[10.5px] font-mono text-primary flex-shrink-0">Done</span>
-            )}
-          </div>
-        </div>
-
-        {/* Collapse toggle — right side, understated */}
-        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-          <span className="text-[11px] text-muted-foreground/60 hidden sm:block">
-            {isOpen ? 'Collapse' : 'Configure'}
-          </span>
-          <ChevronDown
-            size={14}
-            className={cn('text-muted-foreground transition-transform duration-200', isOpen && 'rotate-180')}
-          />
-        </div>
+    <div
+      id={`step-${id}`}
+      className="flex flex-col lg:flex-row gap-8 lg:gap-12 py-10 border-b border-border/30 last:border-b-0 scroll-mt-4"
+    >
+      {/* ── Left: preview — sits naturally, no wrapper box ── */}
+      <div className="flex-1 min-w-0 order-2 lg:order-1">
+        {previewComponent}
       </div>
 
-      {/* ── Expanded body ── */}
-      {isOpen && (
-        <div className="pb-6 space-y-5 animate-in fade-in duration-150 pl-4">
-          {/* Description + action inline */}
-          <div className="flex flex-col md:flex-row md:items-start gap-4 pl-9">
-            <p className="text-[13px] leading-relaxed text-muted-foreground flex-1 max-w-2xl">
-              {description}
-            </p>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {ctaText && (
-                ctaHref ? (
-                  <Link
-                    href={ctaHref}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
-                  >
-                    {ctaText}
-                    <ArrowRight size={11} />
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onCtaClick}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                  >
-                    {ctaText}
-                    <ArrowRight size={11} />
-                  </button>
-                )
-              )}
-              {learnMoreHref && (
-                <Link
-                  href={learnMoreHref}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-                >
-                  {learnMoreText || 'Open workspace'}
-                  <ExternalLink size={10} />
-                </Link>
-              )}
-            </div>
-          </div>
+      {/* ── Right: step info column ── */}
+      <div className="w-full lg:w-[280px] flex-shrink-0 order-1 lg:order-2">
+        {/* Step label — "1. PERSONA" */}
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+          {stepNumber}. {stepLabel}
+        </p>
 
-          {/* Preview panel — indented to align with title */}
-          <div className="pl-9">{previewComponent}</div>
+        {/* Completion toggle + title */}
+        <div className="flex items-start gap-3 mb-2">
+          <button
+            type="button"
+            onClick={onToggleComplete}
+            title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+            className={cn(
+              'mt-0.5 w-[18px] h-[18px] flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-200 cursor-pointer',
+              isCompleted
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'border-border/60 bg-transparent hover:border-primary/60',
+            )}
+          >
+            <Check size={9} strokeWidth={3} className={cn(isCompleted ? 'opacity-100' : 'opacity-0')} />
+          </button>
+          <h3
+            className={cn(
+              'text-[17px] font-bold leading-snug tracking-tight',
+              isCompleted ? 'text-muted-foreground' : 'text-foreground',
+            )}
+          >
+            {title}
+          </h3>
         </div>
-      )}
+
+        {/* Done badge */}
+        {isCompleted && (
+          <span className="inline-flex items-center text-[10px] font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10 ml-[30px] mb-1">
+            Done
+          </span>
+        )}
+
+        {/* Description */}
+        <p className="text-[12.5px] text-muted-foreground leading-relaxed ml-[30px] mt-1 mb-5">
+          {description}
+        </p>
+
+        {/* CTAs */}
+        <div className="flex flex-wrap items-center gap-2 ml-[30px]">
+          {ctaText && (
+            ctaHref ? (
+              <Link
+                href={ctaHref}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors"
+              >
+                {ctaText} <ArrowRight size={10} />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onCtaClick}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer"
+              >
+                {ctaText} <ArrowRight size={10} />
+              </button>
+            )
+          )}
+          {learnMoreHref && (
+            <Link
+              href={learnMoreHref}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+            >
+              {learnMoreText || 'Open workspace'} <ExternalLink size={9} />
+            </Link>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

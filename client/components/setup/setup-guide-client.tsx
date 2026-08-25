@@ -1,22 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import {
-  CheckCircle2,
-  SlidersHorizontal,
-  FileText,
-  Key,
-  Mic,
-  ArrowRight,
-  Bot,
-  HelpCircle,
-  ExternalLink,
-} from 'lucide-react';
+import { Check, ArrowRight, ExternalLink, CheckCircle2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TopHeader } from '@/components/dashboard/top-header';
-import { useSetupProgress, SetupStepId } from '@/hooks/use-setup-progress';
-import { SetupStepCard } from './setup-step-card';
+import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
+import { SetupSectionNav, type SetupArchetype, ARCHETYPES } from './setup-section-nav';
+import { SetupArchIntroPage } from './setup-arch-intro-page';
 import { PersonaPreview } from './previews/persona-preview';
 import { KnowledgePreview } from './previews/knowledge-preview';
 import { IntegrationPreview } from './previews/integration-preview';
@@ -25,293 +16,313 @@ import { VoiceTestModal } from '@/components/agent/modals/voice-test-modal';
 import { getMeApi } from '@/services/auth-service';
 import { demoProfile } from '@/lib/demo-data';
 
-interface StepMeta {
+// ─── Step config ──────────────────────────────────────────────────────────────
+
+type StepConfig = {
   id: SetupStepId;
   stepNumber: number;
-  shortLabel: string;
-  icon: React.ElementType;
+  stepLabel: string;
+  title: string;
+  description: string;
+  ctaText?: string;
+  ctaHref?: string;
+  ctaAction?: 'markComplete' | 'copySnippet' | 'launchVoice';
+  learnMoreHref?: string;
+  learnMoreText?: string;
+};
+
+const STEP_CONFIGS: Record<SetupStepId, StepConfig> = {
+  persona: {
+    id: 'persona', stepNumber: 1, stepLabel: 'Persona',
+    title: 'Set up your AI sales persona & archetype',
+    description: "Select your store archetype and configure brand voice tone. Simulates real shopper dialogues so you can preview ORA's personality before going live.",
+    ctaText: 'Mark as Complete', ctaAction: 'markComplete',
+    learnMoreHref: '/agent?role=voice', learnMoreText: 'Agent voice settings',
+  },
+  integration: {
+    id: 'integration', stepNumber: 2, stepLabel: 'Embed',
+    title: 'Embed the widget into your storefront',
+    description: "Add ORA to Shopify, WooCommerce, or any React/HTML site with a single script tag. Connects your storefront to ORA's live voice engine, chat, and cart tools.",
+    ctaText: 'Copy Snippet', ctaAction: 'copySnippet',
+    learnMoreHref: '/agent?role=documents', learnMoreText: 'Store knowledge',
+  },
+  knowledge: {
+    id: 'knowledge', stepNumber: 3, stepLabel: 'Knowledge',
+    title: 'Sync your catalog & store documents',
+    description: "Upload policies, FAQs, and product data. ORA's RAG engine vectorises your content for accurate, sub-85ms answers — no hallucinations.",
+    ctaText: 'Upload Documents', ctaHref: '/agent?role=documents&view=feed',
+    learnMoreHref: '/agent?role=products', learnMoreText: 'Product catalog',
+  },
+  voice_test: {
+    id: 'voice_test', stepNumber: 4, stepLabel: 'Voice Test',
+    title: 'Run a live voice test before launching',
+    description: 'Have a real speech-to-speech conversation with ORA. Test product recommendations, navigation commands, and checkout flows before going live.',
+    ctaText: 'Start Voice Test', ctaAction: 'launchVoice',
+    learnMoreHref: '/agent?role=voice&view=feed', learnMoreText: 'Voice workspace',
+  },
+};
+
+const ALL_STEP_IDS: SetupStepId[] = ['persona', 'integration', 'knowledge', 'voice_test'];
+const VALID_ARCHETYPES = ['ecommerce', 'saas', 'agency', 'portfolio', 'general'];
+
+// ─── All Store Types hub ───────────────────────────────────────────────────────
+
+function SetupHub() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const FAQS = [
+    { q: 'Which store type should I choose?', a: 'Choose the archetype that best matches your business model. If you sell physical or digital products, choose E-Commerce. For software, choose SaaS. You can reconfigure at any time.' },
+    { q: 'Are the setup steps the same for all archetypes?', a: 'The 4 configuration steps (Persona, Widget Embed, Knowledge, Voice Test) are the same for all archetypes. Each archetype simply gets a tailored intro and persona defaults.' },
+    { q: 'Can I change my archetype later?', a: 'Yes. You can re-run the Persona setup step at any time to switch your store archetype and update ORA\'s behavior.' },
+    { q: 'How long does setup take?', a: 'Most stores are live in 3–5 minutes. The voice test adds another 2 minutes but is strongly recommended before going live.' },
+  ];
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
+      <div className="w-full px-8 lg:px-10 pt-8 pb-14">
+
+        {/* Hero */}
+        <div className="text-center mb-10">
+          <h1 className="text-[28px] font-bold text-foreground tracking-tight leading-tight mb-2">
+            One agent for every type of store
+          </h1>
+          <p className="text-[13px] text-muted-foreground leading-relaxed max-w-md mx-auto">
+            Choose your store archetype. ORA adapts its persona, knowledge, and selling strategy for your specific business.{' '}
+            <span className="text-primary cursor-pointer hover:underline">Learn more.</span>
+          </p>
+        </div>
+
+        {/* Archetype cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          {ARCHETYPES.map((arch) => (
+            <Link
+              key={arch.id}
+              href={`/setup?archetype=${arch.id}`}
+              className="group flex flex-col rounded-lg border border-border/25 bg-surface-container overflow-hidden hover:border-border/60 transition-all duration-150"
+            >
+              {/* Color block header */}
+              <div className={cn(
+                'w-full h-[100px] flex items-center justify-center flex-shrink-0',
+                arch.id === 'ecommerce' ? 'bg-primary/[0.08]' :
+                arch.id === 'saas'      ? 'bg-[color:var(--ora-info)]/[0.08]' :
+                arch.id === 'agency'    ? 'bg-[color:var(--ora-warning)]/[0.08]' :
+                arch.id === 'portfolio' ? 'bg-[color:var(--ora-success)]/[0.08]' :
+                'bg-muted/[0.08]'
+              )}>
+                <arch.Icon size={32} className={arch.iconClass} />
+              </div>
+
+              {/* Card body */}
+              <div className="p-4 flex flex-col flex-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <arch.Icon size={13} className={arch.iconClass} />
+                  <h2 className={cn('text-[13.5px] font-semibold', arch.iconClass)}>
+                    {arch.label}
+                  </h2>
+                </div>
+                <p className="text-[11.5px] text-muted-foreground mb-4 leading-snug flex-1">
+                  {arch.id === 'ecommerce' ? 'Catalog search, live stock & cart recovery'     :
+                   arch.id === 'saas'      ? 'Subscription tiers, features & trial conversion' :
+                   arch.id === 'agency'    ? 'Service packages, scoping & booking'             :
+                   arch.id === 'portfolio' ? 'Showcase projects & direct bookings'             :
+                   'Store policies, RAG search & enterprise support'}
+                </p>
+                <div>
+                  <span className="inline-flex items-center h-7 px-3 rounded border border-border/50 text-[11.5px] font-medium text-foreground group-hover:bg-surface-high group-hover:border-border transition-colors">
+                    Get started
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+
+          {/* More coming soon */}
+          <div className="flex items-center gap-3 border border-dashed border-border/40 py-4 px-4 rounded-lg bg-transparent md:col-span-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/20 flex-shrink-0" />
+            <span className="text-[12px] text-muted-foreground font-medium">More store archetypes coming soon</span>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="mt-8">
+          <p className="text-[13px] font-semibold text-foreground text-center mb-5">
+            Frequently asked questions
+          </p>
+          <div className="divide-y divide-border/40">
+            {FAQS.map((faq, i) => (
+              <div key={i}>
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between py-3.5 text-left hover:opacity-75 transition-opacity"
+                >
+                  <span className="text-[13px] font-medium text-foreground">{faq.q}</span>
+                  <ChevronDown
+                    size={13}
+                    className={cn('text-muted-foreground flex-shrink-0 transition-transform duration-150 ml-4', openFaq === i && 'rotate-180')}
+                  />
+                </button>
+                {openFaq === i && (
+                  <div className="pb-4 animate-in fade-in duration-150">
+                    <p className="text-[12.5px] text-muted-foreground leading-relaxed">{faq.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-const STEPS_ROADMAP: StepMeta[] = [
-  { id: 'persona',      stepNumber: 1, shortLabel: 'Persona & Voice',  icon: SlidersHorizontal },
-  { id: 'integration',  stepNumber: 2, shortLabel: 'Widget Embed',     icon: Key },
-  { id: 'knowledge',    stepNumber: 3, shortLabel: 'Store Knowledge',  icon: FileText },
-  { id: 'voice_test',   stepNumber: 4, shortLabel: 'Live Voice Test',  icon: Mic },
-];
+// ─── Inner component (reads searchParams) ─────────────────────────────────────
 
-export function SetupGuideClient() {
+function SetupGuideClientInner() {
+  const searchParams = useSearchParams();
+
+  const rawArch = searchParams.get('archetype');
+  const rawStep = searchParams.get('step');
+
+  const activeArchetype: SetupArchetype | null =
+    rawArch && VALID_ARCHETYPES.includes(rawArch) ? (rawArch as SetupArchetype) : null;
+
+  const activeStep: SetupStepId | null =
+    rawStep && ALL_STEP_IDS.includes(rawStep as SetupStepId) ? (rawStep as SetupStepId) : null;
+
   const {
-    progress,
-    loading,
-    totalSteps,
-    completedCount,
-    isAllCompleted,
-    progressPercent,
-    toggleStep,
-    markStepComplete,
+    progress, loading, toggleStep, markStepComplete, isAllCompleted,
   } = useSetupProgress();
 
-  const [activeStepId, setActiveStepId] = useState<SetupStepId>('persona');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [publishableKey, setPublishableKey] = useState<string>('biz_live_demo');
-  const [storeName, setStoreName] = useState<string>('Your Store');
+  const [publishableKey, setPublishableKey]     = useState<string>('biz_live_demo');
 
   useEffect(() => {
     getMeApi()
       .then((res) => {
         if (res?.business?.publishableKey) setPublishableKey(res.business.publishableKey);
         else if (demoProfile?.business?.publishableKey) setPublishableKey(demoProfile.business.publishableKey);
-        if (res?.business?.name) setStoreName(res.business.name);
       })
       .catch(() => {
         if (demoProfile?.business?.publishableKey) setPublishableKey(demoProfile.business.publishableKey);
       });
   }, []);
 
-  useEffect(() => {
-    if (!loading) {
-      if (!progress.persona) setActiveStepId('persona');
-      else if (!progress.integration) setActiveStepId('integration');
-      else if (!progress.knowledge) setActiveStepId('knowledge');
-      else if (!progress.voice_test) setActiveStepId('voice_test');
-    }
-  }, [loading, progress.persona, progress.integration, progress.knowledge, progress.voice_test]);
-
-  const handleLaunchVoice = () => {
+  const handleLaunchVoice = useCallback(() => {
     setIsVoiceModalOpen(true);
     markStepComplete('voice_test');
+  }, [markStepComplete]);
+
+  const handleCta = useCallback((config: StepConfig) => {
+    if (config.ctaAction === 'markComplete') markStepComplete(config.id);
+    if (config.ctaAction === 'copySnippet') {
+      navigator.clipboard.writeText(
+        `<script src="${typeof window !== 'undefined' ? window.location.origin : ''}/widget/ora-widget.js" data-ora-key="${publishableKey}" defer></script>`
+      );
+      markStepComplete('integration');
+    }
+    if (config.ctaAction === 'launchVoice') handleLaunchVoice();
+  }, [markStepComplete, publishableKey, handleLaunchVoice]);
+
+  const getPreview = (id: SetupStepId) => {
+    if (id === 'persona')     return <PersonaPreview onSaved={() => markStepComplete('persona')} />;
+    if (id === 'integration') return <IntegrationPreview publishableKey={publishableKey} onCopied={() => markStepComplete('integration')} />;
+    if (id === 'knowledge')   return <KnowledgePreview />;
+    if (id === 'voice_test')  return <VoiceTestPreview onOpenTestModal={handleLaunchVoice} />;
+  };
+
+  const activeConfig = activeStep ? STEP_CONFIGS[activeStep] : null;
+  const isCompleted  = activeStep ? progress[activeStep] : false;
+
+  const renderContent = () => {
+    // No archetype → hub
+    if (!activeArchetype) return <SetupHub />;
+    // Archetype but no step → intro page
+    if (!activeStep) return <SetupArchIntroPage archetype={activeArchetype} />;
+
+    // Step page
+    return (
+      <>
+        {/* Step header */}
+        <div className="flex-shrink-0 px-8 pt-7 pb-6 border-b border-border/40">
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              {activeConfig!.stepNumber}. {activeConfig!.stepLabel}
+            </p>
+            {isAllCompleted && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10">
+                <CheckCircle2 size={10} /> All complete
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-start gap-3 mb-2">
+            <button
+              type="button"
+              onClick={() => toggleStep(activeStep!)}
+              title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+              className={cn(
+                'mt-1 w-[18px] h-[18px] flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer',
+                isCompleted ? 'bg-primary border-primary text-primary-foreground' : 'border-border/60 hover:border-primary/60',
+              )}
+            >
+              <Check size={9} strokeWidth={3} className={isCompleted ? 'opacity-100' : 'opacity-0'} />
+            </button>
+            <h1 className={cn('text-[20px] font-bold tracking-tight leading-snug', isCompleted ? 'text-muted-foreground' : 'text-foreground')}>
+              {activeConfig!.title}
+            </h1>
+          </div>
+
+          <p className="text-[13px] text-muted-foreground leading-relaxed ml-[30px] mb-4 max-w-2xl">
+            {activeConfig!.description}
+          </p>
+
+          <div className="flex items-center gap-2 ml-[30px]">
+            {activeConfig!.ctaText && (
+              activeConfig!.ctaHref ? (
+                <Link href={activeConfig!.ctaHref} className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors">
+                  {activeConfig!.ctaText} <ArrowRight size={10} />
+                </Link>
+              ) : (
+                <button type="button" onClick={() => handleCta(activeConfig!)} className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer">
+                  {activeConfig!.ctaText} <ArrowRight size={10} />
+                </button>
+              )
+            )}
+            {activeConfig!.learnMoreHref && (
+              <Link href={activeConfig!.learnMoreHref} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+                {activeConfig!.learnMoreText || 'Learn more'} <ExternalLink size={9} />
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="flex-1 overflow-y-auto no-scrollbar px-8 py-6">
+          {getPreview(activeStep!)}
+        </div>
+      </>
+    );
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
-      {/* ── Top Header ── */}
-      <TopHeader
-        title="Store Setup Guide"
-        badge={
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-surface-high text-muted-foreground border border-border select-none">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            {completedCount}/{totalSteps} Complete
-          </span>
-        }
-        actions={
-          <Link
-            href="/agent?tab=voice"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-          >
-            <Bot size={13} />
-            <span>Agent Studio</span>
-            <ArrowRight size={11} />
-          </Link>
-        }
-      />
+    <div className="flex-1 flex h-full overflow-hidden bg-background">
+      <SetupSectionNav activeArchetype={activeArchetype} activeStep={activeStep} />
 
-      {/* ── Main scroll canvas — same max-w and padding as overview-client ── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[1400px] mx-auto px-6 lg:px-8 py-6 space-y-6">
-
-          {/* ── Progress header — typography-led, no card wrapper ── */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-border">
-            <div className="space-y-1">
-              <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
-                Onboarding · ~3 min setup
-              </p>
-              <h1 className="text-xl font-bold tracking-tight text-foreground">
-                Launch ORA on {storeName}
-              </h1>
-              <p className="text-[13px] text-muted-foreground leading-relaxed max-w-xl">
-                Complete 4 steps to configure your persona, embed the widget, sync store knowledge, and run a live voice test.
-              </p>
-            </div>
-
-            {/* Progress dial — same as KPI strip style */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="relative w-10 h-10 flex items-center justify-center">
-                <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-surface-high"
-                    strokeWidth="3"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-primary transition-all duration-500"
-                    strokeDasharray={`${progressPercent}, 100`}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <span className="absolute text-[10px] font-bold font-mono text-foreground">{progressPercent}%</span>
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold text-foreground tabular-nums">
-                  {completedCount} of {totalSteps}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {isAllCompleted ? 'All complete' : `${totalSteps - completedCount} remaining`}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Step nav — underline tabs, exactly like AnalyticsPanel ── */}
-          <div className="flex items-center gap-6 border-b border-border/80 text-[13px] font-medium pb-0">
-            {STEPS_ROADMAP.map((step) => {
-              const isCompleted = progress[step.id];
-              const isActive = activeStepId === step.id;
-              const Icon = step.icon;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setActiveStepId(step.id)}
-                  className={cn(
-                    'pb-2.5 relative flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer',
-                    isActive
-                      ? 'text-foreground font-semibold after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-primary'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {isCompleted
-                    ? <CheckCircle2 size={12} className="text-primary" />
-                    : <Icon size={12} />
-                  }
-                  {step.shortLabel}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── Completion strip — full-width flush strip, like overview banner ── */}
-          {isAllCompleted && (
-            <div className="flex items-center justify-between gap-4 px-0 py-3 border-b border-primary/20">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 size={14} className="text-primary flex-shrink-0" />
-                <span className="text-[13px] text-foreground font-medium">
-                  Setup complete — ORA is configured and ready to sell.
-                </span>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Link
-                  href="/dashboard"
-                  className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
-                >
-                  Go to Overview
-                </Link>
-                <Link
-                  href="/live-desk"
-                  className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-                >
-                  Live Desk <ArrowRight size={10} className="inline" />
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* ── Steps list — divider-separated rows, no card wrappers ── */}
-          <div>
-            <SetupStepCard
-              id="persona"
-              stepNumber={1}
-              title="Set up your AI sales persona & archetype"
-              description="Select your store archetype and configure brand voice tone. Simulates real shopper dialogues so you can preview ORA's personality before going live."
-              ctaText="Mark as Complete"
-              onCtaClick={() => markStepComplete('persona')}
-              learnMoreHref="/agent?tab=voice"
-              learnMoreText="Agent voice settings"
-              isCompleted={progress.persona}
-              isOpen={activeStepId === 'persona'}
-              onToggleOpen={() => setActiveStepId((prev) => (prev === 'persona' ? ('' as any) : 'persona'))}
-              onToggleComplete={() => toggleStep('persona')}
-              previewComponent={<PersonaPreview onSaved={() => markStepComplete('persona')} />}
-            />
-
-            <SetupStepCard
-              id="integration"
-              stepNumber={2}
-              title="Embed the widget into your storefront"
-              description="Add ORA to Shopify, WooCommerce, or any React/HTML site with a single script tag. Connects your storefront to ORA's live voice engine, chat, and cart tools."
-              ctaText="Copy Snippet"
-              onCtaClick={() => {
-                navigator.clipboard.writeText(
-                  `<script src="${typeof window !== 'undefined' ? window.location.origin : ''}/widget/ora-widget.js" data-ora-key="${publishableKey}" defer></script>`
-                );
-                markStepComplete('integration');
-              }}
-              learnMoreHref="/agent?tab=documents"
-              learnMoreText="Store knowledge"
-              isCompleted={progress.integration}
-              isOpen={activeStepId === 'integration'}
-              onToggleOpen={() => setActiveStepId((prev) => (prev === 'integration' ? ('' as any) : 'integration'))}
-              onToggleComplete={() => toggleStep('integration')}
-              previewComponent={
-                <IntegrationPreview
-                  publishableKey={publishableKey}
-                  onCopied={() => markStepComplete('integration')}
-                />
-              }
-            />
-
-            <SetupStepCard
-              id="knowledge"
-              stepNumber={3}
-              title="Sync your catalog & store documents"
-              description="Upload policies, FAQs, and product data. ORA's RAG engine vectorises your content for accurate, sub-85ms answers — no hallucinations."
-              ctaText="Upload Documents"
-              ctaHref="/agent?tab=documents"
-              learnMoreHref="/agent?tab=products"
-              learnMoreText="Product catalog"
-              isCompleted={progress.knowledge}
-              isOpen={activeStepId === 'knowledge'}
-              onToggleOpen={() => setActiveStepId((prev) => (prev === 'knowledge' ? ('' as any) : 'knowledge'))}
-              onToggleComplete={() => toggleStep('knowledge')}
-              previewComponent={<KnowledgePreview />}
-            />
-
-            <SetupStepCard
-              id="voice_test"
-              stepNumber={4}
-              title="Run a live voice test before launching"
-              description="Have a real speech-to-speech conversation with ORA. Test product recommendations, navigation commands, and checkout flows before going live."
-              ctaText="Start Voice Test"
-              onCtaClick={handleLaunchVoice}
-              learnMoreHref="/agent?tab=voice"
-              learnMoreText="Voice workspace"
-              isCompleted={progress.voice_test}
-              isOpen={activeStepId === 'voice_test'}
-              onToggleOpen={() => setActiveStepId((prev) => (prev === 'voice_test' ? ('' as any) : 'voice_test'))}
-              onToggleComplete={() => toggleStep('voice_test')}
-              previewComponent={<VoiceTestPreview onOpenTestModal={handleLaunchVoice} />}
-            />
-          </div>
-
-          {/* ── Footer ── */}
-          <div className="pt-2 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[12.5px] text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <HelpCircle size={13} />
-              <span>Need help with a custom integration?</span>
-            </div>
-            <Link
-              href="/agent?tab=documents"
-              className="text-primary hover:underline font-medium inline-flex items-center gap-1"
-            >
-              Open Knowledge Studio
-              <ExternalLink size={11} />
-            </Link>
-          </div>
-
-        </div>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {renderContent()}
       </div>
 
-      {/* ── Voice Test Modal ── */}
-      <VoiceTestModal
-        isOpen={isVoiceModalOpen}
-        onClose={() => setIsVoiceModalOpen(false)}
-        publishableKey={publishableKey}
-      />
+      <VoiceTestModal isOpen={isVoiceModalOpen} onClose={() => setIsVoiceModalOpen(false)} publishableKey={publishableKey} />
     </div>
+  );
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+export function SetupGuideClient() {
+  return (
+    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading setup…</div>}>
+      <SetupGuideClientInner />
+    </Suspense>
   );
 }

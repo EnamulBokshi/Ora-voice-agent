@@ -52,7 +52,7 @@ export function DashboardGuard({ children }: DashboardGuardProps) {
     return () => {
       mounted = false;
     };
-  }, [router, pathname]);
+  }, [router]);
 
   if (loading) {
     return (

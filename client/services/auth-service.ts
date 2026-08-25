@@ -40,21 +40,48 @@ export async function refreshApi(): Promise<RefreshResponseData> {
 }
 
 export async function logoutApi(): Promise<{ message: string }> {
+  clearProfileCache();
   return apiClient<{ message: string }>('/auth/logout', {
     method: 'POST',
   });
 }
 
-export async function getMeApi(accessToken?: string): Promise<ProfileResponseData> {
+let profileCache: { data: ProfileResponseData; timestamp: number } | null = null;
+let profileInFlightPromise: Promise<ProfileResponseData> | null = null;
+
+export function clearProfileCache() {
+  profileCache = null;
+  profileInFlightPromise = null;
+}
+
+export async function getMeApi(accessToken?: string, forceRefresh = false): Promise<ProfileResponseData> {
+  const now = Date.now();
+  if (!forceRefresh && profileCache && (now - profileCache.timestamp) < 5000) {
+    return profileCache.data;
+  }
+
+  if (profileInFlightPromise) {
+    return profileInFlightPromise;
+  }
+
   const headers: Record<string, string> = {};
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  return apiClient<ProfileResponseData>('/auth/me', {
+  profileInFlightPromise = apiClient<ProfileResponseData>('/auth/me', {
     method: 'GET',
     headers,
-  });
+  })
+    .then((data) => {
+      profileCache = { data, timestamp: Date.now() };
+      return data;
+    })
+    .finally(() => {
+      profileInFlightPromise = null;
+    });
+
+  return profileInFlightPromise;
 }
 
 export async function updateProfileApi(

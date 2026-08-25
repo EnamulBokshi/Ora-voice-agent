@@ -1,17 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState, Suspense } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import {
-  Database,
-  Radio,
-  Mic,
-  FileText,
-  Package,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { TopHeader } from '@/components/dashboard/top-header';
+import { AgentSectionNav, type AgentRole, type AgentView } from './agent-section-nav';
+import { AgentHub } from './agent-hub';
+import { AgentGetStartedPage } from './agent-get-started-page';
+import { AgentSectionLayout } from './agent-section-layout';
 import { VoiceTestModal } from './modals/voice-test-modal';
 import { VoiceFeedTab } from './feed/voice-feed-tab';
 import { DocumentsFeedTab } from './feed/documents-feed-tab';
@@ -22,48 +16,33 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type AgentSection = 'voice' | 'documents' | 'products';
-
-const AGENT_TABS: { id: AgentSection; label: string; icon: React.ElementType }[] = [
-  { id: 'voice', label: 'Talk to ORA', icon: Mic },
-  { id: 'documents', label: 'Documents', icon: FileText },
-  { id: 'products', label: 'Product Catalog', icon: Package },
-];
-
-// ─── Section header ───────────────────────────────────────────────────────────
-
-function SectionHeader({
-  title,
-  description,
-  meta,
-}: {
-  title: string;
-  description: string;
-  meta?: React.ReactNode;
-}) {
-  return (
-    <div className="pb-5 border-b border-border flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 flex-shrink-0">
-      <div>
-        <h1 className="text-[15px] font-semibold text-foreground tracking-tight">{title}</h1>
-        <p className="text-[12.5px] text-muted-foreground mt-1 max-w-xl">{description}</p>
-      </div>
-      {meta && <div className="flex items-center gap-2 flex-shrink-0">{meta}</div>}
-    </div>
-  );
-}
+import { Mic, FileText, Package, ArrowRight, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
 
 function AgentClientContent() {
   const searchParams = useSearchParams();
-  const rawTab       = searchParams.get('tab') as AgentSection;
-  const activeSection: AgentSection =
-    rawTab && ['voice', 'documents', 'products'].includes(rawTab)
-      ? rawTab
-      : 'voice';
+
+  // New param scheme: ?role=voice&view=get-started|feed|knowledge|catalog
+  // Also support legacy ?tab= for backward compatibility
+  const rawRole  = searchParams.get('role');
+  const rawView  = searchParams.get('view');
+  const legacyTab = searchParams.get('tab'); // backward compat
+
+  // Resolve role
+  const activeRole: AgentRole | null =
+    rawRole && ['voice', 'documents', 'products'].includes(rawRole)
+      ? (rawRole as AgentRole)
+      : legacyTab && ['voice', 'documents', 'products'].includes(legacyTab)
+      ? (legacyTab as AgentRole)
+      : null;
+
+  // Resolve view — defaults to 'get-started' when role is selected
+  const activeView: AgentView =
+    rawView && ['get-started', 'feed', 'knowledge', 'catalog'].includes(rawView)
+      ? (rawView as AgentView)
+      : 'get-started';
 
   const fallbackKey = demoProfile?.business?.publishableKey ?? null;
 
@@ -71,14 +50,12 @@ function AgentClientContent() {
     DEMO_MODE_ENABLED ? fallbackKey : null,
   );
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [docs, setDocs]             = useState<KnowledgeDoc[]>([]);
+  const [docs, setDocs]               = useState<KnowledgeDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
   const loadDocs = useCallback(() => {
     getKnowledgeDocsApi()
-      .then((data) => {
-        setDocs(withDemoFallback(data, demoKnowledgeDocs));
-      })
+      .then((data) => setDocs(withDemoFallback(data, demoKnowledgeDocs)))
       .catch((err) => {
         console.error('Failed to load knowledge docs:', err);
         setDocs(withDemoFallback(null, demoKnowledgeDocs));
@@ -92,126 +69,161 @@ function AgentClientContent() {
         const key = withDemoFallback(res?.business?.publishableKey ?? null, fallbackKey);
         setPublishableKey(key);
       })
-      .catch(() => {
-        setPublishableKey(withDemoFallback(null, fallbackKey));
-      });
+      .catch(() => setPublishableKey(withDemoFallback(null, fallbackKey)));
     loadDocs();
   }, [loadDocs, fallbackKey]);
 
-  return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
+  // ── Render content based on role + view ────────────────────────────────────
 
-      {/* ── Top Header ── */}
-      <TopHeader
-        title="ORA Agent"
-        badge={
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-surface-high text-muted-foreground border border-border select-none">
-            <Database size={10} />
-            {docs.length} docs
-          </span>
-        }
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsVoiceModalOpen(true)}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-            >
-              <Radio size={12} className="animate-pulse" />
-              Talk to ORA
-            </button>
-          </div>
-        }
-      />
+  const renderContent = () => {
+    // ── No role selected: hub page ─────────────────────────────────────────
+    if (activeRole === null) return <AgentHub />;
 
-      {/* ── In-Page Agent Tabs Navigation ── */}
-      <div className="flex items-center gap-1.5 px-6 lg:px-8 pt-4 pb-0 bg-background border-b border-border overflow-x-auto no-scrollbar flex-shrink-0">
-        {AGENT_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeSection === tab.id;
-          return (
-            <Link
-              key={tab.id}
-              href={`/agent?tab=${tab.id}`}
-              className={cn(
-                'flex items-center gap-2 px-3.5 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer',
-                isActive
-                  ? 'border-primary text-foreground font-semibold bg-surface-high/30 rounded-t-md'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-surface-high/20 rounded-t-md',
-              )}
-            >
-              <Icon size={14} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
-              <span>{tab.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+    // ── "Get started" editorial page (default view) ────────────────────────
+    if (activeView === 'get-started') {
+      return <AgentGetStartedPage role={activeRole} />;
+    }
 
-      {/* ── Full-Width Content Area ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar bg-background">
-        <div className="max-w-[1400px] w-full mx-auto px-6 lg:px-8 py-6 flex flex-col gap-6">
-
-          {/* ── Voice section ── */}
-          {activeSection === 'voice' && (
-            <>
-              <SectionHeader
-                title="Talk to ORA"
-                description="Real-time bidirectional voice assistant. Ask product questions or speak store knowledge directly into ORA's memory."
-              />
+    // ── Voice: feed or knowledge views ─────────────────────────────────────
+    if (activeRole === 'voice') {
+      if (activeView === 'feed') {
+        return (
+          <AgentSectionLayout
+            iconNode={<Mic size={16} className="text-primary" />}
+            title="Voice Feed"
+            description="Engage your shoppers through real-time speech-to-speech AI. Feed ORA product knowledge by speaking — it indexes instantly."
+            previewSrc="/previews/voice-preview.jpg"
+            previewAlt="ORA voice interface"
+            howLabel="Train ORA by talking"
+            ctaNodes={
+              <>
+                <button
+                  onClick={() => setIsVoiceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer"
+                >
+                  Start talking <ArrowRight size={10} />
+                </button>
+                <Link href="/agent?role=voice" className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+                  Get started <ExternalLink size={9} />
+                </Link>
+              </>
+            }
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                 <div className="xl:col-span-7">
-                  <VoiceFeedTab
-                    publishableKey={publishableKey || undefined}
-                    onFed={loadDocs}
-                  />
+                  <VoiceFeedTab publishableKey={publishableKey || undefined} onFed={loadDocs} />
                 </div>
                 <div className="xl:col-span-5">
-                  <KnowledgeFeedList
-                    docs={docs}
-                    loading={docsLoading}
-                    onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
-                  />
+                  <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
                 </div>
               </div>
-            </>
-          )}
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+      if (activeView === 'knowledge') {
+        return (
+          <AgentSectionLayout
+            iconNode={<Mic size={16} className="text-primary" />}
+            title="Knowledge Base"
+            description="All knowledge indexed by ORA — from voice training sessions, uploaded documents, and product catalog syncs."
+            previewSrc="/previews/docs-preview.jpg"
+            previewAlt="ORA knowledge base"
+            howLabel="What ORA knows"
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+              <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+    }
 
-          {/* ── Documents section ── */}
-          {activeSection === 'documents' && (
-            <>
-              <SectionHeader
-                title="Store & Policy Documents"
-                description="Upload store policies, return conditions, warranty guidelines, FAQs, and reference documents. ORA indexes these to answer customer questions accurately."
-              />
+    // ── Documents: feed or knowledge views ─────────────────────────────────
+    if (activeRole === 'documents') {
+      if (activeView === 'feed') {
+        return (
+          <AgentSectionLayout
+            iconNode={<FileText size={16} className="text-[color:var(--ora-info)]" />}
+            title="Upload Files"
+            description="Upload store policies, shipping guides, FAQs, and reference files. ORA's RAG engine vectorises your content for accurate, sub-85ms answers."
+            previewSrc="/previews/docs-preview.jpg"
+            previewAlt="ORA knowledge base"
+            howLabel="Upload your store knowledge"
+            ctaNodes={
+              <Link href="/agent?role=documents" className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+                Get started <ExternalLink size={9} />
+              </Link>
+            }
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                 <div className="xl:col-span-7">
                   <DocumentsFeedTab onFed={loadDocs} />
                 </div>
                 <div className="xl:col-span-5">
-                  <KnowledgeFeedList
-                    docs={docs}
-                    loading={docsLoading}
-                    onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
-                  />
+                  <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
                 </div>
               </div>
-            </>
-          )}
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+      if (activeView === 'knowledge') {
+        return (
+          <AgentSectionLayout
+            iconNode={<FileText size={16} className="text-[color:var(--ora-info)]" />}
+            title="Knowledge Base"
+            description="All indexed documents available to ORA. Each file is vectorised and searchable by your shoppers through ORA's voice and chat interfaces."
+            previewSrc="/previews/docs-preview.jpg"
+            previewAlt="ORA knowledge base"
+            howLabel="Indexed knowledge"
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+              <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+    }
 
-          {/* ── Products section ── */}
-          {activeSection === 'products' && (
-            <>
-              <SectionHeader
-                title="Product Catalog"
-                description="View and manage items synced from your storefront or uploaded files."
-              />
+    // ── Products: catalog view ─────────────────────────────────────────────
+    if (activeRole === 'products') {
+      if (activeView === 'catalog') {
+        return (
+          <AgentSectionLayout
+            iconNode={<Package size={16} className="text-[color:var(--ora-warning)]" />}
+            title="Sync Catalog"
+            description="Sync your inventory from Shopify or WooCommerce, or upload a CSV. ORA uses live product data to answer availability questions and guide checkout."
+            previewSrc="/previews/products-preview.jpg"
+            previewAlt="ORA product catalog"
+            howLabel="Sync your product inventory"
+            ctaNodes={
+              <Link href="/agent?role=products" className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+                Get started <ExternalLink size={9} />
+              </Link>
+            }
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
               <ProductDetailsFeedTab onFed={loadDocs} />
-            </>
-          )}
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+    }
 
-        </div>
+    // ── Fallback: get-started ───────────────────────────────────────────────
+    return <AgentGetStartedPage role={activeRole} />;
+  };
+
+  return (
+    <div className="flex-1 flex h-full overflow-hidden bg-background">
+      <AgentSectionNav activeRole={activeRole} activeView={activeView} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {renderContent()}
       </div>
 
-      {/* Voice test modal */}
       <VoiceTestModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
