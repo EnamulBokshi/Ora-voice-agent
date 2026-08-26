@@ -74,11 +74,12 @@ export function KnowledgeFeedList({
   };
 
   return (
-    <>
+    <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold text-foreground">Knowledge Base</span>
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <h3 className="text-[13px] font-semibold text-foreground font-serif">Knowledge Base</h3>
           <span className="text-[11px] font-mono text-muted-foreground">
             ({safeDocs.length})
           </span>
@@ -89,16 +90,16 @@ export function KnowledgeFeedList({
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search docs…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-36 rounded-md border border-border bg-transparent pl-7 pr-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none focus:w-48 transition-all"
+            className="w-36 sm:w-44 rounded-md border border-border/60 bg-surface-high/30 pl-7 pr-2 py-1 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none transition-all font-mono"
           />
         </div>
       </div>
 
       {/* ── Category tabs — text tabs, no pill boxes ── */}
-      <div className="flex items-center gap-0 border-b border-border mb-0 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-0 border-b border-border/40 mb-0 overflow-x-auto no-scrollbar">
         {CATEGORY_TABS.map((tab) => {
           const count =
             tab.id === 'all'
@@ -109,15 +110,15 @@ export function KnowledgeFeedList({
             <button
               key={tab.id}
               onClick={() => setSelectedCategory(tab.id)}
-              className={`relative px-3 py-2 text-[12px] font-medium transition-colors shrink-0 whitespace-nowrap ${
+              className={`relative px-3 py-2 text-[12px] font-medium transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
+                  ? 'text-foreground font-semibold after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab.label}
               {count > 0 && (
-                <span className={`ml-1.5 text-[10px] font-mono ${isActive ? 'text-foreground' : 'text-muted-foreground/60'}`}>
+                <span className={`ml-1.5 text-[10.5px] font-mono ${isActive ? 'text-foreground' : 'text-muted-foreground/60'}`}>
                   {count}
                 </span>
               )}
@@ -130,20 +131,20 @@ export function KnowledgeFeedList({
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
           <Loader2 size={16} className="animate-spin" />
-          <span className="text-[12px]">Loading…</span>
+          <span className="text-[12px] font-mono">Loading…</span>
         </div>
       ) : filteredDocs.length === 0 ? (
-        <div className="py-12 text-center">
+        <div className="py-12 text-center select-none">
           <Database size={20} className="mx-auto text-muted-foreground/30 mb-2" />
-          <p className="text-[12px] font-medium text-foreground">No documents</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-[12.5px] font-medium text-foreground font-serif">No documents</p>
+          <p className="text-[11.5px] text-muted-foreground mt-0.5">
             {searchQuery || selectedCategory !== 'all'
               ? 'Nothing matched your filter.'
-              : 'Upload documents using the form.'}
+              : 'Upload documents using the form to populate knowledge.'}
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border/30">
           {filteredDocs.map((doc) => {
             const meta = FEED_CATEGORY_META[doc.docType] ?? { label: 'Document' };
             const source = doc.metadata?.source as string | undefined;
@@ -151,18 +152,18 @@ export function KnowledgeFeedList({
             return (
               <div
                 key={doc._id}
-                className="flex items-center justify-between gap-3 py-3 group hover:bg-surface-high/40 px-1 transition-colors"
+                className="flex items-center justify-between gap-3 py-3 group hover:bg-surface-high/30 px-2 rounded-md transition-colors"
               >
                 {/* Left: icon + info */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className="w-6 h-6 flex items-center justify-center text-muted-foreground flex-shrink-0">
-                    <FileText size={14} />
+                  <span className="w-6 h-6 rounded-md bg-surface-high/50 border border-border/40 flex items-center justify-center text-muted-foreground flex-shrink-0">
+                    <FileText size={13} />
                   </span>
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">
                       {doc.title}
                     </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
                       {meta.label}
                       {source === 'voice_feed' ? ' · Voice' : source === 'document_upload' ? ' · Upload' : source === 'text_feed' ? ' · Manual' : ''}
                       {doc.updatedAt && (
@@ -177,14 +178,14 @@ export function KnowledgeFeedList({
                   <button
                     onClick={() => setInspectDoc(doc)}
                     title="View chunks"
-                    className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+                    className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
                   >
                     <Layers size={13} />
                   </button>
                   <button
                     onClick={() => setEditDoc(doc)}
                     title="Edit"
-                    className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+                    className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
                   >
                     <Edit3 size={13} />
                   </button>
@@ -192,10 +193,10 @@ export function KnowledgeFeedList({
                     onClick={() => handleDelete(doc._id, doc.title)}
                     disabled={deletingId === doc._id}
                     title="Delete"
-                    className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     {deletingId === doc._id ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={13} className="animate-spin text-red-400" />
                     ) : (
                       <Trash2 size={13} />
                     )}
@@ -218,6 +219,6 @@ export function KnowledgeFeedList({
         onClose={() => setEditDoc(null)}
         onUpdated={() => { if (onRefresh) onRefresh(); }}
       />
-    </>
+    </div>
   );
 }

@@ -21,7 +21,7 @@ interface KpiStripProps {
 export function KpiStrip({ cards }: KpiStripProps) {
   return (
     <div
-      className="w-full rounded-lg border border-border/50 divide-y sm:divide-y-0 sm:divide-x divide-border/50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 bg-surface-lowest/40 overflow-hidden"
+      className="w-full rounded-md border border-border/50 divide-y sm:divide-y-0 sm:divide-x divide-border/50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 bg-transparent overflow-hidden"
       role="region"
       aria-label="Key store performance metrics"
     >
@@ -32,10 +32,10 @@ export function KpiStrip({ cards }: KpiStripProps) {
             key={card.id}
             href={card.href}
             id={`kpi-${card.id}`}
-            className="group px-6 py-5 hover:bg-surface-high/30 transition-colors flex flex-col justify-between min-w-0"
+            className="group px-5 py-4 hover:bg-surface-high/30 transition-colors flex flex-col justify-between min-w-0"
           >
             {/* Top: Label + Icon */}
-            <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground truncate">
                 {card.label}
               </span>
@@ -45,8 +45,8 @@ export function KpiStrip({ cards }: KpiStripProps) {
             </div>
 
             {/* Value + Trend */}
-            <div className="flex items-baseline justify-between gap-3 mb-1.5">
-              <span className="text-2xl lg:text-[30px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
+            <div className="flex items-baseline justify-between gap-3 mb-1">
+              <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
                 {card.value}
               </span>
 
@@ -66,7 +66,7 @@ export function KpiStrip({ cards }: KpiStripProps) {
             </div>
 
             {/* Bottom: Meta subtitle + Hover indicator */}
-            <div className="flex items-center justify-between text-[12px] text-muted-foreground/80 pt-1">
+            <div className="flex items-center justify-between text-[11.5px] text-muted-foreground/80 pt-1">
               <span className="truncate">{card.meta}</span>
               <ArrowUpRight
                 size={12}

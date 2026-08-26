@@ -15,9 +15,9 @@ export function RecentActivityPanel({
   conversations,
 }: RecentActivityPanelProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-      {/* Left Column: Recent Customer Conversations */}
-      <div className="rounded-lg border border-border/50 bg-surface-lowest/40 p-6 flex flex-col justify-between">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-1">
+      {/* Left Column: Recent Customer Conversations (Same as Page Background) */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between pb-3.5 border-b border-border/40 mb-2">
             <div className="flex items-center gap-2">
@@ -42,8 +42,8 @@ export function RecentActivityPanel({
         </div>
       </div>
 
-      {/* Right Column: Recent Converted Orders */}
-      <div className="rounded-lg border border-border/50 bg-surface-lowest/40 p-6 flex flex-col justify-between">
+      {/* Right Column: Recent Converted Orders (Same as Page Background) */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between pb-3.5 border-b border-border/40 mb-2">
             <div className="flex items-center gap-2">

@@ -84,7 +84,7 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="w-full space-y-6">
       {/* 3 Status Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {knowledgeCards.map((card, idx) => {
@@ -92,21 +92,21 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
           return (
             <div
               key={idx}
-              className="p-4.5 rounded-2xl border border-border/50 bg-surface-container/30 flex flex-col justify-between gap-3 shadow-sm hover:border-border/80 transition-colors"
+              className="p-5 rounded-md border border-border/50 bg-transparent flex flex-col justify-between gap-4 transition-colors hover:border-border/80"
             >
               <div>
-                <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-surface-high flex items-center justify-center border border-border/50 flex-shrink-0">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
                     <Icon size={14} className="text-foreground" />
                   </div>
-                  <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-surface-high dark:bg-[#C8F031]/10 text-foreground dark:text-[#C8F031] border border-border dark:border-[#C8F031]/30">
+                  <span className="text-[10px] font-mono font-medium uppercase px-2 py-0.5 rounded-[2px] bg-surface-high text-foreground border border-border/60">
                     {card.status}
                   </span>
                 </div>
-                <h3 className="text-[14px] font-semibold text-foreground tracking-tight mb-1">
+                <h3 className="text-[14.5px] font-semibold text-foreground font-serif tracking-tight mb-1">
                   {card.title}
                 </h3>
-                <p className="text-[12px] font-mono text-muted-foreground mb-2">
+                <p className="text-[11.5px] font-mono text-muted-foreground mb-2">
                   {card.countLabel}
                 </p>
                 <p className="text-[12.5px] text-muted-foreground leading-relaxed">
@@ -114,10 +114,10 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-border/30 flex items-center justify-between">
+              <div className="pt-3 border-t border-border/40 flex items-center justify-between">
                 <Link
                   href={card.href}
-                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-foreground hover:underline"
+                  className="inline-flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline underline-offset-2"
                 >
                   <span>{card.actionLabel}</span>
                   <ArrowRight size={11} className="text-muted-foreground" />
@@ -128,34 +128,31 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
         })}
       </div>
 
-      {/* ── Section Divider ── */}
-      <div className="h-px bg-border/40 my-7" />
-
-      {/* Quick Upload / Sync Action Strip */}
-      <div className="p-5 rounded-2xl border border-border/50 bg-surface-lowest/70 flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* Quick Upload / Sync Action Strip Card */}
+      <div className="p-5 rounded-md border border-border/50 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-surface-high flex items-center justify-center border border-border/50 flex-shrink-0">
-            <UploadCloud size={16} className="text-foreground" />
+          <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
+            <UploadCloud size={14} className="text-foreground" />
           </div>
           <div className="min-w-0">
-            <p className="text-[13.5px] font-semibold text-foreground">Add More Knowledge to ORA</p>
+            <p className="text-[13.5px] font-semibold text-foreground font-serif">Add More Knowledge to ORA</p>
             <p className="text-[12px] text-muted-foreground">Supported formats: PDF, DOCX, TXT, Markdown, CSV</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-shrink-0 w-full sm:w-auto">
+        <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
           <button
             type="button"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className="inline-flex items-center justify-center gap-1.5 h-8.5 px-3.5 rounded-lg border border-border/60 bg-surface-high/50 hover:bg-surface-high text-[12.5px] font-medium text-foreground transition-all cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 h-7.5 px-3 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw size={12} className={cn(isSyncing && 'animate-spin')} />
-            <span>{isSyncing ? 'Re-indexing...' : 'Sync Catalog'}</span>
+            <RefreshCw size={11} className={cn(isSyncing && 'animate-spin')} />
+            <span>{isSyncing ? 'Re-indexing…' : 'Sync Catalog'}</span>
           </button>
           <Link
             href="/agent?role=documents&view=feed"
-            className="inline-flex items-center justify-center gap-1.5 h-8.5 px-4 rounded-lg bg-foreground text-background font-semibold text-[12.5px] hover:opacity-90 transition-all shadow-sm flex-1 sm:flex-initial"
+            className="inline-flex items-center justify-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity shadow-xs flex-1 sm:flex-initial"
           >
             <span>Upload Document</span>
           </Link>

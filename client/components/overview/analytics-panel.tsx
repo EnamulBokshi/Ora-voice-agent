@@ -28,14 +28,14 @@ export function AnalyticsPanel({
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('revenue');
 
   return (
-    <div className="flex flex-col space-y-6">
+    <div className="flex flex-col space-y-5">
       {/* ── 1. KPI Metric Strip ── */}
       <KpiStrip cards={kpiCards} />
 
-      {/* ── 2. Performance Analytics Section (Crisp, Less Rounded Border) ── */}
-      <div className="rounded-lg border border-border/50 bg-surface-lowest/40 p-6">
+      {/* ── 2. Performance Analytics Section (Same as Page Background) ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5">
         {/* Section Header with Distinct, Visible Tab Switcher */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-border/40 mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40 mb-4">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
             <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -43,8 +43,8 @@ export function AnalyticsPanel({
             </p>
           </div>
 
-          {/* Highly Visible Tab Buttons */}
-          <div className="flex items-center gap-1.5 p-1 rounded-md bg-surface-high border border-border/60">
+          {/* Highly Visible Tab Buttons (Subtle Rounded-sm) */}
+          <div className="flex items-center gap-1 p-0.5 rounded-md bg-surface-high border border-border/60">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;

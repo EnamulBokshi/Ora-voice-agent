@@ -19,7 +19,7 @@ export function ConversationTranscript({
   isLoadingTranscript,
 }: ConversationTranscriptProps) {
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent">
       {/* ── Top Header ── */}
       <TranscriptHeader
         conversation={conversation}
@@ -28,14 +28,14 @@ export function ConversationTranscript({
       />
 
       {/* ── Message Transcript Scroll Stream ── */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-transparent">
         {isLoadingTranscript ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-2">
             <Loader2 className="animate-spin text-muted-foreground" size={16} />
             <span>Loading messages…</span>
           </div>
         ) : conversation.transcript.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-1.5 py-12">
+          <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-1.5 py-12 select-none">
             <MessageSquare size={20} className="text-muted-foreground/40 mb-1" />
             <p className="font-medium text-foreground">No transcript recorded</p>
             <p className="text-[11.5px] text-muted-foreground/60">
@@ -43,7 +43,7 @@ export function ConversationTranscript({
             </p>
           </div>
         ) : (
-          <div className="space-y-4 max-w-3xl mx-auto">
+          <div className="space-y-4 max-w-3xl mx-auto flex flex-col">
             {conversation.transcript.map((msg) => (
               <TranscriptBubble
                 key={msg.id}
@@ -56,9 +56,9 @@ export function ConversationTranscript({
       </div>
 
       {/* ── Bottom Session Info Bar ── */}
-      <div className="px-5 py-2.5 border-t border-border bg-surface-lowest flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
+      <div className="px-5 py-2.5 border-t border-border/40 bg-transparent flex items-center justify-between text-[11px] font-mono text-muted-foreground shrink-0">
         <span>Session ID: {conversation.sessionRef}</span>
-        <span className="font-mono">
+        <span>
           {conversation.transcript.length} {conversation.transcript.length === 1 ? 'message' : 'messages'}
         </span>
       </div>

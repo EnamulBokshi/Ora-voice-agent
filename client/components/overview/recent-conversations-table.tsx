@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/format';
 
 export interface RecentConversation {
   _id: string;
@@ -68,8 +69,8 @@ export function RecentConversationsTable({ conversations }: RecentConversationsT
                     <span className={cs.text}>{cs.label}</span>
                   </span>
                 </td>
-                <td className="py-3 px-2 text-right text-muted-foreground font-mono text-[11px]">
-                  {new Date(conv.lastActivityAt || conv.createdAt).toLocaleDateString()}
+                <td className="py-3 px-2 text-right text-muted-foreground font-mono text-[11px] whitespace-nowrap">
+                  {formatDateTime(conv.lastActivityAt || conv.createdAt)}
                 </td>
               </tr>
             );

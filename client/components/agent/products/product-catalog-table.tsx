@@ -171,9 +171,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
         {/* ── Top Bar: Filter Tabs & Actions ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-0">
           {/* Availability filter tabs — Intercom style underline */}
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mb-px">
             {availabilityTabs.map((tab) => {
@@ -185,9 +185,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                     setSelectedAvailability(tab.id);
                     setPagination((p) => ({ ...p, page: 1 }));
                   }}
-                  className={`relative px-3 py-2 text-[13px] font-medium transition-colors shrink-0 ${
+                  className={`relative px-3 py-2 text-[12.5px] font-medium transition-colors shrink-0 cursor-pointer ${
                     isActive
-                      ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
+                      ? 'text-foreground font-semibold after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -204,9 +204,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                 setUploadInitialTab('website');
                 setIsUploadModalOpen(true);
               }}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+              className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
             >
-              <Globe size={13} />
+              <Globe size={12} />
               <span>Sync Website</span>
             </button>
 
@@ -215,9 +215,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                 setUploadInitialTab('file');
                 setIsUploadModalOpen(true);
               }}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium border border-border bg-surface-container hover:bg-surface-high text-foreground transition-colors"
+              className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors cursor-pointer"
             >
-              <UploadCloud size={13} />
+              <UploadCloud size={12} className="text-muted-foreground" />
               <span>Upload CSV</span>
             </button>
           </div>
@@ -239,12 +239,12 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   setSearchQuery(e.target.value);
                   setPagination((p) => ({ ...p, page: 1 }));
                 }}
-                className="w-full rounded-md border border-border bg-transparent pl-8 pr-3 py-1.5 text-[12.5px] text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none"
+                className="w-full rounded-md border border-border/60 bg-surface-high/30 pl-8 pr-3 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none font-mono"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 font-mono text-[11.5px]">
             {categories.length > 0 && (
               <select
                 value={selectedCategory}
@@ -252,7 +252,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   setSelectedCategory(e.target.value);
                   setPagination((p) => ({ ...p, page: 1 }));
                 }}
-                className="rounded-md border border-border bg-transparent px-2.5 py-1.5 text-[12px] text-foreground focus:border-foreground/30 focus:outline-none"
+                className="rounded-md border border-border/60 bg-surface-high/30 px-2.5 py-1.5 text-[12px] text-foreground focus:border-foreground focus:outline-none cursor-pointer"
               >
                 <option value="all">All Categories</option>
                 {categories.map((c) => (
@@ -267,18 +267,18 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
               onClick={loadProducts}
               title="Refresh products"
               aria-label="Refresh catalog"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer border border-border/40"
             >
-              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
 
-        {/* ── Flat Intercom-style Table (No outer box container) ── */}
+        {/* ── Table Container ── */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse">
             <thead>
-              <tr className="border-b border-border text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+              <tr className="border-b border-border/40 text-muted-foreground text-[11px] font-mono font-medium uppercase tracking-wider">
                 <th className="py-2.5 px-3 font-medium">Product</th>
                 <th className="py-2.5 px-3 font-medium">Category</th>
                 <th className="py-2.5 px-3 font-medium">Price</th>
@@ -288,13 +288,13 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                 <th className="py-2.5 px-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
+            <tbody className="divide-y divide-border/30">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-16 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                      <span className="text-[12px]">Loading catalog...</span>
+                      <span className="text-[12px] font-mono">Loading catalog...</span>
                     </div>
                   </td>
                 </tr>
@@ -303,7 +303,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   <td colSpan={7} className="py-16 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto py-6">
                       <Package size={22} className="text-muted-foreground/30 mb-1" />
-                      <p className="font-semibold text-foreground text-[13px]">No products found</p>
+                      <p className="font-semibold text-foreground text-[13px] font-serif">No products found</p>
                       <p className="text-[12px] text-muted-foreground">
                         {searchQuery || selectedCategory !== 'all' || selectedAvailability !== 'all'
                           ? 'No products matched your search or filters.'
@@ -312,14 +312,14 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                       <div className="flex items-center gap-2 pt-2">
                         <button
                           onClick={() => { setUploadInitialTab('website'); setIsUploadModalOpen(true); }}
-                          className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+                          className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
                         >
                           <Globe size={12} />
                           <span>Sync Website</span>
                         </button>
                         <button
                           onClick={() => { setUploadInitialTab('file'); setIsUploadModalOpen(true); }}
-                          className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium border border-border bg-surface-container hover:bg-surface-high text-foreground transition-colors"
+                          className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors cursor-pointer"
                         >
                           <FileSpreadsheet size={12} />
                           <span>Upload CSV</span>
@@ -339,14 +339,14 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   return (
                     <tr
                       key={prod._id}
-                      className="group hover:bg-surface-high/40 transition-colors"
+                      className="group hover:bg-surface-high/30 transition-colors"
                     >
                       {/* Product Name & SKU */}
                       <td className="py-3 px-3">
                         <div className="min-w-[200px]">
                           <button
                             onClick={() => setDetailProduct(prod)}
-                            className="text-left font-medium text-foreground hover:underline truncate max-w-[260px] block"
+                            className="text-left font-medium text-foreground hover:underline truncate max-w-[260px] block cursor-pointer"
                           >
                             {prod.name}
                           </button>
@@ -366,7 +366,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                         {prod.currency} {prod.price.toFixed(2)}
                       </td>
 
-                      {/* Stock & Status — subtle clean dot + label */}
+                      {/* Stock & Status */}
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-1.5 text-[12px]">
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}`} />
@@ -382,12 +382,12 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                       </td>
 
                       {/* Source */}
-                      <td className="py-3 px-3 text-[12px] text-muted-foreground">
+                      <td className="py-3 px-3 text-[11.5px] font-mono text-muted-foreground">
                         {source}
                       </td>
 
                       {/* Recommendations / Activity */}
-                      <td className="py-3 px-3 font-mono text-[12px] text-muted-foreground">
+                      <td className="py-3 px-3 font-mono text-[12px] text-muted-foreground tabular-nums">
                         <span>
                           {prod.timesRecommendedByAgent ?? 0}
                           <span className="text-muted-foreground/40 mx-1">/</span>
@@ -395,33 +395,30 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                         </span>
                       </td>
 
-                      {/* Actions — hidden until row hover (Intercom pattern) */}
+                      {/* Actions */}
                       <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {/* Details View */}
                           <button
                             onClick={() => setDetailProduct(prod)}
                             title="View details"
-                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
                           >
                             <Eye size={13} />
                           </button>
 
-                          {/* Manual Override */}
                           <button
                             onClick={() => setOverrideProduct(prod)}
                             title="Edit product"
-                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
                           >
                             <Edit3 size={13} />
                           </button>
 
-                          {/* Delete SKU */}
                           <button
                             onClick={() => handleDeleteProduct(prod)}
                             disabled={deletingId === prod._id}
                             title="Delete product"
-                            className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                            className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 cursor-pointer"
                           >
                             {deletingId === prod._id ? (
                               <Loader2 size={13} className="animate-spin text-red-400" />
@@ -439,8 +436,8 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
           </table>
         </div>
 
-        {/* ── Flat Pagination Footer (No box) ── */}
-        <div className="flex items-center justify-between border-t border-border pt-3 text-[12px] text-muted-foreground">
+        {/* ── Pagination Footer ── */}
+        <div className="flex items-center justify-between border-t border-border/40 pt-3 text-[12px] text-muted-foreground font-mono">
           <div>
             Showing <span className="font-medium text-foreground">{products.length}</span> of{' '}
             <span className="font-medium text-foreground">{pagination.total}</span> products
@@ -450,12 +447,12 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
             <button
               onClick={() => setPagination((p) => ({ ...p, page: Math.max(p.page - 1, 1) }))}
               disabled={pagination.page <= 1}
-              className="flex items-center gap-1 h-7 px-2.5 rounded text-[12px] text-foreground hover:bg-surface-high transition-colors disabled:opacity-40"
+              className="flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] text-foreground hover:bg-surface-high transition-colors disabled:opacity-40 cursor-pointer border border-border/40"
             >
               <ChevronLeft size={13} />
               <span>Previous</span>
             </button>
-            <span className="font-mono text-[11px] text-muted-foreground px-1">
+            <span className="text-[11px] text-muted-foreground px-1 tabular-nums">
               {pagination.page} / {pagination.totalPages}
             </span>
             <button
@@ -463,7 +460,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                 setPagination((p) => ({ ...p, page: Math.min(p.page + 1, p.totalPages) }))
               }
               disabled={pagination.page >= pagination.totalPages}
-              className="flex items-center gap-1 h-7 px-2.5 rounded text-[12px] text-foreground hover:bg-surface-high transition-colors disabled:opacity-40"
+              className="flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] text-foreground hover:bg-surface-high transition-colors disabled:opacity-40 cursor-pointer border border-border/40"
             >
               <span>Next</span>
               <ChevronRight size={13} />

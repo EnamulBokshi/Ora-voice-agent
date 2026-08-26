@@ -10,6 +10,7 @@ import {
   X,
   Edit2,
   Save,
+  Key,
 } from 'lucide-react';
 import { Business } from '@/types/auth';
 import {
@@ -48,10 +49,13 @@ export function BusinessDetailsCard({
 
   if (!business) {
     return (
-      <div className="pt-2">
-        <h2 className="text-[13.5px] font-semibold text-foreground mb-1">Store Information</h2>
-        <p className="text-[12px] text-muted-foreground">
-          No store associated with this account.
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <h2 className="text-[13.5px] font-semibold text-foreground font-serif">Store Details</h2>
+        </div>
+        <p className="text-[12.5px] text-muted-foreground">
+          No store associated with this merchant account.
         </p>
       </div>
     );
@@ -134,32 +138,37 @@ export function BusinessDetailsCard({
       <div className="space-y-6">
         {/* Feedback Banners */}
         {successMessage && (
-          <div className="px-4 py-2.5 bg-surface-high border border-border text-foreground text-xs font-medium flex items-center justify-between rounded">
+          <div className="p-3 bg-surface-high border border-border/60 text-foreground text-[12px] font-mono flex items-center justify-between rounded-md">
             <span>{successMessage}</span>
-            <button onClick={() => setSuccessMessage(null)} className="text-muted-foreground hover:text-foreground">
-              <X size={12} />
+            <button onClick={() => setSuccessMessage(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+              <X size={13} />
             </button>
           </div>
         )}
         {errorMessage && (
-          <div className="px-4 py-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-center justify-between rounded">
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[12px] font-mono flex items-center justify-between rounded-md">
             <span>{errorMessage}</span>
-            <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-foreground">
-              <X size={12} />
+            <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-foreground cursor-pointer">
+              <X size={13} />
             </button>
           </div>
         )}
 
-        {/* ── Section 1: Store Information ── */}
-        <div>
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <h2 className="text-[13.5px] font-semibold text-foreground">Store Details</h2>
+        {/* ── Card 1: Store Details & Connected Domain ── */}
+        <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
+          <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                Storefront Identity
+              </h2>
+            </div>
             {isEditingDetails ? (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsEditingDetails(false)}
-                  className="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded"
+                  className="px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 rounded-md cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -167,7 +176,7 @@ export function BusinessDetailsCard({
                   type="button"
                   onClick={handleSaveStoreDetails}
                   disabled={isSavingDetails}
-                  className="px-2.5 py-1 text-xs font-medium bg-primary text-primary-foreground rounded flex items-center gap-1"
+                  className="px-2.5 py-1 text-[12px] font-semibold bg-foreground text-background rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   {isSavingDetails ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
                   Save
@@ -181,7 +190,7 @@ export function BusinessDetailsCard({
                   setStoreDomain(business.domain || '');
                   setIsEditingDetails(true);
                 }}
-                className="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded flex items-center gap-1"
+                className="px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 rounded-md flex items-center gap-1.5 cursor-pointer"
               >
                 <Edit2 size={11} />
                 Edit
@@ -190,43 +199,53 @@ export function BusinessDetailsCard({
           </div>
 
           {isEditingDetails ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 border-b border-border">
-              <div className="space-y-1">
-                <label className="text-[11.5px] font-medium text-muted-foreground block">Store Name</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Store Name
+                </label>
                 <input
                   type="text"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
-                  className="w-full h-8 px-3 text-xs bg-surface-high border border-border rounded text-foreground focus:outline-none focus:border-primary"
+                  className="w-full h-8 px-3 text-[13px] bg-surface-high border border-border/60 rounded-md text-foreground focus:outline-none focus:border-foreground"
                   placeholder="e.g. Acme Fashion"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[11.5px] font-medium text-muted-foreground block">Store Domain / URL</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Store Domain / URL
+                </label>
                 <input
                   type="text"
                   value={storeDomain}
                   onChange={(e) => setStoreDomain(e.target.value)}
-                  className="w-full h-8 px-3 text-xs bg-surface-high border border-border rounded text-foreground focus:outline-none focus:border-primary font-mono"
+                  className="w-full h-8 px-3 text-[13px] bg-surface-high border border-border/60 rounded-md text-foreground focus:outline-none focus:border-foreground font-mono"
                   placeholder="e.g. acmefashion.com"
                 />
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border border-b border-border py-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/40 pt-1">
               <div className="py-2 md:py-0 md:pr-6 space-y-1">
-                <span className="text-[11.5px] font-medium text-muted-foreground block">Store Name</span>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Store Name
+                </span>
                 <p className="text-[14px] font-medium text-foreground">{business.name}</p>
               </div>
 
               <div className="py-2 md:py-0 md:px-6 space-y-1">
-                <span className="text-[11.5px] font-medium text-muted-foreground block">Store Domain</span>
-                <p className="text-[14px] font-mono text-foreground">{business.domain || '—'}</p>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Store Domain
+                </span>
+                <p className="text-[13.5px] font-mono text-foreground">{business.domain || '—'}</p>
               </div>
 
               <div className="py-2 md:py-0 md:pl-6 space-y-1">
-                <span className="text-[11.5px] font-medium text-muted-foreground block">Status</span>
-                <p className="text-[14px] font-medium text-foreground flex items-center gap-1.5 capitalize">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Status
+                </span>
+                <p className="text-[13px] font-mono text-foreground flex items-center gap-1.5 uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
                   {business.status || 'Active'}
                 </p>
@@ -235,22 +254,25 @@ export function BusinessDetailsCard({
           )}
         </div>
 
-        {/* ── Section 2: Storefront Widget Key ── */}
-        <div>
-          <div className="flex items-center justify-between pb-3 border-b border-border">
+        {/* ── Card 2: Publishable Widget Key ── */}
+        <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
+          <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
             <div>
-              <h2 className="text-[13.5px] font-semibold text-foreground">
-                Publishable Widget Key
-              </h2>
-              <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                Client-side key used by your storefront to connect to the ORA voice & chat gateway.
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                  Publishable Widget Key
+                </h2>
+              </div>
+              <p className="text-[12px] text-muted-foreground mt-1">
+                Client-side key used by your storefront script to initiate ORA live voice & AI sales sessions.
               </p>
             </div>
 
             {hasActiveKey && (
               <button
                 onClick={() => setShowRevokeModal(true)}
-                className="px-3 py-1.5 text-xs font-medium rounded border border-border bg-surface-high text-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 text-[12px] font-medium rounded-md border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Trash2 size={12} />
                 <span>Revoke Key</span>
@@ -258,25 +280,25 @@ export function BusinessDetailsCard({
             )}
           </div>
 
-          <div className="py-4 border-b border-border">
+          <div className="pt-1">
             {hasActiveKey ? (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-lowest border border-border rounded p-3">
-                <span className="font-mono text-xs text-foreground font-medium break-all select-all">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-high/30 border border-border/50 rounded-md p-3.5">
+                <span className="font-mono text-[12px] text-foreground font-medium break-all select-all">
                   {localKey}
                 </span>
                 <button
                   onClick={handleCopyKey}
-                  className="px-3 py-1.5 rounded bg-surface-high hover:bg-surface-bright text-xs font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0"
+                  className="px-3 py-1.5 rounded-md bg-surface-high hover:bg-surface-bright border border-border/60 text-[12px] font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                   title="Copy Key"
                 >
-                  {copiedKey ? <Check size={13} className="text-primary" /> : <Copy size={13} />}
-                  <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+                  {copiedKey ? <Check size={13} className="text-foreground dark:text-[#C8F031]" /> : <Copy size={13} />}
+                  <span>{copiedKey ? 'Copied' : 'Copy Key'}</span>
                 </button>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
                 <div>
-                  <p className="text-[13px] font-medium text-foreground">No active publishable key</p>
+                  <p className="text-[13px] font-semibold text-foreground font-serif">No active publishable key</p>
                   <p className="text-[12px] text-muted-foreground mt-0.5">
                     Generate a key to connect your storefront widget.
                   </p>
@@ -285,7 +307,7 @@ export function BusinessDetailsCard({
                 <button
                   onClick={handleGenerateKey}
                   disabled={isGenerating}
-                  className="px-3.5 py-1.5 text-xs font-semibold rounded bg-foreground text-background hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                  className="px-3.5 py-1.5 text-[12px] font-semibold rounded-md bg-foreground text-background hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
                 >
                   {isGenerating && <Loader2 size={12} className="animate-spin" />}
                   Generate Key
@@ -299,25 +321,25 @@ export function BusinessDetailsCard({
       {/* ── Revocation Confirmation Modal ── */}
       {showRevokeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-surface-container border border-border rounded-lg p-6 space-y-4 shadow-xl">
+          <div className="w-full max-w-md bg-surface-container border border-border/60 rounded-md p-6 space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+              <div className="w-8 h-8 rounded-md bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
                 <AlertTriangle size={16} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Revoke Publishable Key?</h3>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Revoking this key will immediately disconnect your storefront widget and pause live customer interactions until a new key is generated.
+                <h3 className="text-sm font-semibold text-foreground font-serif">Revoke Publishable Key?</h3>
+                <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
+                  Revoking this key will immediately disconnect your storefront widget and pause live customer voice interactions until a new key is generated.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
               <button
                 type="button"
                 onClick={() => setShowRevokeModal(false)}
                 disabled={isRevoking}
-                className="px-3 py-1.5 rounded text-xs font-medium border border-border text-foreground hover:bg-surface-high transition-colors"
+                className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-border/60 text-foreground hover:bg-surface-high transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -325,7 +347,7 @@ export function BusinessDetailsCard({
                 type="button"
                 onClick={handleRevokeKeyConfirm}
                 disabled={isRevoking}
-                className="px-3 py-1.5 rounded text-xs font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-md text-[12px] font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isRevoking && <Loader2 size={12} className="animate-spin" />}
                 Revoke Key

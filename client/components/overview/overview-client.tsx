@@ -29,7 +29,6 @@ import { useSetupProgress } from '@/hooks/use-setup-progress';
 import { TopHeader } from '@/components/dashboard/top-header';
 import { StatusStrip } from './status-strip';
 import { AnalyticsPanel } from './analytics-panel';
-import { RecentActivityPanel } from './recent-activity-panel';
 import { QuickActionsBar, QuickAction } from './quick-actions-bar';
 import { KpiCardDef } from './kpi-strip';
 
@@ -154,7 +153,7 @@ export function OverviewClient() {
 
   const firstName = userName.split(' ')[0] || userName;
 
-  // ── KPI metric definitions matching Intercom flat strip ───────────────────
+  // ── KPI metric definitions ─────────────────────────────────────────────────
 
   const kpiCards: KpiCardDef[] = [
     {
@@ -234,8 +233,8 @@ export function OverviewClient() {
       <TopHeader
         title={`${getGreeting()}${firstName ? `, ${firstName}` : ''}`}
         badge={
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none">
-            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none">
+            <span className="w-1.5 h-1.5 rounded-none bg-[color:var(--status-online)]" />
             Overview
           </span>
         }
@@ -243,11 +242,11 @@ export function OverviewClient() {
         isRefreshing={refreshing}
       />
 
-      {/* Setup Guide Banner — minimal & high-contrast matching Setup page */}
+      {/* Setup Guide Banner — minimal & crisp non-rounded */}
       {!isAllCompleted && !bannerDismissed && (
-        <div className="flex items-center justify-between gap-4 px-8 lg:px-12 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
+        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-5 h-5 rounded-md bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
+            <div className="w-5 h-5 rounded-none bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
               <Compass size={12} className="text-foreground dark:text-[#C8F031]" />
             </div>
             <span className="text-[12.5px] text-foreground font-medium truncate">
@@ -264,16 +263,16 @@ export function OverviewClient() {
           <button
             onClick={() => setBannerDismissed(true)}
             aria-label="Dismiss banner"
-            className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1"
+            className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
           >
             <X size={13} />
           </button>
         </div>
       )}
 
-      {/* Main Canvas — Full Width with ORA Agent & Setup px-8 lg:px-12 padding */}
+      {/* Main Canvas — Minimized side margins (px-4 sm:px-6) and non-rounded flat layout */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        <div className="w-full px-8 lg:px-12 py-8 space-y-8">
+        <div className="w-full px-4 sm:px-6 py-5 space-y-6">
 
           {/* ── Status Bar ── */}
           <StatusStrip
@@ -282,7 +281,7 @@ export function OverviewClient() {
             productsCount={stats.productTotal}
           />
 
-          {/* ── Unified Block 1: Store Performance (Intercom Flat Strip + Chart) ── */}
+          {/* ── Unified Block 1: Store Performance (Flat Strip + Chart) ── */}
           <AnalyticsPanel
             kpiCards={kpiCards}
             revenueProps={{
@@ -297,13 +296,7 @@ export function OverviewClient() {
             }}
           />
 
-          {/* ── Unified Block 2: Recent Customer Activity (Flat 2-col Split) ── */}
-          <RecentActivityPanel
-            orders={stats.recentOrders}
-            conversations={stats.recentConversations}
-          />
-
-          {/* ── Unified Block 3: Store Capabilities & Quick Jump Rows ── */}
+          {/* ── Capabilities & Quick Jump Rows ── */}
           <QuickActionsBar actions={quickActions} />
 
         </div>

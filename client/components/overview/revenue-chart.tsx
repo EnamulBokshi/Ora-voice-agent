@@ -78,11 +78,11 @@ export function RevenueChart({
       {/* Metric & Period Toggle Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-3">
         <div className="flex items-baseline gap-3">
-          <span className="text-[12px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11.5px] font-mono uppercase tracking-wider text-muted-foreground">
             Total Revenue Influenced
           </span>
           <div className="flex items-baseline gap-2.5">
-            <span className="text-[28px] font-semibold font-serif tabular-nums text-foreground">
+            <span className="text-[26px] font-semibold font-serif tabular-nums text-foreground">
               {formatCurrency(displayRevenue)}
             </span>
             <span
@@ -99,14 +99,14 @@ export function RevenueChart({
           </div>
         </div>
 
-        {/* Period Toggle */}
-        <div className="flex items-center gap-1 p-0.5 rounded-md bg-surface-high border border-border/40 text-[12px]">
+        {/* Period Toggle — Flat Non-Rounded */}
+        <div className="flex items-center gap-1 p-0.5 rounded-none bg-surface-high border border-border/40 text-[12px]">
           {(['daily', 'weekly'] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                'px-3 py-1 rounded-[4px] capitalize transition-colors font-medium cursor-pointer',
+                'px-3 py-1 rounded-none capitalize transition-colors font-medium cursor-pointer',
                 period === p
                   ? 'bg-surface-lowest text-foreground font-semibold shadow-xs border border-border/50'
                   : 'text-muted-foreground hover:text-foreground',

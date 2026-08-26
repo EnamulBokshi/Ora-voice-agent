@@ -110,7 +110,7 @@ export function AgentHub() {
           </p>
         </div>
 
-        {/* ── Symmetric 2x2 Grid (Exact Same Architecture as Setup Hub) ── */}
+        {/* ── Symmetric 2x2 Grid (Subtle Rounded-md Cards) ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-16">
           {AGENT_ROLES.map((role) => {
             const { Icon } = role;
@@ -119,7 +119,7 @@ export function AgentHub() {
               <div
                 key={role.id}
                 onClick={() => router.push(role.href)}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/60 bg-surface-lowest/70 hover:border-border transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md min-h-[300px]"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-md border border-border/60 bg-transparent hover:border-border transition-all duration-200 cursor-pointer shadow-xs min-h-[300px]"
               >
                 {/* Top Image Preview Frame */}
                 <div className="relative w-full h-44 bg-surface-container/50 overflow-hidden border-b border-border/40">
@@ -130,11 +130,11 @@ export function AgentHub() {
                     sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface-lowest/90 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
 
                   {/* Category Pill */}
                   <div className="absolute top-3 left-3">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-foreground font-semibold px-2.5 py-1 rounded-md bg-surface-lowest/90 backdrop-blur-md border border-border/60 shadow-xs">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-foreground font-semibold px-2.5 py-1 rounded-sm bg-background/90 backdrop-blur-md border border-border/60 shadow-xs">
                       {role.category}
                     </span>
                   </div>
@@ -143,7 +143,7 @@ export function AgentHub() {
                 {/* Bottom Content Row */}
                 <div className="p-5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 group-hover:bg-surface-highest transition-colors">
+                    <div className="w-10 h-10 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 group-hover:bg-surface-highest transition-colors">
                       <Icon size={18} className="text-foreground" />
                     </div>
                     <div className="min-w-0">
@@ -156,7 +156,7 @@ export function AgentHub() {
                     </div>
                   </div>
 
-                  <div className="w-8 h-8 rounded-full border border-border/60 flex items-center justify-center flex-shrink-0 text-muted-foreground group-hover:text-foreground group-hover:border-foreground/50 transition-colors">
+                  <div className="w-8 h-8 rounded-md border border-border/60 flex items-center justify-center flex-shrink-0 text-muted-foreground group-hover:text-foreground group-hover:border-foreground/50 transition-colors">
                     <ArrowRight size={14} />
                   </div>
                 </div>
@@ -165,8 +165,8 @@ export function AgentHub() {
           })}
 
           {/* 4th Card: More capabilities coming soon (Symmetric 2x2 card) */}
-          <div className="flex flex-col items-center justify-center gap-2.5 border border-dashed border-border/50 p-6 rounded-2xl bg-surface-lowest/20 text-center min-h-[300px]">
-            <div className="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center border border-border/40 text-muted-foreground">
+          <div className="flex flex-col items-center justify-center gap-2.5 border border-dashed border-border/50 p-6 rounded-md bg-transparent text-center min-h-[300px]">
+            <div className="w-8 h-8 rounded-md bg-surface-high flex items-center justify-center border border-border/40 text-muted-foreground">
               <Layers size={14} className="text-foreground dark:text-[#C8F031]" />
             </div>
             <span className="text-[14px] text-foreground font-semibold">More agent capabilities</span>
@@ -192,7 +192,7 @@ export function AgentHub() {
               return (
                 <div
                   key={i}
-                  className="rounded-xl border border-border/50 bg-surface-lowest/40 overflow-hidden transition-colors"
+                  className="rounded-md border border-border/50 bg-transparent overflow-hidden transition-colors"
                 >
                   <button
                     type="button"

@@ -1,6 +1,5 @@
 'use client';
 
-import { Radio } from 'lucide-react';
 import { ConversationItem } from '../conversation-types';
 import { cn } from '@/lib/utils';
 
@@ -11,48 +10,36 @@ interface ConversationCardProps {
 }
 
 export function ConversationCard({ item, isSelected, onSelect }: ConversationCardProps) {
-  const isActive = item.status === 'active';
-  const isVoice = item.channel?.toLowerCase().includes('voice');
-
   return (
     <button
       onClick={() => onSelect(item.id)}
       className={cn(
-        'w-full text-left flex gap-3 items-start px-4 py-3 transition-colors cursor-pointer group',
+        'w-full text-left flex flex-col gap-1 px-4 py-3 transition-colors cursor-pointer group bg-transparent',
         isSelected
-          ? 'bg-surface-high/80 border-l-2 border-l-foreground pl-3.5'
-          : 'hover:bg-surface-high/30',
+          ? 'bg-surface-high/50 border-l-2 border-l-foreground pl-3.5'
+          : 'hover:bg-surface-high/20',
       )}
     >
-      {/* Avatar Initial */}
-      <div className="w-7 h-7 rounded-full bg-surface-high border border-border flex items-center justify-center font-medium text-[11px] text-foreground shrink-0 mt-0.5 select-none">
-        {item.customerName.charAt(0)}
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1 mb-0.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[12.5px] font-medium text-foreground truncate">
-              {item.customerName}
-            </span>
-            {isVoice && (
-              <Radio size={11} className="text-primary shrink-0" />
-            )}
-            {isActive && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)] shrink-0" />
-            )}
+      {/* Top Row: Customer + Timestamp */}
+      <div className="flex items-center justify-between gap-2 w-full">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-6 h-6 rounded-md bg-surface-high border border-border/60 flex items-center justify-center font-bold text-[10px] text-foreground shrink-0 select-none">
+            {item.customerName.charAt(0)}
           </div>
-          <span className="text-[10.5px] text-muted-foreground font-mono tabular-nums shrink-0">
-            {item.lastMessageTime}
+          <span className="text-[13px] font-medium text-foreground truncate">
+            {item.customerName}
           </span>
         </div>
 
-        {/* Message Snippet */}
-        <p className="text-[11.5px] text-muted-foreground line-clamp-1 group-hover:text-foreground/90 transition-colors">
-          {item.previewMessage.replace(/^["']|["']$/g, '')}
-        </p>
+        <div className="text-[10.5px] font-mono text-muted-foreground shrink-0">
+          <span className="tabular-nums">{item.lastMessageTime}</span>
+        </div>
       </div>
+
+      {/* Message Snippet */}
+      <p className="text-[12px] text-muted-foreground line-clamp-1 group-hover:text-foreground transition-colors leading-snug">
+        {item.previewMessage.replace(/^["']|["']$/g, '')}
+      </p>
     </button>
   );
 }

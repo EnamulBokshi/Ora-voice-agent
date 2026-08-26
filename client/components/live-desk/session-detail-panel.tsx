@@ -2,60 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import {
+  CheckCircle2,
   MessageSquare,
-  UserCheck,
-  ArrowUpRight,
-  Loader2,
-  Radio,
-  Package,
 } from 'lucide-react';
-import Link from 'next/link';
 import type { LiveFeedSession } from '@/services/live-desk-service';
+import { closeLiveSessionApi } from '@/services/live-desk-service';
 import { getConversationTranscriptApi } from '@/services/conversations-service';
 import type { Message } from '@/types/conversation';
 import { cn } from '@/lib/utils';
+import { formatTime } from '@/lib/format';
 
 interface SessionDetailPanelProps {
   session: LiveFeedSession | null;
+  onPushDiscount?: (code: string) => void;
 }
 
 function EmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center select-none">
-      <MessageSquare size={24} className="text-muted-foreground/30" />
+    <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center select-none bg-transparent">
+      <MessageSquare size={20} className="text-muted-foreground/40" />
       <div>
-        <p className="text-[13px] font-medium text-muted-foreground">No session selected</p>
-        <p className="text-[11.5px] text-muted-foreground/50 mt-0.5">
-          Select a conversation from the feed to view the transcript.
+        <p className="text-[13.5px] font-medium text-foreground font-serif">No active session selected</p>
+        <p className="text-[12px] text-muted-foreground/70 mt-0.5">
+          Select a customer from the left list to view their live conversation.
         </p>
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({ message, initial }: { message: Message; initial: string }) {
-  const isUser = message.role === 'user';
-  return (
-    <div className={cn('flex gap-3 items-start', !isUser && 'flex-row-reverse')}>
-      <div
-        className={cn(
-          'w-6 h-6 rounded-full flex items-center justify-center font-medium text-[10px] flex-shrink-0 mt-0.5 select-none',
-          isUser
-            ? 'bg-surface-high text-muted-foreground border border-border'
-            : 'bg-primary text-primary-foreground',
-        )}
-      >
-        {isUser ? initial : 'O'}
-      </div>
-      <div
-        className={cn(
-          'max-w-[80%] rounded-md px-3.5 py-2 text-[12.5px] leading-relaxed',
-          isUser
-            ? 'bg-surface-high/60 text-foreground border border-border/50'
-            : 'bg-surface-lowest text-foreground border border-border',
-        )}
-      >
-        {message.content}
       </div>
     </div>
   );
@@ -63,7 +33,9 @@ function MessageBubble({ message, initial }: { message: Message; initial: string
 
 export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading]   = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isEnding, setIsEnding] = useState(false);
+  const [ended, setEnded] = useState(false);
 
   useEffect(() => {
     if (!session?.id) {
@@ -72,127 +44,145 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
     }
 
     let active = true;
-    setLoading(true);
 
     getConversationTranscriptApi(session.id)
       .then((res) => {
         if (active && res?.messages) setMessages(res.messages);
       })
-      .catch(() => { if (active) setMessages([]); })
-      .finally(() => { if (active) setLoading(false); });
+      .catch(() => { if (active) setMessages([]); });
 
     return () => { active = false; };
   }, [session?.id]);
 
-  if (!session) return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      <EmptyState />
-    </div>
-  );
+  if (!session) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent">
+        <EmptyState />
+      </div>
+    );
+  }
 
   const fallbackMessages: Message[] = [
-    { _id: 'f1', role: 'user',      content: session.message ?? 'Hi, can you help me find a product in stock?', conversationId: session.id ?? '', timestamp: '' },
-    { _id: 'f2', role: 'assistant', content: 'I can help with that! Let me check product availability in our catalog.', conversationId: session.id ?? '', timestamp: '' },
+    {
+      _id: 'f1',
+      role: 'user',
+      content: session.message || 'Hi, do you have the Classic Chelsea Boots in stock in size 10?',
+      conversationId: session.id || '',
+      timestamp: '14:22',
+    },
+    {
+      _id: 'f2',
+      role: 'assistant',
+      content: 'Yes, we have 2 pairs left in Black (Size 10). They qualify for free 2-day delivery. Would you like me to add them to your cart?',
+      conversationId: session.id || '',
+      timestamp: '14:22',
+    },
   ];
 
-  const displayMessages = messages.length > 0 ? messages : fallbackMessages;
-  const isVoice = session.channel?.toLowerCase().includes('voice');
+  // Only show real conversation turns — filter out system prompts, tool calls, and internal ORA processing messages
+  const conversationMessages = messages.filter((m) => m.role === 'user' || m.role === 'assistant');
+  const displayMessages = conversationMessages.length > 0 ? conversationMessages : fallbackMessages;
+
+  const handleEndSession = async () => {
+    if (!session?.id || isEnding || ended) return;
+    setIsEnding(true);
+    try {
+      await closeLiveSessionApi(session.id);
+      setEnded(true);
+      setActionNotice('Session ended. The voice call has been closed.');
+    } catch {
+      setActionNotice('Failed to end session. Try again.');
+    } finally {
+      setIsEnding(false);
+    }
+  };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent divide-y divide-border/40">
 
-      {/* ── Session Header ── */}
-      <div className="h-12 px-5 border-b border-border flex items-center justify-between flex-shrink-0 bg-surface-lowest">
+      {/* ── Header: Clean, Simple, No Voice Icon ── */}
+      <div className="px-5 py-3 bg-transparent flex items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-6 h-6 rounded-full bg-surface-high border border-border flex items-center justify-center font-medium text-[11px] text-foreground flex-shrink-0 select-none">
-            {session.initial ?? 'C'}
+          <div className="w-7 h-7 rounded-md bg-surface-high border border-border/60 flex items-center justify-center font-bold text-[11px] text-foreground flex-shrink-0 select-none">
+            {session.initial}
           </div>
-
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[13px] font-semibold text-foreground truncate">
-              {session.name ?? 'Customer Session'}
-            </span>
-            <span className="text-border">·</span>
-            <span className="text-[11px] text-muted-foreground font-mono truncate">
-              {session.sessionId ?? '#SES-LIVE'}
-            </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[14.5px] font-semibold text-foreground font-serif tracking-tight truncate">
+                {session.name}
+              </h2>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-[11.5px] text-muted-foreground">
-          {isVoice && (
-            <span className="flex items-center gap-1">
-              <Radio size={11} className="text-primary" />
-              Voice
-            </span>
-          )}
-          <span className="flex items-center gap-1.5 font-medium text-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
-            Live
-          </span>
+        <div className="flex items-center gap-2 text-[11.5px] font-mono text-muted-foreground">
+          <span>{session.time}</span>
         </div>
       </div>
 
-      {/* ── Scrollable Content ── */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      {/* ── Chat Messages: Left = ORA, Right = Customer Name ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-4 bg-transparent flex flex-col">
+        {displayMessages.map((msg, i) => {
+          const isCustomer = msg.role === 'user';
 
-        {/* Product context strip (clean single-line context) */}
-        {session.verifiedItem && (
-          <div className="px-5 py-2.5 border-b border-border text-[12px] flex items-center justify-between text-muted-foreground">
-            <div className="flex items-center gap-2 min-w-0">
-              <Package size={13} className="text-muted-foreground flex-shrink-0" />
-              <span className="text-foreground font-medium truncate">
-                {session.verifiedItem.name}
-              </span>
-              <span className="text-border">·</span>
-              <span className="font-mono text-foreground font-medium">
-                {session.verifiedItem.price}
-              </span>
+          return (
+            <div
+              key={msg._id || i}
+              className={cn(
+                'flex flex-col gap-1 max-w-[80%]',
+                isCustomer ? 'self-end items-end' : 'self-start items-start',
+              )}
+            >
+              {/* Sender Name & Timestamp */}
+              <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+                <span className={cn('font-medium', isCustomer ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
+                  {isCustomer ? session.name : 'ORA'}
+                </span>
+                <span className="text-muted-foreground/60">·</span>
+                <span className="text-muted-foreground/60 tabular-nums">{formatTime(msg.timestamp)}</span>
+              </div>
+
+              {/* Message Bubble */}
+              <div
+                className={cn(
+                  'p-3.5 rounded-md text-[13px] leading-relaxed border',
+                  isCustomer
+                    ? 'bg-surface-high/50 border-border/60 text-foreground'
+                    : 'bg-transparent border-border/50 text-foreground',
+                )}
+              >
+                <p>{msg.content}</p>
+              </div>
             </div>
-            <span className="text-[11px] text-muted-foreground flex-shrink-0">
-              {session.verifiedItem.inventory}
-            </span>
+          );
+        })}
+
+        {actionNotice && (
+          <div className="p-2 rounded-md border border-border/60 bg-surface-high/30 text-[11.5px] font-mono text-foreground flex items-center gap-1.5 self-center">
+            <CheckCircle2 size={12} className="text-foreground dark:text-[#C8F031]" />
+            <span>{actionNotice}</span>
           </div>
         )}
+      </div>
 
-        {/* Transcript */}
-        <div className="p-5 space-y-4">
-          {loading ? (
-            <div className="py-8 flex items-center justify-center gap-2 text-muted-foreground">
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              <span className="text-[12px]">Loading transcript…</span>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {displayMessages.map((m) => (
-                <MessageBubble
-                  key={m._id}
-                  message={m}
-                  initial={session.initial ?? 'C'}
-                />
-              ))}
-            </div>
-          )}
+      {/* ── Action Bar (bottom) — only real actions ── */}
+      <div className="p-3.5 bg-transparent border-t border-border/40 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex-1 text-[11.5px] font-mono text-muted-foreground">
+            <span>Operator actions apply to this session.</span>
+          </div>
+
+          <button
+            id="btn-end-session"
+            onClick={handleEndSession}
+            disabled={isEnding || ended}
+            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md border border-border/60 hover:bg-surface-high/40 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isEnding ? 'Ending…' : ended ? 'Session Ended' : 'End Session'}
+          </button>
         </div>
       </div>
 
-      {/* ── Footer Actions ── */}
-      <div className="px-5 py-3 border-t border-border bg-surface-lowest flex items-center justify-between flex-shrink-0">
-        <Link
-          href="/conversations"
-          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <UserCheck size={13} />
-          Take Over Session
-        </Link>
-        <Link
-          href="/customers"
-          className="inline-flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline"
-        >
-          Customer Profile
-          <ArrowUpRight size={12} />
-        </Link>
-      </div>
     </div>
   );
 }

@@ -73,95 +73,105 @@ export function IntegrationPreview({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Platform Selector Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-lowest border border-border/50">
-          {PLATFORMS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPlatform(p.id)}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer',
-                platform === p.id
-                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex items-center gap-2 h-8.5 px-4 rounded-lg bg-foreground text-background font-semibold text-[12.5px] hover:opacity-90 transition-all cursor-pointer shadow-sm"
-        >
-          {copied ? <Check size={13} strokeWidth={3} className="text-emerald-400 dark:text-[#C8F031]" /> : <Copy size={13} />}
-          <span>{copied ? 'Copied to Clipboard' : 'Copy Code'}</span>
-        </button>
-      </div>
-
-      {/* Target File & Instructions Callout */}
-      <div className="p-3.5 rounded-xl border border-border/50 bg-surface-lowest/60 flex items-start gap-3">
-        <div className="w-6 h-6 rounded-md bg-surface-high flex items-center justify-center border border-border/50 flex-shrink-0 mt-0.5">
-          <Terminal size={13} className="text-foreground" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[12px] font-mono font-semibold text-foreground uppercase tracking-wide">Target:</span>
-            <code className="text-[12px] font-mono px-1.5 py-0.2 rounded bg-surface-high text-foreground border border-border/40">
-              {currentPlatform.fileTarget}
-            </code>
-          </div>
-          <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-            {currentPlatform.instructions}
-          </p>
-        </div>
-      </div>
-
-      {/* Code Block */}
-      <div className="relative rounded-2xl bg-surface-lowest border border-border/60 overflow-hidden shadow-lg">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 bg-surface-high/30">
+    <div className="w-full space-y-6">
+      {/* ── EMBED WORKSPACE CARD ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-border/80" />
-            <span className="w-2.5 h-2.5 rounded-full bg-border/80" />
-            <span className="w-2.5 h-2.5 rounded-full bg-border/80" />
-            <span className="text-[11.5px] font-mono text-muted-foreground ml-2">ora-widget-snippet.html</span>
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Storefront Script Tag
+            </h2>
           </div>
-          <span className="text-[11px] font-mono text-foreground dark:text-[#C8F031] uppercase font-semibold">Async · Sub-85ms</span>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            Async · Zero-Latency CDN
+          </span>
         </div>
-        <pre className="p-5 text-[12.5px] font-mono text-foreground/90 whitespace-pre overflow-x-auto no-scrollbar leading-relaxed select-text">
-          <code>{currentSnippet}</code>
-        </pre>
+
+        {/* Platform Selector Tabs */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+          <div className="flex items-center gap-1.5 p-0.5 rounded-md bg-surface-high/40 border border-border/60">
+            {PLATFORMS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPlatform(p.id)}
+                className={cn(
+                  'px-3 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer',
+                  platform === p.id
+                    ? 'bg-surface-high text-foreground font-semibold shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+          >
+            {copied ? <Check size={12} strokeWidth={3} className="text-foreground dark:text-[#C8F031]" /> : <Copy size={12} />}
+            <span>{copied ? 'Copied' : 'Copy Code'}</span>
+          </button>
+        </div>
+
+        {/* Target File & Instructions Callout */}
+        <div className="p-3 rounded-md border border-border/50 bg-surface-high/30 flex items-start gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 mt-0.5">
+            <Terminal size={12} className="text-foreground" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Target:</span>
+              <code className="text-[11.5px] font-mono px-1.5 py-0.2 rounded-[2px] bg-surface-high text-foreground border border-border/60">
+                {currentPlatform.fileTarget}
+              </code>
+            </div>
+            <p className="text-[12px] text-muted-foreground leading-relaxed">
+              {currentPlatform.instructions}
+            </p>
+          </div>
+        </div>
+
+        {/* Code Block */}
+        <div className="relative rounded-md bg-surface-lowest border border-border/60 overflow-hidden shadow-xs">
+          <div className="flex items-center justify-between px-3.5 py-2 border-b border-border/40 bg-surface-high/30">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-[2px] bg-border/80" />
+              <span className="text-[11px] font-mono text-muted-foreground ml-1">ora-widget-snippet.html</span>
+            </div>
+            <span className="text-[10.5px] font-mono text-foreground uppercase font-semibold">Async · Sub-85ms</span>
+          </div>
+          <pre className="p-4 text-[12px] font-mono text-foreground/90 whitespace-pre overflow-x-auto no-scrollbar leading-relaxed select-text">
+            <code>{currentSnippet}</code>
+          </pre>
+        </div>
       </div>
 
-      {/* ── Section Divider ── */}
-      <div className="h-px bg-border/40 my-6" />
-
-      {/* Key & Security Metadata Row */}
+      {/* ── Key & Security Metadata Card ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-3.5 rounded-xl border border-border/50 bg-surface-container/30 flex items-center justify-between gap-3">
+        <div className="p-4 rounded-md border border-border/50 bg-transparent flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <ShieldCheck size={15} className="text-foreground dark:text-[#C8F031] flex-shrink-0" />
+            <ShieldCheck size={14} className="text-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[11px] font-mono uppercase text-muted-foreground">Publishable Widget Key</p>
-              <p className="text-[12.5px] font-mono font-medium text-foreground truncate">{publishableKey}</p>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Publishable Widget Key</p>
+              <p className="text-[12px] font-mono font-medium text-foreground truncate">{publishableKey}</p>
             </div>
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-border/50 bg-surface-container/30 flex items-center justify-between gap-3">
+        <div className="p-4 rounded-md border border-border/50 bg-transparent flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Zap size={15} className="text-foreground dark:text-[#C8F031] flex-shrink-0" />
+            <Zap size={14} className="text-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[11px] font-mono uppercase text-muted-foreground">Gateway Status</p>
-              <p className="text-[12.5px] font-medium text-foreground">WebSocket Live & Encrypted</p>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Gateway Status</p>
+              <p className="text-[12px] font-medium text-foreground">WebSocket Live & Encrypted</p>
             </div>
           </div>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-[#C8F031] shadow-[0_0_8px_rgba(200,240,49,0.7)] flex-shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-[color:var(--status-online)] flex-shrink-0" />
         </div>
       </div>
     </div>

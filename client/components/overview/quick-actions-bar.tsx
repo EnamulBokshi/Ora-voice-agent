@@ -17,7 +17,7 @@ interface QuickActionsBarProps {
 
 export function QuickActionsBar({ actions }: QuickActionsBarProps) {
   return (
-    <div className="pt-4">
+    <div className="pt-2">
       {/* Section Eyebrow Header */}
       <div className="flex items-center gap-2 mb-3">
         <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
@@ -26,8 +26,8 @@ export function QuickActionsBar({ actions }: QuickActionsBarProps) {
         </p>
       </div>
 
-      {/* Crisp rounded-lg row container */}
-      <div className="rounded-lg border border-border/50 bg-surface-lowest/40 divide-y divide-border/40 overflow-hidden">
+      {/* Subtle rounded-md Row Container (Same as Page Background) */}
+      <div className="rounded-md border border-border/50 bg-transparent divide-y divide-border/40 overflow-hidden">
         {actions.map((action) => (
           <Link
             key={action.id}

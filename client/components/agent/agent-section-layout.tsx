@@ -3,15 +3,6 @@
 import Image from 'next/image';
 import { ReactNode } from 'react';
 
-// ─── Component ────────────────────────────────────────────────────────────────
-// Reusable wrapper that gives each agent section the Intercom editorial
-// "selected role" page structure:
-//   [icon + title + desc + CTAs] LEFT  |  [screenshot] RIGHT
-//   ───────────────────────────────────────────────────────────
-//   ■ HOW … WORKS   (section label)
-//   ───────────────────────────────────────────────────────────
-//   [functional tool — fills remaining height]
-
 interface AgentSectionLayoutProps {
   iconNode: ReactNode;
   title: string;
@@ -34,49 +25,64 @@ export function AgentSectionLayout({
   children,
 }: AgentSectionLayoutProps) {
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-background">
 
-      {/* ── Editorial header — matches Intercom "Ecommerce selected" pattern ── */}
-      <div className="flex-shrink-0 px-8 pt-7 pb-6 border-b border-border/40">
-        <div className="flex items-start gap-10">
+      {/* ── Editorial header — matching Intercom & ORA universal style ── */}
+      <div className="flex-shrink-0 px-4 sm:px-6 pt-5 pb-4 border-b border-border/40 bg-transparent">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
 
-          {/* Left: text */}
+          {/* Left: Text & Actions */}
           <div className="flex-1 min-w-0">
-            {/* Icon row */}
-            <div className="mb-3">{iconNode}</div>
-            <h1 className="text-[22px] font-bold text-foreground tracking-tight leading-snug mb-2">
+            {/* Icon + Category */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
+                {iconNode}
+              </div>
+              <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground">
+                ORA Active Intelligence
+              </span>
+            </div>
+
+            {/* Editorial Serif Title */}
+            <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
               {title}
             </h1>
-            <p className="text-[13px] text-muted-foreground leading-relaxed max-w-lg mb-4">
+
+            {/* Subtitle */}
+            <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-xl mb-3">
               {description}
             </p>
+
+            {/* CTAs */}
             {ctaNodes && (
-              <div className="flex items-center gap-2">{ctaNodes}</div>
+              <div className="flex items-center gap-2.5">{ctaNodes}</div>
             )}
           </div>
 
-          {/* Right: product screenshot */}
-          <div className="relative w-[240px] h-[140px] flex-shrink-0 rounded-lg overflow-hidden bg-surface-low">
+          {/* Right: High-End Preview Graphic */}
+          <div className="relative w-full sm:w-[220px] h-[130px] flex-shrink-0 rounded-md overflow-hidden border border-border/50 bg-surface-container/30 shadow-xs">
             <Image
               src={previewSrc}
               alt={previewAlt}
               fill
-              className="object-cover object-top"
-              sizes="240px"
+              className="object-cover object-center"
+              sizes="(max-width: 640px) 100vw, 220px"
+              priority
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/30 via-transparent to-transparent pointer-events-none" />
           </div>
         </div>
       </div>
 
-      {/* ── Section label — "■ HOW X WORKS" ── */}
-      <div className="flex items-center gap-2 px-8 py-2.5 flex-shrink-0 border-b border-border/20">
-        <span className="w-[3px] h-3 rounded-full bg-primary flex-shrink-0" />
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+      {/* ── Section eyebrow bar ── */}
+      <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 flex-shrink-0 border-b border-border/20 bg-surface-lowest/20">
+        <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+        <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
           {howLabel}
         </p>
       </div>
 
-      {/* ── Functional content — fills remaining height ── */}
+      {/* ── Functional content ── */}
       <div className="flex-1 overflow-hidden">
         {children}
       </div>

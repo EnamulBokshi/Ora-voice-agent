@@ -314,16 +314,16 @@ function SetupGuideClientInner() {
 
     return (
       <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
-        <div className="max-w-5xl lg:max-w-6xl mx-auto px-8 lg:px-12 pt-8 pb-16">
+        <div className="w-full px-4 sm:px-6 py-5 space-y-6 pb-16">
 
           {/* ── Editorial Step Header ── */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm">
-                  <ArchIcon size={16} className="text-foreground" />
+          <div className="border-b border-border/40 pb-5 mb-6">
+            <div className="flex items-center justify-between gap-4 mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
+                  <ArchIcon size={14} className="text-foreground" />
                 </div>
-                <span className="text-[12px] font-mono uppercase tracking-wider text-muted-foreground">
+                <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground">
                   {currentArch.label} · Step {activeConfig!.stepNumber} of {ALL_STEP_IDS.length}
                 </span>
               </div>
@@ -333,58 +333,58 @@ function SetupGuideClientInner() {
                   type="button"
                   onClick={() => toggleStep(activeStep!)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-[12px] font-medium transition-all cursor-pointer shadow-sm',
+                    'inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md border text-[12px] font-medium transition-colors cursor-pointer',
                     isCompleted
-                      ? 'bg-[#C8F031]/15 border-[#C8F031]/40 text-neutral-900 dark:text-[#C8F031] font-semibold'
-                      : 'border-border/70 text-muted-foreground hover:text-foreground hover:bg-surface-high',
+                      ? 'bg-surface-high border-border/70 text-foreground font-semibold'
+                      : 'border-border/60 bg-surface-high/40 text-muted-foreground hover:text-foreground hover:bg-surface-high',
                   )}
                 >
-                  <Check size={12} strokeWidth={isCompleted ? 3 : 2} className={cn(isCompleted ? 'text-neutral-900 dark:text-[#C8F031]' : 'text-muted-foreground')} />
+                  <Check size={12} strokeWidth={isCompleted ? 3 : 2} className={cn(isCompleted ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground')} />
                   <span>{isCompleted ? 'Completed' : 'Mark complete'}</span>
                 </button>
               </div>
             </div>
 
-            <h1 className="text-[28px] lg:text-[34px] font-semibold text-foreground tracking-tight leading-[1.2] font-serif mb-2.5">
+            <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground tracking-tight leading-[1.2] font-serif mb-1.5">
               {activeConfig!.title}
             </h1>
-            <p className="text-[14px] text-muted-foreground leading-relaxed max-w-2xl">
+            <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
               {activeConfig!.description}
             </p>
           </div>
 
           {/* ── Section Eyebrow Divider ── */}
-          <div className="flex items-center gap-2 mb-8">
+          <div className="flex items-center gap-2 mb-6">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+            <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Configure & Test
             </p>
-            <div className="h-px bg-border/40 flex-1 ml-2" />
+            <div className="h-px bg-border/30 flex-1 ml-2" />
           </div>
 
-          {/* ── Main Configuration Workspace (Direct on Canvas, No Nested Box Bubble) ── */}
-          <div className="mb-12">
+          {/* ── Main Configuration Workspace ── */}
+          <div className="mb-10">
             {getPreview(activeStep!)}
           </div>
 
           {/* ── Step Navigation Footer ── */}
-          <div className="flex items-center justify-between pt-6 border-t border-border/40">
+          <div className="flex items-center justify-between pt-5 border-t border-border/40">
             {prevStep ? (
               <button
                 type="button"
                 onClick={() => router.push(`/setup?archetype=${activeArchetype}&step=${prevStep}`)}
-                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border/70 bg-surface-high/40 hover:bg-surface-high text-[13px] font-medium text-foreground transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer"
               >
-                <ArrowLeft size={13} />
+                <ArrowLeft size={12} />
                 <span>Previous Step</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => router.push(`/setup?archetype=${activeArchetype}`)}
-                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl border border-border/70 bg-surface-high/40 hover:bg-surface-high text-[13px] font-medium text-foreground transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer"
               >
-                <ArrowLeft size={13} />
+                <ArrowLeft size={12} />
                 <span>Overview</span>
               </button>
             )}
@@ -396,10 +396,10 @@ function SetupGuideClientInner() {
                   markStepComplete(activeStep!);
                   router.push(`/setup?archetype=${activeArchetype}&step=${nextStep}`);
                 }}
-                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-foreground text-background font-semibold text-[13px] hover:opacity-90 transition-all cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-2 h-8 px-4 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
               >
                 <span>Next Step</span>
-                <ArrowRight size={13} />
+                <ArrowRight size={12} />
               </button>
             ) : (
               <button
@@ -408,10 +408,10 @@ function SetupGuideClientInner() {
                   markStepComplete(activeStep!);
                   router.push('/dashboard');
                 }}
-                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-foreground text-background font-semibold text-[13px] hover:opacity-90 transition-all cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-2 h-8 px-4 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
               >
                 <span>Go to Dashboard</span>
-                <ArrowRight size={13} />
+                <ArrowRight size={12} />
               </button>
             )}
           </div>

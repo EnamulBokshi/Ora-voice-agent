@@ -26,7 +26,7 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
     <div className="flex flex-col flex-1 min-h-[270px]">
       {/* Conversion Rate Sub-header */}
       <div className="flex items-center justify-between pb-4 mb-3 border-b border-border/30">
-        <span className="text-[12px] font-mono uppercase tracking-wider text-muted-foreground">
+        <span className="text-[11.5px] font-mono uppercase tracking-wider text-muted-foreground">
           Sales Funnel Flow
         </span>
         <div className="flex items-center gap-2 text-[12.5px]">
@@ -43,7 +43,7 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
           <div key={step.label} className="space-y-2">
             <div className="flex justify-between items-center text-[13px]">
               <div className="flex items-center gap-2.5">
-                <span className="text-[11px] font-mono font-bold text-muted-foreground px-2 py-0.5 rounded-[4px] bg-surface-high border border-border/40">
+                <span className="text-[11px] font-mono font-bold text-muted-foreground px-2 py-0.5 rounded-none bg-surface-high border border-border/40">
                   0{idx + 1}
                 </span>
                 <span className="text-foreground font-medium">{step.label}</span>
@@ -64,10 +64,10 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
               </div>
             </div>
 
-            {/* Step Bar */}
-            <div className="h-3 w-full rounded-md bg-surface-high overflow-hidden border border-border/30">
+            {/* Step Bar — Flat Non-Rounded */}
+            <div className="h-3 w-full rounded-none bg-surface-high overflow-hidden border border-border/30">
               <div
-                className="h-full rounded-[4px] transition-all duration-500"
+                className="h-full rounded-none transition-all duration-500"
                 style={{
                   width: `${Math.min(100, Math.max(0, step.pct))}%`,
                   backgroundColor: step.isLast ? 'var(--primary)' : 'var(--chart-4)',

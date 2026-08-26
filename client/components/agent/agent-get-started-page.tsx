@@ -261,12 +261,12 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
     <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
       <div className="max-w-5xl mx-auto px-8 lg:px-12 pt-8 pb-16">
 
-        {/* ── 1. HERO SECTION (INTERCOM FIN AI AGENT STYLE) ── */}
+        {/* ── 1. HERO SECTION (INTERCOM FIN AI AGENT STYLE — SUBTLE ROUNDED-MD) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-14">
           {/* Left Text Column (7 cols) */}
           <div className="lg:col-span-7 flex flex-col gap-3">
             {/* Top Icon Badge */}
-            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shadow-md mb-1', iconBgClass)}>
+            <div className={cn('w-9 h-9 rounded-md flex items-center justify-center shadow-xs mb-1', iconBgClass)}>
               <Icon size={18} className={iconTextClass} />
             </div>
 
@@ -284,13 +284,13 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
             <div className="flex items-center gap-2.5 pt-1">
               <Link
                 href={cta1Href}
-                className="inline-flex items-center h-8.5 px-4 rounded-lg bg-foreground text-background font-semibold text-[12.5px] hover:opacity-90 transition-opacity shadow-sm"
+                className="inline-flex items-center h-8.5 px-4 rounded-md bg-foreground text-background font-semibold text-[12.5px] hover:opacity-90 transition-opacity shadow-xs"
               >
                 {cta1Label}
               </Link>
               <Link
                 href="/docs"
-                className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg border border-border/70 bg-surface-container/60 hover:bg-surface-container text-[12.5px] font-medium text-foreground transition-colors"
+                className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-md border border-border/70 bg-surface-container/60 hover:bg-surface-container text-[12.5px] font-medium text-foreground transition-colors"
               >
                 <BookOpen size={12} className="text-muted-foreground" />
                 <span>{cta2Label}</span>
@@ -299,7 +299,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
           </div>
 
           {/* Right Mockup Card (5 cols) */}
-          <div className="lg:col-span-5 h-[200px] w-full relative rounded-2xl overflow-hidden border border-border/40 shadow-2xl bg-surface-container">
+          <div className="lg:col-span-5 h-[200px] w-full relative rounded-md overflow-hidden border border-border/40 shadow-xs bg-surface-container">
             <Image
               src={heroImageSrc}
               alt={heroTitle}
@@ -319,7 +319,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
           </p>
         </div>
 
-        {/* ── 3. STEP ROWS (COMPACT PREMIUM CARDS ON LEFT, EDITORIAL ON RIGHT) ── */}
+        {/* ── 3. STEP ROWS (COMPACT PREMIUM CARDS ON LEFT, EDITORIAL ON RIGHT — SUBTLE ROUNDED-MD) ── */}
         <div className="space-y-8 mb-16">
           {rows.map((row, i) => (
             <div
@@ -327,7 +327,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
               className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center py-2"
             >
               {/* Left Column: Visual Mockup Box (5 cols) */}
-              <div className="md:col-span-5 h-[190px] w-full relative rounded-2xl overflow-hidden border border-border/40 shadow-lg bg-surface-container">
+              <div className="md:col-span-5 h-[190px] w-full relative rounded-md overflow-hidden border border-border/40 shadow-xs bg-surface-container">
                 <Image
                   src={row.imageSrc}
                   alt={row.title}
@@ -383,7 +383,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
               return (
                 <div
                   key={i}
-                  className="rounded-xl border border-border/50 bg-surface-container/30 hover:border-border/80 transition-colors overflow-hidden"
+                  className="rounded-md border border-border/50 bg-transparent hover:border-border/80 transition-colors overflow-hidden"
                 >
                   <button
                     type="button"

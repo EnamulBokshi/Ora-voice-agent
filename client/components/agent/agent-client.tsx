@@ -89,27 +89,27 @@ function AgentClientContent() {
       if (activeView === 'feed') {
         return (
           <AgentSectionLayout
-            iconNode={<Mic size={16} className="text-primary" />}
+            iconNode={<Mic size={16} className="text-foreground" />}
             title="Voice Feed"
             description="Engage your shoppers through real-time speech-to-speech AI. Feed ORA product knowledge by speaking — it indexes instantly."
-            previewSrc="/previews/voice-preview.jpg"
+            previewSrc="/previews/agent-voice-role.jpg"
             previewAlt="ORA voice interface"
             howLabel="Train ORA by talking"
             ctaNodes={
               <>
                 <button
                   onClick={() => setIsVoiceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
                 >
                   Start talking <ArrowRight size={10} />
                 </button>
-                <Link href="/agent?role=voice" className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/agent?role=voice" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
                   Get started <ExternalLink size={9} />
                 </Link>
               </>
             }
           >
-            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                 <div className="xl:col-span-7">
                   <VoiceFeedTab publishableKey={publishableKey || undefined} onFed={loadDocs} />
@@ -125,14 +125,14 @@ function AgentClientContent() {
       if (activeView === 'knowledge') {
         return (
           <AgentSectionLayout
-            iconNode={<Mic size={16} className="text-primary" />}
+            iconNode={<Mic size={16} className="text-foreground" />}
             title="Knowledge Base"
             description="All knowledge indexed by ORA — from voice training sessions, uploaded documents, and product catalog syncs."
-            previewSrc="/previews/docs-preview.jpg"
+            previewSrc="/previews/docs-step2-index.jpg"
             previewAlt="ORA knowledge base"
             howLabel="What ORA knows"
           >
-            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
             </div>
           </AgentSectionLayout>
@@ -145,19 +145,19 @@ function AgentClientContent() {
       if (activeView === 'feed') {
         return (
           <AgentSectionLayout
-            iconNode={<FileText size={16} className="text-[color:var(--ora-info)]" />}
+            iconNode={<FileText size={16} className="text-foreground" />}
             title="Upload Files"
             description="Upload store policies, shipping guides, FAQs, and reference files. ORA's RAG engine vectorises your content for accurate, sub-85ms answers."
-            previewSrc="/previews/docs-preview.jpg"
+            previewSrc="/previews/docs-step1-upload.jpg"
             previewAlt="ORA knowledge base"
             howLabel="Upload your store knowledge"
             ctaNodes={
-              <Link href="/agent?role=documents" className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/agent?role=documents" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
                 Get started <ExternalLink size={9} />
               </Link>
             }
           >
-            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                 <div className="xl:col-span-7">
                   <DocumentsFeedTab onFed={loadDocs} />
@@ -173,14 +173,14 @@ function AgentClientContent() {
       if (activeView === 'knowledge') {
         return (
           <AgentSectionLayout
-            iconNode={<FileText size={16} className="text-[color:var(--ora-info)]" />}
+            iconNode={<FileText size={16} className="text-foreground" />}
             title="Knowledge Base"
             description="All indexed documents available to ORA. Each file is vectorised and searchable by your shoppers through ORA's voice and chat interfaces."
-            previewSrc="/previews/docs-preview.jpg"
+            previewSrc="/previews/docs-step2-index.jpg"
             previewAlt="ORA knowledge base"
             howLabel="Indexed knowledge"
           >
-            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
             </div>
           </AgentSectionLayout>
@@ -193,19 +193,19 @@ function AgentClientContent() {
       if (activeView === 'catalog') {
         return (
           <AgentSectionLayout
-            iconNode={<Package size={16} className="text-[color:var(--ora-warning)]" />}
+            iconNode={<Package size={16} className="text-foreground" />}
             title="Sync Catalog"
             description="Sync your inventory from Shopify or WooCommerce, or upload a CSV. ORA uses live product data to answer availability questions and guide checkout."
-            previewSrc="/previews/products-preview.jpg"
+            previewSrc="/previews/products-step1-sync.jpg"
             previewAlt="ORA product catalog"
             howLabel="Sync your product inventory"
             ctaNodes={
-              <Link href="/agent?role=products" className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/agent?role=products" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
                 Get started <ExternalLink size={9} />
               </Link>
             }
           >
-            <div className="h-full overflow-y-auto no-scrollbar px-8 py-5">
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <ProductDetailsFeedTab onFed={loadDocs} />
             </div>
           </AgentSectionLayout>

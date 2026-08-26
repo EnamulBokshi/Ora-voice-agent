@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatDateTime } from '@/lib/format';
 
 export interface RecentOrder {
   _id: string;
@@ -64,8 +64,8 @@ export function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                 <td className="py-3 px-2 text-right tabular-nums text-foreground font-semibold font-mono text-[12px]">
                   {formatCurrency(order.totalAmount, order.currency)}
                 </td>
-                <td className="py-3 px-2 text-right text-muted-foreground font-mono text-[11px]">
-                  {new Date(order.createdAt).toLocaleDateString()}
+                <td className="py-3 px-2 text-right text-muted-foreground font-mono text-[11px] whitespace-nowrap">
+                  {formatDateTime(order.createdAt)}
                 </td>
               </tr>
             );

@@ -347,19 +347,22 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
   };
 
   return (
-    <div className="w-full space-y-10">
-      {/* ── 1. VOICE MODELS: 3 CARDS PER ROW (SYMMETRIC 2x3 GRID) ── */}
-      <div>
-        <div className="flex items-center justify-between mb-3.5">
-          <span className="text-[12px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
-            Voice Models & Tone Options
-          </span>
-          <span className="text-[11.5px] font-mono text-muted-foreground">
-            Selected: <span className="text-foreground dark:text-[#C8F031] font-semibold">{currentVoiceObj.voiceId}</span> ({currentVoiceObj.gender})
+    <div className="w-full space-y-6">
+      {/* ── 1. VOICE MODELS CARD ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Voice Models & Tone Options
+            </h2>
+          </div>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            Selected: <span className="text-foreground font-semibold">{currentVoiceObj.voiceId}</span> ({currentVoiceObj.gender})
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
           {VOICE_OPTIONS.map((voice) => {
             const isSelected = selectedVoiceId === voice.voiceId;
             const isPlaying = playingVoiceId === voice.voiceId;
@@ -370,33 +373,33 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                 key={voice.voiceId}
                 onClick={() => setSelectedVoiceId(voice.voiceId)}
                 className={cn(
-                  'p-4.5 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col justify-between gap-3.5 select-none',
+                  'p-4 rounded-md border transition-colors cursor-pointer flex flex-col justify-between gap-3 select-none',
                   isSelected
-                    ? 'border-foreground/50 dark:border-[#C8F031]/60 bg-surface-high/70 shadow-[0_0_15px_rgba(200,240,49,0.06)] ring-1 ring-border/80 dark:ring-[#C8F031]/30'
-                    : 'border-border/50 bg-surface-container/30 hover:bg-surface-container/60 hover:border-border/80',
+                    ? 'border-foreground/60 bg-surface-high/60 shadow-xs'
+                    : 'border-border/50 bg-surface-high/20 hover:bg-surface-high/40 hover:border-border/70',
                 )}
               >
                 {/* Header: Radio dot + Name + Gender + Active */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
                       className={cn(
-                        'w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all',
-                        isSelected ? 'border-foreground bg-foreground dark:border-[#C8F031] dark:bg-[#C8F031]' : 'border-border/70',
+                        'w-3 h-3 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors',
+                        isSelected ? 'border-foreground bg-foreground' : 'border-border/70',
                       )}
                     >
-                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-background dark:bg-neutral-950" />}
+                      {isSelected && <div className="w-1 h-1 rounded-full bg-background" />}
                     </div>
-                    <span className="text-[14px] font-semibold text-foreground truncate">
+                    <span className="text-[13.5px] font-semibold text-foreground truncate">
                       {voice.voiceId}
                     </span>
-                    <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.2 rounded bg-surface-lowest border border-border/40">
+                    <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.2 rounded-[2px] bg-surface-high border border-border/50">
                       {voice.gender}
                     </span>
                   </div>
 
                   {isSelected && (
-                    <span className="text-[9.5px] font-semibold text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-mono flex-shrink-0">
+                    <span className="text-[10px] font-semibold text-foreground bg-surface-high px-2 py-0.5 rounded-[3px] border border-border/60 font-mono flex-shrink-0">
                       Selected
                     </span>
                   )}
@@ -404,16 +407,16 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
 
                 {/* Subtitle & Tagline */}
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-foreground/90 leading-snug">
+                  <p className="text-[12.5px] font-medium text-foreground leading-snug">
                     {voice.toneName}
                   </p>
-                  <p className="text-[12px] text-muted-foreground leading-snug mt-0.5 truncate">
+                  <p className="text-[11.5px] text-muted-foreground leading-snug mt-0.5 truncate">
                     {voice.tagline}
                   </p>
                 </div>
 
-                {/* ElevenLabs-Style Waveform Player */}
-                <div className="pt-2.5 border-t border-border/30">
+                {/* Waveform Audio Control */}
+                <div className="pt-2 border-t border-border/30">
                   <WaveformAudioControl
                     isPlaying={isPlaying}
                     isLoading={!!isLoadingAudio}
@@ -426,27 +429,22 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
         </div>
       </div>
 
-      {/* ── Section Divider ── */}
-      <div className="h-px bg-border/40 my-9" />
-
-      {/* ── 2. CURRENTLY APPLIED TONE & DIRECTIVES ── */}
-      <div className="space-y-5">
-        {/* Section Header with Active Tone badge and Presets */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/40">
-          <div className="flex items-center gap-3">
-            <span className="text-[12px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+      {/* ── 2. APPLIED TONE & DIRECTIVES CARD ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
               Applied Directives & Tone
-            </span>
-
-            {/* Currently Active Tone Pill */}
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-surface-high dark:bg-[#C8F031]/10 text-foreground dark:text-[#C8F031] border border-border dark:border-[#C8F031]/30 font-semibold">
-              <Sliders size={11} />
-              <span>Applied: {activePresetLabel}</span>
+            </h2>
+            <span className="ml-2 inline-flex items-center gap-1 text-[10.5px] font-mono px-2 py-0.5 rounded-[3px] bg-surface-high text-foreground border border-border/60 font-medium">
+              <Sliders size={10} />
+              <span>{activePresetLabel}</span>
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[11.5px] text-muted-foreground mr-1">Tone presets:</span>
+            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Presets:</span>
             <div className="flex flex-wrap items-center gap-1.5">
               {TONE_PRESETS.map((preset) => {
                 const isPresetActive = activePresetLabel === preset.label;
@@ -456,10 +454,10 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                     type="button"
                     onClick={() => handleApplyPreset(preset)}
                     className={cn(
-                      'inline-flex items-center px-3 py-1 rounded-lg text-[12px] border transition-all cursor-pointer',
+                      'inline-flex items-center px-2.5 py-1 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer',
                       isPresetActive
-                        ? 'border-foreground bg-foreground text-background dark:border-[#C8F031] dark:bg-[#C8F031] dark:text-neutral-950 font-semibold shadow-sm'
-                        : 'border-border/60 bg-surface-container/40 hover:bg-surface-high text-muted-foreground hover:text-foreground',
+                        ? 'border-foreground bg-foreground text-background font-semibold shadow-xs'
+                        : 'border-border/60 bg-surface-high/40 hover:bg-surface-high text-muted-foreground hover:text-foreground',
                     )}
                   >
                     {preset.label}
@@ -471,52 +469,52 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
         </div>
 
         {/* 2-Column Applied Tone & Directives Textareas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
           {/* Tone & Demeanor */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-[13px] font-medium text-foreground">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Brand Tone & Demeanor
               </label>
-              <span className="text-[10.5px] font-mono text-muted-foreground/70">
+              <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
                 {brandVoiceDesc.length} chars
               </span>
             </div>
             <textarea
-              rows={5}
+              rows={4}
               value={brandVoiceDesc}
               onChange={(e) => setBrandVoiceDesc(e.target.value)}
               placeholder="e.g. Consultative, warm, concise, and focused on helping shoppers find the right fit."
-              className="w-full px-4 py-3 text-[13px] bg-surface-lowest/70 border border-border/60 rounded-xl text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/80 dark:focus:border-[#C8F031]/80 transition-colors leading-relaxed resize-none font-sans"
+              className="w-full px-3 py-2 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors leading-relaxed resize-none font-sans"
             />
           </div>
 
           {/* Custom Directives */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-[13px] font-medium text-foreground">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Directives & Rules of Engagement
               </label>
-              <span className="text-[10.5px] font-mono text-muted-foreground/70">
+              <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
                 {customDirectives.length} chars
               </span>
             </div>
             <textarea
-              rows={5}
+              rows={4}
               value={customDirectives}
               onChange={(e) => setCustomDirectives(e.target.value)}
               placeholder="e.g. Always check stock before confirming availability. Mention 30-day return policy for hesitant buyers."
-              className="w-full px-4 py-3 text-[13px] bg-surface-lowest/70 border border-border/60 rounded-xl text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground/80 dark:focus:border-[#C8F031]/80 transition-colors leading-relaxed resize-none font-sans"
+              className="w-full px-3 py-2 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors leading-relaxed resize-none font-sans"
             />
           </div>
         </div>
 
         {/* Action Toolbar */}
-        <div className="pt-3 flex items-center justify-between gap-3 min-h-[44px]">
+        <div className="pt-3 border-t border-border/40 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {savedSuccess && !saving && (
-              <span className="inline-flex items-center gap-1.5 text-[11.5px] text-foreground dark:text-[#C8F031] font-mono bg-surface-high dark:bg-[#C8F031]/10 px-2.5 py-1 rounded-md border border-border dark:border-[#C8F031]/30">
-                <CheckCircle2 size={12} /> Saved live
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] text-foreground font-mono bg-surface-high px-2.5 py-1 rounded-md border border-border/60">
+                <CheckCircle2 size={12} className="text-foreground dark:text-[#C8F031]" /> Saved live
               </span>
             )}
             {!savedSuccess && hasChanges && (
@@ -526,7 +524,7 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
             )}
             {!savedSuccess && !hasChanges && (
               <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#C8F031] shadow-[0_0_6px_rgba(200,240,49,0.8)]" /> Configuration Synced
+                <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" /> Configuration Synced
               </span>
             )}
 
@@ -535,7 +533,7 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                 type="button"
                 onClick={handleDiscard}
                 disabled={saving}
-                className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-[12px] text-muted-foreground hover:text-foreground border border-border/60 hover:bg-surface-high transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 hover:bg-surface-high transition-colors cursor-pointer"
               >
                 <RotateCcw size={11} />
                 Discard
@@ -548,21 +546,21 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
               type="button"
               onClick={() => handleSave()}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-[13px] font-semibold transition-all cursor-pointer shadow-sm bg-foreground text-background dark:bg-[#C8F031] dark:text-neutral-950 hover:opacity-90"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[12px] font-semibold transition-opacity cursor-pointer shadow-xs bg-foreground text-background hover:opacity-90"
             >
               {saving ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" />
+                  <Loader2 size={12} className="animate-spin" />
                   <span>Saving Changes…</span>
                 </>
               ) : savedSuccess ? (
                 <>
-                  <Check size={13} strokeWidth={2.5} />
+                  <Check size={12} strokeWidth={2.5} />
                   <span>Saved Live</span>
                 </>
               ) : (
                 <>
-                  <Save size={13} />
+                  <Save size={12} />
                   <span>Save Changes</span>
                 </>
               )}

@@ -98,19 +98,21 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
   };
 
   return (
-    <>
+    <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-6">
       {/* ── Import from URL — clean prominent action row ── */}
-      <div className="flex items-center justify-between py-3 border-b border-border mb-5">
-        <div className="flex items-center gap-2 text-[13px] text-foreground font-medium">
-          <Globe size={14} className="text-muted-foreground" />
-          <span>Sync knowledge directly from a website</span>
+      <div className="flex items-center justify-between pb-4 border-b border-border/40">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <h3 className="text-[13px] font-semibold text-foreground font-serif">
+            Upload & Sync Documents
+          </h3>
         </div>
         <button
           type="button"
           onClick={() => setIsSyncModalOpen(true)}
-          className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md text-[12px] font-medium border border-border bg-surface-container hover:bg-surface-high text-foreground transition-colors shadow-xs"
+          className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors cursor-pointer"
         >
-          <Globe size={13} />
+          <Globe size={12} className="text-muted-foreground" />
           <span>Import from URL</span>
         </button>
       </div>
@@ -118,15 +120,15 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
       <form onSubmit={handleSave} className="space-y-5">
 
         {/* ── Input mode tabs ── */}
-        <div className="flex items-center gap-0 border-b border-border">
+        <div className="flex items-center gap-0 border-b border-border/40">
           {(['upload', 'text'] as const).map((mode) => (
             <button
               key={mode}
               type="button"
               onClick={() => setInputMode(mode)}
-              className={`relative px-4 py-2 text-[12.5px] font-medium transition-colors ${
+              className={`relative px-4 py-2 text-[12.5px] font-medium transition-colors cursor-pointer ${
                 inputMode === mode
-                  ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
+                  ? 'text-foreground font-semibold after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -136,15 +138,15 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         </div>
 
         {/* ── Row: Category + Title ── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Category
             </label>
             <select
               value={selectedCatId}
               onChange={(e) => setSelectedCatId(e.target.value)}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-[13px] text-foreground focus:border-foreground/40 focus:outline-none"
+              className="w-full rounded-md border border-border/60 bg-surface-high/30 px-3 py-2 text-[13px] text-foreground focus:border-foreground focus:outline-none cursor-pointer"
             >
               {DOCUMENT_CATEGORIES.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.label}</option>
@@ -152,7 +154,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Title <span className="normal-case font-normal">(optional)</span>
             </label>
             <input
@@ -160,7 +162,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
               value={docTitle}
               onChange={(e) => setDocTitle(e.target.value)}
               placeholder="Auto-filled from file name"
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/40 focus:outline-none"
+              className="w-full rounded-md border border-border/60 bg-surface-high/30 px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground focus:outline-none font-mono text-xs"
             />
           </div>
         </div>
@@ -169,10 +171,10 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         {inputMode === 'upload' ? (
           <div>
             {!selectedFile ? (
-              <label className="flex flex-col items-center justify-center h-32 rounded-md border border-dashed border-border bg-transparent cursor-pointer hover:border-foreground/30 hover:bg-surface-high/30 transition-colors text-center px-4">
+              <label className="flex flex-col items-center justify-center h-32 rounded-md border border-dashed border-border/60 bg-surface-high/20 cursor-pointer hover:border-foreground/40 hover:bg-surface-high/40 transition-colors text-center px-4">
                 <UploadCloud size={20} className="text-muted-foreground mb-2" />
-                <span className="text-[13px] text-muted-foreground">Drop file or click to browse</span>
-                <span className="text-[11px] text-muted-foreground/60 mt-0.5">PDF, TXT, MD, CSV</span>
+                <span className="text-[13px] text-foreground font-medium">Drop file or click to browse</span>
+                <span className="text-[11px] font-mono text-muted-foreground mt-0.5">PDF, TXT, MD, CSV</span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -182,17 +184,17 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
                 />
               </label>
             ) : (
-              <div className="flex items-center justify-between py-3 border-t border-b border-border">
+              <div className="flex items-center justify-between py-3 px-4 rounded-md border border-border/60 bg-surface-high/30">
                 <div>
                   <p className="text-[13px] font-medium text-foreground">{selectedFile.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] font-mono text-muted-foreground">
                     {(selectedFile.size / 1024).toFixed(1)} KB
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={clearFile}
-                  className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -202,7 +204,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         ) : (
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              <label className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
                 Document Text
               </label>
               <span className="text-[11px] text-muted-foreground/60 font-mono">
@@ -214,25 +216,25 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
               onChange={(e) => setTextContent(e.target.value)}
               rows={8}
               placeholder={activeCategory.placeholder}
-              className="w-full rounded-md border border-border bg-transparent p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-foreground/40 focus:outline-none resize-none font-mono"
+              className="w-full rounded-md border border-border/60 bg-surface-high/20 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-foreground focus:outline-none resize-none font-mono"
             />
           </div>
         )}
 
         {/* ── Error ── */}
         {error && (
-          <p className="text-[12px] text-red-400">{error}</p>
+          <p className="text-[12px] text-red-400 font-mono">{error}</p>
         )}
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center justify-between pt-2 border-t border-border/40">
           {savedMessage ? (
-            <span className="flex items-center gap-1.5 text-[12px] text-foreground">
+            <span className="flex items-center gap-1.5 text-[12px] text-foreground font-mono">
               <CheckCircle2 size={13} className="text-[color:var(--status-online)]" />
               {savedMessage}
             </span>
           ) : (
-            <span className="text-[11px] text-muted-foreground/60">
+            <span className="text-[11px] font-mono text-muted-foreground/60">
               PDF, TXT, MD, CSV supported
             </span>
           )}
@@ -240,7 +242,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
           <button
             type="submit"
             disabled={isSaving}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
             {isSaving ? 'Saving…' : 'Save & Index'}
@@ -254,6 +256,6 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         onSuccess={() => { setIsSyncModalOpen(false); onFed(); }}
         initialTab="website"
       />
-    </>
+    </div>
   );
 }

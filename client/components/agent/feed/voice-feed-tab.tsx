@@ -454,11 +454,11 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
 
   return (
     <div className="space-y-6">
-      {/* ── Mic orb — no outer card ── */}
-      <div className="relative flex flex-col items-center justify-center text-center py-10">
+      {/* ── Mic orb Card ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-6 relative flex flex-col items-center justify-center text-center">
         {/* Ambient glow — very subtle */}
         <div
-          className={`absolute inset-0 pointer-events-none transition-opacity duration-700 rounded-xl ${isActive ? 'opacity-10' : 'opacity-0'}`}
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-700 rounded-md ${isActive ? 'opacity-10' : 'opacity-0'}`}
           style={{
             background:
               status === 'speaking'
@@ -481,14 +481,14 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
 
         {/* Status text */}
         <div className="relative z-10 mt-2">
-          <p className="text-[12.5px] font-medium text-muted-foreground">
+          <p className="text-[12.5px] font-medium text-muted-foreground font-mono">
             {status === 'speaking'
               ? 'Responding...'
               : status === 'listening'
               ? 'Listening...'
               : status === 'connecting'
               ? 'Connecting...'
-              : 'Click the microphone to start'}
+              : 'Click the microphone to start training'}
           </p>
         </div>
 
@@ -504,7 +504,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
                 }
               }}
               className={cn(
-                'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5',
+                'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer',
                 isMuted
                   ? 'bg-error/10 border-error/30 text-error'
                   : 'bg-surface-low border-border text-foreground hover:bg-surface-high',
@@ -516,7 +516,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
 
             <button
               onClick={stopSession}
-              className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-error/10 hover:text-error border border-border transition-colors flex items-center gap-1.5 text-muted-foreground"
+              className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-error/10 hover:text-error border border-border transition-colors flex items-center gap-1.5 text-muted-foreground cursor-pointer"
             >
               <Square size={12} />
               Stop Call
@@ -531,22 +531,25 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
         )}
       </div>
 
-      {/* ── Transcript ── */}
-      <div>
-        <div className="flex items-center justify-between pb-2 border-b border-border">
-          <span className="text-[12.5px] font-medium text-foreground">
-            Transcript
+      {/* ── Transcript Card ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5">
+        <div className="flex items-center justify-between pb-3 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <span className="text-[13px] font-semibold text-foreground font-serif">
+              Training Transcript
+            </span>
             {transcripts.length > 0 && (
-              <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">({transcripts.length})</span>
+              <span className="text-[11px] font-mono text-muted-foreground">({transcripts.length})</span>
             )}
-          </span>
+          </div>
 
           <div className="flex items-center gap-2">
             {transcripts.some((t) => t.sender === 'user' || t.sender === 'agent') && (
               <button
                 onClick={handleSaveToKnowledge}
                 disabled={isSavingNote}
-                className="px-2.5 py-1 rounded text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isSavingNote ? (
                   <Loader2 size={11} className="animate-spin" />
@@ -562,7 +565,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
             {transcripts.length > 0 && (
               <button
                 onClick={() => setTranscripts([])}
-                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors px-2 py-1"
+                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors px-2 py-1 cursor-pointer font-mono"
               >
                 <Trash2 size={11} />
                 Clear
@@ -572,12 +575,12 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
         </div>
 
         {/* Transcript scroll area */}
-        <div className="space-y-3 min-h-[200px] max-h-[360px] overflow-y-auto pt-3">
+        <div className="space-y-3 min-h-[180px] max-h-[360px] overflow-y-auto pt-3.5 no-scrollbar">
           {transcripts.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted-foreground">
-              <p>No conversation yet.</p>
+            <div className="py-10 text-center text-xs text-muted-foreground select-none">
+              <p className="font-medium text-foreground">No conversation yet.</p>
               <p className="text-[11px] mt-1 text-muted-foreground/70">
-                Click the microphone icon above to talk with ORA in real time.
+                Click the microphone icon above to speak with ORA and teach it store knowledge.
               </p>
             </div>
           ) : (
@@ -585,7 +588,7 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
               if (entry.sender === 'system') {
                 return (
                   <div key={entry.id} className="text-center my-1.5">
-                    <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-mono bg-surface-low border border-border text-muted-foreground">
+                    <span className="inline-block px-2.5 py-0.5 rounded-[3px] text-[10px] font-mono bg-surface-low border border-border/40 text-muted-foreground">
                       {entry.text}
                     </span>
                   </div>
@@ -598,31 +601,27 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
                 <div
                   key={entry.id}
                   className={cn(
-                    'flex items-end gap-2.5 max-w-[85%]',
-                    isUser ? 'self-end ml-auto flex-row-reverse' : 'self-start mr-auto',
+                    'flex flex-col gap-1 max-w-[85%]',
+                    isUser ? 'self-end items-end ml-auto' : 'self-start items-start',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                      isUser
-                        ? 'bg-surface-high border border-border text-foreground'
-                        : 'bg-primary text-primary-foreground',
-                    )}
-                  >
-                    {isUser ? 'You' : 'ORA'}
-                  </span>
+                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+                    <span className={cn('font-medium', isUser ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
+                      {isUser ? 'You' : 'ORA'}
+                    </span>
+                    <span className="text-muted-foreground/60">·</span>
+                    <span className="tabular-nums">{entry.timestamp}</span>
+                  </div>
 
                   <div
                     className={cn(
-                      'p-3 rounded-md text-xs leading-relaxed',
+                      'p-3 rounded-md text-xs leading-relaxed border',
                       isUser
-                        ? 'bg-surface-high border border-border text-foreground'
-                        : 'bg-primary/10 border border-primary/20 text-foreground',
+                        ? 'bg-surface-high/50 border-border/60 text-foreground'
+                        : 'bg-transparent border-border/50 text-foreground',
                     )}
                   >
-                    <p>{entry.text}</p>
-                    <p className="text-[9px] text-muted-foreground mt-1 font-mono">{entry.timestamp}</p>
+                    <p className="whitespace-pre-wrap">{entry.text}</p>
                   </div>
                 </div>
               );

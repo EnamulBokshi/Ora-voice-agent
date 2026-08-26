@@ -37,7 +37,7 @@ export function ProfileClient() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
+      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           <span className="text-sm font-medium">Loading profile…</span>
@@ -55,20 +55,22 @@ export function ProfileClient() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-[1200px] mx-auto w-full space-y-8 bg-background">
-      <ProfileHeader />
-      <BusinessDetailsCard
-        business={profile.business}
-        onBusinessUpdated={(updated) =>
-          setProfile((prev) => (prev ? { ...prev, business: updated } : prev))
-        }
-      />
-      <AccountDetailsCard
-        user={profile.user}
-        onUserUpdated={(updated) =>
-          setProfile((prev) => (prev ? { ...prev, user: updated } : prev))
-        }
-      />
+    <div className="flex-1 overflow-y-auto no-scrollbar w-full bg-background">
+      <div className="w-full px-4 sm:px-6 py-5 space-y-6">
+        <ProfileHeader />
+        <BusinessDetailsCard
+          business={profile.business}
+          onBusinessUpdated={(updated) =>
+            setProfile((prev) => (prev ? { ...prev, business: updated } : prev))
+          }
+        />
+        <AccountDetailsCard
+          user={profile.user}
+          onUserUpdated={(updated) =>
+            setProfile((prev) => (prev ? { ...prev, user: updated } : prev))
+          }
+        />
+      </div>
     </div>
   );
 }

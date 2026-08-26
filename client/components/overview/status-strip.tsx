@@ -10,41 +10,33 @@ interface StatusStripProps {
 }
 
 export function StatusStrip({
-  activeConversations = 0,
   voiceSessions = 0,
   productsCount = 0,
 }: StatusStripProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-border/50 text-[12.5px]">
-      {/* Live Status Indicators */}
+    <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-border/50 text-[12.5px] bg-transparent">
+      {/* Live Status Indicators — Voice Agent Only */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[color:var(--status-online)] opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[color:var(--status-online)]" />
           </span>
-          <span className="font-semibold text-foreground tracking-tight">ORA Online</span>
+          <span className="font-semibold text-foreground tracking-tight">Voice Agent Online</span>
         </div>
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="font-mono font-semibold text-foreground">{activeConversations}</span>
-          <span>active chats</span>
+        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[12px]">
+          <span className="font-semibold text-foreground">{voiceSessions}</span>
+          <span>live voice calls</span>
         </div>
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="font-mono font-semibold text-foreground">{voiceSessions}</span>
-          <span>voice calls</span>
-        </div>
-
-        <span className="text-border/60 hidden sm:inline">·</span>
-
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="font-mono font-semibold text-foreground">{productsCount.toLocaleString()}</span>
-          <span>catalog items in sync</span>
+        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[12px]">
+          <span className="font-semibold text-foreground">{productsCount.toLocaleString()}</span>
+          <span>catalog products synced</span>
         </div>
       </div>
 

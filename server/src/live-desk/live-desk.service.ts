@@ -187,7 +187,10 @@ export class LiveDeskService {
       : (businessId as any);
 
     const conversations = await this.conversationModel
-      .find({ businessId: businessObjId })
+      .find({
+        businessId: businessObjId,
+        status: ConversationStatus.ACTIVE,
+      })
       .sort({ lastActivityAt: -1 })
       .limit(limit)
       .exec();
@@ -268,13 +271,27 @@ export class LiveDeskService {
       ? new Types.ObjectId(businessId)
       : (businessId as any);
 
+    // Auto-expire stale sessions that were left open for more than 15 minutes without activity
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+    await this.conversationModel.updateMany(
+      {
+        businessId: businessObjId,
+        status: ConversationStatus.ACTIVE,
+        $or: [
+          { lastActivityAt: { $lt: fifteenMinsAgo } },
+          { lastActivityAt: { $exists: false }, createdAt: { $lt: fifteenMinsAgo } },
+        ],
+      },
+      { $set: { status: ConversationStatus.CLOSED } },
+    );
+
     const voiceConvs = await this.conversationModel
       .find({
         businessId: businessObjId,
         channel: ConversationChannel.WIDGET_VOICE,
         status: ConversationStatus.ACTIVE,
       })
-      .sort({ createdAt: -1 })
+      .sort({ lastActivityAt: -1 })
       .limit(6)
       .exec();
 
@@ -290,8 +307,10 @@ export class LiveDeskService {
     ];
 
     return voiceConvs.map((conv, idx) => {
-      const name = `Voice Caller ${conv.sessionId ? conv.sessionId.slice(0, 5).toUpperCase() : idx + 1}`;
+      const name = `Voice Caller ${conv.sessionId ? conv.sessionId.slice(-5).toUpperCase() : String(idx + 1)}`;
       const initial = name.replace('Voice Caller ', '')[0] || 'V';
+      const startTime = conv.lastActivityAt || (conv as any).createdAt || new Date();
+
       return {
         id: (conv._id as any).toString(),
         sessionId: conv.sessionId,
@@ -300,7 +319,7 @@ export class LiveDeskService {
         status: 'Inquiring Catalog',
         waveformClass: waveformClasses[idx % waveformClasses.length],
         avatarBgClass: avatarBgClasses[idx % avatarBgClasses.length],
-        duration: this.formatDuration((conv as any).createdAt || new Date()),
+        duration: this.formatDuration(startTime),
       };
     });
   }
@@ -311,91 +330,117 @@ export class LiveDeskService {
       : (businessId as any);
 
     const now = new Date();
-    const last1Hr = new Date(now.getTime() - 60 * 60 * 1000);
-    const prev1HrStart = new Date(now.getTime() - 120 * 60 * 1000);
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const prev24hStart = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
     const [
-      currRec,
-      prevRec,
-      currCart,
-      prevCart,
-      currOrders,
-      prevOrders,
+      totalRec,
+      curr24hRec,
+      prev24hRec,
+      totalCart,
+      curr24hCart,
+      prev24hCart,
+      totalOrders,
+      curr24hOrders,
+      prev24hOrders,
     ] = await Promise.all([
+      // Total lifetime recommendations
       this.eventModel.countDocuments({
         businessId: businessObjId,
         eventType: EventType.PRODUCT_RECOMMENDED,
-        timestamp: { $gte: last1Hr, $lte: now },
       }),
+      // Last 24h recommendations
       this.eventModel.countDocuments({
         businessId: businessObjId,
         eventType: EventType.PRODUCT_RECOMMENDED,
-        timestamp: { $gte: prev1HrStart, $lt: last1Hr },
+        timestamp: { $gte: last24h, $lte: now },
       }),
+      // Previous 24h recommendations
+      this.eventModel.countDocuments({
+        businessId: businessObjId,
+        eventType: EventType.PRODUCT_RECOMMENDED,
+        timestamp: { $gte: prev24hStart, $lt: last24h },
+      }),
+
+      // Total lifetime cart updates
       this.eventModel.countDocuments({
         businessId: businessObjId,
         eventType: EventType.CART_UPDATED,
-        timestamp: { $gte: last1Hr, $lte: now },
       }),
+      // Last 24h cart updates
       this.eventModel.countDocuments({
         businessId: businessObjId,
         eventType: EventType.CART_UPDATED,
-        timestamp: { $gte: prev1HrStart, $lt: last1Hr },
+        timestamp: { $gte: last24h, $lte: now },
       }),
+      // Previous 24h cart updates
+      this.eventModel.countDocuments({
+        businessId: businessObjId,
+        eventType: EventType.CART_UPDATED,
+        timestamp: { $gte: prev24hStart, $lt: last24h },
+      }),
+
+      // Total lifetime assisted orders
       this.orderModel.countDocuments({
         businessId: businessObjId,
         status: { $ne: OrderStatus.CANCELED },
-        createdAt: { $gte: last1Hr, $lte: now },
       }),
+      // Last 24h orders
       this.orderModel.countDocuments({
         businessId: businessObjId,
         status: { $ne: OrderStatus.CANCELED },
-        createdAt: { $gte: prev1HrStart, $lt: last1Hr },
+        createdAt: { $gte: last24h, $lte: now },
+      }),
+      // Previous 24h orders
+      this.orderModel.countDocuments({
+        businessId: businessObjId,
+        status: { $ne: OrderStatus.CANCELED },
+        createdAt: { $gte: prev24hStart, $lt: last24h },
       }),
     ]);
 
-    const recDelta = currRec - prevRec;
-    const cartDelta = currCart - prevCart;
-    const ordersDelta = currOrders - prevOrders;
+    const recDelta = curr24hRec - prev24hRec;
+    const cartDelta = curr24hCart - prev24hCart;
+    const ordersDelta = curr24hOrders - prev24hOrders;
 
-    const upsells = Math.round(currRec * 0.35);
+    const upsells = Math.round(totalRec * 0.35);
     const upsellsDelta = Math.round(recDelta * 0.35);
 
-    const checkouts = Math.round(currCart * 0.65);
+    const checkouts = Math.round(totalCart * 0.65);
     const checkoutsDelta = Math.round(cartDelta * 0.65);
 
     return [
       {
         label: 'Recommendations Offered',
-        count: currRec,
-        delta: recDelta >= 0 ? `+${recDelta}` : `${recDelta}`,
+        count: totalRec,
+        delta: recDelta !== 0 ? (recDelta > 0 ? `+${recDelta}` : `${recDelta}`) : '0',
       },
       {
         label: 'Upsells Accepted',
         count: upsells,
-        delta: upsellsDelta >= 0 ? `+${upsellsDelta}` : `${upsellsDelta}`,
+        delta: upsellsDelta !== 0 ? (upsellsDelta > 0 ? `+${upsellsDelta}` : `${upsellsDelta}`) : '0',
       },
       {
         label: 'Items Added to Cart',
-        count: currCart,
-        delta: cartDelta >= 0 ? `+${cartDelta}` : `${cartDelta}`,
+        count: totalCart,
+        delta: cartDelta !== 0 ? (cartDelta > 0 ? `+${cartDelta}` : `${cartDelta}`) : '0',
       },
       {
         label: 'Checkout Assisted',
         count: checkouts,
-        delta: checkoutsDelta >= 0 ? `+${checkoutsDelta}` : `${checkoutsDelta}`,
+        delta: checkoutsDelta !== 0 ? (checkoutsDelta > 0 ? `+${checkoutsDelta}` : `${checkoutsDelta}`) : '0',
       },
       {
         label: 'Orders Placed Live',
-        count: currOrders,
-        delta: ordersDelta >= 0 ? `+${ordersDelta}` : `${ordersDelta}`,
+        count: totalOrders,
+        delta: ordersDelta !== 0 ? (ordersDelta > 0 ? `+${ordersDelta}` : `${ordersDelta}`) : '0',
       },
     ];
   }
 
   async getSystemHealth() {
-    let redisLatency = '12ms';
-    let mongoLatency = '18ms';
+    let redisLatency = '4ms';
+    let mongoLatency = '8ms';
     let redisOperational = true;
     let mongoOperational = true;
 
@@ -425,7 +470,7 @@ export class LiveDeskService {
       allOnline: redisOperational && mongoOperational,
       services: [
         {
-          name: 'Store Chat Gateway',
+          name: 'Voice WebSocket Gateway',
           latency: redisLatency,
           status: redisOperational ? 'Operational' : 'Degraded',
         },

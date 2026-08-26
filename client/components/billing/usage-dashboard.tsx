@@ -2,6 +2,7 @@
 
 import { SubscriptionDetailsResponse } from '@/types/billing';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/format';
 
 interface UsageDashboardProps {
   subscription: SubscriptionDetailsResponse;
@@ -36,11 +37,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
   const seatsPct = Math.min(100, Math.round((seatsUsed / Math.max(1, seatsLimit)) * 100));
 
   const periodEndFormatted = sub?.currentPeriodEnd
-    ? new Date(sub.currentPeriodEnd).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
+    ? formatDateTime(sub.currentPeriodEnd)
     : 'Monthly cycle';
 
   const daysLabel = ['Today', 'Yesterday', '2 days ago', '3 days ago', '4 days ago', '5 days ago', '6 days ago'];
@@ -87,35 +84,36 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
   ];
 
   return (
-    <div className="space-y-8">
-      {/* ── Cycle Information ── */}
-      <div className="flex items-center justify-between text-[12px] text-muted-foreground pb-1">
-        <span>
-          Current billing cycle for <strong className="text-foreground font-semibold">{plan?.name ?? 'Free Tier'}</strong>
-        </span>
-        <span className="font-mono">{sub?.status === 'active' ? `Renews on ${periodEndFormatted}` : 'Active Free Tier'}</span>
-      </div>
-
-      {/* ── 4-Column Flat Metric Strip ── */}
-      <div>
-        <div className="pb-3 border-b border-border">
-          <h2 className="text-[13.5px] font-semibold text-foreground">Quota Utilization</h2>
+    <div className="space-y-6">
+      {/* ── 1. Quota Utilization Card ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-6">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Active Resource Quota Utilization
+            </h2>
+          </div>
+          <span className="text-[11.5px] font-mono text-muted-foreground">
+            {sub?.status === 'active' ? `Renews on ${periodEndFormatted}` : 'Active Free Tier'}
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border border-b border-border py-4">
+        {/* 4-Column Flat Metric Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
           {quotaItems.map((item) => (
             <div key={item.label} className="p-4 first:pl-0 last:pr-0 space-y-3">
               <div className="flex justify-between items-baseline">
-                <span className="text-[12px] font-medium text-muted-foreground truncate">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
                   {item.label}
                 </span>
-                <span className="text-[11px] font-mono text-muted-foreground">
+                <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
                   {item.pct}%
                 </span>
               </div>
 
               <div>
-                <span className="text-2xl font-bold font-mono text-foreground tabular-nums">
+                <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
                   {item.used.toLocaleString()}
                 </span>
                 <span className="text-xs text-muted-foreground ml-1">
@@ -123,7 +121,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
                 </span>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="h-1.5 w-full rounded-full bg-surface-high overflow-hidden">
                   <div
                     className={cn(
@@ -133,7 +131,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
                     style={{ width: `${item.pct}%` }}
                   />
                 </div>
-                <p className="text-[10.5px] text-muted-foreground/70 font-mono">
+                <p className="text-[11px] text-muted-foreground/80 font-mono">
                   {item.remaining}
                 </p>
               </div>
@@ -142,48 +140,50 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
       </div>
 
-      {/* ── Flat Activity Breakdown Table ── */}
-      <div className="pt-2">
-        <div className="flex items-center justify-between pb-3 border-b border-border">
-          <div>
-            <h3 className="text-[13.5px] font-semibold text-foreground">Daily Activity Breakdown</h3>
-            <p className="text-[11.5px] text-muted-foreground mt-0.5">
-              Daily customer interactions and resource consumption over the last 7 days.
-            </p>
+      {/* ── 2. Daily Activity Breakdown Card ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+            <h3 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Daily Voice & Order Activity
+            </h3>
           </div>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            Trailing 7-Day Window
+          </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[12.5px]">
+          <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-border text-muted-foreground uppercase text-[11px] font-medium tracking-wider">
-                <th className="py-2.5 px-3">Timeline</th>
-                <th className="py-2.5 px-3">Sessions</th>
-                <th className="py-2.5 px-3">Minutes Used</th>
-                <th className="py-2.5 px-3">Orders Assisted</th>
-                <th className="py-2.5 px-3 text-right">Quota Impact</th>
+              <tr className="border-b border-border/40 text-muted-foreground uppercase text-[11px] font-mono font-medium tracking-wider">
+                <th className="py-2.5 px-3">Date</th>
+                <th className="py-2.5 px-3 text-right">Voice Sessions</th>
+                <th className="py-2.5 px-3 text-right">Minutes Consumed</th>
+                <th className="py-2.5 px-3 text-right">Orders Assisted</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50 text-foreground">
-              {dailyBreakdown.map((row, i) => (
-                <tr key={i} className="hover:bg-surface-high/30 transition-colors">
-                  <td className="py-3 px-3 font-medium text-foreground">{row.day}</td>
-                  <td className="py-3 px-3 font-mono text-muted-foreground">{row.sessions} sessions</td>
-                  <td className="py-3 px-3 font-mono text-foreground">{row.minutes} min</td>
-                  <td className="py-3 px-3 font-mono text-foreground">{row.orders} orders</td>
-                  <td className="py-3 px-3 text-right font-mono text-muted-foreground">
-                    {minutesLimit > 0 ? `+${Math.round((row.minutes / minutesLimit) * 100)}%` : '0%'}
+            <tbody className="divide-y divide-border/30 text-foreground">
+              {dailyBreakdown.map((row) => (
+                <tr key={row.day} className="hover:bg-surface-high/30 transition-colors">
+                  <td className="py-3 px-3 font-medium text-foreground text-[12.5px]">
+                    {row.day}
+                  </td>
+                  <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
+                    {row.sessions}
+                  </td>
+                  <td className="py-3 px-3 text-right tabular-nums text-foreground font-medium">
+                    {row.minutes} min
+                  </td>
+                  <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
+                    {row.orders}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* ── Policy Notice ── */}
-      <div className="pt-2 text-[12px] text-muted-foreground border-t border-border flex items-center justify-between">
-        <span>Fair usage policy applies. When reaching 80% quota, automatic notifications will be sent to the store email.</span>
       </div>
     </div>
   );

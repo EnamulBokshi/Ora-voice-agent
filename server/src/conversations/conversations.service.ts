@@ -106,20 +106,15 @@ export class ConversationsService {
   }
 
   async getTranscript(businessId: string, conversationId: string) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new DomainException(
-        'CONVERSATION_NOT_FOUND',
-        `Conversation with ID '${conversationId}' not found.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    const isObjId = Types.ObjectId.isValid(conversationId);
+    const query: any = {
+      businessId: businessId as any,
+      ...(isObjId
+        ? { $or: [{ _id: new Types.ObjectId(conversationId) }, { sessionId: conversationId }] }
+        : { sessionId: conversationId }),
+    };
 
-    const conversation = await this.conversationModel
-      .findOne({
-        _id: conversationId as any,
-        businessId: businessId as any,
-      })
-      .exec();
+    const conversation = await this.conversationModel.findOne(query).exec();
 
     if (!conversation) {
       throw new DomainException(
@@ -145,20 +140,17 @@ export class ConversationsService {
     conversationId: string,
     status: ConversationStatus,
   ) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new DomainException(
-        'CONVERSATION_NOT_FOUND',
-        `Conversation with ID '${conversationId}' not found.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
+    const isObjId = Types.ObjectId.isValid(conversationId);
+    const query: any = {
+      businessId: businessId as any,
+      ...(isObjId
+        ? { $or: [{ _id: new Types.ObjectId(conversationId) }, { sessionId: conversationId }] }
+        : { sessionId: conversationId }),
+    };
 
     const conversation = await this.conversationModel
       .findOneAndUpdate(
-        {
-          _id: conversationId as any,
-          businessId: businessId as any,
-        },
+        query,
         { $set: { status, lastActivityAt: new Date() } },
         { returnDocument: 'after' },
       )

@@ -1,4 +1,4 @@
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google"
+import { Inter, Space_Grotesk, JetBrains_Mono, Newsreader } from "next/font/google"
 import { Suspense } from "react"
 
 import "./globals.css"
@@ -27,6 +27,14 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 })
 
+/** Editorial Serif — headlines, metrics, luxury SaaS accents */
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+  style: ["normal", "italic"],
+})
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,6 +49,7 @@ export default function RootLayout({
         inter.variable,
         spaceGrotesk.variable,
         jetbrainsMono.variable,
+        newsreader.variable,
       )}
     >
       <body suppressHydrationWarning>
@@ -54,4 +63,3 @@ export default function RootLayout({
     </html>
   )
 }
-

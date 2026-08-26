@@ -49,7 +49,7 @@ const navGroups: NavGroupDef[] = [
     groupLabel: 'Billing',
     items: [
       { id: 'billing', label: 'Invoices', href: '/billing', icon: <Receipt size={15} /> },
-      { id: 'usage', label: 'Usage', href: '/billing?tab=usage', icon: <BarChart2 size={15} /> },
+      { id: 'usage', label: 'Usage', href: '/usage', icon: <BarChart2 size={15} /> },
     ],
   },
   {
@@ -75,8 +75,8 @@ function getActiveNavId(
   if (pathname.startsWith('/agent')) return 'agent';
   if (pathname.startsWith('/conversations')) return 'conversations';
   if (pathname.startsWith('/notifications')) return 'notifications';
-  if (pathname.startsWith('/billing'))
-    return searchParams.get('tab') === 'usage' ? 'usage' : 'billing';
+  if (pathname.startsWith('/usage')) return 'usage';
+  if (pathname.startsWith('/billing')) return 'billing';
   if (pathname.startsWith('/profile'))
     return searchParams.get('tab') === 'notifications' ? 'notifications' : 'settings';
 

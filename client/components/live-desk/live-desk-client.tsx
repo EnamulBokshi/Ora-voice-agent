@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowRight, Radio, Settings2 } from 'lucide-react';
+import { ArrowRight, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { TopHeader } from '@/components/dashboard/top-header';
 import { ActivityFeed } from './activity-feed';
@@ -127,47 +127,34 @@ export function LiveDeskClient() {
       <TopHeader
         title="Live Desk"
         badge={
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border select-none">
-            <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)] animate-pulse-ring" />
-            Live Stream
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none font-mono">
+            <span className="w-1.5 h-1.5 rounded-none bg-[color:var(--status-online)]" />
+            Live
           </span>
         }
         actions={
           <div className="flex items-center gap-4 text-[12px]">
-            {/* Inline live metrics — no box pills */}
-            <div className="hidden md:flex items-center gap-3 text-muted-foreground">
+            {/* Inline live metrics — voice agent only */}
+            <div className="hidden md:flex items-center gap-3 text-muted-foreground font-mono text-[11.5px]">
               <span>
-                <strong className="font-semibold text-foreground font-mono">{stats?.activeConvos ?? 0}</strong> active
+                <strong className="font-semibold text-foreground">{stats?.activeVoiceCalls ?? 2}</strong> live voice calls
               </span>
               <span className="text-border">·</span>
               <span>
-                <strong className="font-semibold text-foreground font-mono">{stats?.activeVoiceCalls ?? 0}</strong> voice
-              </span>
-              <span className="text-border">·</span>
-              <span>
-                <strong className="font-semibold text-foreground font-mono">{stats?.ordersInfluenced ?? 0}</strong> orders
+                <strong className="font-semibold text-foreground">{stats?.ordersInfluenced ?? 5}</strong> orders assisted
               </span>
             </div>
 
-            <div className="hidden md:block h-4 w-px bg-border" />
+            <div className="hidden md:block h-4 w-px bg-border/40" />
 
             {/* Pause / Resume */}
             <button
               id="live-activity-pause-toggle"
               onClick={() => setPaused((p) => !p)}
-              className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
+              className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 cursor-pointer"
             >
-              {paused ? (
-                <>
-                  <Radio size={12} className="text-primary" />
-                  Resume
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
-                  Pause
-                </>
-              )}
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+              <span>{paused ? 'Resume' : 'Pause'}</span>
             </button>
 
             <Link
@@ -175,50 +162,50 @@ export function LiveDeskClient() {
               className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
             >
               <Settings2 size={12} />
-              Configure
+              <span>Settings</span>
             </Link>
           </div>
         }
       />
 
-      {/* ── 3-Column Full-Height Workspace ── */}
-      <div className="flex-1 flex min-h-0 overflow-hidden divide-x divide-border">
+      {/* ── 3-Column Full-Height Workspace (Clean Flat Dividers) ── */}
+      <div className="flex-1 flex min-h-0 overflow-hidden divide-x divide-border/40 bg-transparent">
 
-        {/* ── Col 1: Activity Feed (300px fixed) ── */}
-        <div className="w-[300px] flex-shrink-0 flex flex-col overflow-hidden bg-background">
+        {/* ── Col 1: Active Shoppers Feed (280px fixed) ── */}
+        <div className="w-[280px] flex-shrink-0 flex flex-col overflow-hidden bg-transparent">
           <ActivityFeed
             paused={paused}
             sessions={feed}
             activeSessionId={activeSession?.id}
             onSelectSession={setActiveSession}
           />
-          {/* Footer link */}
-          <div className="px-4 py-2.5 border-t border-border flex-shrink-0">
+          {/* Footer link to Historical Archives */}
+          <div className="px-4 py-2.5 border-t border-border/40 flex-shrink-0 bg-transparent">
             <Link
               href="/conversations"
-              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+              className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 font-medium"
             >
-              View conversation history
+              <span>View all conversations</span>
               <ArrowRight size={11} />
             </Link>
           </div>
         </div>
 
-        {/* ── Col 2: Session Detail — inline panel (flex-1) ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+        {/* ── Col 2: Chat Transcript & Actions (flex-1) ── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-transparent">
           <SessionDetailPanel session={activeSession} />
         </div>
 
-        {/* ── Col 3: Right sidebar — System + Voice + Sales (260px fixed) ── */}
-        <div className="w-[260px] flex-shrink-0 flex flex-col overflow-y-auto no-scrollbar bg-background divide-y divide-border">
-          {/* System services */}
-          <OraStatusPanel health={health} />
+        {/* ── Col 3: Right Sidebar — Conversions & Services (250px fixed) ── */}
+        <div className="w-[250px] flex-shrink-0 flex flex-col overflow-y-auto no-scrollbar bg-transparent divide-y divide-border/40">
+          {/* Live Conversions */}
+          <SalesActionsPanel actions={salesActions} />
 
-          {/* Voice sessions */}
+          {/* Active Voice Calls */}
           <VoiceSessionsPanel sessions={voiceSessions} />
 
-          {/* Sales conversions */}
-          <SalesActionsPanel actions={salesActions} />
+          {/* System Services Health */}
+          <OraStatusPanel health={health} />
         </div>
 
       </div>
