@@ -17,7 +17,7 @@ const getApiBase = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
-  return 'http://localhost:5000';
+  return process.env.NESTJS_BACKEND_URL || 'http://localhost:5000';
 };
 
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_ORA_KEY || 'biz_live_ora_platform_system';

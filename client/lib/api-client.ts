@@ -29,6 +29,11 @@ export async function apiClient<T>(
     ...(options.headers as Record<string, string>),
   };
 
+  // Automatically attach current browser origin so backend generates matching links
+  if (typeof window !== 'undefined' && window.location?.origin && !headers['x-client-origin']) {
+    headers['x-client-origin'] = window.location.origin;
+  }
+
   // Automatically attach Bearer access token from localStorage if available and not set
   if (typeof window !== 'undefined' && !headers['Authorization']) {
     const token = localStorage.getItem('accessToken');

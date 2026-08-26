@@ -48,6 +48,9 @@ export interface VerifyResetTokenResponseData {
 
 export interface ResetPasswordResponseData {
   message: string;
+  accessToken?: string;
+  user?: User;
+  business?: Business;
 }
 
 export interface ApiError {

@@ -288,7 +288,10 @@ export class BkashProvider implements PaymentProvider {
     customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef> {
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      this.configService.get<string>('FRONTEND_URL') ||
+      (this.configService.get<string>('NODE_ENV') === 'production'
+        ? 'https://tryora.live'
+        : 'http://localhost:3000');
     const callbackUrl = `${frontendUrl}/billing/bkash/callback?planId=${planId}`;
 
     const agreement = await this.createAgreement(businessId, callbackUrl);

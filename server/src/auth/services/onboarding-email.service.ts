@@ -10,6 +10,7 @@ export interface OnboardingEmailPayload {
   merchantName: string;
   storeName: string;
   publishableKey?: string | null;
+  clientOrigin?: string;
 }
 
 @Injectable()
@@ -55,9 +56,14 @@ export class OnboardingEmailService {
 
   async sendOnboardingEmail(payload: OnboardingEmailPayload): Promise<{ success: boolean; messageId?: string }> {
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      payload.clientOrigin?.startsWith('http')
+        ? payload.clientOrigin.replace(/\/+$/, '')
+        : this.configService.get<string>('FRONTEND_URL') ||
+          (this.configService.get<string>('NODE_ENV') === 'production'
+            ? 'https://tryora.live'
+            : 'http://localhost:3000');
     const serverUrl =
-      process.env.BACKEND_URL || 'http://localhost:5000';
+      process.env.BACKEND_URL || (this.configService.get<string>('NODE_ENV') === 'production' ? 'https://tryora.live' : 'http://localhost:5000');
     const fromEmail = this.getFromAddress('ORA AI Sales Platform');
 
     const widgetScriptTag = `&lt;!-- ORA Voice AI Sales Assistant Widget --&gt;\n&lt;script \n  src="${frontendUrl}/widget/ora-widget.js" \n  data-ora-key="${payload.publishableKey}" \n  async&gt;\n&lt;/script&gt;`;

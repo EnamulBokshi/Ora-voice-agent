@@ -74,13 +74,17 @@ export function MerchantCredentialsCard({
 
   const hasActiveKey = Boolean(publishableKey && publishableKey.trim().length > 0);
 
-  const origin = (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000').replace(/\/+$/, '');
+  const origin = (
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'
+  ).replace(/\/+$/, '');
   const apiOrigin = (
     typeof window !== 'undefined'
       ? window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? `${window.location.protocol}//${window.location.hostname}:5000`
         : window.location.origin
-      : 'http://localhost:5000'
+      : process.env.NESTJS_BACKEND_URL || 'http://localhost:5000'
   ).replace(/\/+$/, '');
 
   const handleCopyKey = () => {

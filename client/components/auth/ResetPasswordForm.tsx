@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowLeft, KeyRound } from 'lucide-react';
 import { verifyResetTokenApi, resetPasswordApi } from '@/services/auth-service';
 import { ApiClientError } from '@/lib/api-client';
+import { ResetPasswordResponseData } from '@/types/auth';
 
 interface ResetPasswordFormProps {
   token: string;
-  onSuccess: () => void;
+  onSuccess: (data?: ResetPasswordResponseData) => void;
   onRequestNewLink: () => void;
 }
 
@@ -83,11 +84,11 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
     setError(null);
 
     try {
-      await resetPasswordApi({ token, password });
+      const res = await resetPasswordApi({ token, password });
       setSuccess(true);
       setTimeout(() => {
-        onSuccess();
-      }, 2000);
+        onSuccess(res);
+      }, 1000);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.message || 'Failed to reset password.');
@@ -140,15 +141,11 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
         </div>
         <h3 className="text-lg font-semibold text-foreground">Password Reset Complete</h3>
         <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-          Your account password has been updated securely. Redirecting you to sign in...
+          Your account password has been updated securely. Redirecting you to your dashboard...
         </p>
-        <button
-          type="button"
-          onClick={onSuccess}
-          className="w-full rounded-md bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 mt-4"
-        >
-          Sign in with new password
-        </button>
+        <div className="flex justify-center pt-2">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
       </div>
     );
   }

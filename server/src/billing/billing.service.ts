@@ -587,7 +587,10 @@ export class BillingService implements OnModuleInit {
 
       if (business && owner) {
         const frontendUrl =
-          this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+          this.configService.get<string>('FRONTEND_URL') ||
+          (this.configService.get<string>('NODE_ENV') === 'production'
+            ? 'https://tryora.live'
+            : 'http://localhost:3000');
 
         // 1. Dispatch Congratulations Email
         await this.mailService.sendCongratulationsEmail(owner.email, {

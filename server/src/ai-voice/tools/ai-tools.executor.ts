@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../../products/products.service';
 import { RagService } from '../../rag/services/rag.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
@@ -27,6 +28,8 @@ export class AiToolsExecutor {
     private readonly customersService?: CustomersService,
     @Optional()
     private readonly billingService?: BillingService,
+    @Optional()
+    private readonly configService?: ConfigService,
   ) {}
 
   async executeTool(
@@ -436,9 +439,14 @@ export class AiToolsExecutor {
 
 
   private async handleRedirectToCheckout(businessId: string, sessionId: string) {
+    const frontendUrl =
+      this.configService?.get<string>('FRONTEND_URL') ||
+      (this.configService?.get<string>('NODE_ENV') === 'production'
+        ? 'https://tryora.live'
+        : 'http://localhost:3000');
     return {
       success: true,
-      checkoutUrl: `http://localhost:3000/checkout?sessionId=${sessionId}&biz=${businessId}`,
+      checkoutUrl: `${frontendUrl}/checkout?sessionId=${sessionId}&biz=${businessId}`,
       message: 'Redirecting customer to storefront checkout page.',
     };
   }
@@ -839,7 +847,17 @@ export class AiToolsExecutor {
     } else if (platform.includes('woo') || platform.includes('wordpress')) {
       guideMarkdown = `### WooCommerce Integration\n1. Install the ORA WooCommerce Plugin or add the snippet to \`header.php\`:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n2. Set up WooCommerce REST API keys in your ORA dashboard for instant order placement.`;
     } else if (platform.includes('next') || platform.includes('react')) {
-      guideMarkdown = `### Next.js & React Integration\nIn your root \`app/layout.tsx\`:\n\`\`\`tsx\nimport Script from 'next/script';\n\n<Script\n  src="http://localhost:3000/widget/ora-widget.js"\n  data-ora-key="YOUR_PUBLISHABLE_KEY"\n  data-ora-api="http://localhost:5000"\n  strategy="afterInteractive"\n/>\n\`\`\`\nORA automatically handles SPA route changes and hydration!`;
+      const frontendUrl =
+        this.configService?.get<string>('FRONTEND_URL') ||
+        (this.configService?.get<string>('NODE_ENV') === 'production'
+          ? 'https://tryora.live'
+          : 'http://localhost:3000');
+      const apiUrl =
+        this.configService?.get<string>('BACKEND_URL') ||
+        (this.configService?.get<string>('NODE_ENV') === 'production'
+          ? 'https://tryora.live'
+          : 'http://localhost:5000');
+      guideMarkdown = `### Next.js & React Integration\nIn your root \`app/layout.tsx\`:\n\`\`\`tsx\nimport Script from 'next/script';\n\n<Script\n  src="${frontendUrl}/widget/ora-widget.js"\n  data-ora-key="YOUR_PUBLISHABLE_KEY"\n  data-ora-api="${apiUrl}"\n  strategy="afterInteractive"\n/>\n\`\`\`\nORA automatically handles SPA route changes and hydration!`;
     } else {
       guideMarkdown = `### Universal HTML Integration\nAdd this single line anywhere in your HTML before \`</body>\`:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\nORA auto-scrapes your headings, projects, products, and contact info in real-time.`;
     }

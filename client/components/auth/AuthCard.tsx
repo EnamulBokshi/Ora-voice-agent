@@ -8,7 +8,7 @@ import { RegisterForm } from './RegisterForm';
 import { OtpVerificationForm } from './OtpVerificationForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { ResetPasswordForm } from './ResetPasswordForm';
-import { AuthResponseData, OtpResponseData, User } from '@/types/auth';
+import { AuthResponseData, OtpResponseData, ResetPasswordResponseData, User } from '@/types/auth';
 import { getMeApi } from '@/services/auth-service';
 
 export const AuthCard: React.FC = () => {
@@ -93,14 +93,7 @@ export const AuthCard: React.FC = () => {
       localStorage.setItem('accessToken', data.accessToken);
     }
     syncUserCookie(data.user.role);
-
-    if (!data.user.emailVerified) {
-      setSessionToken(data.accessToken);
-      setRegisteredEmail(data.user.email);
-      setMode('otp');
-    } else {
-      window.location.href = resolveTargetUrl(data.user.role);
-    }
+    window.location.href = resolveTargetUrl(data.user.role);
   };
 
   const handleOtpVerifiedSuccess = async (res?: OtpResponseData & { accessToken?: string; user?: User }) => {
@@ -124,6 +117,18 @@ export const AuthCard: React.FC = () => {
       window.location.href = resolveTargetUrl(profile?.user?.role);
     } catch {
       window.location.href = resolveTargetUrl();
+    }
+  };
+
+  const handleResetPasswordSuccess = (data?: ResetPasswordResponseData) => {
+    if (data?.accessToken && data?.user) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', data.accessToken);
+      }
+      syncUserCookie(data.user.role);
+      window.location.href = resolveTargetUrl(data.user.role);
+    } else {
+      setMode('login');
     }
   };
 
@@ -168,7 +173,7 @@ export const AuthCard: React.FC = () => {
         {mode === 'reset-password' && (
           <ResetPasswordForm
             token={resetToken}
-            onSuccess={() => setMode('login')}
+            onSuccess={handleResetPasswordSuccess}
             onRequestNewLink={() => setMode('forgot-password')}
           />
         )}

@@ -146,12 +146,12 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     if (directLiveClientRef.current) {
       try {
         directLiveClientRef.current.stop();
-      } catch (e) {}
+      } catch (e) { }
       directLiveClientRef.current = null;
     }
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+      try { recognitionRef.current.stop(); } catch (e) { }
       recognitionRef.current = null;
     }
 
@@ -185,7 +185,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     }
 
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current.close().catch(() => { });
       audioCtxRef.current = null;
     }
 
@@ -250,13 +250,101 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
   const startBrowserSession = async () => {
     try {
       setStatus('connecting');
-      setErrorMessage(null);
-      addTranscript('system', 'Initializing Browser STT/TTS engine...');
 
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        throw new Error('Web Speech API is not supported in this browser. Please use Chrome/Edge or ORA Direct Engine.');
-      }
+      const wsHost = (
+        process.env.NEXT_PUBLIC_WS_URL ||
+        (typeof window !== 'undefined'
+          ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
+          : 'ws://localhost:5000')
+      ).replace(/^http/, 'ws');
+
+      addTranscript('system', `Connecting to ${wsHost}/voice (Server Proxy)...`);
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtx({ sampleRate: 16000 });
+      audioCtxRef.current = audioCtx;
+      nextPlayTimeRef.current = audioCtx.currentTime;
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+      micStreamRef.current = stream;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      micSourceRef.current = source;
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateVolume = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+        animFrameRef.current = requestAnimationFrame(updateVolume);
+      };
+      updateVolume();
+
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        if (isMuted || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        const inputBuffer = e.inputBuffer.getChannelData(0);
+        const base64Pcm = float32ToInt16Base64(inputBuffer);
+        const chunkPayload = JSON.stringify(['audio-chunk', { audio: base64Pcm }]);
+        wsRef.current.send(`42/voice,${chunkPayload}`);
+      };
+
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+
+      const wsUrl = `${wsHost}/socket.io/?EIO=4&transport=websocket`;
+
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = handleSocketMessage;
+      ws.onerror = (err) => {
+        console.error('[VoiceModal] WebSocket error:', err);
+        setErrorMessage(`Failed to connect to backend voice gateway at ${wsHost}/voice`);
+        setStatus('error');
+      };
+      ws.onclose = () => {
+        setStatus('idle');
+      };
+    } catch (err: any) {
+      console.error('[VoiceModal] Initialization failed:', err);
+      setErrorMessage(err.message || 'Microphone access denied or audio error.');
+      setStatus('error');
+    }
+  };
+
+  // Start Browser Speech Recognition Assistant Mode
+  const startBrowserVoiceAssistant = async () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setErrorMessage('Browser Speech Recognition not supported in this browser. Please use Chrome/Edge.');
+      setStatus('error');
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+      setStatus('listening');
+      addTranscript('system', 'Interactive Voice Assistant active! Speak your query...');
 
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
@@ -370,22 +458,20 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container border border-border/50">
             <button
               onClick={() => { stopSession(); setVoiceMode('direct-live'); }}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                voiceMode === 'direct-live'
+              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${voiceMode === 'direct-live'
                   ? 'bg-surface-high text-foreground font-semibold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
               ORA Neural Engine (Direct)
             </button>
             <button
               onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                voiceMode === 'browser-speech'
+              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${voiceMode === 'browser-speech'
                   ? 'bg-surface-high text-foreground font-semibold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               <SlidersHorizontal size={13} />
               Browser STT/TTS
@@ -413,15 +499,14 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           <div className="w-full flex items-center justify-between text-[12.5px] px-4 py-2.5 rounded-xl bg-surface-container/50 border border-border/60">
             <div className="flex items-center gap-2.5 min-w-0">
               <span
-                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                  status === 'speaking' || status === 'listening'
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${status === 'speaking' || status === 'listening'
                     ? 'bg-emerald-500 dark:bg-[#C8F031] animate-pulse shadow-[0_0_8px_rgba(200,240,49,0.7)]'
                     : status === 'connecting'
-                    ? 'bg-amber-400 animate-ping'
-                    : status === 'error'
-                    ? 'bg-red-400'
-                    : 'bg-muted-foreground/40'
-                }`}
+                      ? 'bg-amber-400 animate-ping'
+                      : status === 'error'
+                        ? 'bg-red-400'
+                        : 'bg-muted-foreground/40'
+                  }`}
               />
               <span className="text-foreground/90 font-medium truncate">
                 {status === 'idle' && 'Click Test ORA Live to speak with ORA'}
@@ -456,11 +541,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               <>
                 <button
                   onClick={toggleMute}
-                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
-                    isMuted
+                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${isMuted
                       ? 'bg-red-500/20 border-red-500/40 text-red-500 dark:text-red-400'
                       : 'bg-surface-high border-border/80 text-foreground hover:bg-surface-highest'
-                  }`}
+                    }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
                   {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -516,8 +600,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                         item.sender === 'agent'
                           ? 'text-foreground'
                           : item.sender === 'user'
-                          ? 'text-foreground/90'
-                          : 'text-muted-foreground italic'
+                            ? 'text-foreground/90'
+                            : 'text-muted-foreground italic'
                       }
                     >
                       {item.text}

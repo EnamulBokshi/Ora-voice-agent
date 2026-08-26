@@ -39,9 +39,23 @@ export class AuthService {
     private readonly onboardingEmailService?: OnboardingEmailService,
   ) {}
 
+  getFrontendUrl(clientOrigin?: string): string {
+    if (clientOrigin && clientOrigin.startsWith('http')) {
+      return clientOrigin.replace(/\/+$/, '');
+    }
+    const envUrl = this.configService.get<string>('FRONTEND_URL');
+    if (envUrl && envUrl.trim().length > 0) {
+      return envUrl.replace(/\/+$/, '');
+    }
+    return this.configService.get<string>('NODE_ENV') === 'production'
+      ? 'https://tryora.live'
+      : 'http://localhost:3000';
+  }
+
   async register(
     dto: RegisterDto,
     reqInfo: { userAgent?: string; ip?: string },
+    clientOrigin?: string,
   ) {
     const existingUser = await this.usersService.findByEmail(dto.email);
     let user: any;
@@ -116,7 +130,7 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.getFrontendUrl(clientOrigin);
     const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
 
     try {
@@ -175,7 +189,7 @@ export class AuthService {
     };
   }
 
-  async resendOnboardingEmail(userId: string) {
+  async resendOnboardingEmail(userId: string, clientOrigin?: string) {
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new DomainException(
@@ -210,6 +224,7 @@ export class AuthService {
         merchantName: user.name,
         storeName: business.name,
         publishableKey: business.publishableKey,
+        clientOrigin,
       });
     }
 
@@ -489,12 +504,16 @@ export class AuthService {
     };
   }
 
-  async resendOtp(adminUserId: string) {
-    const user = await this.usersService.findById(adminUserId);
+  async resendOtp(userIdOrEmail: string, clientOrigin?: string) {
+    let user = await this.usersService.findById(userIdOrEmail);
+    if (!user) {
+      user = await this.usersService.findByEmail(userIdOrEmail);
+    }
+
     if (!user) {
       throw new DomainException(
         'USER_NOT_FOUND',
-        'Admin user profile not found.',
+        'User not found.',
         HttpStatus.NOT_FOUND,
       );
     }
@@ -513,7 +532,7 @@ export class AuthService {
       otpAttemptCount: 0,
     });
 
-    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.getFrontendUrl(clientOrigin);
     const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
 
     await this.mailService.sendVerificationEmail(user.email, {
@@ -526,7 +545,7 @@ export class AuthService {
     return { message: 'New verification OTP sent to your email.' };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto) {
+  async forgotPassword(dto: ForgotPasswordDto, clientOrigin?: string) {
     const email = dto.email.toLowerCase().trim();
     const user = await this.usersService.findByEmail(email);
 
@@ -551,10 +570,7 @@ export class AuthService {
       resetPasswordExpiresAt,
     });
 
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
+    const frontendUrl = this.getFrontendUrl(clientOrigin);
     const resetUrl = `${frontendUrl}/auth?mode=reset-password&token=${rawToken}`;
 
     try {
@@ -610,7 +626,10 @@ export class AuthService {
     };
   }
 
-  async resetPassword(dto: ResetPasswordDto) {
+  async resetPassword(
+    dto: ResetPasswordDto,
+    reqInfo: { userAgent?: string; ip?: string } = {},
+  ) {
     if (!dto.token || !dto.password) {
       throw new DomainException(
         'INVALID_PAYLOAD',
@@ -648,8 +667,57 @@ export class AuthService {
     // Invalidate all active user sessions upon password reset for security
     await this.redisService.revokeUserSessions(user._id.toString());
 
+    // Fetch tenant business to issue authenticated tokens & session
+    const business = await this.usersService.findBusinessById(
+      user.businessId.toString(),
+    );
+    if (!business) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        'Associated business tenant not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const sessionId = crypto.randomUUID();
+    const tokens = await this.generateTokens(
+      user._id.toString(),
+      business._id.toString(),
+      user.email,
+      user.role,
+      sessionId,
+    );
+
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+
+    await this.redisService.setSession(sessionId, {
+      adminUserId: user._id.toString(),
+      businessId: business._id.toString(),
+      email: user.email,
+      role: user.role,
+      refreshTokenHash,
+      userAgent: reqInfo.userAgent,
+      ip: reqInfo.ip,
+      createdAt: new Date().toISOString(),
+    });
+
     return {
-      message: 'Your password has been successfully reset. You can now log in.',
+      message: 'Your password has been successfully reset.',
+      tokens,
+      sessionId,
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+      },
+      business: {
+        id: business._id.toString(),
+        name: business.name,
+        domain: business.domain,
+        publishableKey: business.publishableKey,
+      },
     };
   }
 

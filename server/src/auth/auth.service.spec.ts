@@ -181,12 +181,13 @@ describe('AuthService', () => {
   });
 
   describe('resetPassword', () => {
-    it('should reset password and revoke all active sessions', async () => {
+    it('should reset password, revoke all active sessions, and issue fresh session tokens', async () => {
       usersService.findByResetTokenHash.mockResolvedValue({
         ...mockUser,
         resetPasswordExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
       usersService.updateAdminUser.mockResolvedValue(mockUser);
+      usersService.findBusinessById.mockResolvedValue(mockBusiness);
 
       const result = await service.resetPassword({
         token: 'valid-token',
@@ -194,6 +195,14 @@ describe('AuthService', () => {
       });
 
       expect(result.message).toContain('successfully reset');
+      expect(result.tokens).toBeDefined();
+      expect(result.sessionId).toBeDefined();
+      expect(result.user).toEqual(
+        expect.objectContaining({
+          id: mockUser._id,
+          email: mockUser.email,
+        }),
+      );
       expect(usersService.updateAdminUser).toHaveBeenCalledWith(
         mockUser._id,
         expect.objectContaining({
@@ -203,6 +212,7 @@ describe('AuthService', () => {
         }),
       );
       expect(redisService.revokeUserSessions).toHaveBeenCalledWith(mockUser._id);
+      expect(redisService.setSession).toHaveBeenCalled();
     });
   });
 

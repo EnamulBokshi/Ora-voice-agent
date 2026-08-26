@@ -1096,7 +1096,11 @@ export class AdminService implements OnModuleInit {
           otpAttemptCount: 0,
         });
 
-        const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
+        const frontendUrl =
+          this.configService.get<string>('FRONTEND_URL') ||
+          (this.configService.get<string>('NODE_ENV') === 'production'
+            ? 'https://tryora.live'
+            : 'http://localhost:3000');
         const verifyUrl = `${frontendUrl}/auth?mode=otp&code=${otpCode}&email=${encodeURIComponent(user.email)}`;
 
         await this.mailService.sendVerificationEmail(user.email, {

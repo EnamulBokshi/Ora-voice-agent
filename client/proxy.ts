@@ -79,9 +79,16 @@ export function proxy(request: NextRequest) {
     const destination = new URL(pathname, backendUrl);
     destination.search = request.nextUrl.search;
 
+    const requestHeaders = new Headers(request.headers);
+    if (!requestHeaders.has('x-client-origin')) {
+      requestHeaders.set('x-client-origin', request.nextUrl.origin);
+    }
+    requestHeaders.set('x-forwarded-host', request.nextUrl.host);
+    requestHeaders.set('x-forwarded-proto', request.nextUrl.protocol.replace(':', ''));
+
     return NextResponse.rewrite(destination, {
       request: {
-        headers: request.headers,
+        headers: requestHeaders,
       },
     });
   }

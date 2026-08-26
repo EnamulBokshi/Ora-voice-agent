@@ -26,6 +26,39 @@ import type { JwtPayloadUser } from '../common/decorators/current-user.decorator
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private extractClientOrigin(req: Request): string | undefined {
+    const clientOrigin = req.headers['x-client-origin'];
+    if (clientOrigin && typeof clientOrigin === 'string' && clientOrigin.startsWith('http')) {
+      return clientOrigin.replace(/\/+$/, '');
+    }
+
+    const originHeader = req.headers['origin'];
+    if (originHeader && typeof originHeader === 'string' && originHeader.startsWith('http')) {
+      return originHeader.replace(/\/+$/, '');
+    }
+
+    const referer = req.headers['referer'];
+    if (referer && typeof referer === 'string' && referer.startsWith('http')) {
+      try {
+        const url = new URL(referer);
+        return url.origin.replace(/\/+$/, '');
+      } catch {
+        // ignore malformed referer
+      }
+    }
+
+    const forwardedHost = req.headers['x-forwarded-host'];
+    if (forwardedHost && typeof forwardedHost === 'string') {
+      const forwardedProto = req.headers['x-forwarded-proto'];
+      const host = forwardedHost.split(',')[0].trim();
+      const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+      const proto = typeof forwardedProto === 'string' ? forwardedProto.split(',')[0].trim() : (isLocal ? 'http' : 'https');
+      return `${proto}://${host}`.replace(/\/+$/, '');
+    }
+
+    return undefined;
+  }
+
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -34,7 +67,8 @@ export class AuthController {
   ) {
     const userAgent = req.headers['user-agent'] || '';
     const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
-    const result = await this.authService.register(dto, { userAgent, ip });
+    const origin = this.extractClientOrigin(req);
+    const result = await this.authService.register(dto, { userAgent, ip }, origin);
 
     this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
 
@@ -141,21 +175,24 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
-  async resendOtp(@CurrentUser() user: JwtPayloadUser) {
-    return this.authService.resendOtp(user.sub);
+  async resendOtp(@CurrentUser() user: JwtPayloadUser, @Req() req: Request) {
+    const origin = this.extractClientOrigin(req);
+    return this.authService.resendOtp(user.sub, origin);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('resend-onboarding')
   @HttpCode(HttpStatus.OK)
-  async resendOnboardingEmail(@CurrentUser() user: JwtPayloadUser) {
-    return this.authService.resendOnboardingEmail(user.sub);
+  async resendOnboardingEmail(@CurrentUser() user: JwtPayloadUser, @Req() req: Request) {
+    const origin = this.extractClientOrigin(req);
+    return this.authService.resendOnboardingEmail(user.sub, origin);
   }
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto);
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    const origin = this.extractClientOrigin(req);
+    return this.authService.forgotPassword(dto, origin);
   }
 
   @Get('verify-reset-token')
@@ -165,8 +202,23 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto);
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await this.authService.resetPassword(dto, { userAgent, ip });
+
+    this.setAuthCookies(res, result.tokens.refreshToken, result.sessionId, result.user.role);
+
+    return {
+      message: result.message,
+      accessToken: result.tokens.accessToken,
+      user: result.user,
+      business: result.business,
+    };
   }
 
   private setAuthCookies(
