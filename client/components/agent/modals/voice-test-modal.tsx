@@ -13,7 +13,6 @@ import {
   Zap,
   SlidersHorizontal,
   Radio,
-  Volume2,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
@@ -47,83 +46,12 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
 
   // Direct Live Client Ref
   const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
-
-  // Legacy Proxy WebSockets and Audio Refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const nextPlayTimeRef = useRef<number>(0);
-  const animFrameRef = useRef<number | null>(null);
   const recognitionRef = useRef<any>(null);
 
   // Append log entry helper
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
-  }, []);
-
-  // Helper: Convert Float32 audio to Int16 Base64
-  const float32ToInt16Base64 = (float32Array: Float32Array): string => {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-    let binary = '';
-    const bytes = new Uint8Array(int16Array.buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  };
-
-  // Helper: Convert Base64 PCM24k to AudioBuffer & Play
-  const playPcm24kBase64 = useCallback((base64Pcm: string) => {
-    try {
-      if (!audioCtxRef.current) return;
-      const audioCtx = audioCtxRef.current;
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-
-      const binaryString = atob(base64Pcm);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const int16Array = new Int16Array(bytes.buffer);
-      const numSamples = int16Array.length;
-      const float32Array = new Float32Array(numSamples);
-      for (let i = 0; i < numSamples; i++) {
-        float32Array[i] = int16Array[i] / (int16Array[i] < 0 ? 32768 : 32767);
-      }
-
-      const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000);
-      audioBuffer.getChannelData(0).set(float32Array);
-
-      const sourceNode = audioCtx.createBufferSource();
-      sourceNode.buffer = audioBuffer;
-      sourceNode.connect(audioCtx.destination);
-
-      const now = audioCtx.currentTime;
-      const startTime = Math.max(now, nextPlayTimeRef.current);
-      sourceNode.start(startTime);
-      nextPlayTimeRef.current = startTime + audioBuffer.duration;
-
-      setStatus('speaking');
-      sourceNode.onended = () => {
-        if (audioCtxRef.current && audioCtxRef.current.currentTime >= nextPlayTimeRef.current - 0.05) {
-          setStatus('listening');
-        }
-      };
-    } catch (err: any) {
-      console.error('[VoiceModal] Playback error:', err);
-    }
   }, []);
 
   // Browser Speech Synthesis Assistant Mode (Fallback)
@@ -146,47 +74,19 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     if (directLiveClientRef.current) {
       try {
         directLiveClientRef.current.stop();
-      } catch (e) { }
+      } catch (e) {}
       directLiveClientRef.current = null;
     }
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) { }
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
       recognitionRef.current = null;
     }
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-    }
-
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-
-    if (micSourceRef.current) {
-      micSourceRef.current.disconnect();
-      micSourceRef.current = null;
-    }
-
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach((t) => t.stop());
-      micStreamRef.current = null;
-    }
-
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
-    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      audioCtxRef.current.close().catch(() => { });
-      audioCtxRef.current = null;
     }
 
     setStatus('idle');
@@ -230,6 +130,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
         onAudioLevel: (level) => {
           setAudioLevel(level);
         },
+        onLatency: (rtt) => {
+          setLatencyMs(rtt);
+        },
         onError: (err) => {
           setStatus('error');
           setErrorMessage(err);
@@ -243,92 +146,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
       setStatus('error');
       setErrorMessage(err.message || 'Failed to start voice call');
       addTranscript('system', `Error starting call: ${err.message}`);
-    }
-  };
-
-  // Start Browser Fallback Session
-  const startBrowserSession = async () => {
-    try {
-      setStatus('connecting');
-
-      const wsHost = (
-        process.env.NEXT_PUBLIC_WS_URL ||
-        (typeof window !== 'undefined'
-          ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
-          : 'ws://localhost:5000')
-      ).replace(/^http/, 'ws');
-
-      addTranscript('system', `Connecting to ${wsHost}/voice (Server Proxy)...`);
-
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtx({ sampleRate: 16000 });
-      audioCtxRef.current = audioCtx;
-      nextPlayTimeRef.current = audioCtx.currentTime;
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
-      micStreamRef.current = stream;
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      micSourceRef.current = source;
-
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-      source.connect(analyser);
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVolume = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
-        }
-        const avg = sum / dataArray.length;
-        setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-        animFrameRef.current = requestAnimationFrame(updateVolume);
-      };
-      updateVolume();
-
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      processor.onaudioprocess = (e) => {
-        if (isMuted || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        const inputBuffer = e.inputBuffer.getChannelData(0);
-        const base64Pcm = float32ToInt16Base64(inputBuffer);
-        const chunkPayload = JSON.stringify(['audio-chunk', { audio: base64Pcm }]);
-        wsRef.current.send(`42/voice,${chunkPayload}`);
-      };
-
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-
-      const wsUrl = `${wsHost}/socket.io/?EIO=4&transport=websocket`;
-
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onmessage = handleSocketMessage;
-      ws.onerror = (err) => {
-        console.error('[VoiceModal] WebSocket error:', err);
-        setErrorMessage(`Failed to connect to backend voice gateway at ${wsHost}/voice`);
-        setStatus('error');
-      };
-      ws.onclose = () => {
-        setStatus('idle');
-      };
-    } catch (err: any) {
-      console.error('[VoiceModal] Initialization failed:', err);
-      setErrorMessage(err.message || 'Microphone access denied or audio error.');
-      setStatus('error');
     }
   };
 
@@ -371,17 +188,17 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
             const rtt = Math.round(performance.now() - startT);
             setLatencyMs(rtt);
 
-            let answer = "I found some details in your store catalog. How else can I assist you today?";
+            let answer = 'I found some details in your store catalog. How else can I assist you today?';
             if (ragRes && ragRes.knowledge && ragRes.knowledge.length > 0) {
               answer = `Based on your store knowledge: ${ragRes.knowledge[0].text.substring(0, 160)}...`;
             } else if (ragRes && ragRes.products && ragRes.products.length > 0) {
-              answer = `Found matching items: ${ragRes.products.map(p => p.text).slice(0, 2).join(', ')}.`;
+              answer = `Found matching items: ${ragRes.products.map((p) => p.text).slice(0, 2).join(', ')}.`;
             }
 
             addTranscript('agent', answer);
             speakWithBrowserTts(answer);
           } catch (e: any) {
-            const fallback = "I received your query and I am checking your store catalog. How can I help further?";
+            const fallback = 'I received your query and I am checking your store catalog. How can I help further?';
             addTranscript('agent', fallback);
             speakWithBrowserTts(fallback);
           }
@@ -409,7 +226,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
     if (voiceMode === 'direct-live') {
       startDirectLiveSession();
     } else {
-      startBrowserSession();
+      startBrowserVoiceAssistant();
     }
   };
 
@@ -458,20 +275,22 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container border border-border/50">
             <button
               onClick={() => { stopSession(); setVoiceMode('direct-live'); }}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${voiceMode === 'direct-live'
+              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                voiceMode === 'direct-live'
                   ? 'bg-surface-high text-foreground font-semibold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
-                }`}
+              }`}
             >
               <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
               ORA Neural Engine (Direct)
             </button>
             <button
               onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${voiceMode === 'browser-speech'
+              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                voiceMode === 'browser-speech'
                   ? 'bg-surface-high text-foreground font-semibold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
-                }`}
+              }`}
             >
               <SlidersHorizontal size={13} />
               Browser STT/TTS
@@ -499,14 +318,15 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
           <div className="w-full flex items-center justify-between text-[12.5px] px-4 py-2.5 rounded-xl bg-surface-container/50 border border-border/60">
             <div className="flex items-center gap-2.5 min-w-0">
               <span
-                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${status === 'speaking' || status === 'listening'
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                  status === 'speaking' || status === 'listening'
                     ? 'bg-emerald-500 dark:bg-[#C8F031] animate-pulse shadow-[0_0_8px_rgba(200,240,49,0.7)]'
                     : status === 'connecting'
-                      ? 'bg-amber-400 animate-ping'
-                      : status === 'error'
-                        ? 'bg-red-400'
-                        : 'bg-muted-foreground/40'
-                  }`}
+                    ? 'bg-amber-400 animate-ping'
+                    : status === 'error'
+                    ? 'bg-red-400'
+                    : 'bg-muted-foreground/40'
+                }`}
               />
               <span className="text-foreground/90 font-medium truncate">
                 {status === 'idle' && 'Click Test ORA Live to speak with ORA'}
@@ -541,10 +361,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
               <>
                 <button
                   onClick={toggleMute}
-                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${isMuted
+                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                    isMuted
                       ? 'bg-red-500/20 border-red-500/40 text-red-500 dark:text-red-400'
                       : 'bg-surface-high border-border/80 text-foreground hover:bg-surface-highest'
-                    }`}
+                  }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
                   {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -600,8 +421,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey = 'biz_live_dem
                         item.sender === 'agent'
                           ? 'text-foreground'
                           : item.sender === 'user'
-                            ? 'text-foreground/90'
-                            : 'text-muted-foreground italic'
+                          ? 'text-foreground/90'
+                          : 'text-muted-foreground italic'
                       }
                     >
                       {item.text}
