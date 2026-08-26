@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface KpiCardDef {
@@ -20,42 +21,58 @@ interface KpiStripProps {
 export function KpiStrip({ cards }: KpiStripProps) {
   return (
     <div
-      className="border-t border-b border-border divide-x divide-border flex"
+      className="w-full rounded-lg border border-border/50 divide-y sm:divide-y-0 sm:divide-x divide-border/50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 bg-surface-lowest/40 overflow-hidden"
       role="region"
-      aria-label="Key performance metrics"
+      aria-label="Key store performance metrics"
     >
-      {cards.map((card) => {
+      {cards.slice(0, 4).map((card) => {
         const trendPositive = card.trend && !card.trend.startsWith('-');
         return (
           <Link
             key={card.id}
             href={card.href}
             id={`kpi-${card.id}`}
-            className="flex-1 group px-5 py-4 hover:bg-surface-high/30 transition-colors flex flex-col gap-1.5 min-w-0"
+            className="group px-6 py-5 hover:bg-surface-high/30 transition-colors flex flex-col justify-between min-w-0"
           >
-            <span className="text-[11.5px] font-medium text-muted-foreground truncate">
-              {card.label}
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-bold text-foreground font-mono tabular-nums leading-none tracking-tight">
+            {/* Top: Label + Icon */}
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground truncate">
+                {card.label}
+              </span>
+              <span className="text-muted-foreground/60 group-hover:text-foreground transition-colors flex-shrink-0">
+                {card.icon}
+              </span>
+            </div>
+
+            {/* Value + Trend */}
+            <div className="flex items-baseline justify-between gap-3 mb-1.5">
+              <span className="text-2xl lg:text-[30px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
                 {card.value}
               </span>
+
               {card.trend && (
                 <span
                   className={cn(
-                    'text-xs font-mono font-medium',
+                    'inline-flex items-center gap-0.5 text-[11.5px] font-mono font-medium',
                     trendPositive
-                      ? 'text-[color:var(--status-online)]'
-                      : 'text-[color:var(--status-error)]',
+                      ? 'text-foreground dark:text-[#C8F031]'
+                      : 'text-red-500 dark:text-red-400',
                   )}
                 >
-                  {card.trend}
+                  {trendPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                  <span>{card.trend}</span>
                 </span>
               )}
             </div>
-            <span className="text-[11px] text-muted-foreground/60 font-mono truncate">
-              {card.meta}
-            </span>
+
+            {/* Bottom: Meta subtitle + Hover indicator */}
+            <div className="flex items-center justify-between text-[12px] text-muted-foreground/80 pt-1">
+              <span className="truncate">{card.meta}</span>
+              <ArrowUpRight
+                size={12}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-foreground flex-shrink-0"
+              />
+            </div>
           </Link>
         );
       })}

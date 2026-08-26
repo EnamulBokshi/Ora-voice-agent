@@ -15,40 +15,55 @@ export function RecentActivityPanel({
   conversations,
 }: RecentActivityPanelProps) {
   return (
-    <div className="pt-4">
-      {/* 2-Column Split directly on canvas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Left: Recent Conversations */}
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <h3 className="text-[13px] font-semibold text-foreground">
-              Recent Conversations
-            </h3>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+      {/* Left Column: Recent Customer Conversations */}
+      <div className="rounded-lg border border-border/50 bg-surface-lowest/40 p-6 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between pb-3.5 border-b border-border/40 mb-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <h3 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
+                Recent Conversations
+              </h3>
+              <span className="text-[11.5px] font-mono text-muted-foreground">
+                ({conversations.length})
+              </span>
+            </div>
             <Link
               href="/conversations"
-              className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              className="text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors inline-flex items-center gap-1"
             >
               <span>View all</span>
-              <ArrowRight size={11} />
+              <ArrowRight size={11} className="text-muted-foreground" />
             </Link>
           </div>
+
           <RecentConversationsTable conversations={conversations} />
         </div>
+      </div>
 
-        {/* Right: Recent Orders */}
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <h3 className="text-[13px] font-semibold text-foreground">
-              Recent Orders
-            </h3>
+      {/* Right Column: Recent Converted Orders */}
+      <div className="rounded-lg border border-border/50 bg-surface-lowest/40 p-6 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-between pb-3.5 border-b border-border/40 mb-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <h3 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
+                Recent Converted Orders
+              </h3>
+              <span className="text-[11.5px] font-mono text-muted-foreground">
+                ({orders.length})
+              </span>
+            </div>
             <Link
               href="/live-desk"
-              className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              className="text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors inline-flex items-center gap-1"
             >
               <span>View all</span>
-              <ArrowRight size={11} />
+              <ArrowRight size={11} className="text-muted-foreground" />
             </Link>
           </div>
+
           <RecentOrdersTable orders={orders} />
         </div>
       </div>

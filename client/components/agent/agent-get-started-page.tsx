@@ -124,28 +124,28 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         title: 'Upload your store documents',
         description:
           'Add store policies, shipping guidelines, size charts, warranty terms, and FAQs. ORA accepts PDF, DOCX, TXT, and Markdown.',
-        imageSrc: '/previews/role-docs-v2.jpg',
+        imageSrc: '/previews/docs-step1-upload.jpg',
       },
       {
         stepLabel: '2. INDEX',
         title: 'ORA indexes and vectorises content',
         description:
           "ORA's vector engine chunks and embeds your documents into high-dimensional space for sub-85ms semantic similarity retrieval.",
-        imageSrc: '/previews/step-understand-v2.jpg',
+        imageSrc: '/previews/docs-step2-index.jpg',
       },
       {
         stepLabel: '3. ANSWER',
         title: 'ORA answers questions accurately',
         description:
           'When a shopper asks about return windows or warranty terms, ORA retrieves the verified document passage and quotes precise facts.',
-        imageSrc: '/previews/step-discover-v2.jpg',
+        imageSrc: '/previews/docs-step3-answer.jpg',
       },
       {
         stepLabel: '4. IMPROVE',
         title: 'Knowledge improves over time',
         description:
           'Update documents anytime and ORA re-indexes in seconds. Discover unanswered customer queries to close knowledge gaps.',
-        imageSrc: '/previews/step-convert-v2.jpg',
+        imageSrc: '/previews/docs-step4-improve.jpg',
       },
     ],
     faqs: [
@@ -187,14 +187,14 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         title: 'Connect your store inventory',
         description:
           'Connect your Shopify, WooCommerce, or custom CSV catalog. ORA imports titles, descriptions, prices, variants, and live stock counts.',
-        imageSrc: '/previews/role-products-v2.jpg',
+        imageSrc: '/previews/products-step1-sync.jpg',
       },
       {
         stepLabel: '2. SEARCH',
         title: 'Real-time semantic product search',
         description:
           'Shoppers describe what they need in natural speech or text. ORA matches intent against your catalog with instant stock checks.',
-        imageSrc: '/previews/step-understand-v2.jpg',
+        imageSrc: '/previews/products-step2-search.jpg',
       },
       {
         stepLabel: '3. RECOMMEND',

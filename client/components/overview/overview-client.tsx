@@ -11,29 +11,27 @@ import {
   Radio,
   BookOpen,
   TrendingUp,
-  Globe,
   ArrowRight,
   X,
-  Loader2,
-  Activity,
+  Compass,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
   DashboardStatsResponse,
 } from '@/services/dashboard-service';
-import { demoProfile, demoDashboardStats, demoOrders, demoConversations } from '@/lib/demo-data';
+import { demoProfile, demoDashboardStats } from '@/lib/demo-data';
 import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
 import { useSetupProgress } from '@/hooks/use-setup-progress';
 
 // ── Reusable components ──────────────────────────────────────────────────────
-import { TopHeader }              from '@/components/dashboard/top-header';
-import { StatusStrip }            from './status-strip';
-import { AnalyticsPanel }         from './analytics-panel';
-import { RecentActivityPanel }    from './recent-activity-panel';
+import { TopHeader } from '@/components/dashboard/top-header';
+import { StatusStrip } from './status-strip';
+import { AnalyticsPanel } from './analytics-panel';
+import { RecentActivityPanel } from './recent-activity-panel';
 import { QuickActionsBar, QuickAction } from './quick-actions-bar';
-import { KpiCardDef }             from './kpi-strip';
+import { KpiCardDef } from './kpi-strip';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,12 +64,12 @@ const EMPTY_STATS: DashboardStatsResponse = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function OverviewClient() {
-  const [stats, setStats]           = useState<DashboardStatsResponse>(
+  const [stats, setStats] = useState<DashboardStatsResponse>(
     DEMO_MODE_ENABLED ? demoDashboardStats : EMPTY_STATS,
   );
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [userName, setUserName]     = useState<string>(
+  const [, setLoading] = useState(false);
+  const [, setError] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>(
     DEMO_MODE_ENABLED ? demoProfile.user.name : '',
   );
   const [refreshing, setRefreshing] = useState(false);
@@ -97,27 +95,35 @@ export function OverviewClient() {
 
       if (data.status === 'fulfilled' && data.value) {
         const d = data.value;
-        const isBackendEmpty = (!d.totalRevenue || d.totalRevenue === 0) && (!d.orderTotal || d.orderTotal === 0);
+        const isBackendEmpty =
+          (!d.totalRevenue || d.totalRevenue === 0) &&
+          (!d.orderTotal || d.orderTotal === 0);
 
         if (DEMO_MODE_ENABLED && isBackendEmpty) {
           setStats(demoDashboardStats);
         } else {
           setStats({
-            productTotal:        d.productTotal        ?? 0,
-            orderTotal:          d.orderTotal          ?? 0,
-            conversationTotal:   d.conversationTotal   ?? 0,
-            activeChats:         d.activeChats         ?? 0,
-            activeVoiceCalls:    d.activeVoiceCalls    ?? 0,
-            totalRevenue:        d.totalRevenue        ?? 0,
-            revenueTrend:        d.revenueTrend        || '+0.0%',
-            ordersTrend:         d.ordersTrend         || '+0.0%',
-            conversationsTrend:  d.conversationsTrend  || '+0.0%',
-            planName:            d.planName            ?? null,
-            planStatus:          d.planStatus          ?? null,
-            revenueTimeseries:   d.revenueTimeseries   ?? { daily: [], weekly: [], growthRate: '+0.0%', totalRevenue: 0 },
-            funnel:              d.funnel              ?? [],
-            overallConversion:   d.overallConversion   ?? 0,
-            recentOrders:        d.recentOrders        ?? [],
+            productTotal: d.productTotal ?? 0,
+            orderTotal: d.orderTotal ?? 0,
+            conversationTotal: d.conversationTotal ?? 0,
+            activeChats: d.activeChats ?? 0,
+            activeVoiceCalls: d.activeVoiceCalls ?? 0,
+            totalRevenue: d.totalRevenue ?? 0,
+            revenueTrend: d.revenueTrend || '+0.0%',
+            ordersTrend: d.ordersTrend || '+0.0%',
+            conversationsTrend: d.conversationsTrend || '+0.0%',
+            planName: d.planName ?? null,
+            planStatus: d.planStatus ?? null,
+            revenueTimeseries:
+              d.revenueTimeseries ?? {
+                daily: [],
+                weekly: [],
+                growthRate: '+0.0%',
+                totalRevenue: 0,
+              },
+            funnel: d.funnel ?? [],
+            overallConversion: d.overallConversion ?? 0,
+            recentOrders: d.recentOrders ?? [],
             recentConversations: d.recentConversations ?? [],
           });
         }
@@ -132,7 +138,9 @@ export function OverviewClient() {
         setError(null);
       } else {
         setStats(EMPTY_STATS);
-        setError(err instanceof Error ? err.message : 'Could not load overview stats');
+        setError(
+          err instanceof Error ? err.message : 'Could not load overview stats',
+        );
       }
     } finally {
       setLoading(false);
@@ -140,80 +148,82 @@ export function OverviewClient() {
     }
   }, [stats.productTotal]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const firstName = userName.split(' ')[0] || userName;
 
-  // ── KPI metric definitions matching Live Desk typography ───────────────────
+  // ── KPI metric definitions matching Intercom flat strip ───────────────────
 
   const kpiCards: KpiCardDef[] = [
-    {
-      id: 'orders',
-      label: 'Assisted Orders',
-      value: stats.orderTotal.toLocaleString(),
-      icon: <ShoppingCart size={14} />,
-      trend: stats.ordersTrend,
-      meta: 'Converted orders',
-      href: '/live-desk',
-    },
     {
       id: 'revenue',
       label: 'Revenue Influenced',
       value: formatCurrency(stats.totalRevenue),
-      icon: <DollarSign size={14} />,
+      icon: <DollarSign size={13} />,
       trend: stats.revenueTrend,
       meta: 'Direct checkout sales',
       href: '/billing',
     },
     {
-      id: 'conversations',
-      label: 'Conversations',
-      value: stats.conversationTotal.toLocaleString(),
-      icon: <MessageSquareText size={14} />,
-      trend: stats.conversationsTrend,
-      meta: 'Customer interactions',
-      href: '/conversations',
+      id: 'orders',
+      label: 'Assisted Orders',
+      value: stats.orderTotal.toLocaleString(),
+      icon: <ShoppingCart size={13} />,
+      trend: stats.ordersTrend,
+      meta: 'Customer orders closed',
+      href: '/live-desk',
     },
     {
-      id: 'catalog',
-      label: 'Catalog Items',
-      value: stats.productTotal.toLocaleString(),
-      icon: <Package size={14} />,
-      meta: 'Active products in sync',
-      href: '/agent?tab=products',
+      id: 'conversations',
+      label: 'Total Conversations',
+      value: stats.conversationTotal.toLocaleString(),
+      icon: <MessageSquareText size={13} />,
+      trend: stats.conversationsTrend,
+      meta: 'Voice & chat sessions',
+      href: '/conversations',
     },
     {
       id: 'conversion',
       label: 'Conversion Rate',
       value: `${stats.overallConversion}%`,
-      icon: <Percent size={14} />,
-      meta: 'Funnel completion',
+      icon: <Percent size={13} />,
+      meta: 'Sales funnel completion',
       href: '/live-desk',
+    },
+    {
+      id: 'catalog',
+      label: 'Catalog Items',
+      value: stats.productTotal.toLocaleString(),
+      icon: <Package size={13} />,
+      meta: 'Active products in sync',
+      href: '/agent?role=products',
     },
   ];
 
-  // ── Quick action definitions for Setup block ───────────────────────────────
+  // ── Quick action definitions for Capabilities block ────────────────────────
 
   const quickActions: QuickAction[] = [
     {
       id: 'qa-live',
-      icon: <Radio size={15} />,
-      label: 'Live Desk',
-      description: 'Monitor active conversations and voice calls in real time.',
+      icon: <Radio size={16} />,
+      label: 'Live Desk Telemetry',
+      description: 'Monitor active voice calls, shopper waveforms, and live interventions.',
       href: '/live-desk',
     },
     {
       id: 'qa-train',
-      icon: <BookOpen size={15} />,
-      label: 'Store Knowledge & Catalog',
-      description: 'Manage store policies, documents, and product catalog.',
+      icon: <BookOpen size={16} />,
+      label: 'ORA Agent & Catalog',
+      description: 'Manage store policies, upload knowledge documents, and sync products.',
       href: '/agent',
     },
     {
       id: 'qa-history',
-      icon: <TrendingUp size={15} />,
-      label: 'Conversation History',
-      description: 'Review past customer transcripts and sales signals.',
+      icon: <TrendingUp size={16} />,
+      label: 'Conversation Intelligence',
+      description: 'Search customer transcripts, review buying signals, and export logs.',
       href: '/conversations',
     },
   ];
@@ -224,7 +234,7 @@ export function OverviewClient() {
       <TopHeader
         title={`${getGreeting()}${firstName ? `, ${firstName}` : ''}`}
         badge={
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-surface-high text-muted-foreground border border-border select-none">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none">
             <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
             Overview
           </span>
@@ -233,16 +243,18 @@ export function OverviewClient() {
         isRefreshing={refreshing}
       />
 
-      {/* Onboarding / Setup Guide banner — full-width strip, dismissible */}
+      {/* Setup Guide Banner — minimal & high-contrast matching Setup page */}
       {!isAllCompleted && !bannerDismissed && (
-        <div className="flex items-center justify-between gap-4 px-6 py-2.5 bg-primary/10 border-b border-primary/20 flex-shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Activity size={13} className="text-primary flex-shrink-0" />
+        <div className="flex items-center justify-between gap-4 px-8 lg:px-12 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-5 h-5 rounded-md bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
+              <Compass size={12} className="text-foreground dark:text-[#C8F031]" />
+            </div>
             <span className="text-[12.5px] text-foreground font-medium truncate">
               Store setup in progress ({completedCount}/{totalSteps} steps completed) —{' '}
               <Link
                 href="/setup"
-                className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                className="font-semibold text-foreground dark:text-[#C8F031] underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
               >
                 Complete Setup Guide
                 <ArrowRight size={11} />
@@ -252,16 +264,16 @@ export function OverviewClient() {
           <button
             onClick={() => setBannerDismissed(true)}
             aria-label="Dismiss banner"
-            className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+            className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1"
           >
-            <X size={14} />
+            <X size={13} />
           </button>
         </div>
       )}
 
-      {/* Main Canvas */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-[1400px] mx-auto px-6 lg:px-8 py-6 space-y-6">
+      {/* Main Canvas — Full Width with ORA Agent & Setup px-8 lg:px-12 padding */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        <div className="w-full px-8 lg:px-12 py-8 space-y-8">
 
           {/* ── Status Bar ── */}
           <StatusStrip
@@ -270,7 +282,7 @@ export function OverviewClient() {
             productsCount={stats.productTotal}
           />
 
-          {/* ── Unified Block 1: Store Performance (Metrics + Chart) ── */}
+          {/* ── Unified Block 1: Store Performance (Intercom Flat Strip + Chart) ── */}
           <AnalyticsPanel
             kpiCards={kpiCards}
             revenueProps={{
@@ -285,13 +297,13 @@ export function OverviewClient() {
             }}
           />
 
-          {/* ── Unified Block 2: Recent Customer Activity (Split 2-col) ── */}
+          {/* ── Unified Block 2: Recent Customer Activity (Flat 2-col Split) ── */}
           <RecentActivityPanel
             orders={stats.recentOrders}
             conversations={stats.recentConversations}
           />
 
-          {/* ── Unified Block 3: Store & Assistant Setup ── */}
+          {/* ── Unified Block 3: Store Capabilities & Quick Jump Rows ── */}
           <QuickActionsBar actions={quickActions} />
 
         </div>
