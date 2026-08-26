@@ -16,6 +16,7 @@
   text-decoration: none;
   transition: color 0.15s ease;
 }
+
 .lp-social-icon:hover {
   color: var(--lp-text-primary);
 }
@@ -348,6 +349,7 @@
   0% {
     transform: translateX(0%);
   }
+
   100% {
     transform: translateX(-50%);
   }
@@ -445,7 +447,7 @@
   display: flex;
 }
 
-.lp-avatar-stack > * + * {
+.lp-avatar-stack>*+* {
   margin-left: -0.5rem;
 }
 
@@ -491,6 +493,7 @@
 
 /* ── Responsive helpers ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+
   .lp-nav-links,
   .lp-nav-cta {
     display: none;
@@ -512,6 +515,7 @@
     opacity: 0;
     transform: translateY(16px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -519,19 +523,36 @@
 }
 
 @keyframes lp-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .lp-animate-fade-up {
   animation: lp-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.lp-animate-fade-up-delay-1 { animation-delay: 0.1s; opacity: 0; }
-.lp-animate-fade-up-delay-2 { animation-delay: 0.2s; opacity: 0; }
-.lp-animate-fade-up-delay-3 { animation-delay: 0.3s; opacity: 0; }
+.lp-animate-fade-up-delay-1 {
+  animation-delay: 0.1s;
+  opacity: 0;
+}
+
+.lp-animate-fade-up-delay-2 {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+.lp-animate-fade-up-delay-3 {
+  animation-delay: 0.3s;
+  opacity: 0;
+}
 
 @media (prefers-reduced-motion: reduce) {
+
   .lp-animate-fade-up,
   .lp-animate-fade-up-delay-1,
   .lp-animate-fade-up-delay-2,
@@ -555,20 +576,34 @@
 
 /* Spring fly-in from below */
 @keyframes lp-orb-fly-in {
-  0%   { opacity: 0; transform: translateY(40px) scale(0.9); }
-  70%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.9);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Outer crystal glow pulse */
 @keyframes lp-orb-glow-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow:
       inset 0 0 24px rgba(0, 0, 0, 0.95),
       inset 0 0 12px rgba(56, 189, 248, 0.2),
       0 8px 32px rgba(0, 0, 0, 0.6),
       0 0 25px rgba(56, 189, 248, 0.18);
   }
+
   50% {
     box-shadow:
       inset 0 0 24px rgba(0, 0, 0, 0.95),
@@ -580,7 +615,9 @@
 
 /* Speaking aura pulse */
 @keyframes lp-orb-speaking-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow:
       inset 0 0 24px rgba(0, 0, 0, 0.95),
       inset 0 0 16px rgba(168, 85, 247, 0.4),
@@ -588,6 +625,7 @@
       0 0 40px rgba(200, 240, 49, 0.45),
       0 0 20px rgba(168, 85, 247, 0.35);
   }
+
   50% {
     box-shadow:
       inset 0 0 24px rgba(0, 0, 0, 0.95),
@@ -604,9 +642,11 @@
     transform: scale(0.85);
     opacity: 0.9;
   }
+
   50% {
     opacity: 0.6;
   }
+
   100% {
     transform: scale(1.45);
     opacity: 0;
@@ -615,20 +655,41 @@
 
 /* Shimmering text for connecting state */
 @keyframes lp-orb-shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
 }
 
 /* Status dot pulse */
 @keyframes lp-orb-dot-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.3); opacity: 0.55; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.3);
+    opacity: 0.55;
+  }
 }
 
 /* Typing cursor blink */
 @keyframes lp-typing-blink {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.15; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
 }
 
 
@@ -669,7 +730,8 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #050508; /* Solid deep obsidian base — zero text bleed-through */
+  background: #050508;
+  /* Solid deep obsidian base — zero text bleed-through */
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
     inset 0 0 20px rgba(0, 0, 0, 0.95),
@@ -814,22 +876,18 @@
 }
 
 .lp-orb-reactive-aura.listening {
-  background: radial-gradient(
-    circle,
-    rgba(200, 240, 49, 0.55) 0%,
-    rgba(56, 189, 248, 0.35) 45%,
-    transparent 75%
-  );
+  background: radial-gradient(circle,
+      rgba(200, 240, 49, 0.55) 0%,
+      rgba(56, 189, 248, 0.35) 45%,
+      transparent 75%);
 }
 
 .lp-orb-reactive-aura.speaking {
-  background: radial-gradient(
-    circle,
-    rgba(168, 85, 247, 0.65) 0%,
-    rgba(200, 240, 49, 0.45) 45%,
-    rgba(56, 189, 248, 0.3) 70%,
-    transparent 85%
-  );
+  background: radial-gradient(circle,
+      rgba(168, 85, 247, 0.65) 0%,
+      rgba(200, 240, 49, 0.45) 45%,
+      rgba(56, 189, 248, 0.3) 70%,
+      transparent 85%);
 }
 
 /* ── Unified Floating Island Capsule (Status + Controls — Zero Overlap) ────── */
@@ -1055,6 +1113,7 @@
     opacity: 0;
     transform: translateY(10px) scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1124,10 +1183,12 @@
     bottom: 0.85rem;
     gap: 0.45rem;
   }
+
   .lp-orb-container {
     width: 54px;
     height: 54px;
   }
+
   .lp-orb-reactive-aura {
     width: 72px;
     height: 72px;
@@ -1135,16 +1196,19 @@
     margin-left: -36px;
     filter: blur(10px);
   }
+
   .lp-orb-floor-reflection {
     width: 38px;
     height: 6px;
     bottom: -8px;
   }
+
   .lp-orb-gemini-transcript {
     width: min(340px, calc(100vw - 24px));
     padding: 0.85rem 1.1rem;
     border-radius: 18px;
   }
+
   .lp-orb-gemini-text {
     font-size: 0.875rem;
     line-height: 1.4;
@@ -1730,6 +1794,3 @@
   font-weight: 600;
   color: var(--lp-text-primary);
 }
-
-
-
