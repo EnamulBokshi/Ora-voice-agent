@@ -17,14 +17,14 @@ export type AgentView = 'get-started' | 'feed' | 'knowledge' | 'catalog';
 
 // ─── Role definitions ─────────────────────────────────────────────────────────
 
-const ROLES = [
+export const ROLES = [
   { id: 'voice'     as AgentRole, label: 'Talk to ORA',    Icon: Mic,      iconClass: 'text-foreground' },
   { id: 'documents' as AgentRole, label: 'Documents',       Icon: FileText, iconClass: 'text-foreground' },
   { id: 'products'  as AgentRole, label: 'Product Catalog', Icon: Package,  iconClass: 'text-foreground' },
 ];
 
 // Sub-items shown under ▾ Train when a role is active
-const TRAIN_ITEMS: Record<AgentRole, { view: AgentView; label: string }[]> = {
+export const TRAIN_ITEMS: Record<AgentRole, { view: AgentView; label: string }[]> = {
   voice:     [
     { view: 'get-started', label: 'Get started' },
     { view: 'feed',        label: 'Voice feed'  },

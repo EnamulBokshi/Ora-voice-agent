@@ -218,8 +218,7 @@ function AgentClientContent() {
   };
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden bg-background">
-      <AgentSectionNav activeRole={activeRole} activeView={activeView} />
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {renderContent()}
       </div>

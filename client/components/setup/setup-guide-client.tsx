@@ -422,9 +422,7 @@ function SetupGuideClientInner() {
   };
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden bg-background">
-      <SetupSectionNav activeArchetype={activeArchetype} activeStep={activeStep} />
-
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {renderContent()}
       </div>
