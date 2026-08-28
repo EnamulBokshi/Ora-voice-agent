@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { TablePagination } from '@/components/ui/table-pagination';
 import {
   Search,
   CheckCircle2,
@@ -339,7 +340,7 @@ export function MerchantsTable({
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 text-right font-mono font-medium text-foreground">
+                      <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">
                         {b.conversationsCount.toLocaleString()}
                       </td>
 
@@ -389,31 +390,15 @@ export function MerchantsTable({
           </table>
         </div>
 
-        {/* Pagination Bar */}
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
-            <span>
-              Page {pagination.page} of {pagination.totalPages} (
-              {pagination.total} merchants)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onPageChange(pagination.page - 1)}
-                disabled={pagination.page <= 1}
-                className="flex h-7 w-7 items-center justify-center rounded border border-border bg-surface-high text-foreground hover:bg-surface-bright disabled:opacity-40"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <button
-                onClick={() => onPageChange(pagination.page + 1)}
-                disabled={pagination.page >= pagination.totalPages}
-                className="flex h-7 w-7 items-center justify-center rounded border border-border bg-surface-high text-foreground hover:bg-surface-bright disabled:opacity-40"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Modular Pagination */}
+        <TablePagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.total}
+          pageSize={pagination.limit}
+          itemName="merchants"
+          onPageChange={onPageChange}
+        />
       </div>
 
       {/* ── Key Telemetry & Moderation Modal ── */}

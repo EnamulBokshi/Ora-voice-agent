@@ -101,6 +101,13 @@ export class Business {
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   manualEndpointHeaders?: Record<string, string>;
+
+  /**
+   * Monthly AI Token/Voice cost budget limit in USD (optional guardrail).
+   * Null or 0 means unlimited/plan-default.
+   */
+  @Prop({ type: Number, default: null })
+  monthlyAiBudgetUsd?: number | null;
 }
 
 export const BusinessSchema = SchemaFactory.createForClass(Business);

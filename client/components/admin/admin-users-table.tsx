@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { TablePagination } from '@/components/ui/table-pagination';
 import {
   Search,
   CheckCircle2,
@@ -21,7 +22,7 @@ import {
   CreditCard,
   Building,
   Store,
-  Zap,
+  Crown,
   MessageSquare,
   PhoneCall,
   ShoppingBag,
@@ -200,7 +201,7 @@ export function AdminUsersTable({
     if (sub.planId === 'scale') {
       return (
         <span className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/15 px-2 py-0.5 text-[11px] font-bold text-purple-300">
-          <Zap size={11} className="text-purple-400" />
+          <Crown size={11} className="text-purple-400" />
           Scale Plan
           <span className="rounded bg-purple-950/80 px-1 py-0.2 text-[9px] uppercase tracking-wider text-purple-300 font-mono">
             {sub.billingProvider}
@@ -366,7 +367,7 @@ export function AdminUsersTable({
                   </td>
 
                   {/* Activity Metrics */}
-                  <td className="px-4 py-3 text-right font-mono text-[11px] text-muted-foreground">
+                  <td className="px-4 py-3 text-right text-[11px] text-muted-foreground tabular-nums">
                     <div className="flex flex-col items-end">
                       <span className="text-foreground font-semibold">
                         {u.metrics?.conversationsCount || 0} convs
@@ -446,30 +447,15 @@ export function AdminUsersTable({
         </table>
       </div>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
-          <span>
-            Page {pagination.page} of {pagination.totalPages} ({pagination.total} total matching users)
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onPageChange(pagination.page - 1)}
-              disabled={pagination.page <= 1}
-              className="flex h-7 w-7 items-center justify-center rounded border border-border bg-surface-high text-foreground hover:bg-surface-bright disabled:opacity-40"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <button
-              onClick={() => onPageChange(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages}
-              className="flex h-7 w-7 items-center justify-center rounded border border-border bg-surface-high text-foreground hover:bg-surface-bright disabled:opacity-40"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Modular Pagination */}
+      <TablePagination
+        page={pagination.page}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.total}
+        pageSize={pagination.limit}
+        itemName="users"
+        onPageChange={onPageChange}
+      />
 
       {/* User Drilldown Detail Modal */}
       {selectedUserId && (

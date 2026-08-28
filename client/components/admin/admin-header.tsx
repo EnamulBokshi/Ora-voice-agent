@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Activity, RefreshCw } from 'lucide-react';
+import { ShieldCheck, RefreshCw } from 'lucide-react';
 
 interface AdminHeaderProps {
   title: string;
@@ -36,13 +36,6 @@ export function AdminHeader({
       <div className="flex items-center gap-3">
         {/* Custom Header Actions */}
         {children}
-
-        {/* System Pulse Indicator */}
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-container px-3 py-1.5 text-xs">
-          <Activity size={14} className="text-primary animate-pulse" />
-          <span className="text-[11px] font-medium text-foreground">Global Status:</span>
-          <span className="text-[11px] font-semibold text-primary">Operational</span>
-        </div>
 
         {/* Refresh Action */}
         {onRefresh && (

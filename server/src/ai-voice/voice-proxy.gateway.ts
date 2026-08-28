@@ -15,6 +15,8 @@ import { ConversationChannel, ConversationStatus } from '../conversations/schema
 import { MessageRole } from '../conversations/schemas/message.schema';
 
 import { CustomersService } from '../customers/customers.service';
+import { UsageTrackingService } from '../usage/usage-tracking.service';
+import { UsageChannelType } from '../usage/schemas/token-usage-record.schema';
 
 interface ProxySession {
   clientWs: WebSocket;
@@ -26,6 +28,10 @@ interface ProxySession {
   bufferedUserText: string;   // accumulates user's speech chunks from Gemini inputTranscription
   isAnonymous: boolean;
   closed: boolean;
+  audioInputBytes: number;
+  audioOutputBytes: number;
+  promptTokens: number;
+  completionTokens: number;
 }
 
 @Injectable()
@@ -47,6 +53,7 @@ export class VoiceProxyGateway {
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
     private readonly conversationsService: ConversationsService,
+    private readonly usageTrackingService?: UsageTrackingService,
   ) { }
 
 
@@ -366,11 +373,16 @@ export class VoiceProxyGateway {
       bufferedUserText: '',
       isAnonymous: isUserAnon,
       closed: false,
+      audioInputBytes: 0,
+      audioOutputBytes: 0,
+      promptTokens: 0,
+      completionTokens: 0,
     };
 
     const flushBufferedAiText = () => {
       if (session.bufferedAiText && session.bufferedAiText.trim() && session.conversationId) {
         const textToSave = session.bufferedAiText.trim();
+        session.completionTokens += Math.ceil(textToSave.length / 4);
         session.bufferedAiText = '';
         this.conversationsService
           .appendMessage(session.conversationId, MessageRole.ASSISTANT, textToSave)
@@ -383,6 +395,7 @@ export class VoiceProxyGateway {
     const flushBufferedUserText = () => {
       if (session.bufferedUserText && session.bufferedUserText.trim() && session.conversationId) {
         const textToSave = session.bufferedUserText.trim();
+        session.promptTokens += Math.ceil(textToSave.length / 4);
         session.bufferedUserText = '';
         this.conversationsService
           .appendMessage(session.conversationId, MessageRole.USER, textToSave)
@@ -400,6 +413,29 @@ export class VoiceProxyGateway {
           .updateStatus(businessId, session.conversationId, ConversationStatus.CLOSED)
           .catch(() => {});
       }
+
+      // Record voice token & audio compute OpEx
+      if (this.usageTrackingService) {
+        const audioInSecs = session.audioInputBytes / 32000;
+        const audioOutSecs = session.audioOutputBytes / 48000;
+        const promptToks = session.promptTokens + 800; // baseline system instructions
+        const compToks = session.completionTokens;
+        this.usageTrackingService
+          .recordUsage({
+            businessId,
+            sessionId,
+            channelType: UsageChannelType.VOICE_STREAM,
+            model: 'gemini-2.0-flash',
+            promptTokens: promptToks,
+            completionTokens: compToks,
+            audioInputSeconds: audioInSecs,
+            audioOutputSeconds: audioOutSecs,
+          })
+          .catch((err) => {
+            this.logger.warn(`[VoiceProxyGateway] Usage telemetry notice: ${err?.message}`);
+          });
+      }
+
       this.sessions.delete(sessionId);
       try {
         session.sessionControls?.closeSession();
@@ -421,6 +457,9 @@ export class VoiceProxyGateway {
 
         // Google → client: audio response
         onAudioData: (base64AudioPcm) => {
+          if (base64AudioPcm) {
+            session.audioOutputBytes += Math.round(base64AudioPcm.length * 0.75);
+          }
           sendToClient({ type: 'audio', data: base64AudioPcm });
         },
 
@@ -696,9 +735,11 @@ export class VoiceProxyGateway {
         }
 
         if (msg.type === 'audio' && msg.data) {
+          session.audioInputBytes += Math.round((msg.data as string).length * 0.75);
           sessionControls.sendAudioChunk(msg.data as string);
         } else if (msg.type === 'text' && msg.text) {
           const userText = (msg.text as string).trim();
+          session.promptTokens += Math.ceil(userText.length / 4);
           if (userText && session.conversationId) {
             this.conversationsService
               .appendMessage(session.conversationId, MessageRole.USER, userText)

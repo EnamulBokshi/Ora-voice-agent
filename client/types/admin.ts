@@ -295,6 +295,13 @@ export interface SystemHealthData {
     totalMemoryMB: number;
     nodeVersion: string;
   };
+  aiEngine?: {
+    voiceModel: string;
+    liveModel: string;
+    embeddingModel: string;
+    provider: string;
+    hasApiKey?: boolean;
+  };
 }
 
 export interface PlatformAgentConfigData {
@@ -329,5 +336,66 @@ export interface UpdatePlatformAgentPayload {
   language?: string;
   isActive?: boolean;
 }
+
+export interface DailyTokenUsagePoint {
+  date: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  voiceMinutes: number;
+  costUsd: number;
+  sessions: number;
+}
+
+export interface ChannelCostBreakdownItem {
+  count: number;
+  costUsd: number;
+  tokens: number;
+}
+
+export interface PlatformTokenAnalyticsResponse {
+  periodDays: number;
+  activeModel?: {
+    voiceModel: string;
+    embeddingModel: string;
+  };
+  summary: {
+    totalTokens: number;
+    totalPromptTokens: number;
+    totalCompletionTokens: number;
+    totalVoiceMinutes: number;
+    totalCostUsd: number;
+    totalCostBdt: number;
+    avgCostPerSessionUsd: number;
+  };
+  timeline: DailyTokenUsagePoint[];
+  channelBreakdown: {
+    voice: ChannelCostBreakdownItem;
+    chat: ChannelCostBreakdownItem;
+    rag: ChannelCostBreakdownItem;
+    tools: ChannelCostBreakdownItem;
+  };
+}
+
+export interface MerchantCostItem {
+  id: string;
+  name: string;
+  domain: string;
+  status: string;
+  planId: string;
+  planName: string;
+  mrrUsd: number;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  voiceMinutes: number;
+  sessionsCount: number;
+  aiCostUsd: number;
+  grossProfitUsd: number;
+  grossMarginPercent: number;
+  budgetCapUsd: number | null;
+  budgetStatus: 'normal' | 'warning' | 'exceeded';
+}
+
 
 

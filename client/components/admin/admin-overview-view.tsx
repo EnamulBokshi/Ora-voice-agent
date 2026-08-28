@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Shield,
   Volume2,
+  Coins,
 } from 'lucide-react';
 import { AdminHeader } from './admin-header';
 import { PlatformStatCard } from './platform-stat-card';
@@ -126,8 +127,8 @@ export function AdminOverviewView() {
         {/* Command Top Bar: Period Controls & Status */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-border bg-surface-container p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm shadow-sm shadow-primary/20">
-              ⚡
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/20">
+              <Activity size={18} className="text-primary" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-foreground">ORA Platform Pulse</h2>
@@ -137,31 +138,41 @@ export function AdminOverviewView() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground uppercase font-semibold">Timeframe:</span>
-            <div className="flex items-center rounded-lg border border-border bg-surface-high p-0.5">
-              <button
-                onClick={() => handlePeriodChange('7d')}
-                className={cn(
-                  'px-2.5 py-1 text-xs font-semibold rounded-md transition-all',
-                  period === '7d'
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                7 Days
-              </button>
-              <button
-                onClick={() => handlePeriodChange('30d')}
-                className={cn(
-                  'px-2.5 py-1 text-xs font-semibold rounded-md transition-all',
-                  period === '30d'
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                30 Days
-              </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/token-usage"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-high hover:bg-surface-bright text-xs font-semibold text-foreground border border-border transition-colors shadow-sm"
+            >
+              <Coins size={14} className="text-primary" />
+              <span>Token & OpEx Analytics</span>
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground uppercase font-semibold">Timeframe:</span>
+              <div className="flex items-center rounded-lg border border-border bg-surface-high p-0.5">
+                <button
+                  onClick={() => handlePeriodChange('7d')}
+                  className={cn(
+                    'px-2.5 py-1 text-xs font-semibold rounded-md transition-all',
+                    period === '7d'
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  7 Days
+                </button>
+                <button
+                  onClick={() => handlePeriodChange('30d')}
+                  className={cn(
+                    'px-2.5 py-1 text-xs font-semibold rounded-md transition-all',
+                    period === '30d'
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  30 Days
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -604,10 +615,10 @@ export function AdminOverviewView() {
                             {session.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right font-mono font-bold text-foreground">
+                        <td className="px-4 py-3 text-right font-semibold text-foreground tabular-nums">
                           {session.turnCount}
                         </td>
-                        <td className="px-4 py-3 text-right text-muted-foreground font-mono text-[11px]">
+                        <td className="px-4 py-3 text-right text-muted-foreground tabular-nums text-[11px]">
                           {session.updatedAt ? new Date(session.updatedAt).toLocaleTimeString() : 'N/A'}
                         </td>
                       </tr>

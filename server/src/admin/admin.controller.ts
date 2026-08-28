@@ -124,6 +124,24 @@ export class AdminController {
   async updatePlatformAgent(@Body() dto: UpdatePlatformAgentDto) {
     return this.adminService.updatePlatformAgentConfig(dto);
   }
+
+  @Get('token-analytics')
+  async getTokenAnalytics(@Query('days') days?: number) {
+    return this.adminService.getTokenAnalytics(days ? Number(days) : 30);
+  }
+
+  @Get('merchants-cost')
+  async getMerchantsCost() {
+    return this.adminService.getMerchantsCostAnalytics();
+  }
+
+  @Patch('businesses/:id/budget-cap')
+  async updateMerchantBudgetCap(
+    @Param('id') id: string,
+    @Body('budgetCapUsd') budgetCapUsd: number | null,
+  ) {
+    return this.adminService.updateMerchantBudgetCap(id, budgetCapUsd);
+  }
 }
 
 

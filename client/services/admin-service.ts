@@ -12,6 +12,8 @@ import {
   SystemHealthData,
   PlatformAgentConfigData,
   UpdatePlatformAgentPayload,
+  PlatformTokenAnalyticsResponse,
+  MerchantCostItem,
 } from '@/types/admin';
 
 export async function fetchPlatformStats(period = '30d'): Promise<PlatformStatsData> {
@@ -190,4 +192,30 @@ export async function updatePlatformAgentConfig(
     body: JSON.stringify(payload),
   });
 }
+
+export async function fetchTokenCostAnalytics(days = 30): Promise<PlatformTokenAnalyticsResponse> {
+  return apiClient<PlatformTokenAnalyticsResponse>(`/admin/token-analytics?days=${days}`, {
+    method: 'GET',
+  });
+}
+
+export async function fetchMerchantsCost(): Promise<MerchantCostItem[]> {
+  return apiClient<MerchantCostItem[]>('/admin/merchants-cost', {
+    method: 'GET',
+  });
+}
+
+export async function updateMerchantBudgetCap(
+  businessId: string,
+  budgetCapUsd: number | null,
+): Promise<{ businessId: string; monthlyAiBudgetUsd: number | null; success: boolean }> {
+  return apiClient<{ businessId: string; monthlyAiBudgetUsd: number | null; success: boolean }>(
+    `/admin/businesses/${businessId}/budget-cap`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ budgetCapUsd }),
+    },
+  );
+}
+
 

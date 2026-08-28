@@ -27,6 +27,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { LiveDeskModule } from './live-desk/live-desk.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { UsageModule } from './usage/usage.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     LiveDeskModule,
     AdminModule,
     NotificationsModule,
+    UsageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

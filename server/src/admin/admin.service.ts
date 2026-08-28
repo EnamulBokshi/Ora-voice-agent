@@ -21,6 +21,7 @@ import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
+import { UsageTrackingService } from '../usage/usage-tracking.service';
 
 @Injectable()
 export class AdminService implements OnModuleInit {
@@ -46,6 +47,7 @@ export class AdminService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly usageTrackingService?: UsageTrackingService,
   ) { }
 
   async onModuleInit() {
@@ -1197,6 +1199,25 @@ export class AdminService implements OnModuleInit {
         totalMemoryMB: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         nodeVersion: process.version,
       },
+      aiEngine: {
+        voiceModel:
+          this.configService.get<string>('GEMINI_MODEL') ||
+          process.env.GEMINI_MODEL ||
+          'models/gemini-2.5-flash-native-audio-latest',
+        liveModel:
+          this.configService.get<string>('GEMINI_LIVE_MODEL') ||
+          process.env.GEMINI_LIVE_MODEL ||
+          'models/gemini-2.0-flash',
+        embeddingModel:
+          this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
+          process.env.GEMINI_EMBEDDING_MODEL ||
+          'models/text-embedding-004',
+        provider: 'Google Gemini Multimodal Live API',
+        hasApiKey: !!(
+          this.configService.get<string>('GEMINI_API_KEY') ||
+          process.env.GEMINI_API_KEY
+        ),
+      },
     };
   }
 
@@ -1270,6 +1291,54 @@ export class AdminService implements OnModuleInit {
       business: platformData.business,
       agentConfig: config,
     };
+  }
+
+  /**
+   * Retrieves platform-wide token & cost consumption metrics for SuperAdmin.
+   */
+  async getTokenAnalytics(days = 30) {
+    if (!this.usageTrackingService) {
+      return {
+        periodDays: days,
+        summary: {
+          totalTokens: 0,
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalVoiceMinutes: 0,
+          totalCostUsd: 0,
+          totalCostBdt: 0,
+          avgCostPerSessionUsd: 0,
+        },
+        timeline: [],
+        channelBreakdown: {
+          voice: { count: 0, costUsd: 0, tokens: 0 },
+          chat: { count: 0, costUsd: 0, tokens: 0 },
+          rag: { count: 0, costUsd: 0, tokens: 0 },
+          tools: { count: 0, costUsd: 0, tokens: 0 },
+        },
+      };
+    }
+    return this.usageTrackingService.getPlatformTokenAnalytics(days);
+  }
+
+  /**
+   * Retrieves per-merchant cost, token consumption, MRR profitability & margin breakdown.
+   */
+  async getMerchantsCostAnalytics() {
+    if (!this.usageTrackingService) {
+      return [];
+    }
+    return this.usageTrackingService.getMerchantsCostAnalytics();
+  }
+
+  /**
+   * Updates monthly AI budget limit for a specific merchant tenant.
+   */
+  async updateMerchantBudgetCap(businessId: string, budgetCapUsd: number | null) {
+    if (!this.usageTrackingService) {
+      return { businessId, monthlyAiBudgetUsd: budgetCapUsd, success: true };
+    }
+    return this.usageTrackingService.setMerchantBudgetCap(businessId, budgetCapUsd);
   }
 }
 
