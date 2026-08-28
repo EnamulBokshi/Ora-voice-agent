@@ -190,7 +190,7 @@ function AgentClientContent() {
 
     // ── Products: catalog view ─────────────────────────────────────────────
     if (activeRole === 'products') {
-      if (activeView === 'catalog') {
+      if (activeView === 'catalog' || activeView === 'feed') {
         return (
           <AgentSectionLayout
             iconNode={<Package size={16} className="text-foreground" />}

@@ -178,7 +178,7 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
       'Sync your product inventory so ORA can answer stock availability, recommend items, and guide shoppers through checkout using live catalog data.',
     heroImageSrc: '/previews/role-products-v2.jpg',
     cta1Label: 'Sync Product Catalog',
-    cta1Href: '/agent?role=products&view=feed',
+    cta1Href: '/agent?role=products&view=catalog',
     cta2Label: 'Learn more',
     howLabel: 'HOW ORA CATALOG WORKS',
     rows: [
