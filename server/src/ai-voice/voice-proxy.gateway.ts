@@ -578,6 +578,34 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}). Active sessions: ${this.sessions.size}`,
     );
 
+    // ── Dispatch Proactive Initial Greeting ───────────────────────────────────
+    try {
+      let greetingTrigger = '';
+      if (authenticatedUser) {
+        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] The visitor just connected to voice. This is ${authenticatedUser.name || 'a store merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them warmly and professionally by name in ONE short, natural spoken sentence (e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you manage your store today?") and invite their questions.`;
+      } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
+        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] The visitor just connected to voice. Their name is ${resolvedName}. Greet them warmly in ONE short, engaging spoken sentence and ask how you can help them today.`;
+      } else {
+        const isPricing = currentPathParam === '/pricing';
+        const isDashboard = currentPathParam.startsWith('/dashboard');
+        const pageContextNote = isPricing
+          ? ' They are currently looking over the pricing page.'
+          : isDashboard
+          ? ' They are in the store dashboard.'
+          : '';
+        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A visitor just connected to voice.${pageContextNote} Speak first: give a warm, energetic, and concise 1-sentence welcome greeting as ORA, and ask how you can assist them today.`;
+      }
+
+      this.logger.log(
+        `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger for session ${sessionId}`,
+      );
+      sessionControls.sendTextMessage(greetingTrigger);
+    } catch (greetErr: any) {
+      this.logger.warn(
+        `[VoiceProxyGateway] Greeting trigger notice for session ${sessionId}: ${greetErr.message}`,
+      );
+    }
+
     // ── Route incoming messages from client → Google ──────────────────────────
     clientWs.on('message', async (data: WebSocket.Data) => {
       if (session.closed) return;

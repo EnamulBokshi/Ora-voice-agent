@@ -236,8 +236,7 @@ export class GeminiLiveClient {
               this.isAgentSpeaking = false;
               this.recordActivity();
               this.startSpeechRecognition();
-              onStatusChange?.('listening');
-              onTranscript?.('system', '🎙️ ORA is live and listening! Speak into your mic.');
+              onStatusChange?.('connected');
               break;
 
             case 'audio':
