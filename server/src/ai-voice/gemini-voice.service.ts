@@ -612,12 +612,29 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
    - When a user asks for documentation, manuals, or setup guides:
      * Explain our 60-second setup verbally and answer their questions directly (or call get_integration_guide if they specify a platform like Shopify, WooCommerce, Next.js, or HTML).
      * If they want to view documentation/features, call navigate_to_page with destination "#features" (or "#docs"). Never navigate to "/doc" or "/docs".
-   - When a user asks to see pricing, cost, or plans -> call navigate_to_page with destination "/pricing".
-   - When a user asks to go home or landing page -> call navigate_to_page with destination "/".
-   - When a user asks to view features -> call navigate_to_page with destination "#features".
    - When a user asks to register or sign up -> call navigate_to_page with destination "/auth?mode=register".
    - When a user asks to log in -> call navigate_to_page with destination "/auth?mode=login".
    - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now!`;
+
+      const entityLabel = siteName || ownerName || (isOraPlatform ? 'the ORA Platform' : 'this store');
+
+      const domainScopeGuardrail = `
+DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
+1. FULL SERVICE SCOPE & WHAT YOU CAN DO:
+   - You are ORA, the real-time Voice AI representative deployed on "${entityLabel}".
+   - You are fully knowledgeable and authorized to answer:
+     • Everything about this specific website/store: products, catalog, styles, prices, stock, categories, orders, shipping, store policies, creator/founder info, contact details, site navigation, and FAQs.
+     • Everything about ORA's Voice AI capabilities: what you can do (real-time voice shopping, finding products, answering store policies, navigating web pages, placing orders, capturing contact info, multilingual support in Bengali/English/etc., 60-second store integration).
+     ${isOraPlatform ? '• Everything about the ORA platform: Free ($0), Growth ($49), Scale ($199) plans, Stripe & bKash checkout, dashboard analytics, and widget deployment.' : ''}
+   - When a visitor asks "What can you do?", "How can you help me?", "Who are you?", or "What is ORA?", warmly explain your voice capabilities for ${entityLabel}.
+
+2. STRICT OFF-TOPIC GUARDRAIL & FRIENDLY PIVOT:
+   - You are DEDICATED strictly to ${entityLabel} and ORA's voice AI services.
+   - If a visitor asks about completely unrelated external topics (such as cartoons like Doraemon, anime, movies, celebrity gossip, homework/math equations, world politics, general trivia, or video games not sold here):
+     • Give a FRIENDLY, SHORT (1-sentence) acknowledgment.
+     • IMMEDIATELY PIVOT back to ${entityLabel} and how you can assist them.
+     • Example response: "Haha, Doraemon is a classic anime character! But I'm ORA, the AI assistant for ${entityLabel}—I'm here to help with our products, orders, and services. Is there something specific you're looking for today?"
+     • NEVER get sidetracked into long off-topic discussions, solving math problems, debating politics, or acting like a general open-ended trivia bot. Always steer the visitor back to ${entityLabel}.`;
 
       baseInstruction = [
         persona,
@@ -628,6 +645,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
         catalogSummary,
         knowledgeSummary,
         sitemapDirectory,
+        domainScopeGuardrail,
         '',
         'CRITICAL RULES FOR REAL-TIME VOICE:',
         '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally and enthusiastically like a human expert.',
@@ -645,6 +663,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
         '   - search_knowledge_base / get_store_policy: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
         '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
         '7. If the visitor speaks Bengali or another language, respond naturally in their language.',
+        '8. STRICT OFF-TOPIC PIVOT: If asked about external trivia, cartoons (like Doraemon), pop culture, or math, give a friendly 1-sentence acknowledgment and immediately pivot back to this store/website.',
       ]
         .filter(Boolean)
         .join('\n');
