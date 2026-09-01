@@ -1,31 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+  Sliders,
+  Globe,
+  FileText,
+  Volume2,
+  Store,
+  Shield,
+  MessageSquare,
   ShoppingBag,
   Layers,
   Briefcase,
-  Globe,
   Building2,
-  SlidersHorizontal,
   Save,
   CheckCircle2,
   AlertCircle,
   Loader2,
-  FileText,
-  Terminal,
-  ShieldCheck,
   Check,
   Mic,
-  Languages,
-  Ban,
-  HeartHandshake,
-  Sparkles,
   RotateCcw,
   Play,
   Square,
-  ChevronRight,
-  Info,
+  ChevronDown,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -36,129 +34,89 @@ import { getMeApi } from '@/services/auth-service';
 import { getVoiceSampleApi } from '@/services/voice-service';
 import { playGeminiAudioBase64, stopCurrentAudio } from '@/lib/audio-player';
 import { VoiceTestModal } from '../modals/voice-test-modal';
+import {
+  SUPPORTED_LANGUAGES,
+  getLanguageById,
+  SupportedLanguage,
+} from '@/lib/languages';
 
-// ─── Archetype Definitions ───────────────────────────────────────────────────
+// ─── Archetypes ───────────────────────────────────────────────────────────────
 
 interface ArchetypeOption {
   id: string;
   name: string;
   category: string;
-  subtitle: string;
   icon: React.ElementType;
-  features: string[];
 }
 
 const ARCHETYPES: ArchetypeOption[] = [
-  {
-    id: 'ecommerce',
-    name: 'E-Commerce Storefront',
-    category: 'Retail',
-    subtitle: 'Catalog search, live stock & cart recovery',
-    icon: ShoppingBag,
-    features: ['Live Inventory Check', 'Cart Recovery Flow', 'Stripe / bKash Checkout'],
-  },
-  {
-    id: 'saas',
-    name: 'SaaS & Tech Product',
-    category: 'Software',
-    subtitle: 'Tier pricing, feature matrix & API onboarding',
-    icon: Layers,
-    features: ['Subscription Tiers', 'Documentation Navigation', 'Lead Qualification'],
-  },
-  {
-    id: 'agency_services',
-    name: 'Agency & Consultancies',
-    category: 'Services',
-    subtitle: 'Service packages, case studies & discovery calls',
-    icon: Briefcase,
-    features: ['Service Scoping', 'Case Study Pitching', 'Meeting Link Scheduling'],
-  },
-  {
-    id: 'portfolio',
-    name: 'Portfolio & Creator',
-    category: 'Personal',
-    subtitle: 'Featured projects, tech stack & bookings',
-    icon: Globe,
-    features: ['Flagship Projects', 'Tech Stack Explanation', 'Recruiter Inquiries'],
-  },
-  {
-    id: 'general',
-    name: 'Enterprise & General FAQ',
-    category: 'General',
-    subtitle: 'Store policies, knowledge base & support',
-    icon: Building2,
-    features: ['Policy FAQs', 'Knowledge Base RAG', 'Support Escalation'],
-  },
+  { id: 'ecommerce', name: 'E-Commerce', category: 'Retail', icon: ShoppingBag },
+  { id: 'saas', name: 'SaaS Product', category: 'Software', icon: Layers },
+  { id: 'agency_services', name: 'Agency & Services', category: 'Services', icon: Briefcase },
+  { id: 'portfolio', name: 'Portfolio', category: 'Personal', icon: Globe },
+  { id: 'enterprise', name: 'Enterprise', category: 'Corporate', icon: Building2 },
 ];
 
 // ─── Voice Options ────────────────────────────────────────────────────────────
 
 interface VoiceOption {
   voiceId: string;
-  toneName: string;
-  tagline: string;
-  gender: string;
+  gender: 'Female' | 'Male';
+  name: string;
+  tone: string;
+  accent: string;
   samplePhrase: string;
 }
 
 const VOICE_OPTIONS: VoiceOption[] = [
   {
     voiceId: 'Aoede',
-    toneName: 'Consultative Sales',
-    tagline: 'Warm, empathetic & conversational',
     gender: 'Female',
-    samplePhrase:
-      'Welcome to our store! I am here to help you find the perfect match for your needs and answer any questions.',
-  },
-  {
-    voiceId: 'Fenrir',
-    toneName: 'Active Closer',
-    tagline: 'High-energy & conversion-driven',
-    gender: 'Male',
-    samplePhrase:
-      'Hey there! We have limited stock available on this item today, let me secure your free priority shipping right now.',
+    name: 'Aoede',
+    tone: 'Sophisticated & Breezy',
+    accent: 'Neutral Global',
+    samplePhrase: 'Hello! Welcome to our store. How may I assist with your shopping today?',
   },
   {
     voiceId: 'Kore',
-    toneName: 'Polite & Precise',
-    tagline: 'Clear, professional & fact-oriented',
     gender: 'Female',
-    samplePhrase:
-      'Hello. I can assist you with product specifications, return policies, warranty coverage, and sizing recommendations.',
-  },
-  {
-    voiceId: 'Puck',
-    toneName: 'Friendly & Casual',
-    tagline: 'Approachable & upbeat tone',
-    gender: 'Male',
-    samplePhrase:
-      'Hey! Check out our newest arrivals. Let me know if you want me to add anything directly to your cart for checkout.',
+    name: 'Kore',
+    tone: 'Warm & Calm',
+    accent: 'Soft & Approachable',
+    samplePhrase: 'Welcome. Take your time browsing. Let me know if you have questions on sizing or details.',
   },
   {
     voiceId: 'Charon',
-    toneName: 'Direct & Concise',
-    tagline: 'Authoritative & enterprise-grade',
     gender: 'Male',
-    samplePhrase:
-      'Good day. I am ready to assist with enterprise scoping, bulk wholesale pricing, and verified checkout flow.',
+    name: 'Charon',
+    tone: 'Deep & Authoritative',
+    accent: 'Clear & Professional',
+    samplePhrase: 'Good day. I am ORA, your store assistant. How may I assist with your purchase decisions?',
   },
   {
-    voiceId: 'Zephyr',
-    toneName: 'Calm & Helpful',
-    tagline: 'Gentle, supportive & reassuring',
-    gender: 'Female',
-    samplePhrase:
-      'Hi there. Take your time browsing, and let me know if you need any recommendations or help at checkout.',
+    voiceId: 'Fenrir',
+    gender: 'Male',
+    name: 'Fenrir',
+    tone: 'Dynamic & Energetic',
+    accent: 'Direct & Action-driven',
+    samplePhrase: 'Hey there! Check out our new arrivals. Let me find the best options and discounts for you.',
+  },
+  {
+    voiceId: 'Puck',
+    gender: 'Male',
+    name: 'Puck',
+    tone: 'Casual & Upbeat',
+    accent: 'Modern & Friendly',
+    samplePhrase: 'Hi there! Feel free to browse, and let me know if you need any recommendations or help at checkout.',
   },
 ];
 
-// ─── One-Click Quick Presets ──────────────────────────────────────────────────
+// ─── Preset Templates ─────────────────────────────────────────────────────────
 
 interface PresetTemplate {
   id: string;
   label: string;
   badge: string;
-  description: string;
   archetype: string;
   language: string;
   brandVoice: string;
@@ -169,35 +127,14 @@ interface PresetTemplate {
 
 const PRESET_TEMPLATES: PresetTemplate[] = [
   {
-    id: 'bangla_ecommerce',
-    label: '🇧🇩 বাংলা ই-কমার্স (Bangla Only)',
-    badge: 'বাংলা / Bangladesh',
-    description: 'শুধুমাত্র বাংলায় সাবলীলভাবে কথা বলে পণ্যের তথ্য ও অর্ডারে সহায়তা করবে।',
-    archetype: 'ecommerce',
-    language: 'bn',
-    brandVoice: 'উষ্ণ, আন্তরিক, বিনয়ী এবং অত্যন্ত হেল্পফুল সেলস অ্যাসিস্ট্যান্ট।',
-    greetingMessage: 'আসসালামু আলাইকুম! ORA-তে আপনাকে স্বাগতম। আজ আপনাকে কোন পণ্যটি খুঁজে দিতে পারি?',
-    systemPrompt: `You are ORA, the dedicated AI voice shopping assistant for this store.
-- You MUST speak exclusively in natural, polite Bengali (Bangla / বাংলা).
-- Help customers find products, check live availability, sizes, colors, and prices.
-- Clearly explain delivery terms: Inside Dhaka delivery takes 24-48 hours (60 TK), outside Dhaka takes 3-5 days (120 TK).
-- Support smooth order placement via bKash online payment and Cash on Delivery.
-- Always be respectful and address shoppers warmly with "আপনি".`,
-    avoidances: `• Do not speak in English unless the customer explicitly requests to switch.
-• Never mention competitors (like Aarong, Daraz, or Yellow).
-• Do not promise unauthorized discounts beyond active coupon codes.
-• Never discuss politics or unrelated controversies.`,
-  },
-  {
     id: 'conversion_closer',
-    label: '🛍️ Proactive Sales Closer',
+    label: '🛍️ Sales Closer',
     badge: 'High Conversion',
-    description: 'Energetic, helpful closer that recommends trending items & offers promo codes.',
     archetype: 'ecommerce',
     language: 'multilingual',
-    brandVoice: 'High-energy, proactive, consultative, and focused on driving smooth checkouts.',
+    brandVoice: 'High-energy, consultative, and focused on helping shoppers find the right products and complete checkouts.',
     greetingMessage: 'Welcome to our store! Looking for anything specific today, or would you like to see our trending bestsellers?',
-    systemPrompt: `You are ORA, an expert AI sales and personal shopping assistant.
+    systemPrompt: `You are ORA, an expert sales and personal shopping assistant.
 - Proactively discover customer preferences, style choices, and budget.
 - Mention active promo code "SAVE10" for 10% off at checkout when shoppers are deliberating.
 - Remind shoppers of our 30-day money-back guarantee and fast delivery.
@@ -208,14 +145,13 @@ const PRESET_TEMPLATES: PresetTemplate[] = [
   },
   {
     id: 'luxury_concierge',
-    label: '💎 Luxury & VIP Concierge',
-    badge: 'Premium Brand',
-    description: 'Refined, highly respectful tone with tailored styling & bespoke assistance.',
+    label: '💎 Luxury Concierge',
+    badge: 'Premium Tone',
     archetype: 'ecommerce',
     language: 'multilingual',
     brandVoice: 'Sophisticated, refined, articulate, patient, and highly attentive to detail.',
     greetingMessage: 'Good day and welcome. It is a pleasure to assist you. How may I curate your shopping experience today?',
-    systemPrompt: `You are ORA, the private client concierge and advisor for our luxury collection.
+    systemPrompt: `You are ORA, the private client concierge and advisor for our collection.
 - Offer tailored recommendations highlighting premium materials, craftsmanship, and styling notes.
 - Answer questions regarding bespoke sizing, care instructions, and exclusive gift packaging.
 - Maintain an impeccable, courteous, and polite tone at all times.`,
@@ -223,10 +159,24 @@ const PRESET_TEMPLATES: PresetTemplate[] = [
 • Never disclose private client information or internal wholesale costs.`,
   },
   {
+    id: 'friendly_advisor',
+    label: '🤝 Friendly Advisor',
+    badge: 'Warm & Helpful',
+    archetype: 'ecommerce',
+    language: 'multilingual',
+    brandVoice: 'Warm, approachable, empathetic, and attentive to customer questions.',
+    greetingMessage: 'Hi there! Welcome to our store. Feel free to ask about any product, sizing, or store policies.',
+    systemPrompt: `You are ORA, a friendly and helpful store advisor.
+- Help shoppers find exactly what they are looking for with patience and warmth.
+- Accurately explain product features, materials, shipping times, and return policies.
+- Check product inventory in real time and suggest complementary items.`,
+    avoidances: `• Never be dismissive or rushed with customer questions.
+• Do not make up store policies or promises not verified in the catalog.`,
+  },
+  {
     id: 'tech_support',
-    label: '⚡ Direct & Concise Support',
-    badge: 'Zero Fluff',
-    description: 'Ultra-fast, accurate answers with direct links and technical precision.',
+    label: '⚡ Concise Support',
+    badge: 'Direct & Fast',
     archetype: 'saas',
     language: 'multilingual',
     brandVoice: 'Concise, direct, technically precise, and solution-oriented with zero fluff.',
@@ -234,13 +184,13 @@ const PRESET_TEMPLATES: PresetTemplate[] = [
     systemPrompt: `You are ORA, technical support and onboarding specialist for this platform.
 - Deliver direct answers in 1 to 2 short sentences.
 - Guide users directly to relevant documentation anchors (#docs, #pricing, #api).
-- Accurately explain integration steps for Shopify, WooCommerce, and Next.js.`,
-    avoidances: `• Never give lengthy rambling responses or marketing fluff.
+- Accurately explain integration steps for Shopify, WooCommerce, and custom sites.`,
+    avoidances: `• Never give lengthy rambling responses.
 • Never guess API endpoints or technical specs not documented in the knowledge base.`,
   },
 ];
 
-// ─── Waveform Audio Preview Component ─────────────────────────────────────────
+// ─── Audio Waveform Button ────────────────────────────────────────────────────
 
 function WaveformAudioControl({
   isPlaying,
@@ -251,58 +201,51 @@ function WaveformAudioControl({
   isLoading: boolean;
   onToggle: (e: React.MouseEvent) => void;
 }) {
-  const bars = [35, 65, 90, 45, 80, 100, 70, 50, 85, 40, 60, 95, 55, 75];
+  const bars = [40, 75, 100, 50, 85, 95, 60, 45, 90, 65];
 
   return (
-    <div
+    <button
+      type="button"
       onClick={onToggle}
       className={cn(
-        'flex items-center gap-2 py-1.5 px-3 rounded-md border transition-all cursor-pointer select-none group/player',
+        'flex items-center gap-2 py-1 px-2.5 rounded-lg border transition-all cursor-pointer select-none',
         isPlaying
           ? 'bg-primary/10 border-primary/40 text-primary'
           : 'bg-surface-lowest/70 border-border/50 hover:border-border text-muted-foreground hover:text-foreground',
       )}
-      title={isPlaying ? 'Stop audio' : 'Play voice preview'}
+      title={isPlaying ? 'Stop sample' : 'Play voice sample'}
     >
       <div
         className={cn(
-          'w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all flex-shrink-0',
-          isPlaying
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-surface-high group-hover/player:bg-surface-highest text-foreground',
+          'w-4 h-4 rounded-full flex items-center justify-center transition-all flex-shrink-0',
+          isPlaying ? 'bg-primary text-primary-foreground' : 'bg-surface-high text-foreground',
         )}
       >
         {isLoading ? (
-          <Loader2 size={10} className="animate-spin text-primary" />
+          <Loader2 size={9} className="animate-spin text-primary" />
         ) : isPlaying ? (
-          <Square size={7} fill="currentColor" />
+          <Square size={6} fill="currentColor" />
         ) : (
-          <Play size={7} fill="currentColor" className="ml-0.5" />
+          <Play size={6} fill="currentColor" className="ml-0.5" />
         )}
       </div>
 
-      <div className="flex items-center gap-[2px] h-3 flex-1">
+      <div className="flex items-center gap-[2px] h-2.5">
         {bars.map((height, i) => (
           <span
             key={i}
             className={cn(
               'w-[2px] rounded-full transition-all duration-150',
-              isPlaying
-                ? 'bg-primary animate-pulse'
-                : 'bg-muted-foreground/30 group-hover/player:bg-muted-foreground/60',
+              isPlaying ? 'bg-primary animate-pulse' : 'bg-muted-foreground/30',
             )}
             style={{
-              height: isPlaying ? `${Math.max(30, (height * ((i % 3) + 1)) % 100)}%` : `${height * 0.4}%`,
+              height: isPlaying ? `${Math.max(30, (height * ((i % 3) + 1)) % 100)}%` : `${height * 0.35}%`,
               animationDelay: `${(i * 65) % 450}ms`,
             }}
           />
         ))}
       </div>
-
-      <span className="text-[9.5px] font-mono uppercase tracking-wider opacity-80">
-        {isPlaying ? 'Playing' : 'Preview'}
-      </span>
-    </div>
+    </button>
   );
 }
 
@@ -338,12 +281,46 @@ export function AgentPersonaTab() {
   const [language, setLanguage] = useState<string>('en');
   const [voiceId, setVoiceId] = useState<string>('Aoede');
 
+  // Language Dropdown & Search state
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const [langSearchQuery, setLangSearchQuery] = useState('');
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Active instructions sub-tab
+  const [instructionTab, setInstructionTab] = useState<'prompt' | 'greeting' | 'avoidances' | 'policies'>('prompt');
+
   // Audio preview states
   const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
-  // Active sub-tab in prompt editor
-  const [promptTab, setPromptTab] = useState<'system' | 'treatment' | 'avoidances'>('system');
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(e.target as Node)) {
+        setIsLangDropdownOpen(false);
+      }
+    }
+    if (isLangDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isLangDropdownOpen]);
+
+  const currentLangObj = useMemo(() => getLanguageById(language), [language]);
+
+  const filteredLanguages = useMemo(() => {
+    const q = langSearchQuery.toLowerCase().trim();
+    if (!q) return SUPPORTED_LANGUAGES;
+    return SUPPORTED_LANGUAGES.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.nativeName.toLowerCase().includes(q) ||
+        l.region.toLowerCase().includes(q) ||
+        l.id.toLowerCase().includes(q),
+    );
+  }, [langSearchQuery]);
 
   // Check for unsaved changes
   const hasChanges = useMemo(() => {
@@ -384,24 +361,15 @@ export function AgentPersonaTab() {
     let active = true;
 
     Promise.all([
-      getAgentConfigApi().catch((err) => {
-        console.error('Failed to load agent config:', err);
-        return null;
-      }),
+      getAgentConfigApi().catch(() => null),
       getMeApi().catch(() => null),
     ])
       .then(([res, meRes]) => {
         if (!active) return;
 
-        if (meRes?.business?.publishableKey) {
-          setPublishableKey(meRes.business.publishableKey);
-        }
-
         if (res?.config) {
           const arch = res.config.businessArchetype || 'ecommerce';
-          const voice =
-            res.config.brandVoiceDescription ||
-            'Articulate, concise, consultative, and focused on helping visitors find solutions.';
+          const voice = res.config.brandVoiceDescription || '';
           const summary = res.config.businessSummary || '';
           const directives = res.config.customDirectives || '';
           const sysPrompt = res.config.systemPrompt || '';
@@ -429,6 +397,10 @@ export function AgentPersonaTab() {
           setAvoidances(avoid);
           setLanguage(lang);
           setVoiceId(vId);
+        }
+
+        if (meRes?.business?.publishableKey) {
+          setPublishableKey(meRes.business.publishableKey);
         }
       })
       .finally(() => {
@@ -471,17 +443,17 @@ export function AgentPersonaTab() {
       setInitialLanguage(language);
       setInitialVoiceId(voiceId);
 
-      setSuccessMsg('System prompt & persona configuration saved and synced live.');
+      setSuccessMsg('Settings saved successfully.');
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
-      console.error('Failed to update agent config:', err);
-      setErrorMsg(err?.message || 'Failed to save changes. Please try again.');
+      console.error('Failed to save persona:', err);
+      setErrorMsg(err.message || 'Failed to save settings.');
     } finally {
       setSaving(false);
     }
   };
 
-  // Discard edits
+  // Discard changes
   const handleDiscard = () => {
     setArchetype(initialArchetype);
     setBrandVoice(initialBrandVoice);
@@ -492,9 +464,11 @@ export function AgentPersonaTab() {
     setAvoidances(initialAvoidances);
     setLanguage(initialLanguage);
     setVoiceId(initialVoiceId);
+    stopCurrentAudio();
+    setPlayingVoiceId(null);
   };
 
-  // Apply quick preset
+  // Preset click handler
   const handleApplyPreset = (preset: PresetTemplate) => {
     setArchetype(preset.archetype);
     setLanguage(preset.language);
@@ -531,18 +505,6 @@ export function AgentPersonaTab() {
         const utterance = new SpeechSynthesisUtterance(voice.samplePhrase);
         utterance.pitch = voice.gender === 'Female' ? 1.05 : 0.92;
         utterance.rate = 1.0;
-        const voices = window.speechSynthesis.getVoices();
-        const preferred =
-          voices.find(
-            (v) =>
-              v.lang.startsWith('en') &&
-              (voice.gender === 'Female'
-                ? v.name.toLowerCase().includes('female') ||
-                  v.name.includes('Samantha') ||
-                  v.name.includes('Zira')
-                : v.name.toLowerCase().includes('male') || v.name.includes('David')),
-          ) || voices[0];
-        if (preferred) utterance.voice = preferred;
         utterance.onstart = () => setPlayingVoiceId(voice.voiceId);
         utterance.onend = () => setPlayingVoiceId(null);
         utterance.onerror = () => setPlayingVoiceId(null);
@@ -551,51 +513,36 @@ export function AgentPersonaTab() {
     }
   };
 
-  const selectedArchetype = ARCHETYPES.find((a) => a.id === archetype) || ARCHETYPES[0];
   const currentVoiceObj = VOICE_OPTIONS.find((v) => v.voiceId === voiceId) || VOICE_OPTIONS[0];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+      <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        <span className="text-xs font-mono">Loading System Prompt & Persona configuration...</span>
+        <span className="text-xs font-mono">Loading store persona...</span>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSave} className="w-full space-y-6">
-      {/* ── TOP HEADER TOOLBAR ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg border border-border/60 bg-surface-lowest/40 backdrop-blur-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary flex-shrink-0">
-            <Terminal className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[15px] font-semibold text-foreground font-serif tracking-tight">
-                ORA System Prompt & Persona Studio
-              </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-mono bg-surface-high border border-border/60 text-muted-foreground">
-                <ShieldCheck className="h-3 w-3 text-primary" />
-                Live Runtime
-              </span>
-            </div>
-            <p className="text-[12px] text-muted-foreground">
-              Define what ORA does, how it greets & treats shoppers, language rules (e.g. Bangla only), and what to avoid.
-            </p>
-          </div>
+    <form onSubmit={handleSave} className="w-full space-y-5 pb-8">
+      {/* ── Sticky Top Status & Action Bar ── */}
+      <div className="sticky top-0 z-20 -mt-2 mb-5 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-background/90 backdrop-blur-md border-b border-border/40 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-primary" />
+          <span className="text-[12px] font-mono text-muted-foreground">
+            Store Language: <span className="text-foreground font-semibold">{currentLangObj.flag} {currentLangObj.name}</span>
+          </span>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsTestModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-surface-high/60 hover:bg-surface-high text-foreground text-[12px] font-medium transition-colors cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-surface-high/40 hover:bg-surface-high text-foreground text-[12px] font-medium transition-colors cursor-pointer shadow-xs"
           >
             <Mic className="h-3.5 w-3.5 text-primary" />
-            <span>Test Prompt Live</span>
+            <span>Test Voice</span>
           </button>
 
           {hasChanges && (
@@ -603,7 +550,7 @@ export function AgentPersonaTab() {
               type="button"
               onClick={handleDiscard}
               disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 hover:bg-surface-high transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/30 hover:bg-surface-high transition-colors cursor-pointer"
             >
               <RotateCcw className="h-3 w-3" />
               <span>Discard</span>
@@ -613,7 +560,7 @@ export function AgentPersonaTab() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground font-semibold text-[12px] rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground font-semibold text-[12px] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-xs"
           >
             {saving ? (
               <>
@@ -623,7 +570,7 @@ export function AgentPersonaTab() {
             ) : (
               <>
                 <Save className="h-3.5 w-3.5" />
-                <span>Save Prompt</span>
+                <span>Save Changes</span>
               </>
             )}
           </button>
@@ -632,208 +579,250 @@ export function AgentPersonaTab() {
 
       {/* Feedback Alerts */}
       {successMsg && (
-        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md text-xs font-medium">
+        <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-medium">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-xs font-medium">
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-medium">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* ── 1. ONE-CLICK STARTER PRESETS ── */}
-      <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-              One-Click Starter Templates & Language Presets
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            Click to auto-populate prompt & directives
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {PRESET_TEMPLATES.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => handleApplyPreset(preset)}
-              className="text-left p-3 rounded-md border border-border/70 bg-surface-lowest/60 hover:bg-surface-high/60 hover:border-primary/50 transition-all group cursor-pointer flex flex-col justify-between gap-2"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-[12.5px] font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {preset.label}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {preset.description}
-                </p>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[10px] font-mono text-muted-foreground">
-                <span>{preset.badge}</span>
-                <span className="text-primary group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                  Apply <ChevronRight size={10} />
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── 2. LANGUAGE & REGIONAL SETTINGS ── */}
-      <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Languages className="h-3.5 w-3.5 text-primary" />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-              Language & Spoken Dialect
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            Current: <span className="text-primary font-semibold uppercase">{language}</span>
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          {[
-            {
-              id: 'bn',
-              title: '🇧🇩 বাংলা শুধুমাত্র (Bangla Only)',
-              desc: 'Enforces 100% Bengali voice & chat communication.',
-            },
-            {
-              id: 'multilingual',
-              title: '🌐 Multilingual / Auto-Detect',
-              desc: 'Auto-detects and responds in English, Bengali, or shopper dialect.',
-            },
-            {
-              id: 'en',
-              title: '🇺🇸 English Only',
-              desc: 'Standard global English communication.',
-            },
-          ].map((langOpt) => {
-            const isSelected = language === langOpt.id;
-            return (
-              <button
-                key={langOpt.id}
-                type="button"
-                onClick={() => setLanguage(langOpt.id)}
-                className={cn(
-                  'text-left p-3 rounded-md border transition-all cursor-pointer flex items-start gap-2.5',
-                  isSelected
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary/40 text-foreground'
-                    : 'border-border bg-surface-lowest/40 hover:bg-surface-high/40 text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <div
-                  className={cn(
-                    'w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5',
-                    isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border',
-                  )}
-                >
-                  {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[12px] font-semibold block text-foreground">{langOpt.title}</span>
-                  <span className="text-[11px] text-muted-foreground leading-snug">{langOpt.desc}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── 3. MASTER PROMPT & DIRECTIVES STUDIO ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* ── ROW 1: Symmetrical 2-Column Grid (Persona & Tone | Spoken Language) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
-        {/* ── LEFT (Tabs: System Prompt, Greetings, Avoidances) ── */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
-            {/* Tab navigation headers */}
-            <div className="flex items-center border-b border-border bg-surface-lowest/60 px-3 pt-2 gap-1 overflow-x-auto no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setPromptTab('system')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium border-b-2 transition-colors cursor-pointer',
-                  promptTab === 'system'
-                    ? 'border-primary text-foreground font-semibold'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Terminal className="h-3.5 w-3.5" />
-                <span>1. Master System Prompt</span>
-                <span className="text-[10px] font-mono text-muted-foreground ml-1">({systemPrompt.length} chars)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPromptTab('treatment')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium border-b-2 transition-colors cursor-pointer',
-                  promptTab === 'treatment'
-                    ? 'border-primary text-foreground font-semibold'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <HeartHandshake className="h-3.5 w-3.5 text-primary" />
-                <span>2. Greeting & Consumer Treatment</span>
-                <span className="text-[10px] font-mono text-muted-foreground ml-1">({greetingMessage.length} chars)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPromptTab('avoidances')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium border-b-2 transition-colors cursor-pointer',
-                  promptTab === 'avoidances'
-                    ? 'border-primary text-foreground font-semibold'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Ban className="h-3.5 w-3.5 text-destructive" />
-                <span>3. What to Avoid</span>
-                <span className="text-[10px] font-mono text-muted-foreground ml-1">({avoidances.length} chars)</span>
-              </button>
+        {/* Card 1: Persona & Tone */}
+        <div className="rounded-xl border border-border/50 bg-surface-lowest/40 p-5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-border/30">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-primary" />
+                <h2 className="text-[13px] font-semibold text-foreground">
+                  Persona & Tone
+                </h2>
+              </div>
+              <span className="text-[11px] font-mono text-muted-foreground">Quick Styles</span>
             </div>
 
-            {/* Tab 1: Master System Prompt */}
-            {promptTab === 'system' && (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11.5px] text-muted-foreground">
-                    Define ORA's primary mission, operating guidelines, product recommendation logic, and checkout instructions.
-                  </p>
-                  <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
-                    {systemPrompt.length} / 4000
+            {/* Quick Preset Selector */}
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_TEMPLATES.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  className="px-2.5 py-1 rounded-lg text-[11.5px] font-medium border border-border/60 bg-surface-high/30 hover:bg-surface-high hover:border-primary/40 text-foreground transition-all cursor-pointer"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Brand Voice Description */}
+            <div className="space-y-1.5">
+              <label className="text-[11.5px] font-medium text-muted-foreground">
+                Brand Voice & Demeanor
+              </label>
+              <input
+                type="text"
+                value={brandVoice}
+                onChange={(e) => setBrandVoice(e.target.value)}
+                placeholder="e.g. Consultative, warm, concise, and focused on helping visitors."
+                className="w-full px-3 py-2 bg-surface-lowest border border-border/70 rounded-lg text-[12.5px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            {/* Store Profile Summary */}
+            <div className="space-y-1.5">
+              <label className="text-[11.5px] font-medium text-muted-foreground">
+                Store Overview
+              </label>
+              <textarea
+                rows={3}
+                value={businessSummary}
+                onChange={(e) => setBusinessSummary(e.target.value)}
+                placeholder="e.g. Premium retail apparel delivering sustainable activewear with express delivery."
+                className="w-full px-3 py-2 bg-surface-lowest border border-border/70 rounded-lg text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Spoken Language */}
+        <div className="rounded-xl border border-border/50 bg-surface-lowest/40 p-5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-border/30">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" />
+                <h2 className="text-[13px] font-semibold text-foreground">
+                  Spoken Language
+                </h2>
+              </div>
+              <span className="text-[11px] font-mono text-muted-foreground">
+                Active: <span className="text-primary font-semibold">{currentLangObj.flag} {currentLangObj.name}</span>
+              </span>
+            </div>
+
+            {/* Searchable Dropdown */}
+            <div className="relative" ref={langDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-border/70 bg-surface-lowest hover:bg-surface-high/30 text-foreground text-[12.5px] transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-base">{currentLangObj.flag}</span>
+                  <span className="font-semibold truncate">{currentLangObj.name}</span>
+                  <span className="text-muted-foreground text-[11.5px] truncate">({currentLangObj.nativeName})</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-high border border-border/60 text-muted-foreground ml-auto hidden sm:inline-block">
+                    {currentLangObj.region}
                   </span>
                 </div>
+                <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ml-2', isLangDropdownOpen && 'rotate-180')} />
+              </button>
 
+              {isLangDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 z-50 rounded-xl border border-border/90 bg-surface-lowest/95 backdrop-blur-md shadow-2xl overflow-hidden">
+                  <div className="p-2 border-b border-border/50 bg-surface-high/30 flex items-center gap-2">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <input
+                      type="text"
+                      value={langSearchQuery}
+                      onChange={(e) => setLangSearchQuery(e.target.value)}
+                      placeholder="Search languages by name, native script, or region..."
+                      className="w-full bg-transparent border-none text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto p-1 space-y-0.5 custom-scrollbar">
+                    {filteredLanguages.map((lang) => {
+                      const isSelected = language.toLowerCase() === lang.id.toLowerCase();
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => {
+                            setLanguage(lang.id);
+                            setIsLangDropdownOpen(false);
+                            setLangSearchQuery('');
+                          }}
+                          className={cn(
+                            'w-full text-left px-3 py-2 rounded-lg flex items-center justify-between gap-2 text-[12px] transition-all cursor-pointer',
+                            isSelected
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'hover:bg-surface-high/60 text-foreground',
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span>{lang.flag}</span>
+                            <span className="truncate">{lang.name}</span>
+                            <span className="text-muted-foreground text-[11px]">({lang.nativeName})</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9.5px] font-mono text-muted-foreground opacity-80">{lang.region}</span>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Active Dialect Note */}
+          <div className="p-3 rounded-lg bg-surface-high/20 border border-border/40 text-[11.5px] text-muted-foreground">
+            <span className="text-foreground font-medium block mb-0.5">{currentLangObj.name} ({currentLangObj.nativeName})</span>
+            <span>{currentLangObj.description}</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── ROW 2: Symmetrical 2-Column Grid (Instructions & Guardrails | Voice & Archetype) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        
+        {/* Card 3: Instructions & Policies */}
+        <div className="rounded-xl border border-border/50 bg-surface-lowest/40 p-5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-3.5">
+            {/* Tabs Header */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-border/30">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <h2 className="text-[13px] font-semibold text-foreground">
+                  Instructions
+                </h2>
+              </div>
+
+              {/* Segmented Pill Tabs */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-surface-high border border-border/50 text-[11.5px]">
+                <button
+                  type="button"
+                  onClick={() => setInstructionTab('prompt')}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md transition-all cursor-pointer',
+                    instructionTab === 'prompt' ? 'bg-surface-lowest text-foreground font-semibold shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Prompt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstructionTab('greeting')}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md transition-all cursor-pointer',
+                    instructionTab === 'greeting' ? 'bg-surface-lowest text-foreground font-semibold shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Greeting
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstructionTab('avoidances')}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md transition-all cursor-pointer',
+                    instructionTab === 'avoidances' ? 'bg-surface-lowest text-foreground font-semibold shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Guardrails
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstructionTab('policies')}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md transition-all cursor-pointer',
+                    instructionTab === 'policies' ? 'bg-surface-lowest text-foreground font-semibold shadow-xs' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Policies
+                </button>
+              </div>
+            </div>
+
+            {/* Tab: System Prompt */}
+            {instructionTab === 'prompt' && (
+              <div className="space-y-2">
                 <textarea
-                  rows={10}
+                  rows={9}
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder={`You are ORA, the flagship AI sales representative for this store.\n• Proactively guide customers to relevant products based on their questions.\n• Mention our 30-day money-back guarantee when objections arise.\n• Offer discount code "SAVE10" for 10% off at checkout.\n• Keep voice responses concise (1-2 sentences) and conversational.`}
-                  className="w-full px-3.5 py-2.5 bg-surface-lowest border border-border/80 rounded-md text-[12.5px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed resize-y"
+                  placeholder={`• Help customers find products, sizes, and colors.\n• Mention discount code "SAVE10" at checkout.\n• Answer shipping and return policy questions accurately.`}
+                  className="w-full px-3 py-2 bg-surface-lowest border border-border/70 rounded-lg text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed resize-y"
                 />
-
-                {/* Quick Variable Insert Chips */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10.5px] font-mono text-muted-foreground mr-1">Quick Anchors:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10.5px] font-mono text-muted-foreground">Anchors:</span>
                   {['#products', '#pricing', '#shipping', '#checkout', '#contact'].map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => setSystemPrompt((prev) => `${prev} ${tag}`.trim())}
-                      className="px-2 py-0.5 rounded border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[10.5px] font-mono text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                      className="px-2 py-0.5 rounded border border-border/50 bg-surface-high/30 hover:bg-surface-high text-[10.5px] font-mono text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                     >
                       {tag}
                     </button>
@@ -842,216 +831,153 @@ export function AgentPersonaTab() {
               </div>
             )}
 
-            {/* Tab 2: Greeting & Consumer Treatment */}
-            {promptTab === 'treatment' && (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11.5px] text-muted-foreground">
-                    Specify how ORA should welcome new visitors, address their questions, and handle hesitations.
-                  </p>
-                  <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
-                    {greetingMessage.length} / 2000
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Initial Spoken Greeting Phrase
-                    </label>
-                    <input
-                      type="text"
-                      value={greetingMessage}
-                      onChange={(e) => setGreetingMessage(e.target.value)}
-                      placeholder='e.g. আসসালামু আলাইকুম! ORA-তে আপনাকে স্বাগতম। আজ আপনাকে কী খুঁজে দিতে পারি?'
-                      className="w-full px-3 py-2 bg-surface-lowest border border-border/80 rounded-md text-[12.5px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Brand Voice & Demeanor
-                    </label>
-                    <input
-                      type="text"
-                      value={brandVoice}
-                      onChange={(e) => setBrandVoice(e.target.value)}
-                      placeholder="e.g. Warm, consultative, energetic, and highly respectful."
-                      className="w-full px-3 py-2 bg-surface-lowest border border-border/80 rounded-md text-[12.5px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      Store Profile Summary
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={businessSummary}
-                      onChange={(e) => setBusinessSummary(e.target.value)}
-                      placeholder="e.g. Premium retail apparel delivering sustainable activewear with express delivery across Bangladesh."
-                      className="w-full px-3 py-2 bg-surface-lowest border border-border/80 rounded-md text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed resize-none"
-                    />
-                  </div>
-                </div>
+            {/* Tab: Greeting Phrase */}
+            {instructionTab === 'greeting' && (
+              <div className="space-y-2">
+                <label className="text-[11.5px] font-medium text-muted-foreground">
+                  Initial Spoken Greeting
+                </label>
+                <input
+                  type="text"
+                  value={greetingMessage}
+                  onChange={(e) => setGreetingMessage(e.target.value)}
+                  placeholder="e.g. Welcome to our store! How may I assist you today?"
+                  className="w-full px-3 py-2 bg-surface-lowest border border-border/70 rounded-lg text-[12.5px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  This phrase is spoken when shoppers initiate a voice session.
+                </p>
               </div>
             )}
 
-            {/* Tab 3: What to Avoid */}
-            {promptTab === 'avoidances' && (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11.5px] text-muted-foreground">
-                    Strict rules and restrictions. ORA will never mention these topics or violate these guardrails.
-                  </p>
-                  <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
-                    {avoidances.length} / 2000
-                  </span>
-                </div>
-
+            {/* Tab: Guardrails / What to Avoid */}
+            {instructionTab === 'avoidances' && (
+              <div className="space-y-2">
                 <textarea
-                  rows={8}
+                  rows={9}
                   value={avoidances}
                   onChange={(e) => setAvoidances(e.target.value)}
-                  placeholder={`• Never mention competitor brands (e.g. CompetitorA, CompetitorB).\n• Never offer discounts higher than 15%.\n• Do not discuss politics, controversy, or non-store related topics.\n• Never promise delivery dates that contradict our standard 3-5 day policy.`}
-                  className="w-full px-3.5 py-2.5 bg-surface-lowest border border-destructive/30 focus:border-destructive/60 rounded-md text-[12.5px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-destructive leading-relaxed resize-y"
+                  placeholder={`• Never mention competitors.\n• Never offer unverified discounts.\n• Stay focused on store products and policies.`}
+                  className="w-full px-3 py-2 bg-surface-lowest border border-destructive/30 focus:border-destructive/60 rounded-lg text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-destructive leading-relaxed resize-y"
                 />
-
-                <div className="p-2.5 rounded bg-destructive/5 border border-destructive/20 text-destructive text-[11px] flex items-center gap-2">
-                  <Info className="h-4 w-4 flex-shrink-0" />
-                  <span>These restrictions are bound as high-priority negative constraints in ORA's live reasoning loop.</span>
-                </div>
               </div>
             )}
 
-          </div>
-
-          {/* Operational Directives / Policies (Markdown) */}
-          <div className="rounded-lg border border-border bg-card/40 p-4 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-3.5 w-3.5 text-primary" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                  Additional Directives & Store Policies
-                </h2>
+            {/* Tab: Additional Policies */}
+            {instructionTab === 'policies' && (
+              <div className="space-y-2">
+                <textarea
+                  rows={9}
+                  value={customDirectives}
+                  onChange={(e) => setCustomDirectives(e.target.value)}
+                  placeholder={`• Free shipping above $50.\n• 7-day hassle-free returns on unworn items.`}
+                  className="w-full px-3 py-2 bg-surface-lowest border border-border/70 rounded-lg text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed resize-y"
+                />
               </div>
-              <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
-                {customDirectives.length} chars
-              </span>
-            </div>
-            <textarea
-              rows={4}
-              value={customDirectives}
-              onChange={(e) => setCustomDirectives(e.target.value)}
-              placeholder={`# Delivery & Return Rules\n• Free shipping above ৳2,000 / $50.\n• 7-day hassle-free exchange on clothing.`}
-              className="w-full px-3 py-2 bg-surface-lowest border border-border/80 rounded-md text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed resize-y"
-            />
+            )}
           </div>
         </div>
 
-        {/* ── RIGHT (Voice Model Selection & Archetype) ── */}
-        <div className="lg:col-span-4 space-y-4">
-          
-          {/* Card: Voice Models */}
-          <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Mic className="h-3.5 w-3.5 text-primary" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                  Voice Model
-                </h2>
+        {/* Card 4: Voice Model & Store Archetype */}
+        <div className="rounded-xl border border-border/50 bg-surface-lowest/40 p-5 space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            
+            {/* Voice Model Section */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between pb-2 border-b border-border/30">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-4 w-4 text-primary" />
+                  <h2 className="text-[13px] font-semibold text-foreground">
+                    Voice Model
+                  </h2>
+                </div>
+                <span className="text-[11px] font-mono text-primary font-medium">
+                  {currentVoiceObj.name} ({currentVoiceObj.gender})
+                </span>
               </div>
-              <span className="text-[10.5px] font-mono text-muted-foreground">
-                Active: <span className="text-primary font-medium">{currentVoiceObj.voiceId}</span>
-              </span>
-            </div>
 
-            <div className="space-y-2">
-              {VOICE_OPTIONS.map((voice) => {
-                const isSelected = voiceId === voice.voiceId;
-                const isPlaying = playingVoiceId === voice.voiceId;
-                const isLoadingAudio = loadingAudioId === voice.voiceId;
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {VOICE_OPTIONS.map((voice) => {
+                  const isSelected = voiceId === voice.voiceId;
+                  const isPlaying = playingVoiceId === voice.voiceId;
+                  const isLoadingAudio = loadingAudioId === voice.voiceId;
 
-                return (
-                  <div
-                    key={voice.voiceId}
-                    onClick={() => setVoiceId(voice.voiceId)}
-                    className={cn(
-                      'p-2.5 rounded-md border transition-all cursor-pointer flex items-center justify-between gap-2 select-none',
-                      isSelected
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary/40'
-                        : 'border-border/60 bg-surface-lowest/40 hover:bg-surface-high/60',
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[12px] font-semibold text-foreground truncate">
-                          {voice.voiceId}
-                        </span>
-                        <span className="text-[9.5px] font-mono text-muted-foreground px-1 py-0.2 rounded bg-surface-high border border-border/50">
-                          {voice.gender}
-                        </span>
+                  return (
+                    <div
+                      key={voice.voiceId}
+                      onClick={() => setVoiceId(voice.voiceId)}
+                      className={cn(
+                        'p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 select-none',
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                          : 'border-border/60 bg-surface-lowest/60 hover:bg-surface-high/50',
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[12px] font-semibold text-foreground truncate">
+                            {voice.name}
+                          </span>
+                          <span className="text-[9.5px] font-mono text-muted-foreground px-1 py-0.2 rounded bg-surface-high border border-border/50">
+                            {voice.gender}
+                          </span>
+                        </div>
+                        <p className="text-[10.5px] text-muted-foreground truncate">{voice.tone}</p>
                       </div>
-                      <p className="text-[10.5px] text-muted-foreground truncate">{voice.toneName}</p>
-                    </div>
 
-                    <div className="flex-shrink-0">
-                      <WaveformAudioControl
-                        isPlaying={isPlaying}
-                        isLoading={!!isLoadingAudio}
-                        onToggle={(e) => handlePlayVoiceSample(voice, e)}
-                      />
+                      <div className="flex-shrink-0">
+                        <WaveformAudioControl
+                          isPlaying={isPlaying}
+                          isLoading={!!isLoadingAudio}
+                          onToggle={(e) => handlePlayVoiceSample(voice, e)}
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Card: Business Archetype */}
-          <div className="rounded-lg border border-border bg-card/40 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                  Operating Model
-                </h2>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              {ARCHETYPES.map((opt) => {
-                const Icon = opt.icon;
-                const isSelected = archetype === opt.id;
+            {/* Archetype Section */}
+            <div className="space-y-2.5 pt-2 border-t border-border/30">
+              <div className="flex items-center gap-2 pb-1">
+                <Store className="h-4 w-4 text-primary" />
+                <h2 className="text-[13px] font-semibold text-foreground">
+                  Store Archetype
+                </h2>
+              </div>
 
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setArchetype(opt.id)}
-                    className={cn(
-                      'w-full text-left p-2 rounded-md border transition-all flex items-center justify-between gap-2 group cursor-pointer',
-                      isSelected
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border/60 bg-surface-lowest/40 hover:bg-surface-high/60',
-                    )}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', isSelected ? 'text-primary' : 'text-muted-foreground')} />
-                      <span className="text-[11.5px] font-medium text-foreground truncate">{opt.name}</span>
-                    </div>
-                    {isSelected && <Check className="h-3 w-3 text-primary flex-shrink-0" />}
-                  </button>
-                );
-              })}
+              <div className="flex flex-wrap gap-1.5">
+                {ARCHETYPES.map((opt) => {
+                  const Icon = opt.icon;
+                  const isSelected = archetype === opt.id;
+
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setArchetype(opt.id)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11.5px] font-medium transition-all cursor-pointer',
+                        isSelected
+                          ? 'border-primary bg-primary/15 text-primary font-semibold'
+                          : 'border-border/60 bg-surface-lowest/60 text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      <span>{opt.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
+          </div>
         </div>
 
       </div>
 
-      {/* ── LIVE TEST MODAL ── */}
+      {/* ── Test Voice Modal ── */}
       <VoiceTestModal
         isOpen={isTestModalOpen}
         onClose={() => setIsTestModalOpen(false)}

@@ -10,7 +10,7 @@ import {
   ChevronDown,
   ArrowRight,
   BookOpen,
-  Terminal,
+  Sliders,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type AgentRole } from './agent-section-nav';
@@ -44,14 +44,14 @@ type RolePageContent = {
 
 const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
   prompt: {
-    Icon: Terminal,
+    Icon: Sliders,
     iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
     iconTextClass: 'text-foreground',
     roleName: 'System Prompt & Persona',
     heroTitle: 'Configure ORA with custom instructions & persona',
     heroDesc:
-      'Instruct ORA on what to do, how to greet and treat your shoppers, language constraints (e.g. speak exclusively in Bangla), and topics to strictly avoid.',
-    heroImageSrc: '/previews/agent-voice-role.jpg',
+      'Instruct ORA on what to do, how to greet and treat your shoppers, 25+ supported spoken languages & dialects, and topics to strictly avoid.',
+    heroImageSrc: '/previews/agent-persona-role.jpg',
     cta1Label: 'Configure System Prompt',
     cta1Href: '/agent?role=prompt',
     cta2Label: 'Learn more',
@@ -73,9 +73,9 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
       },
       {
         stepLabel: '3. LANGUAGE',
-        title: 'Enforce regional & spoken dialects',
+        title: 'Enforce 25+ spoken languages & dialects',
         description:
-          'Instruct ORA to speak exclusively in natural Bengali (Bangla / বাংলা), English, or auto-detect multilingual shopper dialects.',
+          'Instruct ORA to speak in English, Bengali, Spanish, French, Hindi, Arabic, or auto-detect multilingual shopper dialects in real time.',
         imageSrc: '/previews/step-discover-v2.jpg',
       },
       {
@@ -92,8 +92,8 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         a: 'No, it is completely optional. If left blank, ORA uses its intelligent business archetype baseline.',
       },
       {
-        q: 'Can I force ORA to speak only in Bangla (বাংলা)?',
-        a: 'Yes. Select the Bangla Only language setting or apply the Bangla E-Commerce preset to ensure ORA speaks and greets exclusively in Bangla.',
+        q: 'Can I force ORA to speak only in a specific language (e.g. Spanish, Bengali, French)?',
+        a: 'Yes. Select your preferred language from the Supported Languages dropdown to ensure ORA speaks and greets exclusively in that language.',
       },
       {
         q: 'How fast do prompt changes take effect?',

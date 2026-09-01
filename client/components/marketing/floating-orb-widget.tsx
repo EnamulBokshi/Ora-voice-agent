@@ -204,6 +204,24 @@ function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
 export function FloatingOrbWidget() {
   const router = useRouter();
   const pathname = usePathname();
+
+  const isDashboardOrPortal =
+    pathname?.startsWith('/dashboard') ||
+    pathname?.startsWith('/setup') ||
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/auth') ||
+    pathname?.startsWith('/live-desk') ||
+    pathname?.startsWith('/agent') ||
+    pathname?.startsWith('/conversations') ||
+    pathname?.startsWith('/orders') ||
+    pathname?.startsWith('/customers') ||
+    pathname?.startsWith('/billing') ||
+    pathname?.startsWith('/usage') ||
+    pathname?.startsWith('/notifications') ||
+    pathname?.startsWith('/profile') ||
+    pathname?.startsWith('/verify-otp') ||
+    pathname?.startsWith('/reset-password');
+
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [liveUtterance, setLiveUtterance] = useState<string>('');
   const [liveSpeaker, setLiveSpeaker] = useState<'user' | 'agent' | null>(null);

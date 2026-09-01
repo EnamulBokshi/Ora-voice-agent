@@ -17,7 +17,7 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, ArrowRight, ExternalLink, Terminal } from 'lucide-react';
+import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
@@ -91,22 +91,13 @@ function AgentClientContent() {
     if (activeRole === 'prompt') {
       return (
         <AgentSectionLayout
-          iconNode={<Terminal size={16} className="text-foreground" />}
+          iconNode={<Sliders size={16} className="text-foreground" />}
           title="System Prompt & Persona"
-          description="Configure ORA's operating instructions, language constraints (e.g. Bangla only), greeting behavior, and strict avoidances."
-          previewSrc="/previews/agent-voice-role.jpg"
-          previewAlt="ORA system prompt"
-          howLabel="System prompt & behavioral directives"
-          ctaNodes={
-            <button
-              onClick={() => setIsVoiceModalOpen(true)}
-              className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-            >
-              Test live <ArrowRight size={10} />
-            </button>
-          }
+          description="Configure ORA's operating instructions, supported language & spoken dialect rules, greeting behavior, and strict avoidances."
+          previewSrc="/previews/agent-persona-role.jpg"
+          previewAlt="Store voice and persona preview"
         >
-          <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
+          <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-2">
             <AgentPersonaTab />
           </div>
         </AgentSectionLayout>

@@ -11,7 +11,7 @@ import {
   Layers,
   ChevronDown,
   ArrowRight,
-  Terminal,
+  Sliders,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,9 +32,9 @@ const AGENT_ROLES: AgentRoleCard[] = [
     id: 'prompt',
     label: 'System Prompt & Persona',
     category: 'Behavior & Directives',
-    Icon: Terminal,
-    description: 'Configure custom instructions, Bangla/multilingual rules, greetings, and avoidances',
-    imageSrc: '/previews/agent-voice-role.jpg',
+    Icon: Sliders,
+    description: 'Configure custom instructions, 25+ supported languages & dialects, greetings, and avoidances',
+    imageSrc: '/previews/agent-persona-role.jpg',
     href: '/agent?role=prompt',
   },
   {

@@ -10,7 +10,7 @@ interface AgentSectionLayoutProps {
   ctaNodes?: ReactNode;
   previewSrc: string;
   previewAlt: string;
-  howLabel: string;
+  howLabel?: string;
   children: ReactNode;
 }
 
@@ -74,13 +74,15 @@ export function AgentSectionLayout({
         </div>
       </div>
 
-      {/* ── Section eyebrow bar ── */}
-      <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 flex-shrink-0 border-b border-border/20 bg-surface-lowest/20">
-        <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-        <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-          {howLabel}
-        </p>
-      </div>
+      {/* ── Section eyebrow bar (optional) ── */}
+      {howLabel && (
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 flex-shrink-0 border-b border-border/20 bg-surface-lowest/20">
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+            {howLabel}
+          </p>
+        </div>
+      )}
 
       {/* ── Functional content ── */}
       <div className="flex-1 overflow-hidden">

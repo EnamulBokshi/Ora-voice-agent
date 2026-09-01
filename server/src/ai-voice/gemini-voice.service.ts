@@ -500,12 +500,47 @@ export class GeminiVoiceService {
         avoidanceRules = `\nSTRICT AVOIDANCES & RESTRICTIONS (NEVER VIOLATE):\n${agentConfig.config.avoidances}`;
       }
 
-      // Language directive
-      const configLang = agentConfig?.config?.language || 'en';
-      if (configLang === 'bn' || configLang === 'bangla' || configLang === 'bengali') {
+      // Dynamic Language Directive Generation
+      const configLang = (agentConfig?.config?.language || 'en').toLowerCase().trim();
+      const languageMap: Record<string, { name: string; nativeName: string; sampleGreeting?: string }> = {
+        bn: { name: 'Bengali', nativeName: 'বাংলা', sampleGreeting: 'আসসালামু আলাইকুম / নমস্কার! ORA-তে আপনাকে স্বাগতম। আজ কীভাবে সাহায্য করতে পারি?' },
+        bangla: { name: 'Bengali', nativeName: 'বাংলা', sampleGreeting: 'আসসালামু আলাইকুম / নমস্কার! ORA-তে আপনাকে স্বাগতম। আজ কীভাবে সাহায্য করতে পারি?' },
+        bengali: { name: 'Bengali', nativeName: 'বাংলা', sampleGreeting: 'আসসালামু আলাইকুম / নমস্কার! ORA-তে আপনাকে স্বাগতম। আজ কীভাবে সাহায্য করতে পারি?' },
+        es: { name: 'Spanish', nativeName: 'Español', sampleGreeting: '¡Hola! Bienvenido a nuestra tienda. ¿En qué puedo ayudarte hoy?' },
+        fr: { name: 'French', nativeName: 'Français', sampleGreeting: 'Bonjour et bienvenue ! Comment puis-je vous aider aujourd’hui ?' },
+        de: { name: 'German', nativeName: 'Deutsch', sampleGreeting: 'Hallo und herzlich willkommen! Wie kann ich Ihnen heute behilflich sein?' },
+        hi: { name: 'Hindi', nativeName: 'हिन्दी', sampleGreeting: 'नमस्ते! हमारी दुकान में आपका स्वागत है। आज मैं आपकी क्या मदद कर सकता हूँ?' },
+        ar: { name: 'Arabic', nativeName: 'العربية', sampleGreeting: 'مرحباً بكم في متجرنا! كيف يمكنني مساعدتكم اليوم؟' },
+        zh: { name: 'Mandarin Chinese', nativeName: '中文', sampleGreeting: '您好！欢迎光临我们的店铺。请问有什么可以帮您的？' },
+        ja: { name: 'Japanese', nativeName: '日本語', sampleGreeting: 'いらっしゃいませ！本日はどのような商品をお探しでしょうか？' },
+        ko: { name: 'Korean', nativeName: '한국어', sampleGreeting: '안녕하세요! 저희 매장에 오신 것을 환영합니다. 무엇을 도와드릴까요?' },
+        pt: { name: 'Portuguese', nativeName: 'Português', sampleGreeting: 'Olá! Bem-vindo à nossa loja. Como posso ajudar você hoje?' },
+        it: { name: 'Italian', nativeName: 'Italiano', sampleGreeting: 'Ciao e benvenuto nel nostro negozio! Come posso aiutarti oggi?' },
+        nl: { name: 'Dutch', nativeName: 'Nederlands', sampleGreeting: 'Hallo en welkom in onze winkel! Waarmee kan ik u vandaag helpen?' },
+        tr: { name: 'Turkish', nativeName: 'Türkçe', sampleGreeting: 'Merhaba, mağazamıza hoş geldiniz! Size bugün nasıl yardımcı olabilirim?' },
+        vi: { name: 'Vietnamese', nativeName: 'Tiếng Việt', sampleGreeting: 'Xin chào! Chào mừng bạn đến với cửa hàng của chúng tôi. Tôi có thể giúp gì cho bạn?' },
+        id: { name: 'Indonesian', nativeName: 'Bahasa Indonesia', sampleGreeting: 'Halo! Selamat datang di toko kami. Ada yang bisa saya bantu hari ini?' },
+        ru: { name: 'Russian', nativeName: 'Русский', sampleGreeting: 'Здравствуйте! Добро пожаловать. Чем я могу помочь вам сегодня?' },
+        pl: { name: 'Polish', nativeName: 'Polski', sampleGreeting: 'Dzień dobry! Witamy w naszym sklepie. W czym mogę dzisiaj pomóc?' },
+        sv: { name: 'Swedish', nativeName: 'Svenska', sampleGreeting: 'Hej och välkommen till vår butik! Hur kan jag hjälpa dig i dag?' },
+        tl: { name: 'Tagalog / Filipino', nativeName: 'Filipino', sampleGreeting: 'Kumusta! Maligayang pagdating sa aming tindahan. Paano kita matutulungan ngayon?' },
+        ur: { name: 'Urdu', nativeName: 'اردو', sampleGreeting: 'السلام علیکم! ہماری دکان میں خوش آمدید۔ میں آج آپ کی کیا مدد کر سکتا ہوں؟' },
+        ta: { name: 'Tamil', nativeName: 'தமிழ்', sampleGreeting: 'வணக்கம்! எங்கள் கடைக்கு உங்களை வரவேற்கிறோம். இன்று நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?' },
+        te: { name: 'Telugu', nativeName: 'తెలుగు', sampleGreeting: 'నమస్కారం! మా దుకాణానికి స్వాగతం. ఈరోజు నేను మీకు ఎలా సహాయపడగలను?' },
+        mr: { name: 'Marathi', nativeName: 'मराठी', sampleGreeting: 'नमस्कार! आमच्या दुकानात आपले स्वागत आहे. आज मी तुम्हाला कशी मदत करू शकतो?' },
+        gu: { name: 'Gujarati', nativeName: 'ગુજરાતી', sampleGreeting: 'નમસ્તે! અમારી દુકાનમાં તમારું સ્વાગત છે. આજે હું તમારી કેવી રીતે મદદ કરી શકું?' },
+        th: { name: 'Thai', nativeName: 'ไทย', sampleGreeting: 'สวัสดีครับ/ค่ะ ยินดีต้อนรับสู่ร้านค้าของเรา มีอะไรให้ช่วยไหมครับ/ค่ะ' },
+      };
+
+      if (configLang === 'multilingual' || configLang === 'auto') {
+        languageDirective = `\nLANGUAGE REQUIREMENT:\n• Automatically detect and respond naturally in whichever language or regional dialect the customer speaks (English, Bengali, Spanish, French, Hindi, Arabic, etc.).`;
+      } else if (configLang === 'bn' || configLang === 'bangla' || configLang === 'bengali') {
         languageDirective = `\nLANGUAGE REQUIREMENT (STRICT):\n• You MUST speak exclusively in Bengali (Bangla / বাংলা). All greetings, product explanations, answers, and checkout guidance must be delivered in natural, fluent Bangla.\n• Greet the customer in Bangla (e.g. "আসসালামু আলাইকুম / নমস্কার! ORA-তে আপনাকে স্বাগতম। আজ আপনাকে কীভাবে সাহায্য করতে পারি?").\n• If the user explicitly speaks English, you may briefly answer in English, but default to Bangla.`;
-      } else if (configLang === 'multilingual') {
-        languageDirective = `\nLANGUAGE REQUIREMENT:\n• Automatically detect and respond naturally in whichever language the visitor speaks (Bengali, English, etc.).`;
+      } else if (languageMap[configLang]) {
+        const langInfo = languageMap[configLang];
+        languageDirective = `\nLANGUAGE REQUIREMENT (STRICT):\n• You MUST speak exclusively in ${langInfo.name} (${langInfo.nativeName}). All greetings, product explanations, answers, and checkout guidance must be delivered in natural, fluent ${langInfo.name}.\n${langInfo.sampleGreeting ? `• Greet the customer naturally in ${langInfo.name} (e.g. "${langInfo.sampleGreeting}").\n` : ''}• If the user explicitly speaks another language, you may briefly answer in that language, but default to ${langInfo.name}.`;
+      } else if (configLang && configLang !== 'en') {
+        languageDirective = `\nLANGUAGE REQUIREMENT (STRICT):\n• You MUST speak and respond in ${configLang}. Ensure natural pronunciation, polite phrasing, and grammatically correct phrasing.`;
       }
 
       // 1. Preload Business Identity & Owner Contact Info (Email, Name, Domain)

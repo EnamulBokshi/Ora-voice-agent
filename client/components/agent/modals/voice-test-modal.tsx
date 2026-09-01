@@ -131,6 +131,26 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
     };
   }, [isOpen, stopSession]);
 
+  // Handle Escape key and lock background scroll when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   // Start Direct Live Session
   const startDirectLiveSession = async () => {
     try {
@@ -287,19 +307,29 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="voice-test-modal-title"
+        className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] my-auto"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-surface-container/30">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-3.5 border-b border-border/60 bg-surface-container/40 backdrop-blur-sm">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm flex-shrink-0">
               <Radio size={15} className="text-foreground" />
             </div>
-            <div>
-              <h2 className="text-[15.5px] font-semibold text-foreground tracking-tight">
+            <div className="min-w-0">
+              <h2 id="voice-test-modal-title" className="text-[14.5px] sm:text-[15.5px] font-semibold text-foreground tracking-tight truncate">
                 Test ORA Live
               </h2>
-              <p className="text-[12px] font-mono text-muted-foreground">
+              <p className="text-[11px] sm:text-[12px] font-mono text-muted-foreground truncate">
                 Real-time multimodal speech & sales intelligence
               </p>
             </div>
@@ -307,50 +337,51 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+            aria-label="Close voice test modal"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer flex-shrink-0"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Body Content */}
-        <div className="p-6 flex flex-col items-center gap-6">
+        {/* Body Content - Scrollable on small viewports */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 flex flex-col items-center gap-3.5 sm:gap-4 md:gap-5 min-h-0 custom-scrollbar">
           {/* Mode Switcher */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container border border-border/50">
+          <div className="w-full sm:w-auto flex flex-wrap sm:flex-nowrap items-center justify-center gap-1 p-1 rounded-xl bg-surface-container border border-border/50 flex-shrink-0">
             <button
               onClick={() => {
                 stopSession();
                 setVoiceMode('direct-live');
               }}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg text-[11.5px] sm:text-[12.5px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 voiceMode === 'direct-live'
                   ? 'bg-surface-high text-foreground font-semibold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
-              ORA Neural Engine (Direct)
+              <span>ORA Neural Engine (Direct)</span>
             </button>
             <button
               onClick={() => {
                 stopSession();
                 setVoiceMode('browser-speech');
               }}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg text-[11.5px] sm:text-[12.5px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 voiceMode === 'browser-speech'
                   ? 'bg-surface-high text-foreground font-semibold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <SlidersHorizontal size={13} />
-              Browser STT/TTS
+              <span>Browser STT/TTS</span>
             </button>
           </div>
 
           {/* Living Orb Visualizer */}
-          <div className="relative flex items-center justify-center my-1">
+          <div className="relative flex items-center justify-center my-0 sm:my-0.5 flex-shrink-0">
             <LivingOrb
-              size={120}
+              size={105}
               voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
               energyLevel={audioLevel}
               onClick={() => {
@@ -365,8 +396,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           </div>
 
           {/* Status Bar */}
-          <div className="w-full flex items-center justify-between text-[12.5px] px-4 py-2.5 rounded-xl bg-surface-container/50 border border-border/60">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-full flex items-center justify-between gap-2 text-[11.5px] sm:text-[12.5px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-surface-container/50 border border-border/60 flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
               <span
                 className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                   status === 'speaking' || status === 'listening'
@@ -388,9 +419,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               </span>
             </div>
 
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {latencyMs !== null && (
-                <span className="text-[11px] font-mono text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold">
+                <span className="text-[10px] sm:text-[11px] font-mono text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-1.5 sm:px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold">
                   {latencyMs}ms RTT
                 </span>
               )}
@@ -398,11 +429,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           </div>
 
           {/* Main Control Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
             {status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
-                className="px-6 py-2.5 rounded-xl font-semibold text-[13.5px] flex items-center gap-2 bg-foreground text-background hover:opacity-90 transition-all shadow-md cursor-pointer"
+                className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.98] transition-all shadow-md cursor-pointer"
               >
                 <Play size={14} fill="currentColor" />
                 <span>Test ORA Live</span>
@@ -411,19 +442,20 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               <>
                 <button
                   onClick={toggleMute}
-                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                  className={`p-2 sm:p-2.5 rounded-xl border transition-colors cursor-pointer ${
                     isMuted
                       ? 'bg-red-500/20 border-red-500/40 text-red-500 dark:text-red-400'
                       : 'bg-surface-high border-border/80 text-foreground hover:bg-surface-highest'
                   }`}
                   title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                  aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
                   {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                 </button>
 
                 <button
                   onClick={stopSession}
-                  className="px-6 py-2.5 rounded-xl font-semibold text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white transition-all shadow-md cursor-pointer"
+                  className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white active:scale-[0.98] transition-all shadow-md cursor-pointer"
                 >
                   <Square size={14} fill="currentColor" />
                   <span>End Test</span>
@@ -433,48 +465,48 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           </div>
 
           {/* Tabbed Inspector: Live Feed vs ORA Memory & Context */}
-          <div className="w-full bg-surface-container/30 border border-border/60 rounded-xl p-4 h-56 flex flex-col space-y-2.5">
+          <div className="w-full bg-surface-container/30 border border-border/60 rounded-xl p-3 sm:p-4 min-h-[160px] max-h-[240px] sm:max-h-[260px] h-48 sm:h-56 flex flex-col space-y-2 flex-shrink-0">
             <div className="flex items-center justify-between border-b border-border/40 pb-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   onClick={() => setActiveTab('transcript')}
-                  className={`text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`text-[10.5px] sm:text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     activeTab === 'transcript'
                       ? 'bg-surface-high text-foreground border border-border/60'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <Activity size={12} className={activeTab === 'transcript' ? 'text-primary' : ''} />
-                  Live Transcript
+                  <span>Live Transcript</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('memory')}
-                  className={`text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`text-[10.5px] sm:text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     activeTab === 'memory'
                       ? 'bg-surface-high text-foreground border border-border/60'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <Brain size={12} className={activeTab === 'memory' ? 'text-primary' : ''} />
-                  Memory & State
+                  <span>Memory & State</span>
                 </button>
               </div>
 
-              <span className="text-[11px] text-muted-foreground/70 font-mono">
+              <span className="text-[10px] sm:text-[11px] text-muted-foreground/70 font-mono truncate max-w-[100px] sm:max-w-none">
                 {sessionId}
               </span>
             </div>
 
             {activeTab === 'transcript' ? (
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-[12.5px]">
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-[11.5px] sm:text-[12.5px] min-h-0 custom-scrollbar">
                 {transcripts.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground/50 text-xs italic">
+                  <div className="h-full min-h-[80px] flex items-center justify-center text-muted-foreground/50 text-xs italic text-center px-4">
                     Live speech transcripts and catalog tool queries will stream here...
                   </div>
                 ) : (
                   transcripts.map((item) => (
-                    <div key={item.id} className="flex items-start gap-2">
-                      <span className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">
+                    <div key={item.id} className="flex items-start gap-1.5 sm:gap-2 leading-relaxed">
+                      <span className="text-[9.5px] sm:text-[10px] text-muted-foreground/60 font-mono mt-0.5 flex-shrink-0">
                         [{item.timestamp}]
                       </span>
                       {item.sender === 'user' ? (
@@ -489,13 +521,13 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                         <span className="text-muted-foreground font-mono text-[11px] flex-shrink-0">⚡</span>
                       )}
                       <span
-                        className={
+                        className={`break-words flex-1 ${
                           item.sender === 'agent'
                             ? 'text-foreground'
                             : item.sender === 'user'
                             ? 'text-foreground/90'
                             : 'text-muted-foreground italic'
-                        }
+                        }`}
                       >
                         {item.text}
                       </span>
@@ -505,43 +537,44 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                 <div ref={transcriptEndRef} />
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-[12px] font-mono">
+              <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-2.5 pr-1 text-[11px] sm:text-[12px] font-mono min-h-0 custom-scrollbar">
                 {/* Identity Block */}
-                <div className="p-2.5 rounded-lg bg-surface-lowest border border-border/50">
-                  <div className="text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1.5">
-                    <ShieldCheck size={13} className="text-primary" /> Active Identity & Role
+                <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
+                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
+                    <ShieldCheck size={12} className="text-primary flex-shrink-0" /> Active Identity & Role
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-muted-foreground text-[11px]">
                     <div>User: <span className="text-foreground">Authenticated Merchant Owner</span></div>
-                    <div>Key: <span className="text-foreground truncate">{publishableKey ? `${publishableKey.slice(0, 14)}...` : 'Active'}</span></div>
+                    <div className="truncate">Key: <span className="text-foreground font-mono">{publishableKey ? `${publishableKey.slice(0, 14)}...` : 'Active'}</span></div>
                   </div>
                 </div>
 
                 {/* Telemetry & Browsing State */}
-                <div className="p-2.5 rounded-lg bg-surface-lowest border border-border/50">
-                  <div className="text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1.5">
-                    <Compass size={13} className="text-primary" /> Live Browsing Telemetry
+                <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
+                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
+                    <Compass size={12} className="text-primary flex-shrink-0" /> Live Browsing Telemetry
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-muted-foreground text-[11px]">
                     <div>Route: <span className="text-foreground font-semibold">/agent</span></div>
                     <div>Section: <span className="text-foreground">Agent Testing Workspace</span></div>
                   </div>
                 </div>
 
                 {/* Preloaded Knowledge & Tools */}
-                <div className="p-2.5 rounded-lg bg-surface-lowest border border-border/50">
-                  <div className="text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1.5">
-                    <Database size={13} className="text-primary" /> Preloaded Memory & Tools
+                <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
+                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
+                    <Database size={12} className="text-primary flex-shrink-0" /> Preloaded Memory & Tools
                   </div>
-                  <div className="text-muted-foreground space-y-1">
+                  <div className="text-muted-foreground space-y-1 text-[11px]">
                     <div className="flex items-center gap-1 text-emerald-500 dark:text-[#C8F031]">
-                      <CheckCircle2 size={11} /> Fast-path catalog inventory & store policies preloaded
+                      <CheckCircle2 size={11} className="flex-shrink-0" />
+                      <span>Fast-path catalog inventory & store policies preloaded</span>
                     </div>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {activeTools.map((tool) => (
                         <span
                           key={tool}
-                          className="px-1.5 py-0.5 rounded bg-surface-high border border-border/60 text-[10.5px] text-foreground/80"
+                          className="px-1.5 py-0.5 rounded bg-surface-high border border-border/60 text-[10px] sm:text-[10.5px] text-foreground/80"
                         >
                           {tool}
                         </span>
