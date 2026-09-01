@@ -2835,7 +2835,7 @@
       "file_type": "code",
       "norm_label": "codesnippet",
       "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L17"
+      "source_location": "L41"
     },
     {
       "id": "client_components_docs_docs_page_client_docsection",
@@ -2848,7 +2848,7 @@
       "file_type": "code",
       "norm_label": "docsection",
       "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L9"
+      "source_location": "L33"
     },
     {
       "id": "server_src_ai_voice_guards_bootstrap_rate_limit_guard_bootstrapratelimitguard",
@@ -7361,7 +7361,7 @@
       "file_type": "code",
       "norm_label": ".handleaudiochunk()",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L195"
+      "source_location": "L204"
     },
     {
       "id": "server_src_gateway_voice_gateway_voicegateway_handleconnection",
@@ -7409,7 +7409,7 @@
       "file_type": "code",
       "norm_label": ".handlestopvoicesession()",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L206"
+      "source_location": "L215"
     },
     {
       "id": "server_src_gateway_voice_gateway_voicegateway_recordorigintelemetry",
@@ -7421,7 +7421,7 @@
       "file_type": "code",
       "norm_label": ".recordorigintelemetry()",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L215"
+      "source_location": "L224"
     },
     {
       "id": "server_src_admin_admin_controller_admincontroller_createplatformuser",
@@ -8141,7 +8141,7 @@
       "file_type": "code",
       "norm_label": ".getactivesessioncount()",
       "source_file": "server/src/ai-voice/voice-proxy.gateway.ts",
-      "source_location": "L772"
+      "source_location": "L800"
     },
     {
       "id": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway_handleconnection",
@@ -8669,7 +8669,7 @@
       "file_type": "code",
       "norm_label": ".arraybuffertobase64()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L726"
+      "source_location": "L725"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_confirmcustomerdetails",
@@ -8681,7 +8681,7 @@
       "file_type": "code",
       "norm_label": ".confirmcustomerdetails()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L735"
+      "source_location": "L734"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_constructor",
@@ -8705,7 +8705,7 @@
       "file_type": "code",
       "norm_label": ".float32toint16base64()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L712"
+      "source_location": "L711"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_flushplaybackqueue",
@@ -8717,7 +8717,7 @@
       "file_type": "code",
       "norm_label": ".flushplaybackqueue()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L567"
+      "source_location": "L566"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_handlepagehide",
@@ -8741,7 +8741,7 @@
       "file_type": "code",
       "norm_label": ".playpcm24kbase64()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L515"
+      "source_location": "L514"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_recordactivity",
@@ -8765,7 +8765,7 @@
       "file_type": "code",
       "norm_label": ".sendaudiochunk()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L509"
+      "source_location": "L508"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_sendcontextupdate",
@@ -8849,7 +8849,7 @@
       "file_type": "code",
       "norm_label": ".startspeechrecognition()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L649"
+      "source_location": "L648"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_stop",
@@ -8861,7 +8861,7 @@
       "file_type": "code",
       "norm_label": ".stop()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L581"
+      "source_location": "L580"
     },
     {
       "id": "client_services_gemini_live_client_geminiliveclient_stopspeechrecognition",
@@ -8873,7 +8873,7 @@
       "file_type": "code",
       "norm_label": ".stopspeechrecognition()",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L702"
+      "source_location": "L701"
     },
     {
       "id": "client_app_dashboard_live_desk_page_livedeskpage",
@@ -9713,7 +9713,7 @@
       "file_type": "code",
       "norm_label": "codeblock()",
       "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L25"
+      "source_location": "L49"
     },
     {
       "id": "client_components_docs_docs_page_client_docspageclient",
@@ -9725,7 +9725,7 @@
       "file_type": "code",
       "norm_label": "docspageclient()",
       "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L89"
+      "source_location": "L113"
     },
     {
       "id": "client_components_marketing_footer_marketingfooter",
@@ -12521,7 +12521,7 @@
       "file_type": "code",
       "norm_label": ".gettooldeclarations()",
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L747"
+      "source_location": "L766"
     },
     {
       "id": "server_src_ai_voice_gemini_voice_service_geminivoiceservice_invalidateinstructioncache",
@@ -12533,7 +12533,7 @@
       "file_type": "code",
       "norm_label": ".invalidateinstructioncache()",
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L751"
+      "source_location": "L770"
     },
     {
       "id": "server_src_ai_voice_gemini_voice_service_normalizegeminivoice",
@@ -41911,7 +41911,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L736",
+      "source_location": "L735",
       "weight": 1.0
     },
     {
@@ -41923,7 +41923,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L571",
+      "source_location": "L570",
       "weight": 1.0
     },
     {
@@ -41947,7 +41947,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L546",
+      "source_location": "L545",
       "weight": 1.0
     },
     {
@@ -41959,7 +41959,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L559",
+      "source_location": "L558",
       "weight": 1.0
     },
     {
@@ -41971,7 +41971,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L511",
+      "source_location": "L510",
       "weight": 1.0
     },
     {
@@ -42055,7 +42055,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L264",
+      "source_location": "L263",
       "weight": 1.0
     },
     {
@@ -42067,7 +42067,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L401",
+      "source_location": "L400",
       "weight": 1.0
     },
     {
@@ -42079,7 +42079,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L466",
+      "source_location": "L465",
       "weight": 1.0
     },
     {
@@ -42091,7 +42091,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L467",
+      "source_location": "L466",
       "weight": 1.0
     },
     {
@@ -42103,7 +42103,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L491",
+      "source_location": "L490",
       "weight": 1.0
     },
     {
@@ -42127,7 +42127,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L655",
+      "source_location": "L654",
       "weight": 1.0
     },
     {
@@ -42139,7 +42139,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L679",
+      "source_location": "L678",
       "weight": 1.0
     },
     {
@@ -42151,7 +42151,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L641",
+      "source_location": "L640",
       "weight": 1.0
     },
     {
@@ -42787,7 +42787,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L652",
+      "source_location": "L671",
       "weight": 1.0
     },
     {
@@ -42799,7 +42799,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L690",
+      "source_location": "L709",
       "weight": 1.0
     },
     {
@@ -42847,7 +42847,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L748",
+      "source_location": "L767",
       "weight": 1.0
     },
     {
@@ -50155,7 +50155,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L194",
+      "source_location": "L203",
       "weight": 1.0
     },
     {
@@ -50167,7 +50167,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L196",
+      "source_location": "L205",
       "weight": 1.0
     },
     {
@@ -50179,7 +50179,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L197",
+      "source_location": "L206",
       "weight": 1.0
     },
     {
@@ -50227,7 +50227,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L205",
+      "source_location": "L214",
       "weight": 1.0
     },
     {
@@ -50239,7 +50239,7 @@
       "confidence_score": 1.0,
       "context": "decorator",
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L206",
+      "source_location": "L215",
       "weight": 1.0
     },
     {
@@ -100527,35 +100527,13 @@
     },
     {
       "source": "client_components_docs_docs_page_client",
-      "target": "client_components_docs_docs_page_client_codesnippet",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L17",
-      "weight": 1.0
-    },
-    {
-      "source": "client_components_docs_docs_page_client",
-      "target": "client_components_docs_docs_page_client_codeblock",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L25",
-      "weight": 1.0
-    },
-    {
-      "source": "client_components_docs_docs_page_client",
       "target": "client_components_docs_docs_page_client_docspageclient",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L89",
+      "source_location": "L113",
       "weight": 1.0
     },
     {
@@ -100566,7 +100544,29 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/components/docs/docs-page-client.tsx",
-      "source_location": "L9",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "client_components_docs_docs_page_client",
+      "target": "client_components_docs_docs_page_client_codesnippet",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "client/components/docs/docs-page-client.tsx",
+      "source_location": "L41",
+      "weight": 1.0
+    },
+    {
+      "source": "client_components_docs_docs_page_client",
+      "target": "client_components_docs_docs_page_client_codeblock",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "client/components/docs/docs-page-client.tsx",
+      "source_location": "L49",
       "weight": 1.0
     },
     {
@@ -113997,7 +113997,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L509",
+      "source_location": "L508",
       "weight": 1.0
     },
     {
@@ -114008,7 +114008,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L515",
+      "source_location": "L514",
       "weight": 1.0
     },
     {
@@ -114019,7 +114019,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L567",
+      "source_location": "L566",
       "weight": 1.0
     },
     {
@@ -114030,7 +114030,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L581",
+      "source_location": "L580",
       "weight": 1.0
     },
     {
@@ -114052,7 +114052,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L649",
+      "source_location": "L648",
       "weight": 1.0
     },
     {
@@ -114085,7 +114085,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L702",
+      "source_location": "L701",
       "weight": 1.0
     },
     {
@@ -114096,7 +114096,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L712",
+      "source_location": "L711",
       "weight": 1.0
     },
     {
@@ -114107,7 +114107,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L726",
+      "source_location": "L725",
       "weight": 1.0
     },
     {
@@ -114118,7 +114118,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/services/gemini-live-client.ts",
-      "source_location": "L735",
+      "source_location": "L734",
       "weight": 1.0
     },
     {
@@ -114679,7 +114679,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L747",
+      "source_location": "L766",
       "weight": 1.0
     },
     {
@@ -114690,7 +114690,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/ai-voice/gemini-voice.service.ts",
-      "source_location": "L751",
+      "source_location": "L770",
       "weight": 1.0
     },
     {
@@ -114937,17 +114937,6 @@
     },
     {
       "source": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway",
-      "target": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway_getactivesessioncount",
-      "relation": "method",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "server/src/ai-voice/voice-proxy.gateway.ts",
-      "source_location": "L772",
-      "weight": 1.0
-    },
-    {
-      "source": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway",
       "target": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway_attachtoserver",
       "relation": "method",
       "_origin": "ast",
@@ -114955,6 +114944,17 @@
       "confidence_score": 1.0,
       "source_file": "server/src/ai-voice/voice-proxy.gateway.ts",
       "source_location": "L79",
+      "weight": 1.0
+    },
+    {
+      "source": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway",
+      "target": "server_src_ai_voice_voice_proxy_gateway_voiceproxygateway_getactivesessioncount",
+      "relation": "method",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/src/ai-voice/voice-proxy.gateway.ts",
+      "source_location": "L800",
       "weight": 1.0
     },
     {
@@ -116791,7 +116791,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L195",
+      "source_location": "L204",
       "weight": 1.0
     },
     {
@@ -116802,7 +116802,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L206",
+      "source_location": "L215",
       "weight": 1.0
     },
     {
@@ -116813,7 +116813,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/gateway/voice.gateway.ts",
-      "source_location": "L215",
+      "source_location": "L224",
       "weight": 1.0
     },
     {
@@ -120476,7 +120476,7 @@
       "confidence_score": 0.8,
       "context": "call",
       "source_file": "server/src/ai-voice/voice-proxy.gateway.ts",
-      "source_location": "L598",
+      "source_location": "L626",
       "weight": 1.0
     },
     {
@@ -120488,7 +120488,7 @@
       "confidence_score": 0.8,
       "context": "call",
       "source_file": "server/src/ai-voice/voice-proxy.gateway.ts",
-      "source_location": "L650",
+      "source_location": "L678",
       "weight": 1.0
     },
     {
@@ -123385,5 +123385,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "f9c6bad30594719c548cbef0dfc7bd11ed566db5"
+  "built_at_commit": "a29d8d16bee48e2930ca937a8c5d7b2c0e61dae7"
 }

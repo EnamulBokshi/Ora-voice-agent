@@ -2,7 +2,31 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { Search, Copy, Check, Terminal, Cpu, Shield, Zap, Layers, Code, ArrowRight } from 'lucide-react';
+import {
+  Search,
+  Copy,
+  Check,
+  Terminal,
+  Cpu,
+  Shield,
+  Zap,
+  Layers,
+  Code,
+  ArrowRight,
+  Sparkles,
+  ExternalLink,
+  ChevronRight,
+  Boxes,
+  Radio,
+  Key,
+  BookOpen,
+  Lock,
+  RefreshCw,
+  Sliders,
+  Database,
+  Globe,
+  Compass
+} from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +44,7 @@ interface CodeSnippet {
   code: string;
 }
 
-// ── Minimalist Code Block ───────────────────────────────────────────────────
+// ── Minimalist Code Block with Copy & Tabs ───────────────────────────────────
 
 function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
   const [activeTab, setActiveTab] = useState(0);
@@ -32,7 +56,7 @@ function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
     if (typeof navigator !== 'undefined') {
       navigator.clipboard.writeText(currentSnippet.code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -61,16 +85,16 @@ function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
             type="button"
             className="lp-docs-copy-btn"
             onClick={handleCopy}
-            aria-label="Copy snippet"
+            aria-label="Copy snippet to clipboard"
           >
             {copied ? (
               <>
-                <Check size={11} style={{ color: 'var(--lp-primary)' }} />
-                <span>Copied</span>
+                <Check size={12} style={{ color: 'var(--lp-primary)' }} />
+                <span style={{ color: 'var(--lp-primary)' }}>Copied!</span>
               </>
             ) : (
               <>
-                <Copy size={11} />
+                <Copy size={12} />
                 <span>Copy</span>
               </>
             )}
@@ -88,6 +112,7 @@ function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
 
 export function DocsPageClient() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [activeSection, setActiveSection] = useState('quickstart');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -120,7 +145,7 @@ export function DocsPageClient() {
           }
         });
       },
-      { rootMargin: '-20% 0px -70% 0px' }
+      { rootMargin: '-20% 0px -65% 0px' }
     );
 
     const sections = document.querySelectorAll('.lp-docs-section');
@@ -137,15 +162,15 @@ export function DocsPageClient() {
       id: 'quickstart',
       category: 'Getting Started',
       title: 'Quickstart & Storefront Embed',
-      summary: 'Embed the ORA real-time sales agent on your storefront with a single script tag.',
+      summary: 'Embed the ORA real-time voice sales agent on your storefront with a single script tag.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA is an autonomous multimodal AI sales assistant that interfaces directly with your e-commerce store. It listens, speaks in real-time, browses product catalog vectors, verifies live inventory, and guides shoppers through instant checkout.
+            ORA is an autonomous multimodal AI sales assistant that interfaces directly with your e-commerce store. It listens, speaks in natural real-time voice, searches 768-dimensional product catalog vectors, verifies live stock, and guides shoppers through checkout.
           </p>
 
           <p className="lp-docs-p">
-            All storefront integrations require your merchant <strong>Publishable Widget Key</strong> (e.g. <code>biz_live_xxxx</code>), obtainable from your <Link href="/dashboard" style={{ color: 'var(--lp-primary)', textDecoration: 'underline' }}>Merchant Dashboard</Link>.
+            All storefront integrations require your merchant <strong>Publishable Widget Key</strong> (e.g. <code>biz_live_xxxx</code>), obtainable from your <Link href="/dashboard" style={{ color: '#65A30D', fontWeight: 600, textDecoration: 'underline' }}>Merchant Dashboard</Link>.
           </p>
 
           <CodeBlock
@@ -153,7 +178,7 @@ export function DocsPageClient() {
               {
                 language: 'HTML / Vanilla',
                 filename: 'index.html',
-                code: `<!-- Paste before the closing </body> tag on any storefront -->
+                code: `<!-- Paste right before the closing </body> tag on any storefront -->
 <script
   src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
   data-publishable-key="biz_live_your_merchant_key"
@@ -186,7 +211,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {
                 language: 'Shopify Liquid',
                 filename: 'layout/theme.liquid',
-                code: `{% comment %} Insert right before </body> {% endcomment %}
+                code: `{% comment %} Insert before </body> {% endcomment %}
 <script
   src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
   data-publishable-key="{{ settings.ora_publishable_key | default: 'biz_live_your_key' }}"
@@ -214,8 +239,8 @@ useHead({
             ]}
           />
 
-          <div className="lp-docs-callout">
-            <strong>Publishable Key vs Secret Credentials:</strong> Publishable widget keys (<code>biz_live_xxxx</code>) are public-safe and only authorize ephemeral shopper voice/chat sessions. Store secrets (Shopify OAuth tokens, bKash keys) are stored server-side encrypted at rest with AES-256.
+          <div className="lp-docs-callout tip">
+            <strong>Publishable Key vs Secret Credentials:</strong> Publishable widget keys (<code>biz_live_xxxx</code>) are public-safe and authorize ephemeral shopper voice/chat sessions only. Store platform secrets (Shopify OAuth tokens, WooCommerce consumer secrets, bKash keys) are stored server-side encrypted at rest with AES-256.
           </div>
         </>
       )
@@ -224,11 +249,11 @@ useHead({
       id: 'architecture-overview',
       category: 'Getting Started',
       title: 'System Architecture & Actor Model',
-      summary: 'Understanding the ORA multi-actor security taxonomy and real-time processing loop.',
+      summary: 'Understanding the ORA multi-actor security taxonomy and execution boundaries.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA follows a strict 4-actor security and execution architecture designed for enterprise store isolation and ultra-low latency multimodal streaming:
+            ORA enforces a strict 4-actor security and execution model designed for enterprise multi-tenant store isolation and sub-400ms audio streaming:
           </p>
 
           <div className="lp-docs-table-wrapper">
@@ -236,7 +261,7 @@ useHead({
               <thead>
                 <tr>
                   <th>Actor Type</th>
-                  <th>Identity & Auth</th>
+                  <th>Identity &amp; Auth</th>
                   <th>Primary Context</th>
                   <th>Permissions</th>
                 </tr>
@@ -245,7 +270,7 @@ useHead({
                 <tr>
                   <td><strong>Customer (Shopper)</strong></td>
                   <td>Ephemeral Conversation Session (<code>sessionId</code>)</td>
-                  <td>Voice Widget runtime & Redis state</td>
+                  <td>Voice Widget runtime &amp; Redis state</td>
                   <td>Voice talk, cart add, live catalog search, checkout redirection</td>
                 </tr>
                 <tr>
@@ -256,30 +281,42 @@ useHead({
                 </tr>
                 <tr>
                   <td><strong>Business (Tenant)</strong></td>
-                  <td>Publishable Key (<code>biz_live_xxxx</code>) & Server-side hash</td>
-                  <td>Public Gateway & Connectors</td>
-                  <td>Tenant isolation scope for all DB queries & VectorIndex</td>
+                  <td>Publishable Key (<code>biz_live_xxxx</code>) &amp; Server Hash</td>
+                  <td>Public Gateway &amp; Connectors</td>
+                  <td>Tenant isolation scope for all DB queries &amp; VectorIndex</td>
                 </tr>
                 <tr>
                   <td><strong>SuperAdmin</strong></td>
                   <td>Root JWT + Redis Session (<code>role: super_admin</code>)</td>
                   <td>Command Center (<code>/admin</code>)</td>
-                  <td>Global merchants, system metrics, provider health & quotas</td>
+                  <td>Global merchants, system metrics, provider health &amp; quotas</td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <h3 className="lp-docs-h3">Real-Time Interaction Loop</h3>
+        </>
+      )
+    },
+    {
+      id: 'interaction-loop',
+      category: 'Getting Started',
+      title: 'Real-Time Voice Interaction Loop',
+      summary: 'Audio capture, WebSocket relay, VAD detection, and server-side tool execution.',
+      content: (
+        <>
           <p className="lp-docs-p">
-            When a shopper clicks the floating orb widget:
+            When a shopper interacts with the voice sales agent:
           </p>
-          <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.7 }}>
+          <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.75 }}>
             <li>The browser establishes a low-latency WebSocket connection to <code>/ws/voice</code>.</li>
-            <li>Microphone audio is captured as 16-bit 24kHz PCM chunks and streamed to ORA Gateway.</li>
-            <li>ORA proxies the real-time stream through the ORA Neural Multimodal Gateway while intercepting executable function tools (e.g. <code>find_products</code>, <code>add_to_cart</code>).</li>
-            <li>Tool calls execute against tenant-scoped VectorIndex & Live Store APIs, returning pre-verified stock & pricing before streaming natural speech back to the shopper.</li>
+            <li>Microphone audio is captured as 16-bit 24kHz/16kHz linear PCM frames and streamed via an inlined AudioWorklet.</li>
+            <li>ORA proxies the real-time stream through Gemini Live while intercepting executable function tools (e.g. <code>find_products</code>, <code>add_to_cart</code>, <code>navigate_to_page</code>).</li>
+            <li>Tool calls execute against tenant-scoped VectorIndex &amp; Live Store APIs, returning verified stock &amp; pricing before streaming natural synthesized audio back to the browser.</li>
           </ol>
+
+          <div className="lp-docs-callout note">
+            <strong>Sub-400ms Turnaround:</strong> By parallelizing VAD (Voice Activity Detection), speculative tool calling, and audio streaming, ORA achieves sub-second conversational latency indistinguishable from a human sales representative.
+          </div>
         </>
       )
     },
@@ -288,12 +325,12 @@ useHead({
     {
       id: 'widget-sdk',
       category: 'Widget & Client SDK',
-      title: 'Widget HTML Configuration',
-      summary: 'Customizing widget placement, initial state, locale, and theme appearance.',
+      title: 'Widget HTML Configuration Attributes',
+      summary: 'Customizing widget placement, initial state, locale, voice persona, and theme appearance.',
       content: (
         <>
           <p className="lp-docs-p">
-            The embed script accepts standard HTML data-attributes for zero-code UI customization:
+            The embed script accepts standard HTML data-attributes for zero-code styling and behavior overrides:
           </p>
 
           <div className="lp-docs-table-wrapper">
@@ -357,7 +394,7 @@ useHead({
       content: (
         <>
           <p className="lp-docs-p">
-            The ORA widget emits custom DOM events on the <code>window</code> object, allowing you to update your storefront cart drawer, trigger analytics tracking, or synchronize customer context.
+            The ORA widget emits custom DOM events on the <code>window</code> object, allowing you to update your storefront cart drawer, trigger analytics tracking, or synchronize customer state:
           </p>
 
           <CodeBlock
@@ -459,7 +496,7 @@ window.ORA.close();`
       content: (
         <>
           <p className="lp-docs-p">
-            ORA integrates with major e-commerce platforms to automatically mirror product listings, variant options, prices, and inventory counts in real time.
+            ORA integrates with major e-commerce platforms to automatically mirror product listings, variant options, prices, and inventory counts in real time:
           </p>
 
           <div className="lp-docs-table-wrapper">
@@ -619,7 +656,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
             The voice gateway operates over standard WebSockets at <code>/ws/voice</code>. It accepts 16-bit linear PCM audio sampled at 24kHz (or 16kHz) and streams compressed audio responses back to the browser:
           </p>
 
-          <h3 className="lp-docs-h3">Handshake & Session Initialization</h3>
+          <h3 className="lp-docs-h3">Handshake &amp; Session Initialization</h3>
           <CodeBlock
             snippets={[
               {
@@ -720,6 +757,16 @@ socket.onmessage = (event) => {
                   <td><code>topic</code></td>
                   <td>Searches store knowledge base for shipping, returns, and FAQs.</td>
                 </tr>
+                <tr>
+                  <td><code>navigate_to_page</code></td>
+                  <td><code>destination</code></td>
+                  <td>Triggers instant client-side page navigation or section scrolling.</td>
+                </tr>
+                <tr>
+                  <td><code>capture_sales_lead</code></td>
+                  <td><code>email</code>, <code>phone</code>, <code>name</code></td>
+                  <td>Captures prospect contact details for CRM &amp; automated follow-up.</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -787,11 +834,15 @@ socket.onmessage = (event) => {
       summary: 'Programmatically querying, batch-syncing, and verifying catalog products.',
       content: (
         <>
-          <div className="lp-docs-endpoint-row">
-            <span className="lp-docs-method-pill get">GET</span>
-            <span className="lp-docs-endpoint-path">/api/v1/products</span>
+          <div className="lp-docs-endpoint-card">
+            <div className="lp-docs-endpoint-row">
+              <span className="lp-docs-method-pill get">GET</span>
+              <span className="lp-docs-endpoint-path">/api/v1/products</span>
+            </div>
+            <span className="lp-docs-auth-badge">Bearer JWT</span>
           </div>
-          <p className="lp-docs-p" style={{ fontSize: '0.84375rem', marginBottom: '0.75rem' }}>
+
+          <p className="lp-docs-p">
             List or filter catalog products for your merchant store.
           </p>
 
@@ -826,11 +877,15 @@ socket.onmessage = (event) => {
             ]}
           />
 
-          <div className="lp-docs-endpoint-row" style={{ marginTop: '2rem' }}>
-            <span className="lp-docs-method-pill post">POST</span>
-            <span className="lp-docs-endpoint-path">/api/v1/products/batch-sync</span>
+          <div className="lp-docs-endpoint-card" style={{ marginTop: '2rem' }}>
+            <div className="lp-docs-endpoint-row">
+              <span className="lp-docs-method-pill post">POST</span>
+              <span className="lp-docs-endpoint-path">/api/v1/products/batch-sync</span>
+            </div>
+            <span className="lp-docs-auth-badge">Bearer JWT</span>
           </div>
-          <p className="lp-docs-p" style={{ fontSize: '0.84375rem', marginBottom: '0.75rem' }}>
+
+          <p className="lp-docs-p">
             Bulk upsert product listings with automated vector re-indexing.
           </p>
 
@@ -865,11 +920,15 @@ socket.onmessage = (event) => {
       summary: 'Dispatching abandoned cart recovery sequences and querying agent-attributed revenue.',
       content: (
         <>
-          <div className="lp-docs-endpoint-row">
-            <span className="lp-docs-method-pill post">POST</span>
-            <span className="lp-docs-endpoint-path">/api/v1/orders/recovery</span>
+          <div className="lp-docs-endpoint-card">
+            <div className="lp-docs-endpoint-row">
+              <span className="lp-docs-method-pill post">POST</span>
+              <span className="lp-docs-endpoint-path">/api/v1/orders/recovery</span>
+            </div>
+            <span className="lp-docs-auth-badge">x-publishable-key</span>
           </div>
-          <p className="lp-docs-p" style={{ fontSize: '0.84375rem', marginBottom: '0.75rem' }}>
+
+          <p className="lp-docs-p">
             Trigger an autonomous personalized voice/SMS/Email recovery dispatch for an abandoned checkout session.
           </p>
 
@@ -913,11 +972,15 @@ socket.onmessage = (event) => {
       summary: 'Querying historical customer voice & text transcripts and conversion analytics.',
       content: (
         <>
-          <div className="lp-docs-endpoint-row">
-            <span className="lp-docs-method-pill get">GET</span>
-            <span className="lp-docs-endpoint-path">/api/v1/conversations</span>
+          <div className="lp-docs-endpoint-card">
+            <div className="lp-docs-endpoint-row">
+              <span className="lp-docs-method-pill get">GET</span>
+              <span className="lp-docs-endpoint-path">/api/v1/conversations</span>
+            </div>
+            <span className="lp-docs-auth-badge">Bearer JWT</span>
           </div>
-          <p className="lp-docs-p" style={{ fontSize: '0.84375rem', marginBottom: '0.75rem' }}>
+
+          <p className="lp-docs-p">
             List conversation sessions with sentiment, duration, order attribution, and transcripts.
           </p>
 
@@ -973,7 +1036,7 @@ socket.onmessage = (event) => {
             <li><strong>Dual Payment Gateway Compliance:</strong> Stripe USD billing uses auto-renewing subscriptions, while bKash BDT billing uses Tokenized Checkout agreements managed by isolated BullMQ workers.</li>
           </ul>
 
-          <div className="lp-docs-callout">
+          <div className="lp-docs-callout tip">
             <strong>Compliance Note:</strong> ORA is designed to comply with standard GDPR and e-commerce data privacy requirements. Shoppers can request data deletion at any time via the customer privacy endpoints.
           </div>
         </>
@@ -996,17 +1059,26 @@ socket.onmessage = (event) => {
     }));
   }, [docSections]);
 
-  // Filter sections by search query
+  const allCategoryNames = useMemo(() => {
+    return ['All', ...categories.map((c) => c.category)];
+  }, [categories]);
+
+  // Filter sections by search query and category
   const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) return docSections;
+    let list = docSections;
+    if (selectedCategory !== 'All') {
+      list = list.filter((sec) => sec.category === selectedCategory);
+    }
+    if (!searchQuery.trim()) return list;
+
     const q = searchQuery.toLowerCase();
-    return docSections.filter(
+    return list.filter(
       (sec) =>
         sec.title.toLowerCase().includes(q) ||
         sec.category.toLowerCase().includes(q) ||
         sec.summary.toLowerCase().includes(q)
     );
-  }, [searchQuery, docSections]);
+  }, [searchQuery, selectedCategory, docSections]);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -1021,21 +1093,121 @@ socket.onmessage = (event) => {
       {/* ── Header ── */}
       <section className="lp-docs-hero">
         <div className="lp-container">
-          <div className="lp-docs-badge">
-            <span className="lp-docs-badge-dot" />
-            <span>DEVELOPER DOCUMENTATION &amp; SPECIFICATIONS</span>
+          {/* Section label */}
+          <div className="lp-section-label" style={{ marginBottom: '1.25rem' }}>
+            <div className="lp-section-label-line" />
+            <span className="lp-section-label-text">Developer Documentation &amp; API Specifications</span>
+            <div className="lp-section-label-line" />
           </div>
 
-          <h1 className="lp-display" style={{ fontSize: 'clamp(1.875rem, 3.5vw, 2.75rem)', marginBottom: '0.5rem' }}>
+          <h1
+            className="lp-display lp-text-gradient"
+            style={{
+              fontSize: 'clamp(2.25rem, 5vw, 3.5rem)',
+              lineHeight: 1.15,
+              marginBottom: '1rem',
+              letterSpacing: '-0.025em'
+            }}
+          >
             ORA Integration &amp; API Guide
           </h1>
-          <p style={{ fontSize: '1rem', color: 'var(--lp-text-secondary)', maxWidth: '42rem', lineHeight: 1.6 }}>
-            Comprehensive integration guides for the real-time voice widget SDK, store connectors, self-healing RAG vectors, and REST API reference.
+          <p
+            style={{
+              fontSize: '1.0625rem',
+              color: 'var(--lp-text-secondary)',
+              maxWidth: '44rem',
+              lineHeight: 1.7
+            }}
+          >
+            Build autonomous multimodal voice sales workflows. From a single-line storefront script to real-time WebSockets, self-healing RAG vectors, and bidirectional tool execution.
           </p>
+
+          {/* Quick-Start Cards */}
+          <div className="lp-docs-quick-grid">
+            <a
+              href="#quickstart"
+              className="lp-docs-quick-card"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToSection('quickstart');
+              }}
+            >
+              <div className="lp-docs-quick-icon">
+                <Code size={18} />
+              </div>
+              <div className="lp-docs-quick-title">
+                <span>Storefront Embed</span>
+                <ArrowRight size={14} style={{ color: '#65A30D' }} />
+              </div>
+              <div className="lp-docs-quick-desc">
+                1-line embed for HTML, Shopify, Next.js, and Nuxt.
+              </div>
+            </a>
+
+            <a
+              href="#widget-sdk"
+              className="lp-docs-quick-card"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToSection('widget-sdk');
+              }}
+            >
+              <div className="lp-docs-quick-icon">
+                <Sliders size={18} />
+              </div>
+              <div className="lp-docs-quick-title">
+                <span>Widget &amp; SDK</span>
+                <ArrowRight size={14} style={{ color: '#65A30D' }} />
+              </div>
+              <div className="lp-docs-quick-desc">
+                Custom DOM events, window.ORA actions, and context.
+              </div>
+            </a>
+
+            <a
+              href="#voice-websocket"
+              className="lp-docs-quick-card"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToSection('voice-websocket');
+              }}
+            >
+              <div className="lp-docs-quick-icon">
+                <Radio size={18} />
+              </div>
+              <div className="lp-docs-quick-title">
+                <span>Voice Gateway</span>
+                <ArrowRight size={14} style={{ color: '#65A30D' }} />
+              </div>
+              <div className="lp-docs-quick-desc">
+                24kHz PCM audio frames and real-time state machine.
+              </div>
+            </a>
+
+            <a
+              href="#api-standards"
+              className="lp-docs-quick-card"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToSection('api-standards');
+              }}
+            >
+              <div className="lp-docs-quick-icon">
+                <Terminal size={18} />
+              </div>
+              <div className="lp-docs-quick-title">
+                <span>REST API</span>
+                <ArrowRight size={14} style={{ color: '#65A30D' }} />
+              </div>
+              <div className="lp-docs-quick-desc">
+                Catalog sync, vector RAG, and cart recovery endpoints.
+              </div>
+            </a>
+          </div>
 
           {/* Quick Search */}
           <div className="lp-docs-search-wrapper">
-            <Search className="lp-docs-search-icon" size={16} />
+            <Search className="lp-docs-search-icon" size={18} />
             <input
               ref={searchInputRef}
               type="text"
@@ -1045,10 +1217,51 @@ socket.onmessage = (event) => {
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search documentation"
             />
-            <div className="lp-docs-search-shortcut">⌘K / /</div>
+            {searchQuery ? (
+              <button
+                type="button"
+                className="lp-docs-search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                ✕ Clear
+              </button>
+            ) : (
+              <div className="lp-docs-search-shortcut">⌘K / /</div>
+            )}
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="lp-docs-cat-pills">
+            {allCategoryNames.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                className={`lp-docs-cat-pill ${selectedCategory === cat ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
       </section>
+
+      {/* ── Mobile Category Floating Selector ── */}
+      <div className="lp-docs-mobile-bar">
+        <select
+          className="lp-docs-mobile-select"
+          value={activeSection}
+          onChange={(e) => scrollToSection(e.target.value)}
+          aria-label="Jump to section"
+        >
+          {docSections.map((sec) => (
+            <option key={sec.id} value={sec.id}>
+              {sec.category}: {sec.title}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* ── Main Docs Layout ── */}
       <div className="lp-container">
@@ -1057,7 +1270,10 @@ socket.onmessage = (event) => {
           <aside className="lp-docs-sidebar" aria-label="Documentation navigation">
             {categories.map(({ category, sections }) => (
               <div key={category}>
-                <div className="lp-docs-category-title">{category}</div>
+                <div className="lp-docs-category-title">
+                  <span>{category}</span>
+                  <span className="lp-docs-category-count">{sections.length}</span>
+                </div>
                 <ul className="lp-docs-nav-list">
                   {sections.map((sec) => (
                     <li key={sec.id}>
@@ -1066,7 +1282,12 @@ socket.onmessage = (event) => {
                         className={`lp-docs-nav-link ${activeSection === sec.id ? 'active' : ''}`}
                         onClick={() => scrollToSection(sec.id)}
                       >
-                        <span>{sec.title}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {sec.title}
+                        </span>
+                        {activeSection === sec.id && (
+                          <span style={{ fontSize: '0.75rem', color: '#65A30D', flexShrink: 0 }}>●</span>
+                        )}
                       </button>
                     </li>
                   ))}
@@ -1078,24 +1299,32 @@ socket.onmessage = (event) => {
           {/* ── Main Content Canvas ── */}
           <main className="lp-docs-content">
             {filteredSections.length === 0 ? (
-              <div style={{ padding: '4rem 0', color: 'var(--lp-text-secondary)' }}>
-                <p style={{ fontSize: '0.9375rem', marginBottom: '1rem' }}>
-                  No documentation found matching &ldquo;{searchQuery}&rdquo;.
+              <div
+                style={{
+                  padding: '4rem 2rem',
+                  background: 'var(--lp-bg-white)',
+                  border: '1px solid var(--lp-border)',
+                  borderRadius: 'var(--lp-radius-xl)',
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔍</div>
+                <h3 className="lp-docs-h3" style={{ justifyContent: 'center', marginTop: 0 }}>
+                  No matching documentation found
+                </h3>
+                <p className="lp-docs-p" style={{ maxWidth: '28rem', margin: '0 auto 1.5rem' }}>
+                  No documentation found matching &ldquo;{searchQuery}&rdquo; in category &ldquo;{selectedCategory}&rdquo;.
                 </p>
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid var(--lp-border)',
-                    borderRadius: 'var(--lp-radius-sm)',
-                    padding: '0.4rem 0.85rem',
-                    fontSize: '0.8125rem',
-                    color: 'var(--lp-text-primary)',
-                    cursor: 'pointer'
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('All');
                   }}
+                  className="lp-btn-secondary"
+                  style={{ fontSize: '0.8125rem', padding: '0.5rem 1.25rem' }}
                 >
-                  Clear search query
+                  Reset filters
                 </button>
               </div>
             ) : (
@@ -1106,14 +1335,17 @@ socket.onmessage = (event) => {
                   className="lp-docs-section"
                 >
                   <div className="lp-docs-section-header">
-                    <div className="lp-docs-section-category">{sec.category}</div>
+                    <div className="lp-docs-section-category">
+                      <Sparkles size={12} />
+                      <span>{sec.category}</span>
+                    </div>
                     <h2 className="lp-docs-h2">{sec.title}</h2>
-                    <p style={{ fontSize: '0.9375rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6 }}>
+                    <p style={{ fontSize: '1rem', color: 'var(--lp-text-secondary)', lineHeight: 1.65 }}>
                       {sec.summary}
                     </p>
                   </div>
 
-                  <div style={{ marginTop: '1.25rem' }}>
+                  <div style={{ marginTop: '1.5rem' }}>
                     {sec.content}
                   </div>
                 </article>

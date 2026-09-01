@@ -588,9 +588,9 @@
     "semantic_hash": ""
   },
   "client/components/docs/docs-page-client.tsx": {
-    "mtime": 1787662710.4323845,
-    "seen": 1787893340.2191472,
-    "ast_hash": "24d86a5a31b151b8393ed5bdd42f2f24",
+    "mtime": 1788237694.1417747,
+    "seen": 1788237871.2717981,
+    "ast_hash": "152fca2316d4c78897836b61301a52b1",
     "semantic_hash": ""
   },
   "client/components/live-desk/activity-feed.tsx": {
@@ -1116,9 +1116,9 @@
     "semantic_hash": ""
   },
   "client/services/gemini-live-client.ts": {
-    "mtime": 1787662710.7519152,
-    "seen": 1787893340.219495,
-    "ast_hash": "6523908bda2d8ecbfadcd8c07947e9ea",
+    "mtime": 1788094720.4994843,
+    "seen": 1788237871.2720978,
+    "ast_hash": "a9b70cdebc263366d4b239f4e580c1d3",
     "semantic_hash": ""
   },
   "client/services/ingestion-service.ts": {
@@ -1362,9 +1362,9 @@
     "semantic_hash": ""
   },
   "server/src/ai-voice/gemini-voice.service.ts": {
-    "mtime": 1787662710.758026,
-    "seen": 1787893340.2196577,
-    "ast_hash": "a3a1bf41a22e81a4dae3b0a37e7c5265",
+    "mtime": 1788164189.0588853,
+    "seen": 1788237871.272276,
+    "ast_hash": "874270bdf7cf2a3207c67b147f1210c1",
     "semantic_hash": ""
   },
   "server/src/ai-voice/guards/bootstrap-rate-limit.guard.spec.ts": {
@@ -1398,9 +1398,9 @@
     "semantic_hash": ""
   },
   "server/src/ai-voice/voice-proxy.gateway.ts": {
-    "mtime": 1787896905.9306798,
-    "seen": 1787934931.5215611,
-    "ast_hash": "2ffe06f1876f4095be96088e0efc3550",
+    "mtime": 1788094699.9328854,
+    "seen": 1788237871.2723067,
+    "ast_hash": "5e5475299d104f0a443ebfb3a7a13290",
     "semantic_hash": ""
   },
   "server/src/ai-voice/voice-session.controller.spec.ts": {
@@ -1854,9 +1854,9 @@
     "semantic_hash": ""
   },
   "server/src/gateway/voice.gateway.ts": {
-    "mtime": 1787230388.8534863,
-    "seen": 1787893340.2199807,
-    "ast_hash": "45c021aead78811be2863cc1832c9e33",
+    "mtime": 1788094711.3531795,
+    "seen": 1788237871.2727053,
+    "ast_hash": "a766ac0d162affd026909d7a289a06b8",
     "semantic_hash": ""
   },
   "server/src/ingestion/dto/crawl-store.dto.ts": {
