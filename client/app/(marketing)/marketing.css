@@ -1414,104 +1414,11 @@
   box-shadow: 0 0 8px var(--lp-primary);
 }
 
-/* Quick Topic Cards */
-.lp-docs-quick-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-top: 2.25rem;
-}
-
-@media (max-width: 1024px) {
-  .lp-docs-quick-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .lp-docs-quick-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.lp-docs-quick-card {
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem;
-  background: var(--lp-bg-white);
-  border: 1px solid var(--lp-border);
-  border-radius: var(--lp-radius-xl);
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: var(--lp-shadow-card);
-  position: relative;
-  overflow: hidden;
-}
-
-.lp-docs-quick-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--lp-primary);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.lp-docs-quick-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(200, 240, 49, 0.8);
-  box-shadow: var(--lp-shadow-float);
-}
-
-.lp-docs-quick-card:hover::after {
-  opacity: 1;
-}
-
-.lp-docs-quick-icon {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--lp-radius-md);
-  background: var(--lp-bg-subtle);
-  border: 1px solid var(--lp-border-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--lp-text-primary);
-  margin-bottom: 0.85rem;
-  transition: background-color 0.2s ease;
-}
-
-.lp-docs-quick-card:hover .lp-docs-quick-icon {
-  background: rgba(200, 240, 49, 0.2);
-  color: var(--lp-dark);
-}
-
-.lp-docs-quick-title {
-  font-family: var(--lp-font-display);
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--lp-text-primary);
-  margin-bottom: 0.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.lp-docs-quick-desc {
-  font-size: 0.8125rem;
-  color: var(--lp-text-secondary);
-  line-height: 1.5;
-}
-
 /* Search Bar */
 .lp-docs-search-wrapper {
   position: relative;
-  max-width: 46rem;
-  margin-top: 2rem;
+  max-width: 44rem;
+  margin: 2rem auto 0;
   display: flex;
   align-items: center;
 }
@@ -1578,8 +1485,9 @@
 .lp-docs-cat-pills {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
-  margin-top: 1.25rem;
+  margin: 1.25rem auto 0;
   flex-wrap: wrap;
 }
 
