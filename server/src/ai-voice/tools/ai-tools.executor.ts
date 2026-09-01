@@ -12,6 +12,10 @@ import { AgentConfigService } from '../../agent-config/agent-config.service';
 import { CustomersService } from '../../customers/customers.service';
 import { BillingService } from '../../billing/billing.service';
 
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Business, BusinessDocument } from '../../users/schemas/business.schema';
+
 @Injectable()
 export class AiToolsExecutor {
   private readonly logger = new Logger(AiToolsExecutor.name);
@@ -30,6 +34,9 @@ export class AiToolsExecutor {
     private readonly billingService?: BillingService,
     @Optional()
     private readonly configService?: ConfigService,
+    @Optional()
+    @InjectModel(Business.name)
+    private readonly businessModel?: Model<BusinessDocument>,
   ) {}
 
   async executeTool(
@@ -588,6 +595,21 @@ export class AiToolsExecutor {
   }
 
   private async handleGetPricingPlans(businessId: string, args: Record<string, any>) {
+    let isPlatform = false;
+    if (this.businessModel) {
+      try {
+        const biz = await this.businessModel.findById(businessId).exec();
+        isPlatform = biz?.publishableKey === 'biz_live_ora_platform_system';
+      } catch {}
+    }
+
+    if (!isPlatform) {
+      return {
+        success: false,
+        message: 'This store offers physical/digital catalog items rather than SaaS subscriptions. For prices and availability, please refer to the store products.',
+      };
+    }
+
     let plansData: any[] = [];
     try {
       if (this.billingService) {
@@ -684,67 +706,97 @@ export class AiToolsExecutor {
     sessionId: string,
     args: Record<string, any>,
   ) {
+    let isPlatform = false;
+    if (this.businessModel) {
+      try {
+        const biz = await this.businessModel.findById(businessId).exec();
+        isPlatform = biz?.publishableKey === 'biz_live_ora_platform_system';
+      } catch {}
+    }
+
     const rawDest = (args.destination || '').trim();
     let cleanDest = rawDest;
     if (!cleanDest.startsWith('/') && !cleanDest.startsWith('#')) {
       cleanDest = `/${cleanDest}`;
     }
 
-    // Sanitize and alias common route hallucination variations to valid Next.js routes
-    if (cleanDest === '/register' || cleanDest === '/signup' || cleanDest === '/auth/register') {
-      cleanDest = '/auth?mode=register';
-    } else if (cleanDest === '/login' || cleanDest === '/signin' || cleanDest === '/auth/login') {
-      cleanDest = '/auth?mode=login';
-    } else if (cleanDest === '/home' || cleanDest === '/landing') {
-      cleanDest = '/';
-    } else if (
-      cleanDest === '/doc' ||
-      cleanDest === '/docs' ||
-      cleanDest === '/manual' ||
-      cleanDest === '/manuals' ||
-      cleanDest === '/guide' ||
-      cleanDest === '/guides' ||
-      cleanDest === '/documentation'
-    ) {
-      cleanDest = '#features';
+    if (isPlatform) {
+      // Sanitize and alias common route hallucination variations to valid Next.js routes
+      if (cleanDest === '/register' || cleanDest === '/signup' || cleanDest === '/auth/register') {
+        cleanDest = '/auth?mode=register';
+      } else if (cleanDest === '/login' || cleanDest === '/signin' || cleanDest === '/auth/login') {
+        cleanDest = '/auth?mode=login';
+      } else if (cleanDest === '/home' || cleanDest === '/landing') {
+        cleanDest = '/';
+      } else if (
+        cleanDest === '/doc' ||
+        cleanDest === '/docs' ||
+        cleanDest === '/manual' ||
+        cleanDest === '/manuals' ||
+        cleanDest === '/guide' ||
+        cleanDest === '/guides' ||
+        cleanDest === '/documentation'
+      ) {
+        cleanDest = '#features';
+      }
+
+      const ALLOWED_TARGETS = [
+        '/',
+        '/pricing',
+        '/auth',
+        '/dashboard',
+        '/live-desk',
+        '/conversations',
+        '/agent',
+        '/customers',
+        '/billing',
+        '/profile',
+        '/admin',
+        '#features',
+        '#stats',
+        '#cta',
+        '#solutions',
+        '#docs',
+      ];
+
+      const isValid = ALLOWED_TARGETS.some(
+        (t) => cleanDest === t || cleanDest.startsWith(`${t}?`) || cleanDest.startsWith(`${t}/`),
+      );
+
+      if (!isValid) {
+        cleanDest = '#features';
+      }
+
+      return {
+        success: true,
+        message: `Navigating visitor to ${cleanDest}`,
+        action: {
+          type: 'navigate',
+          destination: cleanDest,
+          reason: args.reason || 'Requested by customer or AI assistant',
+        },
+      };
+    } else {
+      // Merchant Storefront navigation: allow store-relative paths (e.g. /, /cart, /checkout, /products/...)
+      // Strictly prevent routing to platform dashboard or admin pages
+      const BLOCKED_PREFIXES = ['/dashboard', '/admin', '/billing', '/agent', '/live-desk', '/conversations', '/profile'];
+      if (BLOCKED_PREFIXES.some((b) => cleanDest.startsWith(b))) {
+        return {
+          success: false,
+          message: 'Internal management routes are not available on this storefront.',
+        };
+      }
+
+      return {
+        success: true,
+        message: `Navigating shopper to ${cleanDest}`,
+        action: {
+          type: 'navigate',
+          destination: cleanDest,
+          reason: args.reason || 'Requested by shopper',
+        },
+      };
     }
-
-    const ALLOWED_TARGETS = [
-      '/',
-      '/pricing',
-      '/auth',
-      '/dashboard',
-      '/live-desk',
-      '/conversations',
-      '/agent',
-      '/customers',
-      '/billing',
-      '/profile',
-      '/admin',
-      '#features',
-      '#stats',
-      '#cta',
-      '#solutions',
-      '#docs',
-    ];
-
-    const isValid = ALLOWED_TARGETS.some(
-      (t) => cleanDest === t || cleanDest.startsWith(`${t}?`) || cleanDest.startsWith(`${t}/`),
-    );
-
-    if (!isValid) {
-      cleanDest = '#features';
-    }
-
-    return {
-      success: true,
-      message: `Navigating visitor to ${cleanDest}`,
-      action: {
-        type: 'navigate',
-        destination: cleanDest,
-        reason: args.reason || 'Requested by customer or AI assistant',
-      },
-    };
   }
 
   private async handleCaptureSalesLead(

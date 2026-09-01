@@ -37,7 +37,7 @@ interface TranscriptEntry {
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'thinking' | 'speaking' | 'error';
 type VoiceMode = 'gemini-live' | 'speech-ai';
 
-export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceFeedTabProps) {
+export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('gemini-live');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -375,12 +375,18 @@ export function VoiceFeedTab({ publishableKey = 'biz_live_demo', onFed }: VoiceF
   // Start Real-time Direct Gemini Live Voice Stream Session
   const startGeminiLiveSession = async () => {
     try {
+      if (!publishableKey) {
+        setErrorMessage('Store publishable key is loading. Please try again in a second.');
+        setStatus('error');
+        return;
+      }
+
       stopSession();
       setErrorMessage(null);
       setStatus('connecting');
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-      const keyToUse = publishableKey || process.env.NEXT_PUBLIC_ORA_KEY || 'biz_live_ora_platform_system';
+      const keyToUse = publishableKey;
 
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,

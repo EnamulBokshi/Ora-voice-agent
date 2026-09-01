@@ -4,10 +4,13 @@ import { VoiceSessionController } from './voice-session.controller';
 import { Business } from '../users/schemas/business.schema';
 import { RedisService } from '../common/redis/redis.service';
 
+import { ConfigService } from '@nestjs/config';
+
 describe('VoiceSessionController', () => {
   let controller: VoiceSessionController;
   let mockBusinessModel: any;
   let mockRedisService: any;
+  let mockConfigService: any;
 
   beforeEach(async () => {
     mockBusinessModel = {
@@ -30,9 +33,17 @@ describe('VoiceSessionController', () => {
       }),
     };
 
+    mockConfigService = {
+      get: jest.fn().mockReturnValue('fake_key'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [VoiceSessionController],
       providers: [
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
         {
           provide: getModelToken(Business.name),
           useValue: mockBusinessModel,

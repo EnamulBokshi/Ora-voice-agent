@@ -148,7 +148,7 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'get_pricing_plans',
     description:
-      'Retrieve subscription tiers from database. NOTE: If pricing plans ($29 Starter, $99 Growth, $299 Scale) are already in your preloaded memory, speak them directly without calling this tool to maintain sub-400ms latency.',
+      'Retrieve subscription pricing plans and tier limits for the ORA Platform SaaS.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -270,20 +270,62 @@ export const ORA_TOOL_DECLARATIONS = [
   },
 ];
 
-export function getToolsForArchetype(archetype?: string) {
+export function getToolsForArchetype(archetype?: string, isPlatform: boolean = false) {
+  // Platform Host Agent gets specialized platform sales & navigation tools
+  if (isPlatform || archetype === 'platform_saas') {
+    return ORA_TOOL_DECLARATIONS.filter((t) =>
+      [
+        'get_pricing_plans',
+        'capture_sales_lead',
+        'get_integration_guide',
+        'navigate_to_page',
+        'search_knowledge_base',
+        'update_agent_directives',
+        'update_customer_profile',
+        'get_customer_profile',
+      ].includes(t.name),
+    );
+  }
+
+  // Non-e-commerce merchant sites (portfolio, agency, consulting)
   if (archetype === 'portfolio' || archetype === 'agency_services' || archetype === 'consulting') {
-    // Exclude e-commerce shopping cart and direct order placement tools on non-e-commerce sites
-    return ORA_TOOL_DECLARATIONS.filter(
-      (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout', 'find_products', 'get_product_details'].includes(t.name),
+    return ORA_TOOL_DECLARATIONS.filter((t) =>
+      [
+        'search_knowledge_base',
+        'get_store_policy',
+        'update_customer_profile',
+        'get_customer_profile',
+        'update_agent_directives',
+      ].includes(t.name),
     );
   }
+
+  // Merchant SaaS sites (a merchant who sells their own software)
   if (archetype === 'saas') {
-    // For SaaS platform sites, exclude physical ecommerce catalog and checkout tools
-    return ORA_TOOL_DECLARATIONS.filter(
-      (t) => !['add_to_cart', 'place_order', 'redirect_to_checkout', 'find_products', 'get_product_details', 'get_store_policy'].includes(t.name),
+    return ORA_TOOL_DECLARATIONS.filter((t) =>
+      [
+        'search_knowledge_base',
+        'get_store_policy',
+        'update_customer_profile',
+        'get_customer_profile',
+      ].includes(t.name),
     );
   }
-  return ORA_TOOL_DECLARATIONS;
+
+  // Standard Merchant E-commerce & Retail Storefronts
+  return ORA_TOOL_DECLARATIONS.filter((t) =>
+    [
+      'find_products',
+      'get_product_details',
+      'add_to_cart',
+      'place_order',
+      'redirect_to_checkout',
+      'search_knowledge_base',
+      'get_store_policy',
+      'update_customer_profile',
+      'get_customer_profile',
+    ].includes(t.name),
+  );
 }
 
 

@@ -82,7 +82,7 @@ export interface GeminiVoiceSessionControls {
 @Injectable()
 export class GeminiVoiceService {
   private readonly logger = new Logger(GeminiVoiceService.name);
-  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; voiceName: string; expiresAt: number }>();
+  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; isPlatform: boolean; voiceName: string; expiresAt: number }>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -199,7 +199,7 @@ export class GeminiVoiceService {
         sendContextUpdate: (ctx: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => {
           if (ws.readyState === WebSocket.OPEN) {
             const histStr = ctx.history && ctx.history.length > 0 ? ctx.history.join(' -> ') : ctx.currentPath || '/';
-            const contextText = `[CLIENT_BROWSING_STATE_UPDATE: Visitor is now viewing page "${ctx.currentPath || '/'}" (Page Title: "${ctx.title || ''}"${ctx.activeSection ? `, Active Section: "${ctx.activeSection}"` : ''}). Browsing history: ${histStr}. Note: The visitor is browsing the ORA platform site. Marketing headlines on the page (such as "Supercharge Your Store") are platform features, not a store name. Rule: The visitor is ALREADY on this page. Do NOT suggest navigating to ${ctx.currentPath || '/'} or ask if they want to go there.]`;
+            const contextText = `[CLIENT_BROWSING_STATE_UPDATE: Visitor is now viewing page "${ctx.currentPath || '/'}" (Page Title: "${ctx.title || ''}"${ctx.activeSection ? `, Active Section: "${ctx.activeSection}"` : ''}). Browsing history: ${histStr}. Rule: The visitor is ALREADY on this page. Do NOT suggest navigating to ${ctx.currentPath || '/'} or ask if they want to go there.]`;
             const clientContent = {
               clientContent: {
                 turns: [
@@ -231,6 +231,7 @@ export class GeminiVoiceService {
 
         const cached = this.instructionCache.get(options.businessId);
         const archetype = cached?.archetype || 'general';
+        const isPlatform = cached?.isPlatform || false;
         const voiceName = normalizeGeminiVoice(cached?.voiceName);
 
         // Send Setup Handshake Payload with dynamic merchant voice
@@ -255,7 +256,7 @@ export class GeminiVoiceService {
             },
             tools: [
               {
-                functionDeclarations: getToolsForArchetype(archetype),
+                functionDeclarations: getToolsForArchetype(archetype, isPlatform),
               },
             ],
             // ── Server-side transcription (parallel to audio, zero latency impact) ───
@@ -501,15 +502,11 @@ export class GeminiVoiceService {
         contactIdentitySummary = `\nCONTACT & IDENTITY INFO (Preloaded in your memory):\n${identityLines.join('\n')}\n* Answer contact, email, and creator questions IMMEDIATELY using these details!`;
       }
 
-      const isOraPlatform =
-        businessArchetype === 'saas' ||
-        bizDoc?.publishableKey === 'biz_live_ora_platform_system' ||
-        (siteName || '').trim().toLowerCase() === 'ora platform' ||
-        (siteName || '').trim().toLowerCase() === 'ora';
+      const isOraPlatform = bizDoc?.publishableKey === 'biz_live_ora_platform_system';
 
       let catalogSummary = '';
       let hasProducts = false;
-      if (!isOraPlatform && businessArchetype !== 'saas' && businessArchetype !== 'portfolio' && businessArchetype !== 'agency_services') {
+      if (!isOraPlatform && businessArchetype !== 'saas' && businessArchetype !== 'portfolio' && businessArchetype !== 'agency_services' && businessArchetype !== 'consulting') {
         if (productsRes && productsRes.items && productsRes.items.length > 0) {
           hasProducts = true;
           const categories = Array.from(
@@ -527,9 +524,7 @@ export class GeminiVoiceService {
       }
 
       let knowledgeSummary = '';
-      let hasKnowledge = false;
       if (docsRes && docsRes.items && docsRes.items.length > 0) {
-        hasKnowledge = true;
         const docSnippets = docsRes.items
           .map((d: any) => {
             const cleanSnippet = (d.content || '')
@@ -543,11 +538,10 @@ export class GeminiVoiceService {
         knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools!`;
       }
 
-      // ─── Adaptive Archetype Persona Construction ───────────────────────────
-      let persona = '';
-
+      // ─── Persona & System Instruction Construction ────────────────────────
       if (isOraPlatform) {
-        persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (tryora.live / ora.ai).
+        // ─── 1. ORA PLATFORM HOST AGENT (tryora.live) ─────────────────────────
+        const persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (tryora.live / ora.ai).
 
 PLATFORM IDENTITY & MISSION:
 - You represent the ORA SaaS platform. ORA provides autonomous multimodal real-time Voice AI sales agents for e-commerce merchants, stores, and creators.
@@ -560,17 +554,8 @@ PLANS & PRICING (Preloaded in memory — answer immediately without tool delay):
 • Growth Plan: $49 USD/mo (৳5,500 BDT) — 2,000 Voice Minutes, 500 Tier-1 Orders, 3 Connected Stores, 5 Staff Seats, Full RAG Vector Search, Webhook Sync, Custom Brand Voice Directives.
 • Scale Plan: $199 USD/mo (৳22,000 BDT) — Unlimited Voice Minutes, Unlimited Orders, 99 Connected Stores, 99 Seats, Dedicated SLA, Priority Support.
 We support instant online checkout with Stripe (USD cards) and bKash (BDT tokenized checkout). When a visitor asks how to buy or see plans, explain the options directly in voice. If they are not already on the pricing page, invoke navigate_to_page with "/pricing". If they are ALREADY on /pricing, refer to the pricing options right in front of them without asking to navigate there.`;
-      } else if (businessArchetype === 'portfolio') {
-        persona = `You are ORA, ${ownerName ? `${ownerName}'s` : 'the creator\'s'} personal AI assistant and representative for this website and portfolio. Your primary mission is to warmly introduce visitors, recruiters, and clients to ${ownerName || 'the engineer'}'s background, featured projects, tech stack, and achievements, and help them get in touch or book a technical consultation.`;
-      } else if (businessArchetype === 'agency_services') {
-        persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
-      } else if (businessArchetype === 'ecommerce' || hasProducts) {
-        persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, availability, and guide them through checkout.`;
-      } else {
-        persona = `You are ORA, an intelligent, friendly AI representative and personal assistant for ${siteName || ownerName || 'this website'}.`;
-      }
 
-      const sitemapDirectory = `
+        const sitemapDirectory = `
 APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this application):
 • Public & Marketing Routes:
   - "/" : Landing Page / Home (Hero section, live interactive demo, #features, #stats, #cta).
@@ -616,57 +601,117 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
    - When a user asks to log in -> call navigate_to_page with destination "/auth?mode=login".
    - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now!`;
 
-      const entityLabel = siteName || ownerName || (isOraPlatform ? 'the ORA Platform' : 'this store');
+        const domainScopeGuardrail = `
+DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
+1. FULL SERVICE SCOPE & WHAT YOU CAN DO:
+   - You are ORA, the real-time Voice AI representative deployed on the ORA Platform (tryora.live).
+   - You are fully knowledgeable and authorized to answer:
+     • Everything about the ORA platform: Free ($0), Growth ($49), Scale ($199) plans, Stripe & bKash checkout, dashboard analytics, and widget deployment.
+     • Everything about ORA's Voice AI capabilities: real-time voice shopping, finding products, answering store policies, navigating web pages, placing orders, capturing contact info, multilingual support in Bengali/English/etc., 60-second store integration.
+   - When a visitor asks "What can you do?", "How can you help me?", "Who are you?", or "What is ORA?", warmly explain your voice capabilities for the ORA Platform.
 
-      const domainScopeGuardrail = `
+2. STRICT OFF-TOPIC GUARDRAIL & FRIENDLY PIVOT:
+   - You are DEDICATED strictly to the ORA Platform and ORA's voice AI services.
+   - If a visitor asks about completely unrelated external topics (such as cartoons like Doraemon, anime, movies, celebrity gossip, homework/math equations, world politics, general trivia):
+     • Give a FRIENDLY, SHORT (1-sentence) acknowledgment.
+     • IMMEDIATELY PIVOT back to ORA and how you can assist them.
+     • NEVER get sidetracked into long off-topic discussions. Always steer the visitor back to ORA.`;
+
+        baseInstruction = [
+          persona,
+          businessSummary,
+          merchantBrandVoice,
+          customDirectives,
+          contactIdentitySummary,
+          knowledgeSummary,
+          sitemapDirectory,
+          domainScopeGuardrail,
+          '',
+          'CRITICAL RULES FOR REAL-TIME VOICE:',
+          '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally and enthusiastically like a human expert.',
+          '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
+          '3. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
+          '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the visitor asks who you are, what ORA does, pricing plans, how to buy, contact email, website URL, features, or how to integrate, answer IMMEDIATELY from your preloaded memory above with sub-400ms latency. Do not block voice audio.',
+          '5. WHEN TO USE TOOLS (WHILE SPEAKING):',
+          '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
+          '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
+          '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
+          '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
+          '   - update_agent_directives: Call when the owner/merchant provides new directives, rules, or instructions during voice setup.',
+          '   - search_knowledge_base: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
+          '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake information.',
+          '7. If the visitor speaks Bengali or another language, respond naturally in their language.',
+          '8. STRICT OFF-TOPIC PIVOT: If asked about external trivia, cartoons (like Doraemon), pop culture, or math, give a friendly 1-sentence acknowledgment and immediately pivot back to ORA.',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      } else {
+        // ─── 2. MERCHANT STOREFRONT AGENT (STRICT ZERO-LEAK CONTEXT BOUNDARY) ──
+        let persona = '';
+        const entityLabel = siteName || ownerName || 'this store';
+
+        if (businessArchetype === 'portfolio') {
+          persona = `You are ORA, ${ownerName ? `${ownerName}'s` : 'the creator\'s'} personal AI assistant and representative for this website and portfolio. Your primary mission is to warmly introduce visitors, recruiters, and clients to ${ownerName || 'the engineer'}'s background, featured projects, tech stack, and achievements, and help them get in touch or book a technical consultation.`;
+        } else if (businessArchetype === 'agency_services') {
+          persona = `You are ORA, senior client strategy specialist for ${siteName || 'this agency'}. Your mission is to explain our design, engineering, and consulting services, highlight past case studies, and guide prospects to book a discovery call.`;
+        } else if (businessArchetype === 'saas') {
+          persona = `You are ORA, the AI software consultant and specialist for ${siteName || 'this platform'}. Your mission is to explain our software solutions, features, workflows, and help visitors understand how our platform solves their problems.`;
+        } else if (businessArchetype === 'ecommerce' || hasProducts || businessArchetype === 'general') {
+          persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, colors, availability, live prices, answer store policies, and guide them through checkout.`;
+        } else {
+          persona = `You are ORA, a helpful and friendly AI assistant and representative for ${siteName || ownerName || 'this store'}.`;
+        }
+
+        const domainScopeGuardrail = `
 DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
 1. FULL SERVICE SCOPE & WHAT YOU CAN DO:
    - You are ORA, the real-time Voice AI representative deployed on "${entityLabel}".
    - You are fully knowledgeable and authorized to answer:
-     • Everything about this specific website/store: products, catalog, styles, prices, stock, categories, orders, shipping, store policies, creator/founder info, contact details, site navigation, and FAQs.
-     • Everything about ORA's Voice AI capabilities: what you can do (real-time voice shopping, finding products, answering store policies, navigating web pages, placing orders, capturing contact info, multilingual support in Bengali/English/etc., 60-second store integration).
-     ${isOraPlatform ? '• Everything about the ORA platform: Free ($0), Growth ($49), Scale ($199) plans, Stripe & bKash checkout, dashboard analytics, and widget deployment.' : ''}
-   - When a visitor asks "What can you do?", "How can you help me?", "Who are you?", or "What is ORA?", warmly explain your voice capabilities for ${entityLabel}.
+     • Everything about this specific store/website: products, catalog, styles, prices, stock availability, categories, orders, shipping, store policies, creator/founder info, contact details, and FAQs.
+     • Store shopping assistance: helping customers find products, adding items to cart, placing orders, checking delivery terms.
+   - ZERO PLATFORM LEAKAGE RULE:
+     • You represent "${entityLabel}" ONLY. You are dedicated entirely to this store.
+     • When a customer asks about prices, pricing, or costs, you MUST ONLY refer to the products, services, and catalog items of "${entityLabel}" (or call find_products to check live item prices).
+   - When a visitor asks "What can you do?", "How can you help me?", or "Who are you?", warmly explain how you assist customers for ${entityLabel}.
 
 2. STRICT OFF-TOPIC GUARDRAIL & FRIENDLY PIVOT:
-   - You are DEDICATED strictly to ${entityLabel} and ORA's voice AI services.
-   - If a visitor asks about completely unrelated external topics (such as cartoons like Doraemon, anime, movies, celebrity gossip, homework/math equations, world politics, general trivia, or video games not sold here):
+   - You are DEDICATED strictly to ${entityLabel}.
+   - If a visitor asks about completely unrelated external topics (such as cartoons like Doraemon, anime, movies, celebrity gossip, homework/math equations, world politics, general trivia):
      • Give a FRIENDLY, SHORT (1-sentence) acknowledgment.
      • IMMEDIATELY PIVOT back to ${entityLabel} and how you can assist them.
      • Example response: "Haha, Doraemon is a classic anime character! But I'm ORA, the AI assistant for ${entityLabel}—I'm here to help with our products, orders, and services. Is there something specific you're looking for today?"
-     • NEVER get sidetracked into long off-topic discussions, solving math problems, debating politics, or acting like a general open-ended trivia bot. Always steer the visitor back to ${entityLabel}.`;
+     • NEVER get sidetracked into long off-topic discussions. Always steer the visitor back to ${entityLabel}.`;
 
-      baseInstruction = [
-        persona,
-        businessSummary,
-        merchantBrandVoice,
-        customDirectives,
-        contactIdentitySummary,
-        catalogSummary,
-        knowledgeSummary,
-        sitemapDirectory,
-        domainScopeGuardrail,
-        '',
-        'CRITICAL RULES FOR REAL-TIME VOICE:',
-        '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally and enthusiastically like a human expert.',
-        '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
-        '3. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
-        '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the visitor asks who you are, what ORA does, pricing plans, how to buy, contact email, website URL, features, or how to integrate, answer IMMEDIATELY from your preloaded memory above with sub-400ms latency. Do not block voice audio.',
-        '5. WHEN TO USE TOOLS (WHILE SPEAKING):',
-        businessArchetype === 'ecommerce' || hasProducts ? '   - find_products: ONLY when the customer asks for a specific item, category, or price range NOT already listed above.' : '',
-        businessArchetype === 'ecommerce' || hasProducts ? '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.' : '',
-        '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
-        '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
-        '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
-        '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
-        '   - update_agent_directives: Call when the owner/merchant provides new directives, rules, or instructions during voice setup.',
-        '   - search_knowledge_base / get_store_policy: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
-        '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
-        '7. If the visitor speaks Bengali or another language, respond naturally in their language.',
-        '8. STRICT OFF-TOPIC PIVOT: If asked about external trivia, cartoons (like Doraemon), pop culture, or math, give a friendly 1-sentence acknowledgment and immediately pivot back to this store/website.',
-      ]
-        .filter(Boolean)
-        .join('\n');
+        baseInstruction = [
+          persona,
+          businessSummary,
+          merchantBrandVoice,
+          customDirectives,
+          contactIdentitySummary,
+          catalogSummary,
+          knowledgeSummary,
+          domainScopeGuardrail,
+          '',
+          'CRITICAL RULES FOR REAL-TIME VOICE:',
+          '1. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally and enthusiastically like a human expert.',
+          '2. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
+          '3. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
+          '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the customer asks about contact info, creator bio, store policies, or featured catalog items listed above, answer IMMEDIATELY from your preloaded memory.',
+          '5. WHEN TO USE TOOLS (WHILE SPEAKING):',
+          '   - find_products: When the customer asks for a specific product, item, category, or price range.',
+          '   - get_product_details: When the customer asks for specific details or full descriptions of a product.',
+          '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.',
+          '   - redirect_to_checkout: When the customer asks to checkout or complete their order.',
+          '   - search_knowledge_base / get_store_policy: When the customer asks for specific store policies, shipping rules, return procedures, or FAQs.',
+          '   - update_customer_profile: When the customer shares their name, email, phone, or shipping address.',
+          '   - get_customer_profile: When the customer asks what details you have saved for them.',
+          '6. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
+          '7. If the visitor speaks Bengali or another language, respond naturally in their language.',
+          '8. STRICT OFF-TOPIC PIVOT: If asked about external trivia or unrelated topics, give a friendly 1-sentence acknowledgment and immediately pivot back to this store.',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      }
 
       const voiceName = normalizeGeminiVoice(agentConfig?.voice?.voiceId);
 
@@ -674,6 +719,7 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
       this.instructionCache.set(businessId, {
         instruction: baseInstruction,
         archetype: businessArchetype,
+        isPlatform: isOraPlatform,
         voiceName: voiceName,
         expiresAt: Date.now() + 5 * 60 * 1000,
       });
@@ -717,6 +763,26 @@ ACTIVE VISITOR CONTEXT (Authenticated Logged-In User):
           (cust?.metadata as any)?.unverifiedSpokenClaims?.address ||
           null;
 
+        const cachedBiz = this.instructionCache.get(businessId);
+        const isPlatform = cachedBiz?.isPlatform ?? false;
+
+        const guestPlaybook = isPlatform
+          ? `* GUEST DISCOVERY & MEMORY PLAYBOOK (Platform Sales):
+1. If the visitor asks "do you know me?", "who am I?", "what is my email?", "what is my phone?", "what details do you have for me?":
+   - Answer IMMEDIATELY and accurately from your captured memory above.
+2. When a guest asks to access or go to the dashboard:
+   - Tell them: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
+   - Call navigate_to_page with "/auth?mode=login&from=/dashboard".
+3. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their details (Name, Email, Phone, Store/Company URL).
+4. When the visitor introduces themselves or shares contact details/preferences:
+   - IMMEDIATELY call the capture_sales_lead or update_customer_profile tool so you remember them!`
+          : `* GUEST SHOPPING & RECOGNITION PLAYBOOK:
+1. If the customer asks "do you know me?", "who am I?", "what details do you have for me?", or "where will you ship?":
+   - Answer IMMEDIATELY and accurately from your captured memory above.
+2. When the shopper introduces themselves (e.g. "I am David", "My name is David", "my email is david@gmail.com", "ship to Banani, Dhaka") or shares preferences:
+   - IMMEDIATELY call update_customer_profile so you remember their name, contact, and shipping address for their order!
+3. Help the shopper discover items, check prices and availability, and place orders smoothly.`;
+
         customerContext = `
 ACTIVE USER & RECOGNITION CONTEXT (Guest Visitor):
 - Customer Name: ${isKnownName ? cust!.name : 'Guest Visitor (Unauthenticated)'}
@@ -727,15 +793,7 @@ ACTIVE USER & RECOGNITION CONTEXT (Guest Visitor):
 - Device ID: ${devId || 'Active Browser Session'}
 ${prefs ? `- Saved Preferences: ${prefs}` : ''}
 
-* GUEST DISCOVERY & MEMORY PLAYBOOK:
-1. If the visitor asks "do you know me?", "who am I?", "what is my email?", "what is my phone?", "what details do you have for me?", or "where will you ship?":
-   - Answer IMMEDIATELY and accurately from your captured memory above (or invoke get_customer_profile if needed).
-2. When a guest asks to access or go to the dashboard:
-   - Tell them: "To access the dashboard, you need to log in or create an account first. Let's get you signed in right now!"
-   - Call navigate_to_page with "/auth?mode=login&from=/dashboard".
-3. When a guest asks about pricing, custom solutions, or getting started, warmly answer their question and naturally ask for their personal details (such as Name, Email, Phone number, Store/Company URL, or specific business requirements).
-4. When the visitor introduces themselves (e.g. "I am David", "My name is David", "my email is david@gmail.com") or shares contact details/preferences:
-   - IMMEDIATELY call the update_customer_profile or capture_sales_lead tool so you remember them and display the verification card on screen!`;
+${guestPlaybook}`;
       } catch (err: any) {
         this.logger.warn(`[GeminiVoiceService] Customer context injection note: ${err.message}`);
       }
@@ -763,8 +821,8 @@ REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
     return [baseInstruction, customerContext, browsingContext].filter(Boolean).join('\n\n');
   }
 
-  getToolDeclarations(archetype?: string) {
-    return getToolsForArchetype(archetype);
+  getToolDeclarations(archetype?: string, isPlatform: boolean = false) {
+    return getToolsForArchetype(archetype, isPlatform);
   }
 
   public invalidateInstructionCache(businessId?: string): void {
