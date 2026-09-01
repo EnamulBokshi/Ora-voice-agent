@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -14,6 +13,12 @@ import {
   Zap,
   SlidersHorizontal,
   Radio,
+  Brain,
+  Compass,
+  Layers,
+  Database,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import { searchRagCombinedApi } from '@/services/rag-service';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
@@ -34,16 +39,30 @@ interface TranscriptEntry {
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'thinking' | 'speaking' | 'error';
 type VoiceMode = 'direct-live' | 'browser-speech';
+type InspectorTab = 'transcript' | 'memory';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestModalProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('direct-live');
+  const [activeTab, setActiveTab] = useState<InspectorTab>('transcript');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [sessionId] = useState<string>(() => `ses_${Math.random().toString(36).substring(2, 9)}`);
+  const [activeTools, setActiveTools] = useState<string[]>([
+    'navigate_to_page',
+    'find_products',
+    'get_product_details',
+    'add_to_cart',
+    'place_order',
+    'redirect_to_checkout',
+    'search_knowledge_base',
+    'get_store_policy',
+    'update_customer_profile',
+    'get_customer_profile',
+  ]);
 
   // Direct Live Client Ref
   const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
@@ -77,333 +96,376 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
     window.speechSynthesis.speak(utterance);
   }, []);
 
-    // Stop session
-    const stopSession = useCallback(() => {
-      if (directLiveClientRef.current) {
-        try {
-          directLiveClientRef.current.stop();
-        } catch (e) { }
-        directLiveClientRef.current = null;
-      }
-
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) { }
-        recognitionRef.current = null;
-      }
-
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-
-      setStatus('idle');
-      setAudioLevel(0);
-      addTranscript('system', 'Call ended.');
-    }, [addTranscript]);
-
-    // Clean up on unmount or close
-    useEffect(() => {
-      if (!isOpen) {
-        stopSession();
-      }
-      return () => {
-        stopSession();
-      };
-    }, [isOpen, stopSession]);
-
-    // Start Direct Live Session
-    const startDirectLiveSession = async () => {
+  // Stop session
+  const stopSession = useCallback(() => {
+    if (directLiveClientRef.current) {
       try {
-        if (!publishableKey) {
-          setErrorMessage('Store publishable key is loading. Please try again in a second.');
-          setStatus('error');
-          return;
-        }
+        directLiveClientRef.current.stop();
+      } catch (e) {}
+      directLiveClientRef.current = null;
+    }
 
-        setStatus('connecting');
-        setErrorMessage(null);
-        addTranscript('system', 'Connecting to ORA Neural Voice Gateway...');
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
 
-        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-        const keyToUse = publishableKey;
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
 
-        const client = new GeminiLiveClient({
-          publishableKey: keyToUse,
-          sessionId,
-          authToken: token || undefined,
-          onStatusChange: (newStatus) => {
-            setStatus(newStatus as SessionStatus);
-            if (newStatus === 'listening') {
-              addTranscript('system', 'Connected! Start speaking to test ORA.');
-            }
-          },
-          onTranscript: (sender, text) => {
-            addTranscript(sender as 'user' | 'agent' | 'system', text);
-          },
-          onAudioLevel: (level) => {
-            setAudioLevel(level);
-          },
-          onLatency: (rtt) => {
-            setLatencyMs(rtt);
-          },
-          onError: (err) => {
-            setStatus('error');
-            setErrorMessage(err);
-            addTranscript('system', `Error: ${err}`);
-          },
-        });
+    setStatus('idle');
+    setAudioLevel(0);
+    addTranscript('system', 'Call ended.');
+  }, [addTranscript]);
 
-        directLiveClientRef.current = client;
-        await client.start();
-      } catch (err: any) {
-        setStatus('error');
-        setErrorMessage(err.message || 'Failed to start voice call');
-        addTranscript('system', `Error starting call: ${err.message}`);
-      }
+  // Clean up on unmount or close
+  useEffect(() => {
+    if (!isOpen) {
+      stopSession();
+    }
+    return () => {
+      stopSession();
     };
+  }, [isOpen, stopSession]);
 
-    // Start Browser Speech Recognition Assistant Mode
-    const startBrowserVoiceAssistant = async () => {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        setErrorMessage('Browser Speech Recognition not supported in this browser. Please use Chrome/Edge.');
+  // Start Direct Live Session
+  const startDirectLiveSession = async () => {
+    try {
+      if (!publishableKey) {
+        setErrorMessage('Store publishable key is loading. Please try again in a second.');
         setStatus('error');
         return;
       }
 
-      try {
-        setErrorMessage(null);
-        setStatus('listening');
-        addTranscript('system', 'Interactive Voice Assistant active! Speak your query...');
+      setStatus('connecting');
+      setErrorMessage(null);
+      addTranscript('system', 'Connecting to ORA Neural Voice Gateway...');
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const keyToUse = publishableKey;
 
-        recognition.onstart = () => {
-          setStatus('listening');
-          addTranscript('system', 'Listening via browser microphone. Speak now...');
-        };
-
-        recognition.onresult = async (event: any) => {
-          const lastResult = event.results[event.results.length - 1];
-          if (lastResult.isFinal) {
-            const userText = lastResult[0].transcript.trim();
-            if (!userText) return;
-
-            addTranscript('user', userText);
-            setStatus('thinking');
-
-            try {
-              const startT = performance.now();
-              const ragRes = await searchRagCombinedApi({ query: userText, limit: 3 });
-              const rtt = Math.round(performance.now() - startT);
-              setLatencyMs(rtt);
-
-              let answer = 'I found some details in your store catalog. How else can I assist you today?';
-              if (ragRes && ragRes.knowledge && ragRes.knowledge.length > 0) {
-                answer = `Based on your store knowledge: ${ragRes.knowledge[0].text.substring(0, 160)}...`;
-              } else if (ragRes && ragRes.products && ragRes.products.length > 0) {
-                answer = `Found matching items: ${ragRes.products.map((p) => p.text).slice(0, 2).join(', ')}.`;
-              }
-
-              addTranscript('agent', answer);
-              speakWithBrowserTts(answer);
-            } catch (e: any) {
-              const fallback = 'I received your query and I am checking your store catalog. How can I help further?';
-              addTranscript('agent', fallback);
-              speakWithBrowserTts(fallback);
-            }
+      const client = new GeminiLiveClient({
+        publishableKey: keyToUse,
+        sessionId,
+        authToken: token || undefined,
+        clientContext: {
+          currentPath: typeof window !== 'undefined' ? window.location.pathname : '/',
+          title: typeof document !== 'undefined' ? document.title : 'ORA Platform',
+          history: [typeof window !== 'undefined' ? window.location.pathname : '/'],
+          activeSection: 'Agent Testing Workspace',
+        },
+        onStatusChange: (newStatus) => {
+          setStatus(newStatus as SessionStatus);
+          if (newStatus === 'listening') {
+            addTranscript('system', 'Connected! Start speaking to test ORA.');
           }
-        };
-
-        recognition.onerror = (e: any) => {
-          console.error('[BrowserRecognition] Error:', e.error);
-          if (e.error !== 'no-speech') {
-            setStatus('error');
-            setErrorMessage(`Speech recognition error: ${e.error}`);
+        },
+        onTranscript: (sender, text) => {
+          addTranscript(sender as 'user' | 'agent' | 'system', text);
+        },
+        onAudioLevel: (level) => {
+          setAudioLevel(level);
+        },
+        onLatency: (rtt) => {
+          setLatencyMs(rtt);
+        },
+        onAction: (action) => {
+          if (action?.type === 'navigate' && action.destination) {
+            addTranscript('system', `⚡ Executing Navigation: ${action.destination} (${action.reason || 'Requested'})`);
           }
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
-      } catch (err: any) {
-        setStatus('error');
-        setErrorMessage(err.message || 'Failed to start browser voice');
-        addTranscript('system', `Error: ${err.message}`);
-      }
-    };
-
-    const handleStartSession = () => {
-      if (voiceMode === 'direct-live') {
-        startDirectLiveSession();
-      } else {
-        startBrowserVoiceAssistant();
-      }
-    };
-
-    const toggleMute = () => {
-      setIsMuted((prev) => {
-        const next = !prev;
-        if (directLiveClientRef.current) {
-          directLiveClientRef.current.setMuted(next);
-        }
-        return next;
+        },
+        onError: (err) => {
+          setStatus('error');
+          setErrorMessage(err);
+          addTranscript('system', `Error: ${err}`);
+        },
       });
-    };
 
-    if (!isOpen) return null;
+      directLiveClientRef.current = client;
+      await client.start();
+    } catch (err: any) {
+      setStatus('error');
+      setErrorMessage(err.message || 'Failed to start voice call');
+      addTranscript('system', `Error starting call: ${err.message}`);
+    }
+  };
 
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-surface-container/30">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm">
-                <Radio size={15} className="text-foreground" />
-              </div>
-              <div>
-                <h2 className="text-[15.5px] font-semibold text-foreground tracking-tight">
-                  Test ORA Live
-                </h2>
-                <p className="text-[12px] font-mono text-muted-foreground">
-                  Real-time speech & sales conversation preview
-                </p>
-              </div>
+  // Start Browser Speech Recognition Assistant Mode
+  const startBrowserVoiceAssistant = async () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setErrorMessage('Browser Speech Recognition not supported in this browser. Please use Chrome/Edge.');
+      setStatus('error');
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+      setStatus('listening');
+      addTranscript('system', 'Interactive Voice Assistant active! Speak your query...');
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setStatus('listening');
+        addTranscript('system', 'Listening via browser microphone. Speak now...');
+      };
+
+      recognition.onresult = async (event: any) => {
+        const lastResult = event.results[event.results.length - 1];
+        if (lastResult.isFinal) {
+          const userText = lastResult[0].transcript.trim();
+          if (!userText) return;
+
+          addTranscript('user', userText);
+          setStatus('thinking');
+
+          try {
+            const startT = performance.now();
+            const ragRes = await searchRagCombinedApi({ query: userText, limit: 3 });
+            const rtt = Math.round(performance.now() - startT);
+            setLatencyMs(rtt);
+
+            let answer = 'I found some details in your store catalog. How else can I assist you today?';
+            if (ragRes && ragRes.knowledge && ragRes.knowledge.length > 0) {
+              answer = `Based on your store knowledge: ${ragRes.knowledge[0].text.substring(0, 160)}...`;
+            } else if (ragRes && ragRes.products && ragRes.products.length > 0) {
+              answer = `Found matching items: ${ragRes.products.map((p) => p.text).slice(0, 2).join(', ')}.`;
+            }
+
+            addTranscript('agent', answer);
+            speakWithBrowserTts(answer);
+          } catch (e: any) {
+            const fallback = 'I received your query and I am checking your store catalog. How can I help further?';
+            addTranscript('agent', fallback);
+            speakWithBrowserTts(fallback);
+          }
+        }
+      };
+
+      recognition.onerror = (e: any) => {
+        console.error('[BrowserRecognition] Error:', e.error);
+        if (e.error !== 'no-speech') {
+          setStatus('error');
+          setErrorMessage(`Speech recognition error: ${e.error}`);
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (err: any) {
+      setStatus('error');
+      setErrorMessage(err.message || 'Failed to start browser voice');
+      addTranscript('system', `Error: ${err.message}`);
+    }
+  };
+
+  const handleStartSession = () => {
+    if (voiceMode === 'direct-live') {
+      startDirectLiveSession();
+    } else {
+      startBrowserVoiceAssistant();
+    }
+  };
+
+  const toggleMute = () => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (directLiveClientRef.current) {
+        directLiveClientRef.current.setMuted(next);
+      }
+      return next;
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-surface-container/30">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm">
+              <Radio size={15} className="text-foreground" />
             </div>
+            <div>
+              <h2 className="text-[15.5px] font-semibold text-foreground tracking-tight">
+                Test ORA Live
+              </h2>
+              <p className="text-[12px] font-mono text-muted-foreground">
+                Real-time multimodal speech & sales intelligence
+              </p>
+            </div>
+          </div>
 
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body Content */}
+        <div className="p-6 flex flex-col items-center gap-6">
+          {/* Mode Switcher */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container border border-border/50">
             <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+              onClick={() => {
+                stopSession();
+                setVoiceMode('direct-live');
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                voiceMode === 'direct-live'
+                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              <X size={16} />
+              <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
+              ORA Neural Engine (Direct)
+            </button>
+            <button
+              onClick={() => {
+                stopSession();
+                setVoiceMode('browser-speech');
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                voiceMode === 'browser-speech'
+                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <SlidersHorizontal size={13} />
+              Browser STT/TTS
             </button>
           </div>
 
-          {/* Body Content */}
-          <div className="p-6 flex flex-col items-center gap-6">
-            {/* Mode Switcher */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container border border-border/50">
-              <button
-                onClick={() => { stopSession(); setVoiceMode('direct-live'); }}
-                className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${voiceMode === 'direct-live'
-                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-                  }`}
-              >
-                <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
-                ORA Neural Engine (Direct)
-              </button>
-              <button
-                onClick={() => { stopSession(); setVoiceMode('browser-speech'); }}
-                className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium transition-all flex items-center gap-1.5 cursor-pointer ${voiceMode === 'browser-speech'
-                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-                  }`}
-              >
-                <SlidersHorizontal size={13} />
-                Browser STT/TTS
-              </button>
-            </div>
+          {/* Living Orb Visualizer */}
+          <div className="relative flex items-center justify-center my-1">
+            <LivingOrb
+              size={120}
+              voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
+              energyLevel={audioLevel}
+              onClick={() => {
+                if (status === 'idle' || status === 'error') {
+                  handleStartSession();
+                } else {
+                  stopSession();
+                }
+              }}
+              title={status === 'idle' ? 'Click to Test ORA Live' : 'Click to End Test'}
+            />
+          </div>
 
-            {/* Living Orb Visualizer */}
-            <div className="relative flex items-center justify-center my-2">
-              <LivingOrb
-                size={120}
-                voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
-                energyLevel={audioLevel}
-                onClick={() => {
-                  if (status === 'idle' || status === 'error') {
-                    handleStartSession();
-                  } else {
-                    stopSession();
-                  }
-                }}
-                title={status === 'idle' ? 'Click to Test ORA Live' : 'Click to End Test'}
-              />
-            </div>
-
-            {/* Status Bar */}
-            <div className="w-full flex items-center justify-between text-[12.5px] px-4 py-2.5 rounded-xl bg-surface-container/50 border border-border/60">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${status === 'speaking' || status === 'listening'
+          {/* Status Bar */}
+          <div className="w-full flex items-center justify-between text-[12.5px] px-4 py-2.5 rounded-xl bg-surface-container/50 border border-border/60">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span
+                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                  status === 'speaking' || status === 'listening'
                     ? 'bg-emerald-500 dark:bg-[#C8F031] animate-pulse shadow-[0_0_8px_rgba(200,240,49,0.7)]'
                     : status === 'connecting'
-                      ? 'bg-amber-400 animate-ping'
-                      : status === 'error'
-                        ? 'bg-red-400'
-                        : 'bg-muted-foreground/40'
-                    }`}
-                />
-                <span className="text-foreground/90 font-medium truncate">
-                  {status === 'idle' && 'Click Test ORA Live to speak with ORA'}
-                  {status === 'connecting' && 'Connecting neural audio stream...'}
-                  {status === 'listening' && 'ORA is listening... Speak clearly into your mic'}
-                  {status === 'speaking' && 'ORA is speaking in real-time...'}
-                  {status === 'thinking' && 'Searching store catalog & policies...'}
-                  {status === 'error' && (errorMessage || 'Connection error')}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {latencyMs !== null && (
-                  <span className="text-[11px] font-mono text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold">
-                    {latencyMs}ms RTT
-                  </span>
-                )}
-              </div>
+                    ? 'bg-amber-400 animate-ping'
+                    : status === 'error'
+                    ? 'bg-red-400'
+                    : 'bg-muted-foreground/40'
+                }`}
+              />
+              <span className="text-foreground/90 font-medium truncate">
+                {status === 'idle' && 'Click Test ORA Live to speak with ORA'}
+                {status === 'connecting' && 'Connecting neural audio stream...'}
+                {status === 'listening' && 'ORA is listening... Speak clearly into your mic'}
+                {status === 'speaking' && 'ORA is speaking in real-time...'}
+                {status === 'thinking' && 'Searching store catalog & policies...'}
+                {status === 'error' && (errorMessage || 'Connection error')}
+              </span>
             </div>
 
-            {/* Main Control Buttons */}
-            <div className="flex items-center gap-3">
-              {status === 'idle' || status === 'error' ? (
-                <button
-                  onClick={handleStartSession}
-                  className="px-6 py-2.5 rounded-xl font-semibold text-[13.5px] flex items-center gap-2 bg-foreground text-background hover:opacity-90 transition-all shadow-md cursor-pointer"
-                >
-                  <Play size={14} fill="currentColor" />
-                  <span>Test ORA Live</span>
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={toggleMute}
-                    className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${isMuted
-                      ? 'bg-red-500/20 border-red-500/40 text-red-500 dark:text-red-400'
-                      : 'bg-surface-high border-border/80 text-foreground hover:bg-surface-highest'
-                      }`}
-                    title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-                  >
-                    {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
-                  </button>
-
-                  <button
-                    onClick={stopSession}
-                    className="px-6 py-2.5 rounded-xl font-semibold text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white transition-all shadow-md cursor-pointer"
-                  >
-                    <Square size={14} fill="currentColor" />
-                    <span>End Test</span>
-                  </button>
-                </>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {latencyMs !== null && (
+                <span className="text-[11px] font-mono text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold">
+                  {latencyMs}ms RTT
+                </span>
               )}
             </div>
+          </div>
 
-            {/* Live Transcript Log Box */}
-            <div className="w-full bg-surface-container/30 border border-border/60 rounded-xl p-4 h-48 flex flex-col space-y-2.5">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <span className="text-[11px] font-mono font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Activity size={12} className="text-foreground" />
-                  Live Conversation Feed
-                </span>
-                <span className="text-[11px] text-muted-foreground/70 font-mono">
-                  {sessionId}
-                </span>
+          {/* Main Control Buttons */}
+          <div className="flex items-center gap-3">
+            {status === 'idle' || status === 'error' ? (
+              <button
+                onClick={handleStartSession}
+                className="px-6 py-2.5 rounded-xl font-semibold text-[13.5px] flex items-center gap-2 bg-foreground text-background hover:opacity-90 transition-all shadow-md cursor-pointer"
+              >
+                <Play size={14} fill="currentColor" />
+                <span>Test ORA Live</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={toggleMute}
+                  className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                    isMuted
+                      ? 'bg-red-500/20 border-red-500/40 text-red-500 dark:text-red-400'
+                      : 'bg-surface-high border-border/80 text-foreground hover:bg-surface-highest'
+                  }`}
+                  title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                >
+                  {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+
+                <button
+                  onClick={stopSession}
+                  className="px-6 py-2.5 rounded-xl font-semibold text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white transition-all shadow-md cursor-pointer"
+                >
+                  <Square size={14} fill="currentColor" />
+                  <span>End Test</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Tabbed Inspector: Live Feed vs ORA Memory & Context */}
+          <div className="w-full bg-surface-container/30 border border-border/60 rounded-xl p-4 h-56 flex flex-col space-y-2.5">
+            <div className="flex items-center justify-between border-b border-border/40 pb-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveTab('transcript')}
+                  className={`text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    activeTab === 'transcript'
+                      ? 'bg-surface-high text-foreground border border-border/60'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Activity size={12} className={activeTab === 'transcript' ? 'text-primary' : ''} />
+                  Live Transcript
+                </button>
+                <button
+                  onClick={() => setActiveTab('memory')}
+                  className={`text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    activeTab === 'memory'
+                      ? 'bg-surface-high text-foreground border border-border/60'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Brain size={12} className={activeTab === 'memory' ? 'text-primary' : ''} />
+                  Memory & State
+                </button>
               </div>
 
+              <span className="text-[11px] text-muted-foreground/70 font-mono">
+                {sessionId}
+              </span>
+            </div>
+
+            {activeTab === 'transcript' ? (
               <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-[12.5px]">
                 {transcripts.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground/50 text-xs italic">
@@ -431,8 +493,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                           item.sender === 'agent'
                             ? 'text-foreground'
                             : item.sender === 'user'
-                              ? 'text-foreground/90'
-                              : 'text-muted-foreground italic'
+                            ? 'text-foreground/90'
+                            : 'text-muted-foreground italic'
                         }
                       >
                         {item.text}
@@ -440,10 +502,58 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                     </div>
                   ))
                 )}
+                <div ref={transcriptEndRef} />
               </div>
-            </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-[12px] font-mono">
+                {/* Identity Block */}
+                <div className="p-2.5 rounded-lg bg-surface-lowest border border-border/50">
+                  <div className="text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1.5">
+                    <ShieldCheck size={13} className="text-primary" /> Active Identity & Role
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>User: <span className="text-foreground">Authenticated Merchant Owner</span></div>
+                    <div>Key: <span className="text-foreground truncate">{publishableKey ? `${publishableKey.slice(0, 14)}...` : 'Active'}</span></div>
+                  </div>
+                </div>
+
+                {/* Telemetry & Browsing State */}
+                <div className="p-2.5 rounded-lg bg-surface-lowest border border-border/50">
+                  <div className="text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1.5">
+                    <Compass size={13} className="text-primary" /> Live Browsing Telemetry
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>Route: <span className="text-foreground font-semibold">/agent</span></div>
+                    <div>Section: <span className="text-foreground">Agent Testing Workspace</span></div>
+                  </div>
+                </div>
+
+                {/* Preloaded Knowledge & Tools */}
+                <div className="p-2.5 rounded-lg bg-surface-lowest border border-border/50">
+                  <div className="text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1.5">
+                    <Database size={13} className="text-primary" /> Preloaded Memory & Tools
+                  </div>
+                  <div className="text-muted-foreground space-y-1">
+                    <div className="flex items-center gap-1 text-emerald-500 dark:text-[#C8F031]">
+                      <CheckCircle2 size={11} /> Fast-path catalog inventory & store policies preloaded
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {activeTools.map((tool) => (
+                        <span
+                          key={tool}
+                          className="px-1.5 py-0.5 rounded bg-surface-high border border-border/60 text-[10.5px] text-foreground/80"
+                        >
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}

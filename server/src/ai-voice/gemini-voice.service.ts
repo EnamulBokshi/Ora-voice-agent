@@ -559,6 +559,7 @@ We support instant online checkout with Stripe (USD cards) and bKash (BDT tokeni
 APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this application):
 • Public & Marketing Routes:
   - "/" : Landing Page / Home (Hero section, live interactive demo, #features, #stats, #cta).
+  - "/docs" : Storefront Setup & Integration Guide (Shopify, WooCommerce, Next.js, HTML embed guides, widget customization).
   - "/pricing" : Transparent Multimodal AI Pricing ($0 Free, $49 Growth, $199 Scale, Stripe & bKash checkout).
   - "/auth?mode=register" : Merchant Account Registration / Sign Up / Create Account.
   - "/auth?mode=login" : Merchant Login / Sign In.
@@ -575,11 +576,15 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 • Platform Admin Routes:
   - "/admin" : SuperAdmin Command Center & Platform Control Plane.
 • In-Page Section Anchors (on Landing Page):
+  - "#hero" : Hero Header Section.
   - "#features" : Platform Features & Zero-Config Capabilities.
   - "#stats" : Real-Time Performance Stats & Sub-400ms Metrics.
-  - "#cta" : Call to Action Section.
+  - "#demo" : Live Interactive Voice Demo.
   - "#solutions" : Multi-channel E-commerce Solutions.
-  - "#docs" : Documentation, API & Integration Guide Anchor.
+  - "#testimonials" : Merchant Reviews, Testimonials & Case Studies.
+  - "#pricing" : Pricing Section Anchor.
+  - "#faq" : Frequently Asked Questions.
+  - "#cta" : Call to Action Section.
 
 * DASHBOARD & AUTHENTICATION NAVIGATION RULES:
 1. AUTHENTICATED USER ASKS FOR DASHBOARD:
@@ -596,7 +601,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 3. GENERAL NAVIGATION & MANUALS/DOCS:
    - When a user asks for documentation, manuals, or setup guides:
      * Explain our 60-second setup verbally and answer their questions directly (or call get_integration_guide if they specify a platform like Shopify, WooCommerce, Next.js, or HTML).
-     * If they want to view documentation/features, call navigate_to_page with destination "#features" (or "#docs"). Never navigate to "/doc" or "/docs".
+     * If they want to view documentation/guides, call navigate_to_page with destination "/docs".
    - When a user asks to register or sign up -> call navigate_to_page with destination "/auth?mode=register".
    - When a user asks to log in -> call navigate_to_page with destination "/auth?mode=login".
    - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now!`;
@@ -633,7 +638,7 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
           '3. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
           '4. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the visitor asks who you are, what ORA does, pricing plans, how to buy, contact email, website URL, features, or how to integrate, answer IMMEDIATELY from your preloaded memory above with sub-400ms latency. Do not block voice audio.',
           '5. WHEN TO USE TOOLS (WHILE SPEAKING):',
-          '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
+          '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/docs", "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features", "#testimonials"). Speak your response while triggering navigation!',
           '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
           '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
           '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
@@ -668,7 +673,7 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
    - You are ORA, the real-time Voice AI representative deployed on "${entityLabel}".
    - You are fully knowledgeable and authorized to answer:
      • Everything about this specific store/website: products, catalog, styles, prices, stock availability, categories, orders, shipping, store policies, creator/founder info, contact details, and FAQs.
-     • Store shopping assistance: helping customers find products, adding items to cart, placing orders, checking delivery terms.
+     • Store shopping assistance: helping customers find products, navigating pages, adding items to cart, placing orders, checking delivery terms.
    - ZERO PLATFORM LEAKAGE RULE:
      • You represent "${entityLabel}" ONLY. You are dedicated entirely to this store.
      • When a customer asks about prices, pricing, or costs, you MUST ONLY refer to the products, services, and catalog items of "${entityLabel}" (or call find_products to check live item prices).
@@ -702,6 +707,7 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
           '   - get_product_details: When the customer asks for specific details or full descriptions of a product.',
           '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.',
           '   - redirect_to_checkout: When the customer asks to checkout or complete their order.',
+          '   - navigate_to_page: When the customer asks to view cart, checkout, collections, product pages, or on-screen sections (e.g. "/cart", "/collections/all", "/products/...").',
           '   - search_knowledge_base / get_store_policy: When the customer asks for specific store policies, shipping rules, return procedures, or FAQs.',
           '   - update_customer_profile: When the customer shares their name, email, phone, or shipping address.',
           '   - get_customer_profile: When the customer asks what details you have saved for them.',

@@ -224,6 +224,9 @@ export function FloatingOrbWidget() {
   const [isDetailsConfirmed, setIsDetailsConfirmed] = useState(false);
   const [highlightField, setHighlightField] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<string>('Top of Page');
+  const activeSectionRef = useRef<string>('Top of Page');
+  activeSectionRef.current = activeSection;
 
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -259,6 +262,66 @@ export function FloatingOrbWidget() {
     }, 1800);
   }, [cancelAutoDismiss]);
 
+  // Viewport IntersectionObserver to track visible sections on the screen in real time
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const sectionElements = document.querySelectorAll(
+      'section[id], [id="hero"], [id="features"], [id="solutions"], [id="docs"], [id="stats"], [id="testimonials"], [id="pricing"], [id="faq"], [id="cta"]',
+    );
+    if (sectionElements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let bestEntry: IntersectionObserverEntry | null = null;
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) {
+              bestEntry = entry;
+            }
+          }
+        }
+        if (bestEntry && bestEntry.target && bestEntry.target.id) {
+          const sectionId = bestEntry.target.id;
+          const labelMap: Record<string, string> = {
+            hero: 'Hero / Introduction Section',
+            features: 'Why ORA / Platform Features Section',
+            solutions: 'Solutions & Capabilities Section',
+            docs: 'Storefront Setup & Docs Section',
+            stats: 'Performance Stats & Sub-400ms Metrics Section',
+            testimonials: 'Customer Testimonials (Rania Sultana / FashionBD)',
+            pricing: 'Pricing & Plans Section',
+            faq: 'FAQ Section',
+            cta: 'Call To Action / Stop Losing Sales Section',
+          };
+          const prettyLabel = labelMap[sectionId] || `#${sectionId} Section`;
+          if (activeSectionRef.current !== prettyLabel) {
+            setActiveSection(prettyLabel);
+            activeSectionRef.current = prettyLabel;
+            if (voiceStateRef.current === 'active' || voiceStateRef.current === 'ora-speaking') {
+              liveClientRef.current?.sendContextUpdate({
+                currentPath: pathname || '/',
+                title: typeof document !== 'undefined' ? document.title : '',
+                history: pageHistoryRef.current,
+                activeSection: prettyLabel,
+              });
+            }
+          }
+        }
+      },
+      {
+        rootMargin: '-20% 0px -40% 0px',
+        threshold: [0.1, 0.3, 0.6],
+      },
+    );
+
+    sectionElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [pathname]);
+
   // Real-time dynamic page & browsing context sync (only when route actually changes)
   useEffect(() => {
     const current = pathname || '/';
@@ -275,6 +338,7 @@ export function FloatingOrbWidget() {
           currentPath: current,
           title: typeof document !== 'undefined' ? document.title : '',
           history: pageHistoryRef.current,
+          activeSection: activeSectionRef.current,
         });
       }
     }
@@ -350,6 +414,7 @@ export function FloatingOrbWidget() {
           currentPath: pathname || '/',
           title: typeof document !== 'undefined' ? document.title : '',
           history: pageHistoryRef.current,
+          activeSection: activeSectionRef.current || 'Top of Page',
         },
         onStatusChange: (status) => {
           if (!isMountedRef.current) return;
@@ -400,14 +465,13 @@ export function FloatingOrbWidget() {
               dest = '/';
             } else if (
               dest === '/doc' ||
-              dest === '/docs' ||
               dest === '/manual' ||
               dest === '/manuals' ||
               dest === '/guide' ||
               dest === '/guides' ||
               dest === '/documentation'
             ) {
-              dest = '#features';
+              dest = '/docs';
             }
 
             if (dest.startsWith('#')) {

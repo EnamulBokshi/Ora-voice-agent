@@ -735,13 +735,15 @@ export class AiToolsExecutor {
         cleanDest === '/manuals' ||
         cleanDest === '/guide' ||
         cleanDest === '/guides' ||
-        cleanDest === '/documentation'
+        cleanDest === '/documentation' ||
+        cleanDest === '#docs'
       ) {
-        cleanDest = '#features';
+        cleanDest = '/docs';
       }
 
       const ALLOWED_TARGETS = [
         '/',
+        '/docs',
         '/pricing',
         '/auth',
         '/dashboard',
@@ -752,11 +754,15 @@ export class AiToolsExecutor {
         '/billing',
         '/profile',
         '/admin',
+        '#hero',
         '#features',
         '#stats',
-        '#cta',
+        '#demo',
         '#solutions',
-        '#docs',
+        '#testimonials',
+        '#pricing',
+        '#faq',
+        '#cta',
       ];
 
       const isValid = ALLOWED_TARGETS.some(
@@ -764,7 +770,10 @@ export class AiToolsExecutor {
       );
 
       if (!isValid) {
-        cleanDest = '#features';
+        // If not explicitly in the list, keep cleanDest if it's a valid relative path, else default to /
+        if (!cleanDest.startsWith('/') && !cleanDest.startsWith('#')) {
+          cleanDest = '/';
+        }
       }
 
       return {
@@ -777,7 +786,7 @@ export class AiToolsExecutor {
         },
       };
     } else {
-      // Merchant Storefront navigation: allow store-relative paths (e.g. /, /cart, /checkout, /products/...)
+      // Merchant Storefront navigation: allow store-relative paths (e.g. /, /cart, /checkout, /collections, /products/...)
       // Strictly prevent routing to platform dashboard or admin pages
       const BLOCKED_PREFIXES = ['/dashboard', '/admin', '/billing', '/agent', '/live-desk', '/conversations', '/profile'];
       if (BLOCKED_PREFIXES.some((b) => cleanDest.startsWith(b))) {

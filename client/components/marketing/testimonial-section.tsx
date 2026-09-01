@@ -1,6 +1,7 @@
 export function TestimonialSection() {
   return (
     <section
+      id="testimonials"
       aria-label="Customer testimonial"
       className="lp-section"
       style={{ maxWidth: '52rem', margin: '0 auto', textAlign: 'center', paddingLeft: '1.5rem', paddingRight: '1.5rem' }}

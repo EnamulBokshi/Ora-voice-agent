@@ -162,34 +162,14 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'navigate_to_page',
     description:
-      'Direct or scroll the visitor’s browser to a specific valid page or section from the application sitemap. Use this when the visitor asks to navigate to dashboard, pricing, create an account, log in, view features, or go home.',
+      'Direct or scroll the visitor’s browser to a specific valid page or section. Use this when the visitor asks to navigate to docs, pricing, cart, checkout, collections, product pages, dashboard, create account, log in, view features, or go home.',
     parameters: {
       type: 'OBJECT',
       properties: {
         destination: {
           type: 'STRING',
-          description: 'The target route path or anchor hash. Must be one of the enumerated valid application routes.',
-          enum: [
-            '/',
-            '/pricing',
-            '/auth?mode=register',
-            '/auth?mode=login',
-            '/auth?mode=login&from=/dashboard',
-            '/auth?mode=register&from=/dashboard',
-            '/dashboard',
-            '/live-desk',
-            '/conversations',
-            '/agent',
-            '/customers',
-            '/billing',
-            '/profile',
-            '/admin',
-            '#features',
-            '#stats',
-            '#cta',
-            '#solutions',
-            '#docs',
-          ],
+          description:
+            'The target route path or anchor hash (e.g. "/docs", "/pricing", "/dashboard", "/cart", "/collections/all", "/products/handle", "#features", "#testimonials", "#cta").',
         },
         reason: {
           type: 'STRING',
@@ -291,6 +271,7 @@ export function getToolsForArchetype(archetype?: string, isPlatform: boolean = f
   if (archetype === 'portfolio' || archetype === 'agency_services' || archetype === 'consulting') {
     return ORA_TOOL_DECLARATIONS.filter((t) =>
       [
+        'navigate_to_page',
         'search_knowledge_base',
         'get_store_policy',
         'update_customer_profile',
@@ -304,6 +285,7 @@ export function getToolsForArchetype(archetype?: string, isPlatform: boolean = f
   if (archetype === 'saas') {
     return ORA_TOOL_DECLARATIONS.filter((t) =>
       [
+        'navigate_to_page',
         'search_knowledge_base',
         'get_store_policy',
         'update_customer_profile',
@@ -312,7 +294,7 @@ export function getToolsForArchetype(archetype?: string, isPlatform: boolean = f
     );
   }
 
-  // Standard Merchant E-commerce & Retail Storefronts
+  // Standard Merchant E-commerce & Retail Storefronts (Shopify, WooCommerce, etc.)
   return ORA_TOOL_DECLARATIONS.filter((t) =>
     [
       'find_products',
@@ -320,6 +302,7 @@ export function getToolsForArchetype(archetype?: string, isPlatform: boolean = f
       'add_to_cart',
       'place_order',
       'redirect_to_checkout',
+      'navigate_to_page',
       'search_knowledge_base',
       'get_store_policy',
       'update_customer_profile',
