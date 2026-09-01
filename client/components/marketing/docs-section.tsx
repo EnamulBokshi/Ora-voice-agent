@@ -4,37 +4,37 @@ const docs = [
   {
     id: 'quickstart',
     label: 'Getting Started',
-    title: 'Quickstart & Storefront Embed',
-    meta: '5 min read',
+    title: '3-Step Storefront Quickstart',
+    meta: '2 min read',
     href: '/docs#quickstart',
   },
   {
-    id: 'widget-sdk',
-    label: 'Integration',
-    title: 'Widget SDK & JavaScript Events',
-    meta: 'All platforms',
-    href: '/docs#widget-sdk',
+    id: 'shopify-setup',
+    label: 'Platforms',
+    title: 'Shopify Store Integration',
+    meta: 'Theme embed',
+    href: '/docs#shopify-setup',
   },
   {
-    id: 'voice-websocket',
-    label: 'Voice Gateway',
-    title: 'Voice WebSocket Protocol',
-    meta: '24kHz PCM',
-    href: '/docs#voice-websocket',
+    id: 'woocommerce-setup',
+    label: 'Platforms',
+    title: 'WooCommerce & WordPress Setup',
+    meta: 'Plugin & Header',
+    href: '/docs#woocommerce-setup',
   },
   {
-    id: 'store-connectors',
-    label: 'Catalog Sync',
-    title: 'Store Connectors & Ingestion',
-    meta: 'Shopify / Woo',
-    href: '/docs#store-connectors',
+    id: 'appearance-styling',
+    label: 'Customization',
+    title: 'Widget Branding, Colors & Placement',
+    meta: 'Zero code',
+    href: '/docs#appearance-styling',
   },
   {
-    id: 'api-standards',
-    label: 'API Reference',
-    title: 'REST API & Webhooks',
-    meta: 'v1 Endpoints',
-    href: '/docs#api-standards',
+    id: 'catalog-sync',
+    label: 'Catalog & Stock',
+    title: 'Product Catalog & FAQ Knowledge Sync',
+    meta: 'Instant sync',
+    href: '/docs#catalog-sync',
   },
 ];
 
@@ -60,10 +60,10 @@ export function DocsSection() {
             className="lp-headline"
             style={{ fontSize: 'clamp(1.875rem, 4vw, 3rem)', marginBottom: '1rem' }}
           >
-            Ship in minutes
+            Launch in minutes
           </h2>
           <p style={{ fontSize: '1.0625rem', color: 'var(--lp-text-secondary)', lineHeight: 1.7 }}>
-            From a one-liner embed to a full REST API — everything is documented.
+            From a single-line embed to platform syncing — effortless setup for any storefront.
           </p>
         </div>
 

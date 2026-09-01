@@ -5,21 +5,20 @@ import { MarketingFooter } from '@/components/marketing/footer';
 import { DocsPageClient } from '@/components/docs/docs-page-client';
 
 export const metadata: Metadata = {
-  title: 'Documentation & API Reference — ORA Autonomous AI Sales Assistant',
+  title: 'Storefront Setup & Integration Guide — ORA Voice AI',
   description:
-    'Complete documentation, Web Audio SDK integration guides, Shopify and WooCommerce connectors, REST API reference, and real-time voice streaming specifications for ORA.',
+    'Step-by-step setup guides for integrating ORA onto Shopify, WooCommerce, Next.js, and custom storefronts. Learn how to customize widget appearance and sync product catalogs.',
   keywords: [
-    'ORA documentation',
-    'AI sales agent API',
-    'voice widget SDK',
-    'cart recovery API',
-    'Shopify AI integration',
-    'Gemini Live streaming',
-    'conversational commerce SDK'
+    'ORA setup guide',
+    'Shopify voice assistant setup',
+    'WooCommerce voice AI',
+    'storefront widget embed',
+    'conversational commerce setup',
+    'product catalog sync'
   ],
   openGraph: {
-    title: 'ORA Developer Documentation & API Reference',
-    description: 'Learn how to integrate ORA onto your online storefront and build autonomous sales workflows.',
+    title: 'ORA Storefront Setup & Integration Guide',
+    description: 'Learn how to integrate ORA onto your online storefront and start selling with voice in minutes.',
     type: 'website',
   },
 };

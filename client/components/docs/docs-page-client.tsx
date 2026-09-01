@@ -6,26 +6,19 @@ import {
   Search,
   Copy,
   Check,
-  Terminal,
-  Cpu,
-  Shield,
-  Zap,
-  Layers,
   Code,
   ArrowRight,
-  Sparkles,
-  ExternalLink,
-  ChevronRight,
-  Boxes,
-  Radio,
-  Key,
-  BookOpen,
-  Lock,
-  RefreshCw,
+  ShoppingBag,
+  Store,
   Sliders,
-  Database,
+  Layers,
+  HelpCircle,
+  CheckCircle2,
   Globe,
-  Compass
+  Settings,
+  ShieldCheck,
+  ChevronRight,
+  BookOpen
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -85,7 +78,7 @@ function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
             type="button"
             className="lp-docs-copy-btn"
             onClick={handleCopy}
-            aria-label="Copy snippet to clipboard"
+            aria-label="Copy code to clipboard"
           >
             {copied ? (
               <>
@@ -108,7 +101,7 @@ function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
   );
 }
 
-// ── Elaborate Docs Page Client ──────────────────────────────────────────────
+// ── Merchant-Focused Documentation Component ─────────────────────────────────
 
 export function DocsPageClient() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,50 +128,118 @@ export function DocsPageClient() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Sync scroll position with active sidebar section
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-          }
-        });
-      },
-      { rootMargin: '-20% 0px -65% 0px' }
-    );
+  const sidebarRef = useRef<HTMLElement | null>(null);
 
-    const sections = document.querySelectorAll('.lp-docs-section');
-    sections.forEach((sec) => observer.observe(sec));
-
-    return () => observer.disconnect();
-  }, []);
-
-  // ── Complete Documentation Sections ───────────────────────────────────────
+  // ── Merchant Setup Documentation Sections ──────────────────────────────────
 
   const docSections: DocSection[] = [
     // ── 1. Getting Started ──
     {
       id: 'quickstart',
       category: 'Getting Started',
-      title: 'Quickstart & Storefront Embed',
-      summary: 'Embed the ORA real-time voice sales agent on your storefront with a single script tag.',
+      title: '3-Step Storefront Quickstart',
+      summary: 'Embed ORA onto your online store and start selling with voice in under 2 minutes.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA is an autonomous multimodal AI sales assistant that interfaces directly with your e-commerce store. It listens, speaks in natural real-time voice, searches 768-dimensional product catalog vectors, verifies live stock, and guides shoppers through checkout.
+            Adding ORA to your storefront is simple and requires zero programming experience. Follow these three quick steps to launch:
           </p>
 
-          <p className="lp-docs-p">
-            All storefront integrations require your merchant <strong>Publishable Widget Key</strong> (e.g. <code>biz_live_xxxx</code>), obtainable from your <Link href="/dashboard" style={{ color: '#65A30D', fontWeight: 600, textDecoration: 'underline' }}>Merchant Dashboard</Link>.
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', margin: '1.5rem 0' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  width: '1.75rem',
+                  height: '1.75rem',
+                  borderRadius: '50%',
+                  background: 'var(--lp-dark)',
+                  color: 'var(--lp-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '0.8125rem',
+                  flexShrink: 0,
+                  marginTop: '0.1rem'
+                }}
+              >
+                1
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
+                  Get Your Storefront Key
+                </h4>
+                <p className="lp-docs-p" style={{ marginBottom: 0 }}>
+                  Log in to your <Link href="/dashboard" style={{ color: '#65A30D', fontWeight: 600, textDecoration: 'underline' }}>ORA Dashboard</Link> and copy your <strong>Publishable Widget Key</strong> (e.g. <code>biz_live_xxxx</code>).
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  width: '1.75rem',
+                  height: '1.75rem',
+                  borderRadius: '50%',
+                  background: 'var(--lp-dark)',
+                  color: 'var(--lp-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '0.8125rem',
+                  flexShrink: 0,
+                  marginTop: '0.1rem'
+                }}
+              >
+                2
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
+                  Paste the Embed Script
+                </h4>
+                <p className="lp-docs-p" style={{ marginBottom: 0 }}>
+                  Paste the one-line script right before the closing <code>&lt;/body&gt;</code> tag of your website or theme template.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  width: '1.75rem',
+                  height: '1.75rem',
+                  borderRadius: '50%',
+                  background: 'var(--lp-dark)',
+                  color: 'var(--lp-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '0.8125rem',
+                  flexShrink: 0,
+                  marginTop: '0.1rem'
+                }}
+              >
+                3
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
+                  Sync Products &amp; Go Live
+                </h4>
+                <p className="lp-docs-p" style={{ marginBottom: 0 }}>
+                  Connect your store via Shopify or WooCommerce in the dashboard, or upload your product catalog. The voice widget will immediately start guiding shoppers.
+                </p>
+              </div>
+            </div>
+          </div>
 
           <CodeBlock
             snippets={[
               {
-                language: 'HTML / Vanilla',
+                language: 'HTML Embed',
                 filename: 'index.html',
-                code: `<!-- Paste right before the closing </body> tag on any storefront -->
+                code: `<!-- Paste right before the closing </body> tag -->
 <script
   src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
   data-publishable-key="biz_live_your_merchant_key"
@@ -186,9 +247,50 @@ export function DocsPageClient() {
   data-language="en-US"
   async>
 </script>`
+              }
+            ]}
+          />
+        </>
+      )
+    },
+    {
+      id: 'embed-snippets',
+      category: 'Getting Started',
+      title: 'Universal Storefront Embed Snippets',
+      summary: 'Copy-paste embed code for HTML, Shopify, WooCommerce, Next.js, and Webflow.',
+      content: (
+        <>
+          <p className="lp-docs-p">
+            Choose your website technology below to copy the exact snippet formatted for your platform:
+          </p>
+
+          <CodeBlock
+            snippets={[
+              {
+                language: 'HTML / General',
+                filename: 'index.html',
+                code: `<!-- Universal 1-line script for any website -->
+<script
+  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
+  data-publishable-key="biz_live_your_merchant_key"
+  data-position="bottom-right"
+  async>
+</script>`
               },
               {
-                language: 'Next.js (App Router)',
+                language: 'Shopify Liquid',
+                filename: 'layout/theme.liquid',
+                code: `{% comment %} Insert before </body> in layout/theme.liquid {% endcomment %}
+<script
+  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
+  data-publishable-key="biz_live_your_merchant_key"
+  data-position="bottom-right"
+  data-theme="auto"
+  async>
+</script>`
+              },
+              {
+                language: 'Next.js',
                 filename: 'app/layout.tsx',
                 code: `import Script from 'next/script';
 
@@ -199,7 +301,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Script
           src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-          data-publishable-key={process.env.NEXT_PUBLIC_ORA_PUBLISHABLE_KEY}
+          data-publishable-key="biz_live_your_merchant_key"
           data-position="bottom-right"
           strategy="afterInteractive"
         />
@@ -209,18 +311,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }`
               },
               {
-                language: 'Shopify Liquid',
-                filename: 'layout/theme.liquid',
-                code: `{% comment %} Insert before </body> {% endcomment %}
-<script
-  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-  data-publishable-key="{{ settings.ora_publishable_key | default: 'biz_live_your_key' }}"
-  data-position="bottom-right"
-  data-theme="auto"
-  async>
-</script>`
-              },
-              {
                 language: 'Vue / Nuxt',
                 filename: 'app.vue',
                 code: `<script setup>
@@ -228,109 +318,116 @@ useHead({
   script: [
     {
       src: 'https://cdn.ora.ai/widget/v2/widget.v4_5.js',
-      'data-publishable-key': useRuntimeConfig().public.oraKey,
+      'data-publishable-key': 'biz_live_your_merchant_key',
       'data-position': 'bottom-right',
       async: true
     }
   ]
 });
 </script>`
+              },
+              {
+                language: 'Webflow / Wix',
+                filename: 'Footer Code',
+                code: `<!-- Webflow: Project Settings > Custom Code > Footer Code -->
+<!-- Wix: Settings > Custom Code > Body - End -->
+<script
+  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
+  data-publishable-key="biz_live_your_merchant_key"
+  data-position="bottom-right"
+  async>
+</script>`
               }
             ]}
           />
-
-          <div className="lp-docs-callout tip">
-            <strong>Publishable Key vs Secret Credentials:</strong> Publishable widget keys (<code>biz_live_xxxx</code>) are public-safe and authorize ephemeral shopper voice/chat sessions only. Store platform secrets (Shopify OAuth tokens, WooCommerce consumer secrets, bKash keys) are stored server-side encrypted at rest with AES-256.
-          </div>
         </>
       )
     },
+
+    // ── 2. Store Platforms ──
     {
-      id: 'architecture-overview',
-      category: 'Getting Started',
-      title: 'System Architecture & Actor Model',
-      summary: 'Understanding the ORA multi-actor security taxonomy and execution boundaries.',
+      id: 'shopify-setup',
+      category: 'Store Platforms',
+      title: 'Shopify Store Integration',
+      summary: 'Add ORA to your Shopify theme in less than 2 minutes.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA enforces a strict 4-actor security and execution model designed for enterprise multi-tenant store isolation and sub-400ms audio streaming:
+            Integrating ORA with Shopify takes just a few clicks in your Shopify Admin:
           </p>
 
-          <div className="lp-docs-table-wrapper">
-            <table className="lp-docs-table">
-              <thead>
-                <tr>
-                  <th>Actor Type</th>
-                  <th>Identity &amp; Auth</th>
-                  <th>Primary Context</th>
-                  <th>Permissions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Customer (Shopper)</strong></td>
-                  <td>Ephemeral Conversation Session (<code>sessionId</code>)</td>
-                  <td>Voice Widget runtime &amp; Redis state</td>
-                  <td>Voice talk, cart add, live catalog search, checkout redirection</td>
-                </tr>
-                <tr>
-                  <td><strong>AdminUser (Merchant)</strong></td>
-                  <td>JWT Access Token (Memory) + Refresh Token (httpOnly Cookie)</td>
-                  <td>Merchant Dashboard (<code>/dashboard</code>)</td>
-                  <td>Catalog overrides, knowledge uploads, analytics, webhook configs</td>
-                </tr>
-                <tr>
-                  <td><strong>Business (Tenant)</strong></td>
-                  <td>Publishable Key (<code>biz_live_xxxx</code>) &amp; Server Hash</td>
-                  <td>Public Gateway &amp; Connectors</td>
-                  <td>Tenant isolation scope for all DB queries &amp; VectorIndex</td>
-                </tr>
-                <tr>
-                  <td><strong>SuperAdmin</strong></td>
-                  <td>Root JWT + Redis Session (<code>role: super_admin</code>)</td>
-                  <td>Command Center (<code>/admin</code>)</td>
-                  <td>Global merchants, system metrics, provider health &amp; quotas</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </>
-      )
-    },
-    {
-      id: 'interaction-loop',
-      category: 'Getting Started',
-      title: 'Real-Time Voice Interaction Loop',
-      summary: 'Audio capture, WebSocket relay, VAD detection, and server-side tool execution.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            When a shopper interacts with the voice sales agent:
-          </p>
-          <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.75 }}>
-            <li>The browser establishes a low-latency WebSocket connection to <code>/ws/voice</code>.</li>
-            <li>Microphone audio is captured as 16-bit 24kHz/16kHz linear PCM frames and streamed via an inlined AudioWorklet.</li>
-            <li>ORA proxies the real-time stream through Gemini Live while intercepting executable function tools (e.g. <code>find_products</code>, <code>add_to_cart</code>, <code>navigate_to_page</code>).</li>
-            <li>Tool calls execute against tenant-scoped VectorIndex &amp; Live Store APIs, returning verified stock &amp; pricing before streaming natural synthesized audio back to the browser.</li>
+          <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
+            <li>From your <strong>Shopify Admin</strong>, navigate to <strong>Online Store</strong> &rarr; <strong>Themes</strong>.</li>
+            <li>On your current live theme, click the <strong>... (Actions)</strong> button and select <strong>Edit Code</strong>.</li>
+            <li>In the left file navigator, find and open <code>layout/theme.liquid</code>.</li>
+            <li>Scroll down to the bottom and paste the ORA embed script directly above the closing <code>&lt;/body&gt;</code> tag.</li>
+            <li>Click <strong>Save</strong> in the top right.</li>
           </ol>
 
-          <div className="lp-docs-callout note">
-            <strong>Sub-400ms Turnaround:</strong> By parallelizing VAD (Voice Activity Detection), speculative tool calling, and audio streaming, ORA achieves sub-second conversational latency indistinguishable from a human sales representative.
+          <div className="lp-docs-callout tip">
+            <strong>Automatic Catalog Sync:</strong> Once installed, visit your <Link href="/dashboard" style={{ color: '#65A30D', fontWeight: 600, textDecoration: 'underline' }}>ORA Dashboard</Link> to connect your Shopify store. ORA will automatically synchronize your product inventory, prices, and variants.
           </div>
         </>
       )
     },
-
-    // ── 2. Widget & Client SDK ──
     {
-      id: 'widget-sdk',
-      category: 'Widget & Client SDK',
-      title: 'Widget HTML Configuration Attributes',
-      summary: 'Customizing widget placement, initial state, locale, voice persona, and theme appearance.',
+      id: 'woocommerce-setup',
+      category: 'Store Platforms',
+      title: 'WooCommerce & WordPress Setup',
+      summary: 'Connect your WooCommerce store via theme template or header/footer plugin.',
       content: (
         <>
           <p className="lp-docs-p">
-            The embed script accepts standard HTML data-attributes for zero-code styling and behavior overrides:
+            You can add ORA to WordPress and WooCommerce using either of these two easy methods:
+          </p>
+
+          <h3 className="lp-docs-h3">Method A: Using a Code Header/Footer Plugin (Recommended)</h3>
+          <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
+            <li>In WordPress Admin, go to <strong>Plugins</strong> &rarr; <strong>Add New</strong>.</li>
+            <li>Search for <strong>&ldquo;WPCode&rdquo;</strong> or <strong>&ldquo;Insert Headers and Footers&rdquo;</strong> and click <strong>Install &amp; Activate</strong>.</li>
+            <li>Go to <strong>Code Snippets</strong> &rarr; <strong>Header &amp; Footer</strong>.</li>
+            <li>Paste your ORA script into the <strong>Footer</strong> box.</li>
+            <li>Click <strong>Save Changes</strong>.</li>
+          </ol>
+
+          <h3 className="lp-docs-h3">Method B: Direct Theme Template</h3>
+          <p className="lp-docs-p">
+            Open your child theme&apos;s <code>footer.php</code> file and insert the script right before <code>&lt;?php wp_footer(); ?&gt;</code> or the closing <code>&lt;/body&gt;</code> tag.
+          </p>
+        </>
+      )
+    },
+    {
+      id: 'webflow-wix-setup',
+      category: 'Store Platforms',
+      title: 'Webflow, Wix & Framer Guide',
+      summary: 'Embed ORA into no-code builders and custom CMS sites.',
+      content: (
+        <>
+          <p className="lp-docs-p">
+            Follow the simple steps below for your specific website builder:
+          </p>
+
+          <ul style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
+            <li><strong>Webflow:</strong> Open Project Settings &rarr; <strong>Custom Code</strong> &rarr; paste into <strong>Footer Code</strong> &rarr; Save &amp; Publish.</li>
+            <li><strong>Wix:</strong> Open Settings &rarr; <strong>Custom Code</strong> &rarr; click <strong>Add Custom Code</strong> &rarr; paste the script, set placement to <strong>Body - End</strong>, and click Apply.</li>
+            <li><strong>Squarespace:</strong> Go to Settings &rarr; <strong>Advanced</strong> &rarr; <strong>Code Injection</strong> &rarr; paste into <strong>Footer</strong> &rarr; Save.</li>
+            <li><strong>Framer:</strong> Open Site Settings &rarr; <strong>General</strong> &rarr; <strong>Custom Code</strong> &rarr; paste into <strong>End of &lt;body&gt; tag</strong> &rarr; Publish.</li>
+          </ul>
+        </>
+      )
+    },
+
+    // ── 3. Widget Settings ──
+    {
+      id: 'appearance-styling',
+      category: 'Widget Settings',
+      title: 'Widget Branding, Colors & Placement',
+      summary: 'Customize the appearance of the floating voice orb to match your store brand.',
+      content: (
+        <>
+          <p className="lp-docs-p">
+            You can customize how the ORA widget looks on your site by simply adding standard HTML attributes to your script tag:
           </p>
 
           <div className="lp-docs-table-wrapper">
@@ -338,7 +435,7 @@ useHead({
               <thead>
                 <tr>
                   <th>Attribute</th>
-                  <th>Type</th>
+                  <th>Options / Values</th>
                   <th>Default</th>
                   <th>Description</th>
                 </tr>
@@ -346,95 +443,52 @@ useHead({
               <tbody>
                 <tr>
                   <td><code>data-publishable-key</code></td>
-                  <td><code>string</code></td>
+                  <td><code>biz_live_xxxx</code></td>
                   <td><em>Required</em></td>
-                  <td>Your merchant live widget key (e.g. <code>biz_live_xxxx</code>).</td>
+                  <td>Your store&apos;s unique live widget key from your dashboard.</td>
                 </tr>
                 <tr>
                   <td><code>data-position</code></td>
-                  <td><code>string</code></td>
+                  <td><code>bottom-right</code>, <code>bottom-left</code></td>
                   <td><code>bottom-right</code></td>
-                  <td>Widget screen anchor: <code>bottom-right</code> or <code>bottom-left</code>.</td>
-                </tr>
-                <tr>
-                  <td><code>data-language</code></td>
-                  <td><code>string</code></td>
-                  <td><code>en-US</code></td>
-                  <td>Default voice agent language (e.g. <code>en-US</code>, <code>bn-BD</code>, <code>es-ES</code>).</td>
-                </tr>
-                <tr>
-                  <td><code>data-theme</code></td>
-                  <td><code>string</code></td>
-                  <td><code>auto</code></td>
-                  <td>Theme preset: <code>auto</code>, <code>dark</code>, <code>light</code>.</td>
+                  <td>Corner of the screen where the floating orb sits.</td>
                 </tr>
                 <tr>
                   <td><code>data-primary-color</code></td>
-                  <td><code>string</code></td>
+                  <td>Any hex color (e.g. <code>#C8F031</code>, <code>#3B82F6</code>)</td>
                   <td><code>#C8F031</code></td>
-                  <td>Hex accent color for the floating orb waveform and active voice pulses.</td>
+                  <td>Accent color for the waveform and active voice pulses.</td>
+                </tr>
+                <tr>
+                  <td><code>data-theme</code></td>
+                  <td><code>auto</code>, <code>light</code>, <code>dark</code></td>
+                  <td><code>auto</code></td>
+                  <td>Color scheme for the floating widget and dialog.</td>
                 </tr>
                 <tr>
                   <td><code>data-auto-open</code></td>
-                  <td><code>boolean</code></td>
+                  <td><code>true</code>, <code>false</code></td>
                   <td><code>false</code></td>
-                  <td>Whether to automatically open voice prompt after initial page load delay.</td>
+                  <td>Whether to open voice assistance automatically after page load.</td>
                 </tr>
               </tbody>
             </table>
           </div>
-        </>
-      )
-    },
-    {
-      id: 'client-events',
-      category: 'Widget & Client SDK',
-      title: 'JavaScript Event Listeners',
-      summary: 'Listening to real-time conversation transcripts, cart additions, and checkout triggers.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            The ORA widget emits custom DOM events on the <code>window</code> object, allowing you to update your storefront cart drawer, trigger analytics tracking, or synchronize customer state:
-          </p>
 
+          <h3 className="lp-docs-h3">Example Customization</h3>
           <CodeBlock
             snippets={[
               {
-                language: 'JavaScript',
-                filename: 'ora-listeners.js',
-                code: `// 1. Listen for real-time customer and AI voice transcripts
-window.addEventListener('ora:transcript', (event) => {
-  const { sender, text, timestamp } = event.detail;
-  console.log(\`[\${sender.toUpperCase()}]: \${text}\`);
-});
-
-// 2. Listen for autonomous cart additions
-window.addEventListener('ora:cart_updated', (event) => {
-  const { items, cartTotal, currency } = event.detail;
-  console.log('Cart updated by ORA:', items, cartTotal, currency);
-  // Optional: Trigger your storefront cart drawer refresh
-  if (window.refreshStoreCart) window.refreshStoreCart();
-});
-
-// 3. Listen for completed voice checkout / order conversion
-window.addEventListener('ora:checkout_trigger', (event) => {
-  const { sessionId, items, total, checkoutUrl } = event.detail;
-  console.log('Checkout triggered for session:', sessionId, 'Total:', total);
-  
-  // Track conversion in Google Analytics / Meta Pixel
-  if (window.gtag) {
-    window.gtag('event', 'ora_voice_checkout', {
-      session_id: sessionId,
-      value: total
-    });
-  }
-});
-
-// 4. Listen for voice state changes (idle, listening, thinking, speaking)
-window.addEventListener('ora:voice_state_changed', (event) => {
-  const { state } = event.detail; // 'idle' | 'listening' | 'thinking' | 'speaking'
-  console.log('ORA agent state:', state);
-});`
+                language: 'HTML',
+                filename: 'custom-embed.html',
+                code: `<script
+  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
+  data-publishable-key="biz_live_your_merchant_key"
+  data-position="bottom-right"
+  data-primary-color="#3B82F6"
+  data-theme="auto"
+  async>
+</script>`
               }
             ]}
           />
@@ -442,144 +496,88 @@ window.addEventListener('ora:voice_state_changed', (event) => {
       )
     },
     {
-      id: 'programmatic-api',
-      category: 'Widget & Client SDK',
-      title: 'Programmatic Client API (window.ORA)',
-      summary: 'Controlling the widget lifecycle, passing customer metadata, and triggering voice sessions.',
+      id: 'voice-language',
+      category: 'Widget Settings',
+      title: 'Voice Persona & Spoken Language',
+      summary: 'Configure the spoken language and tone of your voice sales assistant.',
       content: (
         <>
           <p className="lp-docs-p">
-            Once loaded, the SDK exposes the global <code>window.ORA</code> object for programmatic interaction:
-          </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'JavaScript',
-                filename: 'storefront-actions.js',
-                code: `// Open the voice sales assistant
-window.ORA.open();
-
-// Start voice listening immediately
-window.ORA.startVoice();
-
-// Pass shopper profile context (e.g. logged-in customer info)
-window.ORA.setContext({
-  customerName: "Alex Mercer",
-  customerEmail: "alex@example.com",
-  preferredCategory: "Wireless Audio",
-  cartTotal: 129.00
-});
-
-// Prompt ORA to pitch a specific product
-window.ORA.suggestProduct({
-  productId: "prod_audio_pro_99",
-  title: "Aura Studio Headphones",
-  price: 249.00
-});
-
-// Mute or close the assistant
-window.ORA.close();`
-              }
-            ]}
-          />
-        </>
-      )
-    },
-
-    // ── 3. Data Ingestion & RAG ──
-    {
-      id: 'store-connectors',
-      category: 'Catalog & Ingestion',
-      title: 'E-Commerce Store Connectors',
-      summary: 'Connecting Shopify, WooCommerce, and custom webhooks for automated catalog synchronization.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            ORA integrates with major e-commerce platforms to automatically mirror product listings, variant options, prices, and inventory counts in real time:
+            Set the default spoken language using the <code>data-language</code> attribute:
           </p>
 
           <div className="lp-docs-table-wrapper">
             <table className="lp-docs-table">
               <thead>
                 <tr>
-                  <th>Platform</th>
-                  <th>Auth Method</th>
-                  <th>Supported Webhook Events</th>
-                  <th>Sync Latency</th>
+                  <th>Language</th>
+                  <th>Code</th>
+                  <th>Supported Features</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>Shopify</strong></td>
-                  <td>OAuth 2.0 (Custom App)</td>
-                  <td><code>products/create</code>, <code>products/update</code>, <code>inventory_levels/update</code>, <code>orders/create</code></td>
-                  <td>&lt; 500ms (HMAC Verified)</td>
+                  <td><strong>English (US)</strong></td>
+                  <td><code>en-US</code></td>
+                  <td>Real-time voice, catalog search, cart checkout</td>
                 </tr>
                 <tr>
-                  <td><strong>WooCommerce</strong></td>
-                  <td>REST API Key (Consumer Secret)</td>
-                  <td><code>product.created</code>, <code>product.updated</code>, <code>order.created</code></td>
-                  <td>&lt; 1s (REST Webhooks)</td>
+                  <td><strong>English (UK)</strong></td>
+                  <td><code>en-GB</code></td>
+                  <td>Real-time voice, catalog search, cart checkout</td>
                 </tr>
                 <tr>
-                  <td><strong>Custom API / Webhook</strong></td>
-                  <td>HMAC-SHA256 Signature (<code>x-ora-signature</code>)</td>
-                  <td>Custom inventory sync payload</td>
-                  <td>Instantaneous</td>
+                  <td><strong>Bengali (BD)</strong></td>
+                  <td><code>bn-BD</code></td>
+                  <td>Real-time voice, bilingual store queries, bKash</td>
+                </tr>
+                <tr>
+                  <td><strong>Spanish</strong></td>
+                  <td><code>es-ES</code></td>
+                  <td>Real-time voice, catalog search, cart checkout</td>
+                </tr>
+                <tr>
+                  <td><strong>French</strong></td>
+                  <td><code>fr-FR</code></td>
+                  <td>Real-time voice, catalog search, cart checkout</td>
+                </tr>
+                <tr>
+                  <td><strong>German</strong></td>
+                  <td><code>de-DE</code></td>
+                  <td>Real-time voice, catalog search, cart checkout</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <h3 className="lp-docs-h3">Custom Webhook Ingestion Payload Example</h3>
-          <CodeBlock
-            snippets={[
-              {
-                language: 'JSON',
-                filename: 'webhook-payload.json',
-                code: `{
-  "event": "product.updated",
-  "businessId": "biz_live_xxxx",
-  "product": {
-    "externalId": "prod_10023",
-    "title": "Ergonomic Mechanical Keyboard",
-    "description": "Hot-swappable tactile switches with RGB per-key backlighting.",
-    "price": 129.00,
-    "currency": "USD",
-    "stockQuantity": 14,
-    "category": "Peripherals",
-    "tags": ["keyboard", "mechanical", "wireless"],
-    "inStock": true
-  }
-}`
-              }
-            ]}
-          />
+          <div className="lp-docs-callout tip">
+            <strong>Voice Persona:</strong> You can choose your preferred voice style (e.g. Friendly, Executive, Energetic) directly from your merchant dashboard settings under <strong>Agent Settings</strong>.
+          </div>
         </>
       )
     },
+
+    // ── 4. Catalog & Knowledge ──
     {
-      id: 'catalog-ingestion',
-      category: 'Catalog & Ingestion',
-      title: '4-Tier Ingestion & CSV Vectorization',
-      summary: 'How ORA handles catalog data across feeds, files, and multi-tier sources.',
+      id: 'catalog-sync',
+      category: 'Catalog & Knowledge',
+      title: 'Product Catalog Synchronization',
+      summary: 'How ORA learns your products, pricing, and live inventory levels.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA features a multi-tiered ingestion engine to ensure no merchant product is left undiscovered:
+            ORA stays synchronized with your store catalog in real time so it always recommends available items at current prices:
           </p>
 
           <ul style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li><strong>Tier 1 (Direct Platform Webhooks):</strong> Real-time event streams from Shopify and WooCommerce (Confidence Score: <code>1.0</code>).</li>
-            <li><strong>Tier 2 (Catalog Feeds):</strong> Automated daily parsing of Google Merchant XML, RSS, or Atom feeds (Confidence Score: <code>0.7</code>).</li>
-            <li><strong>Tier 3 (Passive Crawl):</strong> Storefront sitemap discovery and passive product page scraping (Confidence Score: <code>0.3</code>).</li>
-            <li><strong>Tier 4 (Manual Bulk Upload):</strong> CSV, XLSX, TXT, or PDF catalog and knowledge base uploads (Confidence Score: <code>0.5</code>).</li>
+            <li><strong>Live Price &amp; Stock Check:</strong> When a customer asks about a product, ORA checks live availability before answering.</li>
+            <li><strong>Low-Stock Urgency Hints:</strong> When an item has 5 or fewer units left in stock, ORA naturally informs the shopper so they don&apos;t miss out.</li>
+            <li><strong>Product Variants:</strong> ORA understands sizes, colors, and variant options, guiding shoppers to select the exact item they want.</li>
           </ul>
 
-          <h3 className="lp-docs-h3">Bulk CSV Upload Format</h3>
+          <h3 className="lp-docs-h3">Bulk CSV Catalog Upload</h3>
           <p className="lp-docs-p">
-            Upload CSVs directly in your dashboard or via <code>POST /api/v1/ingestion/upload</code>. Standard header format:
+            If you don&apos;t use Shopify or WooCommerce, you can upload your product catalog as a CSV in your ORA dashboard with these standard column headers:
           </p>
 
           <CodeBlock
@@ -598,446 +596,118 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
       )
     },
     {
-      id: 'rag-pipeline',
-      category: 'Catalog & Ingestion',
-      title: 'Self-Healing RAG & Vector Search',
-      summary: 'Semantic vector discovery powered by text-embedding-004 with multi-tier failover.',
+      id: 'store-policies-faqs',
+      category: 'Catalog & Knowledge',
+      title: 'Store Policies & FAQ Knowledge',
+      summary: 'Teach ORA your shipping rules, return policy, and store details.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA transforms product listings and store context into 768-dimensional embeddings using Google&apos;s <code>text-embedding-004</code>. When a shopper asks for a product in natural voice, ORA conducts cosine similarity search with self-healing fallback:
+            Shoppers frequently ask about shipping times, returns, warranties, and store locations. You can add your store policies directly in the ORA dashboard:
           </p>
 
-          <div className="lp-docs-table-wrapper">
-            <table className="lp-docs-table">
-              <thead>
-                <tr>
-                  <th>Fallback Tier</th>
-                  <th>Trigger Condition</th>
-                  <th>Resolution Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Primary RAG</strong></td>
-                  <td>Cosine similarity &ge; <code>0.65</code></td>
-                  <td>Instant top-5 vector candidate extraction (&lt; 25ms).</td>
-                </tr>
-                <tr>
-                  <td><strong>Gap A (<code>mongo_regex</code>)</strong></td>
-                  <td>Vector miss, but product exists in MongoDB catalog</td>
-                  <td>Fuzzy regex matches record, returns data to agent, and asynchronously embeds vector into index.</td>
-                </tr>
-                <tr>
-                  <td><strong>Gap B (<code>live_platform</code>)</strong></td>
-                  <td>Product missing from DB (ingestion lag)</td>
-                  <td>Direct live API query to merchant platform (Shopify/WooCommerce), returns live price/stock, syncs to DB and embeds vector.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="lp-docs-callout note">
-            <strong>Self-Healing Guarantee:</strong> Every vector fallback hit triggers an asynchronous auto-indexing task. The next time a shopper asks for that item, it resolves on the sub-millisecond vector path.
-          </div>
-        </>
-      )
-    },
-
-    // ── 4. Voice Streaming Gateway ──
-    {
-      id: 'voice-websocket',
-      category: 'Voice Streaming Gateway',
-      title: 'Bidirectional Voice WebSocket Protocol',
-      summary: 'Streaming real-time 24kHz PCM audio frames and handling agent state events.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            The voice gateway operates over standard WebSockets at <code>/ws/voice</code>. It accepts 16-bit linear PCM audio sampled at 24kHz (or 16kHz) and streams compressed audio responses back to the browser:
-          </p>
-
-          <h3 className="lp-docs-h3">Handshake &amp; Session Initialization</h3>
-          <CodeBlock
-            snippets={[
-              {
-                language: 'JavaScript',
-                filename: 'voice-client.js',
-                code: `// 1. Establish secure WebSocket connection
-const socket = new WebSocket('wss://api.ora.ai/ws/voice?publishableKey=biz_live_your_key');
-
-socket.onopen = () => {
-  // 2. Send session initiation frame
-  socket.send(JSON.stringify({
-    type: 'session.initiate',
-    data: {
-      language: 'en-US',
-      customerContext: {
-        pageUrl: window.location.href,
-        referrer: document.referrer
-      }
-    }
-  }));
-};
-
-// 3. Handle incoming server audio & transcript frames
-socket.onmessage = (event) => {
-  const message = JSON.parse(event.data);
-  
-  switch (message.type) {
-    case 'audio.stream':
-      // Base64 decoded PCM audio chunk -> feed to Web Audio AudioContext
-      playAudioChunk(message.data.pcmBase64);
-      break;
-      
-    case 'transcript.delta':
-      // Streaming partial transcript
-      console.log('AI Speaking:', message.data.text);
-      break;
-      
-    case 'agent.state':
-      // 'listening' | 'thinking' | 'speaking' | 'idle'
-      updateOrbState(message.data.state);
-      break;
-  }
-};`
-              }
-            ]}
-          />
-        </>
-      )
-    },
-    {
-      id: 'ai-tools-runtime',
-      category: 'Voice Streaming Gateway',
-      title: 'Autonomous Voice Agent Tools',
-      summary: 'Executable tool functions invoked by ORA Neural Voice during live customer conversations.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            While speaking with shoppers, the AI agent dynamically executes server-side tools to fetch products, add items to cart, or verify stock urgency:
-          </p>
-
-          <div className="lp-docs-table-wrapper">
-            <table className="lp-docs-table">
-              <thead>
-                <tr>
-                  <th>Tool Name</th>
-                  <th>Parameters</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>find_products</code></td>
-                  <td><code>query</code>, <code>category</code>, <code>maxPrice</code></td>
-                  <td>Semantic vector search + live inventory verification with <code>isLowStock</code> indicator.</td>
-                </tr>
-                <tr>
-                  <td><code>get_product_details</code></td>
-                  <td><code>productId</code></td>
-                  <td>Retrieves complete product specification, variant list, and stock counts.</td>
-                </tr>
-                <tr>
-                  <td><code>add_to_cart</code></td>
-                  <td><code>productId</code>, <code>quantity</code>, <code>variantId</code></td>
-                  <td>Adds item to shopper&apos;s Redis session cart (<code>cart:conv:&#123;sessionId&#125;</code>).</td>
-                </tr>
-                <tr>
-                  <td><code>place_order</code></td>
-                  <td><code>customerInfo</code>, <code>paymentMethod</code></td>
-                  <td>Direct order placement for Tier 1 connected merchants.</td>
-                </tr>
-                <tr>
-                  <td><code>redirect_to_checkout</code></td>
-                  <td><code>cartItems</code></td>
-                  <td>Generates pre-filled storefront checkout redirect URL.</td>
-                </tr>
-                <tr>
-                  <td><code>get_store_policy</code></td>
-                  <td><code>topic</code></td>
-                  <td>Searches store knowledge base for shipping, returns, and FAQs.</td>
-                </tr>
-                <tr>
-                  <td><code>navigate_to_page</code></td>
-                  <td><code>destination</code></td>
-                  <td>Triggers instant client-side page navigation or section scrolling.</td>
-                </tr>
-                <tr>
-                  <td><code>capture_sales_lead</code></td>
-                  <td><code>email</code>, <code>phone</code>, <code>name</code></td>
-                  <td>Captures prospect contact details for CRM &amp; automated follow-up.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="lp-docs-callout warning">
-            <strong>Low-Stock Urgency Hint:</strong> When an item has &le; 5 units in stock and merchant enables <code>mentionLowStockUrgency</code>, the tool automatically injects an <code>urgencyHint</code> so the voice agent naturally communicates scarcity to boost conversion rates.
-          </div>
-        </>
-      )
-    },
-
-    // ── 5. REST API Reference ──
-    {
-      id: 'api-standards',
-      category: 'REST API Reference',
-      title: 'API Envelopes & Authentication',
-      summary: 'Standardized response envelopes, correlation IDs, and authentication headers.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            All REST API endpoints are served over HTTPS and return standardized JSON envelopes. All endpoints are versioned under <code>/api/v1/</code>.
-          </p>
-
-          <h3 className="lp-docs-h3">Success Envelope</h3>
-          <CodeBlock
-            snippets={[
-              {
-                language: 'JSON',
-                code: `{
-  "success": true,
-  "data": {
-    "id": "prod_89172",
-    "title": "Aura Studio Headphones",
-    "price": 249.00,
-    "stockQuantity": 8
-  }
-}`
-              }
-            ]}
-          />
-
-          <h3 className="lp-docs-h3">Error Envelope</h3>
-          <CodeBlock
-            snippets={[
-              {
-                language: 'JSON',
-                code: `{
-  "success": false,
-  "error": {
-    "code": "PLAN_LIMIT_EXCEEDED",
-    "message": "Monthly voice conversation minutes exceeded your plan quota.",
-    "correlationId": "req_88a91c2e"
-  }
-}`
-              }
-            ]}
-          />
-        </>
-      )
-    },
-    {
-      id: 'products-api',
-      category: 'REST API Reference',
-      title: 'Products & Ingestion API',
-      summary: 'Programmatically querying, batch-syncing, and verifying catalog products.',
-      content: (
-        <>
-          <div className="lp-docs-endpoint-card">
-            <div className="lp-docs-endpoint-row">
-              <span className="lp-docs-method-pill get">GET</span>
-              <span className="lp-docs-endpoint-path">/api/v1/products</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', margin: '1.25rem 0' }}>
+            <div style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
+              <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>📦 Shipping &amp; Delivery</h4>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>Delivery times, free shipping thresholds, and tracking.</p>
             </div>
-            <span className="lp-docs-auth-badge">Bearer JWT</span>
-          </div>
-
-          <p className="lp-docs-p">
-            List or filter catalog products for your merchant store.
-          </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'cURL',
-                code: `curl -X GET "https://api.ora.ai/api/v1/products?search=keyboard&limit=10" \\
-  -H "Authorization: Bearer <your_jwt_access_token>"`
-              },
-              {
-                language: 'Response (200 OK)',
-                code: `{
-  "success": true,
-  "data": {
-    "items": [
-      {
-        "id": "60d5ec49f1b2c8b1f8e4e1a1",
-        "title": "Mechanical Keyboard 75%",
-        "price": 119.00,
-        "stockQuantity": 24,
-        "category": "Keyboards",
-        "inStock": true
-      }
-    ],
-    "total": 1,
-    "page": 1,
-    "limit": 10
-  }
-}`
-              }
-            ]}
-          />
-
-          <div className="lp-docs-endpoint-card" style={{ marginTop: '2rem' }}>
-            <div className="lp-docs-endpoint-row">
-              <span className="lp-docs-method-pill post">POST</span>
-              <span className="lp-docs-endpoint-path">/api/v1/products/batch-sync</span>
+            <div style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
+              <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>🔄 Returns &amp; Refunds</h4>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>Return window (e.g. 30 days), conditions, and refund process.</p>
             </div>
-            <span className="lp-docs-auth-badge">Bearer JWT</span>
-          </div>
-
-          <p className="lp-docs-p">
-            Bulk upsert product listings with automated vector re-indexing.
-          </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'cURL',
-                code: `curl -X POST "https://api.ora.ai/api/v1/products/batch-sync" \\
-  -H "Authorization: Bearer <your_jwt_access_token>" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "products": [
-      {
-        "externalId": "ext_991",
-        "title": "Obsidian Wireless Mouse",
-        "price": 79.99,
-        "stockQuantity": 50,
-        "category": "Mice"
-      }
-    ]
-  }'`
-              }
-            ]}
-          />
-        </>
-      )
-    },
-    {
-      id: 'orders-recovery-api',
-      category: 'REST API Reference',
-      title: 'Cart Recovery & Orders API',
-      summary: 'Dispatching abandoned cart recovery sequences and querying agent-attributed revenue.',
-      content: (
-        <>
-          <div className="lp-docs-endpoint-card">
-            <div className="lp-docs-endpoint-row">
-              <span className="lp-docs-method-pill post">POST</span>
-              <span className="lp-docs-endpoint-path">/api/v1/orders/recovery</span>
+            <div style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
+              <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>🏢 Store Information</h4>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>Business hours, contact email/phone, and physical location.</p>
             </div>
-            <span className="lp-docs-auth-badge">x-publishable-key</span>
           </div>
-
-          <p className="lp-docs-p">
-            Trigger an autonomous personalized voice/SMS/Email recovery dispatch for an abandoned checkout session.
-          </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'cURL',
-                code: `curl -X POST "https://api.ora.ai/api/v1/orders/recovery" \\
-  -H "x-publishable-key: biz_live_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "sessionId": "conv_sess_89172",
-    "customerEmail": "shopper@example.com",
-    "cartItems": [
-      { "productId": "prod_01", "quantity": 1, "price": 119.00 }
-    ],
-    "cartTotal": 119.00,
-    "currency": "USD"
-  }'`
-              },
-              {
-                language: 'Response (200 OK)',
-                code: `{
-  "success": true,
-  "data": {
-    "recoveryId": "rec_live_44912",
-    "status": "scheduled",
-    "dispatchChannel": "email_and_widget_prompt"
-  }
-}`
-              }
-            ]}
-          />
-        </>
-      )
-    },
-    {
-      id: 'conversations-api',
-      category: 'REST API Reference',
-      title: 'Conversations & Telemetry API',
-      summary: 'Querying historical customer voice & text transcripts and conversion analytics.',
-      content: (
-        <>
-          <div className="lp-docs-endpoint-card">
-            <div className="lp-docs-endpoint-row">
-              <span className="lp-docs-method-pill get">GET</span>
-              <span className="lp-docs-endpoint-path">/api/v1/conversations</span>
-            </div>
-            <span className="lp-docs-auth-badge">Bearer JWT</span>
-          </div>
-
-          <p className="lp-docs-p">
-            List conversation sessions with sentiment, duration, order attribution, and transcripts.
-          </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'cURL',
-                code: `curl -X GET "https://api.ora.ai/api/v1/conversations?limit=5" \\
-  -H "Authorization: Bearer <your_jwt_access_token>"`
-              },
-              {
-                language: 'Response (200 OK)',
-                code: `{
-  "success": true,
-  "data": {
-    "conversations": [
-      {
-        "id": "conv_9921",
-        "channel": "voice",
-        "durationSeconds": 142,
-        "orderPlaced": true,
-        "attributedRevenue": 119.00,
-        "customerEmail": "shopper@example.com",
-        "createdAt": "2026-08-21T12:00:00Z"
-      }
-    ],
-    "total": 1
-  }
-}`
-              }
-            ]}
-          />
-        </>
-      )
-    },
-
-    // ── 6. Security & Best Practices ──
-    {
-      id: 'security-tenant-isolation',
-      category: 'Security & Isolation',
-      title: 'Tenant Isolation & PII Protection',
-      summary: 'Enterprise data scoping, AES-256 field-level encryption, and token rotation.',
-      content: (
-        <>
-          <p className="lp-docs-p">
-            Security and merchant privacy are built into ORA from the ground up:
-          </p>
-
-          <ul style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li><strong>Strict Multi-Tenant Scoping:</strong> Every database query across all collections (<code>Product</code>, <code>Order</code>, <code>Conversation</code>, <code>Customer</code>) is filtered strictly by <code>businessId</code>. No cross-tenant data leaks are physically possible.</li>
-            <li><strong>Field-Level PII Encryption:</strong> Customer emails and phone numbers are encrypted at rest using AES-256-GCM before storage in MongoDB.</li>
-            <li><strong>JWT Refresh Family Theft Detection:</strong> Refresh tokens are stored in <code>httpOnly</code>, <code>Secure</code>, <code>SameSite=Strict</code> cookies. Replay of an invalidated token revokes the entire session family immediately.</li>
-            <li><strong>Dual Payment Gateway Compliance:</strong> Stripe USD billing uses auto-renewing subscriptions, while bKash BDT billing uses Tokenized Checkout agreements managed by isolated BullMQ workers.</li>
-          </ul>
 
           <div className="lp-docs-callout tip">
-            <strong>Compliance Note:</strong> ORA is designed to comply with standard GDPR and e-commerce data privacy requirements. Shoppers can request data deletion at any time via the customer privacy endpoints.
+            <strong>Smart Domain Guardrail:</strong> ORA is programmed to answer questions exclusively about your store, products, policies, and voice sales assistance. Off-topic questions (e.g. trivia or cartoons) are politely redirected back to your store.
+          </div>
+        </>
+      )
+    },
+
+    // ── 5. Testing & Launch ──
+    {
+      id: 'testing-verification',
+      category: 'Testing & Launch',
+      title: 'Pre-Launch Verification Checklist',
+      summary: 'Verify your voice assistant before announcing to customers.',
+      content: (
+        <>
+          <p className="lp-docs-p">
+            Before launching to your customers, run through this quick 2-minute verification checklist:
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1.25rem 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
+              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
+                <strong>Orb Placement:</strong> The floating orb appears in the corner on both desktop and mobile screens.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
+              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
+                <strong>Microphone &amp; Audio:</strong> Clicking the orb requests microphone permission and speaks a clear greeting.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
+              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
+                <strong>Product Accuracy:</strong> Asking &ldquo;What products do you recommend?&rdquo; returns items from your actual store catalog.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
+              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
+                <strong>Cart &amp; Checkout:</strong> Saying &ldquo;Add this to my cart&rdquo; correctly updates your cart or opens the checkout link.
+              </span>
+            </div>
+          </div>
+        </>
+      )
+    },
+    {
+      id: 'troubleshooting-faqs',
+      category: 'Testing & Launch',
+      title: 'Troubleshooting & Common Questions',
+      summary: 'Quick solutions to common setup and permission questions.',
+      content: (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+            <div>
+              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>
+                Why isn&apos;t the floating orb appearing on my site?
+              </h4>
+              <p className="lp-docs-p" style={{ marginBottom: 0 }}>
+                1. Make sure you replaced <code>biz_live_your_merchant_key</code> with your actual key from the dashboard.<br />
+                2. Check that the <code>&lt;script&gt;</code> tag is placed before the closing <code>&lt;/body&gt;</code> tag.<br />
+                3. Clear your browser cache or try an incognito window.
+              </p>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--lp-border-light)', paddingTop: '1.25rem' }}>
+              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>
+                Why is the microphone not turning on?
+              </h4>
+              <p className="lp-docs-p" style={{ marginBottom: 0 }}>
+                Modern browsers require a secure <strong>HTTPS connection</strong> to access the microphone. Make sure your website has an active SSL certificate (https://). If you previously blocked microphone access, click the lock icon next to your URL bar to allow permissions.
+              </p>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--lp-border-light)', paddingTop: '1.25rem' }}>
+              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>
+                How quickly do price and product changes update?
+              </h4>
+              <p className="lp-docs-p" style={{ marginBottom: 0 }}>
+                For stores connected via Shopify or WooCommerce, updates sync automatically in real time. For manual CSV uploads, changes take effect immediately upon uploading in your dashboard.
+              </p>
+            </div>
           </div>
         </>
       )
@@ -1080,10 +750,65 @@ socket.onmessage = (event) => {
     );
   }, [searchQuery, selectedCategory, docSections]);
 
+  // Dynamic Scroll Spy: Track which section is currently in view
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPos = window.scrollY + 140; // Offset for fixed navbar & section headers
+          const sections = filteredSections
+            .map((sec) => {
+              const el = document.getElementById(sec.id);
+              return el ? { id: sec.id, top: el.offsetTop } : null;
+            })
+            .filter(Boolean) as { id: string; top: number }[];
+
+          if (sections.length > 0) {
+            let current = sections[0].id;
+            for (let i = 0; i < sections.length; i++) {
+              if (sections[i].top <= scrollPos) {
+                current = sections[i].id;
+              } else {
+                break;
+              }
+            }
+            setActiveSection(current);
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Initial check
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredSections]);
+
+  // Keep the active sidebar item in view as the user scrolls
+  useEffect(() => {
+    if (sidebarRef.current) {
+      const activeEl = sidebarRef.current.querySelector('.lp-docs-nav-link.active') as HTMLElement | null;
+      if (activeEl) {
+        const sidebar = sidebarRef.current;
+        const activeTop = activeEl.offsetTop - sidebar.offsetTop;
+        if (activeTop < sidebar.scrollTop || activeTop > sidebar.scrollTop + sidebar.clientHeight - 60) {
+          sidebar.scrollTo({ top: Math.max(0, activeTop - 40), behavior: 'smooth' });
+        }
+      }
+    }
+  }, [activeSection]);
+
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const yOffset = -90; // Fixed navbar height offset
+      const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
       setActiveSection(id);
     }
   };
@@ -1091,12 +816,12 @@ socket.onmessage = (event) => {
   return (
     <div className="lp-docs-root">
       {/* ── Header ── */}
-      <section className="lp-docs-hero">
-        <div className="lp-container">
+      <section className="lp-docs-hero" style={{ textAlign: 'center' }}>
+        <div className="lp-container" style={{ maxWidth: '48rem', margin: '0 auto', textAlign: 'center' }}>
           {/* Section label */}
-          <div className="lp-section-label" style={{ marginBottom: '1.25rem' }}>
+          <div className="lp-section-label" style={{ marginBottom: '1.25rem', justifyContent: 'center' }}>
             <div className="lp-section-label-line" />
-            <span className="lp-section-label-text">Developer Documentation &amp; API Specifications</span>
+            <span className="lp-section-label-text">Storefront Setup &amp; Integration Guide</span>
             <div className="lp-section-label-line" />
           </div>
 
@@ -1106,104 +831,24 @@ socket.onmessage = (event) => {
               fontSize: 'clamp(2.25rem, 5vw, 3.5rem)',
               lineHeight: 1.15,
               marginBottom: '1rem',
-              letterSpacing: '-0.025em'
+              letterSpacing: '-0.025em',
+              textAlign: 'center'
             }}
           >
-            ORA Integration &amp; API Guide
+            Set Up ORA on Your Store
           </h1>
           <p
             style={{
               fontSize: '1.0625rem',
               color: 'var(--lp-text-secondary)',
-              maxWidth: '44rem',
-              lineHeight: 1.7
+              maxWidth: '42rem',
+              lineHeight: 1.7,
+              margin: '0 auto',
+              textAlign: 'center'
             }}
           >
-            Build autonomous multimodal voice sales workflows. From a single-line storefront script to real-time WebSockets, self-healing RAG vectors, and bidirectional tool execution.
+            Integrate autonomous voice sales in under 2 minutes. Follow our step-by-step guides for Shopify, WooCommerce, Next.js, and custom websites.
           </p>
-
-          {/* Quick-Start Cards */}
-          <div className="lp-docs-quick-grid">
-            <a
-              href="#quickstart"
-              className="lp-docs-quick-card"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('quickstart');
-              }}
-            >
-              <div className="lp-docs-quick-icon">
-                <Code size={18} />
-              </div>
-              <div className="lp-docs-quick-title">
-                <span>Storefront Embed</span>
-                <ArrowRight size={14} style={{ color: '#65A30D' }} />
-              </div>
-              <div className="lp-docs-quick-desc">
-                1-line embed for HTML, Shopify, Next.js, and Nuxt.
-              </div>
-            </a>
-
-            <a
-              href="#widget-sdk"
-              className="lp-docs-quick-card"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('widget-sdk');
-              }}
-            >
-              <div className="lp-docs-quick-icon">
-                <Sliders size={18} />
-              </div>
-              <div className="lp-docs-quick-title">
-                <span>Widget &amp; SDK</span>
-                <ArrowRight size={14} style={{ color: '#65A30D' }} />
-              </div>
-              <div className="lp-docs-quick-desc">
-                Custom DOM events, window.ORA actions, and context.
-              </div>
-            </a>
-
-            <a
-              href="#voice-websocket"
-              className="lp-docs-quick-card"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('voice-websocket');
-              }}
-            >
-              <div className="lp-docs-quick-icon">
-                <Radio size={18} />
-              </div>
-              <div className="lp-docs-quick-title">
-                <span>Voice Gateway</span>
-                <ArrowRight size={14} style={{ color: '#65A30D' }} />
-              </div>
-              <div className="lp-docs-quick-desc">
-                24kHz PCM audio frames and real-time state machine.
-              </div>
-            </a>
-
-            <a
-              href="#api-standards"
-              className="lp-docs-quick-card"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('api-standards');
-              }}
-            >
-              <div className="lp-docs-quick-icon">
-                <Terminal size={18} />
-              </div>
-              <div className="lp-docs-quick-title">
-                <span>REST API</span>
-                <ArrowRight size={14} style={{ color: '#65A30D' }} />
-              </div>
-              <div className="lp-docs-quick-desc">
-                Catalog sync, vector RAG, and cart recovery endpoints.
-              </div>
-            </a>
-          </div>
 
           {/* Quick Search */}
           <div className="lp-docs-search-wrapper">
@@ -1212,7 +857,7 @@ socket.onmessage = (event) => {
               ref={searchInputRef}
               type="text"
               className="lp-docs-search-input"
-              placeholder="Search guides, SDK attributes, WebSockets, or API endpoints... (⌘K)"
+              placeholder="Search setup guides, platforms, or widget settings... (⌘K)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search documentation"
@@ -1267,7 +912,7 @@ socket.onmessage = (event) => {
       <div className="lp-container">
         <div className="lp-docs-layout">
           {/* ── Sticky Sidebar ── */}
-          <aside className="lp-docs-sidebar" aria-label="Documentation navigation">
+          <aside className="lp-docs-sidebar" ref={sidebarRef} aria-label="Documentation navigation">
             {categories.map(({ category, sections }) => (
               <div key={category}>
                 <div className="lp-docs-category-title">
@@ -1310,10 +955,10 @@ socket.onmessage = (event) => {
               >
                 <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔍</div>
                 <h3 className="lp-docs-h3" style={{ justifyContent: 'center', marginTop: 0 }}>
-                  No matching documentation found
+                  No matching guide found
                 </h3>
                 <p className="lp-docs-p" style={{ maxWidth: '28rem', margin: '0 auto 1.5rem' }}>
-                  No documentation found matching &ldquo;{searchQuery}&rdquo; in category &ldquo;{selectedCategory}&rdquo;.
+                  No setup guide found matching &ldquo;{searchQuery}&rdquo; in category &ldquo;{selectedCategory}&rdquo;.
                 </p>
                 <button
                   type="button"
@@ -1336,7 +981,6 @@ socket.onmessage = (event) => {
                 >
                   <div className="lp-docs-section-header">
                     <div className="lp-docs-section-category">
-                      <Sparkles size={12} />
                       <span>{sec.category}</span>
                     </div>
                     <h2 className="lp-docs-h2">{sec.title}</h2>
