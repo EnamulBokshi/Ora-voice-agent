@@ -575,31 +575,59 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}). Active sessions: ${this.sessions.size}`,
     );
 
-    // ── Dispatch Proactive Initial Greeting ───────────────────────────────────
+    // ── Check if session has already been greeted ─────────────────────────────
+    let hasAlreadyBeenGreeted = false;
     try {
-      let greetingTrigger = '';
-      if (authenticatedUser) {
-        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] The visitor just connected to voice. This is ${authenticatedUser.name || 'a store merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them warmly and professionally by name in ONE short, natural spoken sentence (e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you manage your store today?") and invite their questions.`;
-      } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
-        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] The visitor just connected to voice. Their name is ${resolvedName}. Greet them warmly in ONE short, engaging spoken sentence and ask how you can help them today.`;
-      } else {
-        const isPricing = currentPathParam === '/pricing';
-        const isDashboard = currentPathParam.startsWith('/dashboard');
-        const pageContextNote = isPricing
-          ? ' They are currently looking over the pricing page.'
-          : isDashboard
-          ? ' They are in the store dashboard.'
-          : '';
-        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A visitor just connected to voice.${pageContextNote} Speak first: give a warm, energetic, and concise 1-sentence welcome greeting as ORA, and ask how you can assist them today.`;
+      const redis = this.redisService.getClient();
+      const greetedKey = `session:${sessionId}:greeted`;
+      const alreadyGreeted = await redis.get(greetedKey);
+      if (alreadyGreeted) {
+        hasAlreadyBeenGreeted = true;
       }
+    } catch {}
 
+    const skipGreetingParam = parsedUrl.query.skipGreeting === 'true';
+
+    // ── Dispatch Proactive Initial Greeting ONLY ONCE per session ─────────────
+    if (!hasAlreadyBeenGreeted && !skipGreetingParam) {
+      try {
+        let greetingTrigger = '';
+        if (authenticatedUser) {
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them by name in ONE short sentence (under 10 words, e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you?").`;
+        } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them in ONE short sentence (under 10 words, e.g. "Hi ${resolvedName}! How can I help you today?").`;
+        } else {
+          const isPricing = currentPathParam === '/pricing';
+          const isDocs = currentPathParam.startsWith('/docs');
+          const isDashboard = currentPathParam.startsWith('/dashboard');
+          const pageContextNote = isPricing
+            ? ' on pricing page'
+            : isDocs
+            ? ' on docs guide'
+            : isDashboard
+            ? ' in dashboard'
+            : '';
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] New visitor connected${pageContextNote}. Speak first in ONE short, friendly sentence (maximum 10-12 words, e.g. "Hi there! I'm ORA. How can I help you today?"). Do not give long speeches.`;
+        }
+
+        this.logger.log(
+          `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger for session ${sessionId}`,
+        );
+        sessionControls.sendTextMessage(greetingTrigger);
+
+        // Mark as greeted in Redis
+        try {
+          const redis = this.redisService.getClient();
+          await redis.set(`session:${sessionId}:greeted`, '1', 'EX', 86400);
+        } catch {}
+      } catch (greetErr: any) {
+        this.logger.warn(
+          `[VoiceProxyGateway] Greeting trigger notice for session ${sessionId}: ${greetErr.message}`,
+        );
+      }
+    } else {
       this.logger.log(
-        `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger for session ${sessionId}`,
-      );
-      sessionControls.sendTextMessage(greetingTrigger);
-    } catch (greetErr: any) {
-      this.logger.warn(
-        `[VoiceProxyGateway] Greeting trigger notice for session ${sessionId}: ${greetErr.message}`,
+        `[VoiceProxyGateway] 🔇 Skipping initial greeting for resumed/previously greeted session ${sessionId}`,
       );
     }
 

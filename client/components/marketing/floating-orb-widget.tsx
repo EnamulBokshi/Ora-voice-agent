@@ -401,7 +401,15 @@ export function FloatingOrbWidget() {
     setLiveSpeaker(null);
     setIsMuted(false);
 
-    const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
+    let sessionId: string;
+    try {
+      sessionId =
+        sessionStorage.getItem('ora_landing_session_id') ||
+        `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
+      sessionStorage.setItem('ora_landing_session_id', sessionId);
+    } catch {
+      sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
+    }
     const apiBaseUrl = getApiBase();
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     try {
