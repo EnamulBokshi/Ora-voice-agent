@@ -456,6 +456,10 @@ export class GeminiVoiceService {
       let merchantBrandVoice = '';
       let businessSummary = '';
       let customDirectives = '';
+      let customSystemPrompt = '';
+      let greetingInstructions = '';
+      let avoidanceRules = '';
+      let languageDirective = '';
 
       // Parallelize all independent DB calls concurrently with Promise.all
       const [agentConfig, bizDoc, ownerUser, productsRes, docsRes] = await Promise.all([
@@ -483,8 +487,25 @@ export class GeminiVoiceService {
       if (agentConfig?.config?.businessSummary) {
         businessSummary = `\nPlatform Overview: ${agentConfig.config.businessSummary}`;
       }
+      if (agentConfig?.config?.systemPrompt) {
+        customSystemPrompt = `\nSTORE OWNER CUSTOM SYSTEM PROMPT:\n${agentConfig.config.systemPrompt}`;
+      }
       if (agentConfig?.config?.customDirectives) {
         customDirectives = `\nOWNER / MERCHANT CUSTOM DIRECTIVES:\n${agentConfig.config.customDirectives}`;
+      }
+      if (agentConfig?.config?.greetingMessage) {
+        greetingInstructions = `\nGREETING & CUSTOMER TREATMENT GUIDELINES:\n${agentConfig.config.greetingMessage}`;
+      }
+      if (agentConfig?.config?.avoidances) {
+        avoidanceRules = `\nSTRICT AVOIDANCES & RESTRICTIONS (NEVER VIOLATE):\n${agentConfig.config.avoidances}`;
+      }
+
+      // Language directive
+      const configLang = agentConfig?.config?.language || 'en';
+      if (configLang === 'bn' || configLang === 'bangla' || configLang === 'bengali') {
+        languageDirective = `\nLANGUAGE REQUIREMENT (STRICT):\n• You MUST speak exclusively in Bengali (Bangla / বাংলা). All greetings, product explanations, answers, and checkout guidance must be delivered in natural, fluent Bangla.\n• Greet the customer in Bangla (e.g. "আসসালামু আলাইকুম / নমস্কার! ORA-তে আপনাকে স্বাগতম। আজ আপনাকে কীভাবে সাহায্য করতে পারি?").\n• If the user explicitly speaks English, you may briefly answer in English, but default to Bangla.`;
+      } else if (configLang === 'multilingual') {
+        languageDirective = `\nLANGUAGE REQUIREMENT:\n• Automatically detect and respond naturally in whichever language the visitor speaks (Bengali, English, etc.).`;
       }
 
       // 1. Preload Business Identity & Owner Contact Info (Email, Name, Domain)
@@ -624,6 +645,10 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
 
         baseInstruction = [
           persona,
+          languageDirective,
+          customSystemPrompt,
+          greetingInstructions,
+          avoidanceRules,
           businessSummary,
           merchantBrandVoice,
           customDirectives,
@@ -690,6 +715,10 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
 
         baseInstruction = [
           persona,
+          languageDirective,
+          customSystemPrompt,
+          greetingInstructions,
+          avoidanceRules,
           businessSummary,
           merchantBrandVoice,
           customDirectives,

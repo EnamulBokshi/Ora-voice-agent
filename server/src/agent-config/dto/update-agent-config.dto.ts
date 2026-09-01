@@ -19,6 +19,18 @@ export class UpdateAgentConfigDto {
 
   @IsOptional()
   @IsString()
+  systemPrompt?: string;
+
+  @IsOptional()
+  @IsString()
+  greetingMessage?: string;
+
+  @IsOptional()
+  @IsString()
+  avoidances?: string;
+
+  @IsOptional()
+  @IsString()
   language?: string;
 
   @IsOptional()

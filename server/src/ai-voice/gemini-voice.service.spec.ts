@@ -174,5 +174,40 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
       expect(instruction).not.toContain('/admin');
       expect(instruction).not.toContain('Stripe (USD cards) and bKash (BDT tokenized checkout)');
     });
+
+    it('should inject custom system prompt, Bangla language rules, greetings, and avoidances when configured', async () => {
+      mockBusinessModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'biz_bangla_store',
+          name: 'Dhaka Threads',
+          publishableKey: 'biz_live_dhaka_threads_456',
+        }),
+      });
+
+      mockAgentConfigService.getConfig.mockResolvedValue({
+        config: {
+          brandVoiceDescription: 'Warm, respectful and consultative',
+          businessArchetype: 'ecommerce',
+          systemPrompt: 'You are the primary sales assistant for Dhaka Threads. Always offer 10% off with promo code EID10.',
+          greetingMessage: 'Greet with "আসসালামু আলাইকুম! Dhaka Threads-এ স্বাগতম।" and ask what outfit they are looking for.',
+          avoidances: 'Never mention competitors like Aarong or Yellow. Never discuss political matters.',
+          language: 'bn',
+        },
+        voice: { voiceId: 'Aoede' },
+        playbook: {},
+      });
+
+      const instruction = await service.buildSystemInstruction('biz_bangla_store');
+
+      // Assert custom prompt elements are injected
+      expect(instruction).toContain('STORE OWNER CUSTOM SYSTEM PROMPT');
+      expect(instruction).toContain('Always offer 10% off with promo code EID10');
+      expect(instruction).toContain('LANGUAGE REQUIREMENT (STRICT)');
+      expect(instruction).toContain('Bengali (Bangla / বাংলা)');
+      expect(instruction).toContain('GREETING & CUSTOMER TREATMENT GUIDELINES');
+      expect(instruction).toContain('আসসালামু আলাইকুম! Dhaka Threads-এ স্বাগতম।');
+      expect(instruction).toContain('STRICT AVOIDANCES & RESTRICTIONS');
+      expect(instruction).toContain('Never mention competitors like Aarong or Yellow');
+    });
   });
 });

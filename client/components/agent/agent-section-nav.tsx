@@ -6,25 +6,30 @@ import {
   ChevronDown, ChevronRight, ArrowUpRight,
   Mic, FileText, Package, Rocket, BarChart2,
   Settings, GitBranch, Bot, LayoutGrid, Check,
+  Terminal,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AgentRole = 'voice' | 'documents' | 'products';
-export type AgentView = 'get-started' | 'feed' | 'knowledge' | 'catalog';
+export type AgentRole = 'prompt' | 'voice' | 'documents' | 'products';
+export type AgentView = 'get-started' | 'feed' | 'knowledge' | 'catalog' | 'prompt';
 
 // ─── Role definitions ─────────────────────────────────────────────────────────
 
 export const ROLES = [
-  { id: 'voice'     as AgentRole, label: 'Talk to ORA',    Icon: Mic,      iconClass: 'text-foreground' },
-  { id: 'documents' as AgentRole, label: 'Documents',       Icon: FileText, iconClass: 'text-foreground' },
-  { id: 'products'  as AgentRole, label: 'Product Catalog', Icon: Package,  iconClass: 'text-foreground' },
+  { id: 'prompt'    as AgentRole, label: 'System Prompt & Persona', Icon: Terminal, iconClass: 'text-foreground' },
+  { id: 'voice'     as AgentRole, label: 'Talk to ORA',            Icon: Mic,      iconClass: 'text-foreground' },
+  { id: 'documents' as AgentRole, label: 'Documents',               Icon: FileText, iconClass: 'text-foreground' },
+  { id: 'products'  as AgentRole, label: 'Product Catalog',         Icon: Package,  iconClass: 'text-foreground' },
 ];
 
 // Sub-items shown under ▾ Train when a role is active
 export const TRAIN_ITEMS: Record<AgentRole, { view: AgentView; label: string }[]> = {
+  prompt: [
+    { view: 'prompt', label: 'System prompt' },
+  ],
   voice:     [
     { view: 'get-started', label: 'Get started' },
     { view: 'feed',        label: 'Voice feed'  },
@@ -71,6 +76,8 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
     setDropdownOpen(false);
     if (role === null) {
       router.push('/agent');
+    } else if (role === 'prompt') {
+      router.push('/agent?role=prompt');
     } else {
       router.push(`/agent?role=${role}&view=get-started`);
     }

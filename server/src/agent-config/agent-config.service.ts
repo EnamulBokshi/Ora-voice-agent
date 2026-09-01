@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, Optional, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -10,6 +10,7 @@ import {
   SalesPlaybookDocument,
 } from './schemas/agent-config.schema';
 import { UpdateAgentConfigDto } from './dto/update-agent-config.dto';
+import { GeminiVoiceService } from '../ai-voice/gemini-voice.service';
 
 @Injectable()
 export class AgentConfigService {
@@ -20,6 +21,9 @@ export class AgentConfigService {
     private readonly voiceSettingsModel: Model<VoiceSettingsDocument>,
     @InjectModel(SalesPlaybook.name)
     private readonly salesPlaybookModel: Model<SalesPlaybookDocument>,
+    @Inject(forwardRef(() => GeminiVoiceService))
+    @Optional()
+    private readonly geminiVoiceService?: GeminiVoiceService,
   ) {}
 
   async getConfig(businessId: string) {
@@ -81,6 +85,13 @@ export class AgentConfigService {
           ).exec()
         : this.salesPlaybookModel.findOne({ businessId: bId }).exec(),
     ]);
+
+    // Immediately invalidate cached prompt instructions so active/future sessions use latest config
+    if (this.geminiVoiceService) {
+      try {
+        this.geminiVoiceService.invalidateInstructionCache(businessId);
+      } catch {}
+    }
 
     return {
       config,

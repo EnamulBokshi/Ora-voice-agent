@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AgentConfigService } from './agent-config.service';
 import { AgentConfigController } from './agent-config.controller';
@@ -10,6 +10,7 @@ import {
   SalesPlaybook,
   SalesPlaybookSchema,
 } from './schemas/agent-config.schema';
+import { AiVoiceModule } from '../ai-voice/ai-voice.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import {
       { name: VoiceSettings.name, schema: VoiceSettingsSchema },
       { name: SalesPlaybook.name, schema: SalesPlaybookSchema },
     ]),
+    forwardRef(() => AiVoiceModule),
   ],
   controllers: [AgentConfigController],
   providers: [AgentConfigService],

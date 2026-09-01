@@ -7,6 +7,9 @@ export interface AgentConfigData {
   businessArchetype?: string;
   businessSummary?: string;
   customDirectives?: string;
+  systemPrompt?: string;
+  greetingMessage?: string;
+  avoidances?: string;
   language: string;
   idleTimeoutSeconds: number;
   discountFloorPercent: number;
@@ -40,6 +43,9 @@ export interface UpdateAgentConfigInput {
   businessArchetype?: string;
   businessSummary?: string;
   customDirectives?: string;
+  systemPrompt?: string;
+  greetingMessage?: string;
+  avoidances?: string;
   language?: string;
   idleTimeoutSeconds?: number;
   discountFloorPercent?: number;

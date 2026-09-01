@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ArrowRight,
   BookOpen,
+  Terminal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type AgentRole } from './agent-section-nav';
@@ -42,6 +43,65 @@ type RolePageContent = {
 };
 
 const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
+  prompt: {
+    Icon: Terminal,
+    iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
+    iconTextClass: 'text-foreground',
+    roleName: 'System Prompt & Persona',
+    heroTitle: 'Configure ORA with custom instructions & persona',
+    heroDesc:
+      'Instruct ORA on what to do, how to greet and treat your shoppers, language constraints (e.g. speak exclusively in Bangla), and topics to strictly avoid.',
+    heroImageSrc: '/previews/agent-voice-role.jpg',
+    cta1Label: 'Configure System Prompt',
+    cta1Href: '/agent?role=prompt',
+    cta2Label: 'Learn more',
+    howLabel: 'HOW SYSTEM PROMPTS EMPOWER ORA',
+    rows: [
+      {
+        stepLabel: '1. DIRECTIVES',
+        title: 'Tell ORA what to do & goals to achieve',
+        description:
+          'Provide custom operational rules, store policies, active promotional discount codes, and product recommendation guidelines.',
+        imageSrc: '/previews/step-engage-v2.jpg',
+      },
+      {
+        stepLabel: '2. TREATMENT',
+        title: 'Define greeting & consumer treatment',
+        description:
+          'Set custom opening greeting phrases, brand voice demeanor, consultative sales pacing, and empathy rules.',
+        imageSrc: '/previews/step-understand-v2.jpg',
+      },
+      {
+        stepLabel: '3. LANGUAGE',
+        title: 'Enforce regional & spoken dialects',
+        description:
+          'Instruct ORA to speak exclusively in natural Bengali (Bangla / বাংলা), English, or auto-detect multilingual shopper dialects.',
+        imageSrc: '/previews/step-discover-v2.jpg',
+      },
+      {
+        stepLabel: '4. RESTRICTIONS',
+        title: 'Guardrails & topics to avoid',
+        description:
+          'Enforce strict negative constraints so ORA never mentions competitors, never promises unverified discounts, and stays on topic.',
+        imageSrc: '/previews/step-convert-v2.jpg',
+      },
+    ],
+    faqs: [
+      {
+        q: 'Is configuring a system prompt mandatory?',
+        a: 'No, it is completely optional. If left blank, ORA uses its intelligent business archetype baseline.',
+      },
+      {
+        q: 'Can I force ORA to speak only in Bangla (বাংলা)?',
+        a: 'Yes. Select the Bangla Only language setting or apply the Bangla E-Commerce preset to ensure ORA speaks and greets exclusively in Bangla.',
+      },
+      {
+        q: 'How fast do prompt changes take effect?',
+        a: 'Instantly. Saving your prompt immediately invalidates the runtime cache so active and future sessions use the latest directives without restarting.',
+      },
+    ],
+  },
+
   voice: {
     Icon: Mic,
     iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',

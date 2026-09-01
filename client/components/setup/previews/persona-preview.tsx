@@ -10,6 +10,13 @@ import {
   Save,
   RotateCcw,
   Sliders,
+  Languages,
+  Terminal,
+  HeartHandshake,
+  Ban,
+  Sparkles,
+  ChevronRight,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAgentConfigApi, updateAgentConfigApi } from '@/services/agent-config-service';
@@ -21,32 +28,90 @@ interface PersonaPreviewProps {
   onSaved?: () => void;
 }
 
-// ─── Preset Tones ────────────────────────────────────────────────────────────
+// ─── One-Click Quick Presets ──────────────────────────────────────────────────
 
-const TONE_PRESETS = [
+interface PresetTemplate {
+  id: string;
+  label: string;
+  badge: string;
+  description: string;
+  language: string;
+  brandVoice: string;
+  greetingMessage: string;
+  systemPrompt: string;
+  avoidances: string;
+}
+
+const PRESET_TEMPLATES: PresetTemplate[] = [
   {
-    label: 'Consultative',
-    tone: 'Warm, consultative, and empathetic. Focuses on discovering customer needs without pressure.',
-    directives: 'Ask clarifying questions on size, use case, and budget. Mention our 30-day guarantee when shoppers hesitate.',
+    id: 'bangla_ecommerce',
+    label: '🇧🇩 বাংলা ই-কমার্স (Bangla Only)',
+    badge: 'বাংলা / Bangladesh',
+    description: 'শুধুমাত্র বাংলায় কথা বলে পণ্যের তথ্য, সাইজ ও অর্ডারে সহায়তা করবে।',
+    language: 'bn',
+    brandVoice: 'উষ্ণ, আন্তরিক, বিনয়ী এবং অত্যন্ত হেল্পফুল সেলস অ্যাসিস্ট্যান্ট।',
+    greetingMessage: 'আসসালামু আলাইকুম! ORA-তে আপনাকে স্বাগতম। আজ আপনাকে কোন পণ্যটি খুঁজে দিতে পারি?',
+    systemPrompt: `You are ORA, the dedicated AI voice shopping assistant for this store.
+- You MUST speak exclusively in natural, polite Bengali (Bangla / বাংলা).
+- Help customers find products, check live availability, sizes, colors, and prices.
+- Clearly explain delivery terms: Inside Dhaka delivery takes 24-48 hours (60 TK), outside Dhaka takes 3-5 days (120 TK).
+- Support smooth order placement via bKash online payment and Cash on Delivery.
+- Always be respectful and address shoppers warmly with "আপনি".`,
+    avoidances: `• Do not speak in English unless the customer explicitly requests to switch.
+• Never mention competitors (like Aarong, Daraz, or Yellow).
+• Do not promise unauthorized discounts beyond active coupon codes.
+• Never discuss politics or unrelated controversies.`,
   },
   {
-    label: 'Active Closer',
-    tone: 'High-energy, assertive, direct, and focused on driving purchases and highlighting urgency.',
-    directives: 'Highlight limited stock and fast delivery. Proactively offer to add matching items to cart.',
+    id: 'conversion_closer',
+    label: '🛍️ Proactive Sales Closer',
+    badge: 'High Conversion',
+    description: 'Energetic, consultative closer that recommends items & offers promo codes.',
+    language: 'multilingual',
+    brandVoice: 'High-energy, proactive, consultative, and focused on driving smooth checkouts.',
+    greetingMessage: 'Welcome to our store! Looking for anything specific today, or would you like to see our trending bestsellers?',
+    systemPrompt: `You are ORA, an expert AI sales and personal shopping assistant.
+- Proactively discover customer preferences, style choices, and budget.
+- Mention active promo code "SAVE10" for 10% off at checkout when shoppers are deliberating.
+- Remind shoppers of our 30-day money-back guarantee and fast delivery.
+- Guide shoppers smoothly through cart review and checkout.`,
+    avoidances: `• Never hallucinate stock or promise items that are out of stock.
+• Never give medical, legal, or unverified claims.
+• Avoid aggressive or pushy language; remain consultative.`,
   },
   {
-    label: 'Polite & Precise',
-    tone: 'Professional, calm, accurate, and fact-focused with clear concise structure.',
-    directives: 'Quote exact return windows and warranty details from store policies. Never speculate on dates.',
+    id: 'luxury_concierge',
+    label: '💎 Luxury & VIP Concierge',
+    badge: 'Premium Brand',
+    description: 'Refined, highly respectful tone with tailored styling & bespoke assistance.',
+    language: 'multilingual',
+    brandVoice: 'Sophisticated, refined, articulate, patient, and highly attentive to detail.',
+    greetingMessage: 'Good day and welcome. It is a pleasure to assist you. How may I curate your shopping experience today?',
+    systemPrompt: `You are ORA, the private client concierge and advisor for our luxury collection.
+- Offer tailored recommendations highlighting premium materials, craftsmanship, and styling notes.
+- Answer questions regarding bespoke sizing, care instructions, and exclusive gift packaging.
+- Maintain an impeccable, courteous, and polite tone at all times.`,
+    avoidances: `• Never use cheapening sales slang or excessive urgency tactics.
+• Never disclose private client information or internal wholesale costs.`,
   },
   {
-    label: 'Friendly & Casual',
-    tone: 'Approachable, upbeat, conversational, and energetic like an expert store associate.',
-    directives: 'Keep replies concise. Recommend trending new arrivals and offer personalized styling tips.',
+    id: 'tech_support',
+    label: '⚡ Direct & Concise Support',
+    badge: 'Zero Fluff',
+    description: 'Ultra-fast, accurate answers with direct links and technical precision.',
+    language: 'multilingual',
+    brandVoice: 'Concise, direct, technically precise, and solution-oriented with zero fluff.',
+    greetingMessage: 'Hello! I am ORA. How can I assist with your setup, documentation, or account today?',
+    systemPrompt: `You are ORA, technical support and onboarding specialist for this platform.
+- Deliver direct answers in 1 to 2 short sentences.
+- Guide users directly to relevant documentation anchors (#docs, #pricing, #api).
+- Accurately explain integration steps for Shopify, WooCommerce, and Next.js.`,
+    avoidances: `• Never give lengthy rambling responses or marketing fluff.
+• Never guess API endpoints or technical specs not documented in the knowledge base.`,
   },
 ];
 
-// ─── 6 Symmetric Voice Options (3 per row) ───────────────────────────────────
+// ─── 6 Symmetric Voice Options ───────────────────────────────────────────────
 
 interface VoiceOption {
   voiceId: string;
@@ -107,7 +172,7 @@ const VOICE_OPTIONS: VoiceOption[] = [
   },
 ];
 
-// ─── ElevenLabs-Style Mini Waveform Player ─────────────────────────────────────
+// ─── Mini Waveform Player ─────────────────────────────────────────────────────
 
 function WaveformAudioControl({
   isPlaying,
@@ -148,7 +213,6 @@ function WaveformAudioControl({
         )}
       </div>
 
-      {/* Equalizer Bars */}
       <div className="flex items-center gap-[2px] h-3.5 flex-1">
         {bars.map((height, i) => (
           <span
@@ -185,24 +249,25 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
   const [initialDirectives, setInitialDirectives] = useState<string>(
     'Guide customers to relevant items, mention 30-day money-back guarantee when objections arise.',
   );
+  const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
+  const [initialGreetingMessage, setInitialGreetingMessage] = useState<string>('');
+  const [initialAvoidances, setInitialAvoidances] = useState<string>('');
   const [initialLanguage, setInitialLanguage] = useState<string>('en');
 
   // Working state
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>('Aoede');
   const [brandVoiceDesc, setBrandVoiceDesc] = useState<string>(initialToneDesc);
   const [customDirectives, setCustomDirectives] = useState<string>(initialDirectives);
+  const [systemPrompt, setSystemPrompt] = useState<string>(initialSystemPrompt);
+  const [greetingMessage, setGreetingMessage] = useState<string>(initialGreetingMessage);
+  const [avoidances, setAvoidances] = useState<string>(initialAvoidances);
   const [language, setLanguage] = useState<string>(initialLanguage);
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-
-  // Determine active preset (if current text matches any preset)
-  const activePresetLabel = useMemo(() => {
-    const found = TONE_PRESETS.find((p) => p.tone.trim() === brandVoiceDesc.trim());
-    return found ? found.label : 'Custom';
-  }, [brandVoiceDesc]);
+  const [promptTab, setPromptTab] = useState<'system' | 'treatment' | 'avoidances'>('system');
 
   // Active voice metadata
   const currentVoiceObj = useMemo(() => {
@@ -215,6 +280,9 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
       selectedVoiceId !== initialVoiceId ||
       brandVoiceDesc.trim() !== initialToneDesc.trim() ||
       customDirectives.trim() !== initialDirectives.trim() ||
+      systemPrompt.trim() !== initialSystemPrompt.trim() ||
+      greetingMessage.trim() !== initialGreetingMessage.trim() ||
+      avoidances.trim() !== initialAvoidances.trim() ||
       language !== initialLanguage
     );
   }, [
@@ -224,6 +292,12 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
     initialToneDesc,
     customDirectives,
     initialDirectives,
+    systemPrompt,
+    initialSystemPrompt,
+    greetingMessage,
+    initialGreetingMessage,
+    avoidances,
+    initialAvoidances,
     language,
     initialLanguage,
   ]);
@@ -241,16 +315,25 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
         const directives =
           res?.config?.customDirectives ||
           'Guide customers to relevant items, mention 30-day money-back guarantee when objections arise.';
+        const sysPrompt = res?.config?.systemPrompt || '';
+        const greeting = res?.config?.greetingMessage || '';
+        const avoid = res?.config?.avoidances || '';
         const lang = res?.config?.language || 'en';
 
         setInitialVoiceId(voiceId);
         setInitialToneDesc(toneDesc);
         setInitialDirectives(directives);
+        setInitialSystemPrompt(sysPrompt);
+        setInitialGreetingMessage(greeting);
+        setInitialAvoidances(avoid);
         setInitialLanguage(lang);
 
         setSelectedVoiceId(voiceId);
         setBrandVoiceDesc(toneDesc);
         setCustomDirectives(directives);
+        setSystemPrompt(sysPrompt);
+        setGreetingMessage(greeting);
+        setAvoidances(avoid);
         setLanguage(lang);
       })
       .catch((err) => console.error('[PersonaPreview] Failed to load agent config:', err));
@@ -269,6 +352,9 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
         businessArchetype: archetype || 'ecommerce',
         brandVoiceDescription: brandVoiceDesc,
         customDirectives: customDirectives,
+        systemPrompt: systemPrompt,
+        greetingMessage: greetingMessage,
+        avoidances: avoidances,
         language: language,
         voiceId: targetVoiceId,
       });
@@ -276,6 +362,9 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
       setInitialVoiceId(targetVoiceId);
       setInitialToneDesc(brandVoiceDesc);
       setInitialDirectives(customDirectives);
+      setInitialSystemPrompt(systemPrompt);
+      setInitialGreetingMessage(greetingMessage);
+      setInitialAvoidances(avoidances);
       setInitialLanguage(language);
 
       setSavedSuccess(true);
@@ -292,12 +381,18 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
     setSelectedVoiceId(initialVoiceId);
     setBrandVoiceDesc(initialToneDesc);
     setCustomDirectives(initialDirectives);
+    setSystemPrompt(initialSystemPrompt);
+    setGreetingMessage(initialGreetingMessage);
+    setAvoidances(initialAvoidances);
     setLanguage(initialLanguage);
   };
 
-  const handleApplyPreset = (preset: (typeof TONE_PRESETS)[0]) => {
-    setBrandVoiceDesc(preset.tone);
-    setCustomDirectives(preset.directives);
+  const handleApplyPreset = (preset: PresetTemplate) => {
+    setLanguage(preset.language);
+    setBrandVoiceDesc(preset.brandVoice);
+    setGreetingMessage(preset.greetingMessage);
+    setSystemPrompt(preset.systemPrompt);
+    setAvoidances(preset.avoidances);
   };
 
   const handlePlayVoiceSample = async (voice: VoiceOption, e: React.MouseEvent) => {
@@ -348,7 +443,109 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
 
   return (
     <div className="w-full space-y-6">
-      {/* ── 1. VOICE MODELS CARD ── */}
+      {/* ── 1. ONE-CLICK STARTER PRESETS ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 space-y-3">
+        <div className="flex items-center justify-between pb-2.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-[#C8F031]" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              One-Click Starter Presets & Language Profiles
+            </h2>
+          </div>
+          <span className="text-[11px] font-mono text-muted-foreground">Click to populate directives</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {PRESET_TEMPLATES.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => handleApplyPreset(preset)}
+              className="text-left p-3 rounded-md border border-border/60 bg-surface-high/20 hover:bg-surface-high/50 hover:border-foreground/50 transition-all group cursor-pointer flex flex-col justify-between gap-2"
+            >
+              <div>
+                <span className="text-[12px] font-semibold text-foreground group-hover:text-[#C8F031] transition-colors block mb-1">
+                  {preset.label}
+                </span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {preset.description}
+                </p>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-border/30 text-[10px] font-mono text-muted-foreground">
+                <span>{preset.badge}</span>
+                <span className="text-foreground group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                  Apply <ChevronRight size={10} />
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 2. LANGUAGE CONFIGURATION ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 space-y-3">
+        <div className="flex items-center justify-between pb-2.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <Languages className="h-3.5 w-3.5 text-[#C8F031]" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Spoken & Chat Language
+            </h2>
+          </div>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            Current: <span className="text-[#C8F031] font-semibold uppercase">{language}</span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {[
+            {
+              id: 'bn',
+              title: '🇧🇩 বাংলা শুধুমাত্র (Bangla Only)',
+              desc: 'Enforces 100% Bengali voice & chat communication.',
+            },
+            {
+              id: 'multilingual',
+              title: '🌐 Multilingual / Auto-Detect',
+              desc: 'Auto-detects and responds in English, Bengali, or dialect.',
+            },
+            {
+              id: 'en',
+              title: '🇺🇸 English Only',
+              desc: 'Standard global English communication.',
+            },
+          ].map((langOpt) => {
+            const isSelected = language === langOpt.id;
+            return (
+              <button
+                key={langOpt.id}
+                type="button"
+                onClick={() => setLanguage(langOpt.id)}
+                className={cn(
+                  'text-left p-3 rounded-md border transition-all cursor-pointer flex items-start gap-2.5',
+                  isSelected
+                    ? 'border-foreground/80 bg-surface-high/60 shadow-xs text-foreground'
+                    : 'border-border/50 bg-surface-high/20 hover:bg-surface-high/40 text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5',
+                    isSelected ? 'border-foreground bg-foreground' : 'border-border/70',
+                  )}
+                >
+                  {isSelected && <div className="w-1 h-1 rounded-full bg-background" />}
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[12px] font-semibold block text-foreground">{langOpt.title}</span>
+                  <span className="text-[11px] text-muted-foreground leading-snug">{langOpt.desc}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 3. VOICE MODELS CARD ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
         <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
@@ -379,7 +576,6 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                     : 'border-border/50 bg-surface-high/20 hover:bg-surface-high/40 hover:border-border/70',
                 )}
               >
-                {/* Header: Radio dot + Name + Gender + Active */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div
@@ -405,7 +601,6 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                   )}
                 </div>
 
-                {/* Subtitle & Tagline */}
                 <div className="min-w-0">
                   <p className="text-[12.5px] font-medium text-foreground leading-snug">
                     {voice.toneName}
@@ -415,7 +610,6 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                   </p>
                 </div>
 
-                {/* Waveform Audio Control */}
                 <div className="pt-2 border-t border-border/30">
                   <WaveformAudioControl
                     isPlaying={isPlaying}
@@ -429,85 +623,132 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
         </div>
       </div>
 
-      {/* ── 2. APPLIED TONE & DIRECTIVES CARD ── */}
-      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-border/40">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
-              Applied Directives & Tone
-            </h2>
-            <span className="ml-2 inline-flex items-center gap-1 text-[10.5px] font-mono px-2 py-0.5 rounded-[3px] bg-surface-high text-foreground border border-border/60 font-medium">
-              <Sliders size={10} />
-              <span>{activePresetLabel}</span>
-            </span>
-          </div>
+      {/* ── 4. MASTER PROMPT & DIRECTIVES STUDIO ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
+        {/* Tab Headers */}
+        <div className="flex items-center border-b border-border/40 pb-2 gap-1 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setPromptTab('system')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors cursor-pointer',
+              promptTab === 'system'
+                ? 'bg-surface-high text-foreground font-semibold border border-border/60'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            <span>1. Master System Prompt</span>
+            <span className="text-[10.5px] font-mono text-muted-foreground ml-1">({systemPrompt.length} chars)</span>
+          </button>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Presets:</span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {TONE_PRESETS.map((preset) => {
-                const isPresetActive = activePresetLabel === preset.label;
-                return (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => handleApplyPreset(preset)}
-                    className={cn(
-                      'inline-flex items-center px-2.5 py-1 rounded-md text-[11.5px] font-medium border transition-colors cursor-pointer',
-                      isPresetActive
-                        ? 'border-foreground bg-foreground text-background font-semibold shadow-xs'
-                        : 'border-border/60 bg-surface-high/40 hover:bg-surface-high text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {preset.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPromptTab('treatment')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors cursor-pointer',
+              promptTab === 'treatment'
+                ? 'bg-surface-high text-foreground font-semibold border border-border/60'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <HeartHandshake className="h-3.5 w-3.5 text-[#C8F031]" />
+            <span>2. Greeting & Consumer Treatment</span>
+            <span className="text-[10.5px] font-mono text-muted-foreground ml-1">({greetingMessage.length} chars)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPromptTab('avoidances')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors cursor-pointer',
+              promptTab === 'avoidances'
+                ? 'bg-surface-high text-foreground font-semibold border border-border/60'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Ban className="h-3.5 w-3.5 text-destructive" />
+            <span>3. What to Avoid</span>
+            <span className="text-[10.5px] font-mono text-muted-foreground ml-1">({avoidances.length} chars)</span>
+          </button>
         </div>
 
-        {/* 2-Column Applied Tone & Directives Textareas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
-          {/* Tone & Demeanor */}
-          <div className="space-y-1.5">
+        {/* Tab 1: System Prompt */}
+        {promptTab === 'system' && (
+          <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                Custom System Prompt & Behavioral Instructions
+              </label>
+              <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
+                {systemPrompt.length} chars
+              </span>
+            </div>
+            <textarea
+              rows={7}
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder={`You are ORA, the flagship AI sales representative for this store.\n• Proactively guide customers to relevant products based on their questions.\n• Mention our 30-day money-back guarantee when objections arise.\n• Offer discount code "SAVE10" for 10% off at checkout.\n• Keep voice responses concise (1-2 sentences) and conversational.`}
+              className="w-full px-3.5 py-2.5 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors leading-relaxed font-mono resize-y"
+            />
+          </div>
+        )}
+
+        {/* Tab 2: Greeting & Treatment */}
+        {promptTab === 'treatment' && (
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                Initial Spoken Greeting Phrase
+              </label>
+              <input
+                type="text"
+                value={greetingMessage}
+                onChange={(e) => setGreetingMessage(e.target.value)}
+                placeholder='e.g. আসসালামু আলাইকুম! ORA-তে আপনাকে স্বাগতম। আজ আপনাকে কী খুঁজে দিতে পারি?'
+                className="w-full px-3 py-2 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Brand Tone & Demeanor
               </label>
-              <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
-                {brandVoiceDesc.length} chars
-              </span>
+              <input
+                type="text"
+                value={brandVoiceDesc}
+                onChange={(e) => setBrandVoiceDesc(e.target.value)}
+                placeholder="e.g. Warm, consultative, concise, and focused on helping shoppers find the right fit."
+                className="w-full px-3 py-2 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors"
+              />
             </div>
-            <textarea
-              rows={4}
-              value={brandVoiceDesc}
-              onChange={(e) => setBrandVoiceDesc(e.target.value)}
-              placeholder="e.g. Consultative, warm, concise, and focused on helping shoppers find the right fit."
-              className="w-full px-3 py-2 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors leading-relaxed resize-none font-sans"
-            />
           </div>
+        )}
 
-          {/* Custom Directives */}
-          <div className="space-y-1.5">
+        {/* Tab 3: Avoidances */}
+        {promptTab === 'avoidances' && (
+          <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
-                Directives & Rules of Engagement
+                Restrictions & Forbidden Behaviors
               </label>
               <span className="text-[10.5px] font-mono text-muted-foreground tabular-nums">
-                {customDirectives.length} chars
+                {avoidances.length} chars
               </span>
             </div>
             <textarea
-              rows={4}
-              value={customDirectives}
-              onChange={(e) => setCustomDirectives(e.target.value)}
-              placeholder="e.g. Always check stock before confirming availability. Mention 30-day return policy for hesitant buyers."
-              className="w-full px-3 py-2 text-[12.5px] bg-surface-high/30 border border-border/60 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground transition-colors leading-relaxed resize-none font-sans"
+              rows={6}
+              value={avoidances}
+              onChange={(e) => setAvoidances(e.target.value)}
+              placeholder={`• Never mention competitor brands (e.g. CompetitorA, CompetitorB).\n• Never offer discounts higher than 15%.\n• Do not discuss politics, controversy, or non-store related topics.`}
+              className="w-full px-3.5 py-2.5 text-[12.5px] bg-surface-high/30 border border-destructive/30 rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-destructive transition-colors leading-relaxed font-mono resize-y"
             />
+            <div className="p-2.5 rounded bg-destructive/5 border border-destructive/20 text-destructive text-[11px] flex items-center gap-2">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>Negative constraints are enforced at runtime during live customer turns.</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Action Toolbar */}
         <div className="pt-3 border-t border-border/40 flex items-center justify-between gap-3">

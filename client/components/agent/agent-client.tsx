@@ -11,12 +11,13 @@ import { VoiceFeedTab } from './feed/voice-feed-tab';
 import { DocumentsFeedTab } from './feed/documents-feed-tab';
 import { ProductDetailsFeedTab } from './feed/product-details-feed-tab';
 import { KnowledgeFeedList } from './feed/knowledge-feed-list';
+import { AgentPersonaTab } from './persona/agent-persona-tab';
 import { getMeApi } from '@/services/auth-service';
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, ArrowRight, ExternalLink } from 'lucide-react';
+import { Mic, FileText, Package, ArrowRight, ExternalLink, Terminal } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
@@ -24,7 +25,7 @@ import Link from 'next/link';
 function AgentClientContent() {
   const searchParams = useSearchParams();
 
-  // New param scheme: ?role=voice&view=get-started|feed|knowledge|catalog
+  // New param scheme: ?role=voice|prompt|documents|products&view=...
   // Also support legacy ?tab= for backward compatibility
   const rawRole  = searchParams.get('role');
   const rawView  = searchParams.get('view');
@@ -32,16 +33,18 @@ function AgentClientContent() {
 
   // Resolve role
   const activeRole: AgentRole | null =
-    rawRole && ['voice', 'documents', 'products'].includes(rawRole)
-      ? (rawRole as AgentRole)
-      : legacyTab && ['voice', 'documents', 'products'].includes(legacyTab)
-      ? (legacyTab as AgentRole)
+    rawRole && ['prompt', 'persona', 'voice', 'documents', 'products'].includes(rawRole)
+      ? ((rawRole === 'persona' ? 'prompt' : rawRole) as AgentRole)
+      : legacyTab && ['prompt', 'persona', 'voice', 'documents', 'products'].includes(legacyTab)
+      ? ((legacyTab === 'persona' ? 'prompt' : legacyTab) as AgentRole)
       : null;
 
-  // Resolve view — defaults to 'get-started' when role is selected
+  // Resolve view — defaults to 'get-started' when role is selected (or 'prompt' for prompt role)
   const activeView: AgentView =
-    rawView && ['get-started', 'feed', 'knowledge', 'catalog'].includes(rawView)
+    rawView && ['get-started', 'feed', 'knowledge', 'catalog', 'prompt'].includes(rawView)
       ? (rawView as AgentView)
+      : activeRole === 'prompt'
+      ? 'prompt'
       : 'get-started';
 
   const fallbackKey = demoProfile?.business?.publishableKey ?? null;
@@ -80,8 +83,34 @@ function AgentClientContent() {
     if (activeRole === null) return <AgentHub />;
 
     // ── "Get started" editorial page (default view) ────────────────────────
-    if (activeView === 'get-started') {
+    if (activeView === 'get-started' && activeRole !== 'prompt') {
       return <AgentGetStartedPage role={activeRole} />;
+    }
+
+    // ── Prompt: System Prompt & Persona ────────────────────────────────────
+    if (activeRole === 'prompt') {
+      return (
+        <AgentSectionLayout
+          iconNode={<Terminal size={16} className="text-foreground" />}
+          title="System Prompt & Persona"
+          description="Configure ORA's operating instructions, language constraints (e.g. Bangla only), greeting behavior, and strict avoidances."
+          previewSrc="/previews/agent-voice-role.jpg"
+          previewAlt="ORA system prompt"
+          howLabel="System prompt & behavioral directives"
+          ctaNodes={
+            <button
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+            >
+              Test live <ArrowRight size={10} />
+            </button>
+          }
+        >
+          <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
+            <AgentPersonaTab />
+          </div>
+        </AgentSectionLayout>
+      );
     }
 
     // ── Voice: feed or knowledge views ─────────────────────────────────────

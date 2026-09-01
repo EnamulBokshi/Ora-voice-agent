@@ -32,6 +32,15 @@ export class AgentConfig {
   @Prop({ type: String, default: '' })
   customDirectives: string;
 
+  @Prop({ type: String, default: '' })
+  systemPrompt: string;
+
+  @Prop({ type: String, default: '' })
+  greetingMessage: string;
+
+  @Prop({ type: String, default: '' })
+  avoidances: string;
+
   @Prop({ default: 'en' })
   language: string;
 

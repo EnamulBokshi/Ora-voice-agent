@@ -44,6 +44,7 @@ export class GeminiLiveClient {
   private workletNode: AudioWorkletNode | null = null;
   private scriptProcessor: ScriptProcessorNode | null = null;
   private analyser: AnalyserNode | null = null;
+  private outputAnalyser: AnalyserNode | null = null;
   private animFrameId: number | null = null;
   private nextPlayTime: number = 0;
   private activeSources: AudioBufferSourceNode[] = [];
@@ -303,8 +304,8 @@ export class GeminiLiveClient {
       };
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const inputAudioCtx = new AudioCtx({ sampleRate: 16000 });
-      const outputAudioCtx = new AudioCtx({ sampleRate: 24000 });
+      const inputAudioCtx = new AudioCtx({ sampleRate: 16000, latencyHint: 'interactive' });
+      const outputAudioCtx = new AudioCtx({ sampleRate: 24000, latencyHint: 'interactive' });
 
       this.inputAudioCtx = inputAudioCtx;
       this.outputAudioCtx = outputAudioCtx;
@@ -313,7 +314,7 @@ export class GeminiLiveClient {
         class PCMRecorderProcessor extends AudioWorkletProcessor {
           constructor() {
             super();
-            this.bufferSize = 2048;
+            this.bufferSize = 512;
             this.buffer = new Float32Array(this.bufferSize);
             this.bytesWritten = 0;
           }
@@ -395,31 +396,46 @@ export class GeminiLiveClient {
       this.analyser = analyser;
       source.connect(analyser);
 
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const updateVolume = () => {
-        if (!this.analyser) return;
-        this.analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-        const avg = sum / dataArray.length;
-        const level = Math.min(100, Math.round((avg / 128) * 100));
-        this.currentMicLevel = level;
-        this.options.onAudioLevel?.(level);
+      const outputAnalyser = outputAudioCtx.createAnalyser();
+      outputAnalyser.fftSize = 256;
+      outputAnalyser.connect(outputAudioCtx.destination);
+      this.outputAnalyser = outputAnalyser;
 
-        if (level > 24 && !this.isAgentSpeaking) {
-          this.userHasSpoken = true;
-          this.silenceStartTime = 0;
-          if (this.setupConfirmed) {
-            onStatusChange?.('listening');
-          }
-        } else if (this.userHasSpoken && level <= 24 && !this.isAgentSpeaking) {
-          if (!this.silenceStartTime) {
-            this.silenceStartTime = Date.now();
-          } else if (Date.now() - this.silenceStartTime > 350) {
-            this.userHasSpoken = false;
+      const inputDataArray = new Uint8Array(analyser.frequencyBinCount);
+      const outputDataArray = new Uint8Array(outputAnalyser.frequencyBinCount);
+
+      const updateVolume = () => {
+        if (this.isAgentSpeaking && this.outputAnalyser) {
+          this.outputAnalyser.getByteFrequencyData(outputDataArray);
+          let sum = 0;
+          for (let i = 0; i < outputDataArray.length; i++) sum += outputDataArray[i];
+          const avg = sum / outputDataArray.length;
+          const level = Math.min(100, Math.round((avg / 128) * 100));
+          this.options.onAudioLevel?.(level);
+        } else if (this.analyser) {
+          this.analyser.getByteFrequencyData(inputDataArray);
+          let sum = 0;
+          for (let i = 0; i < inputDataArray.length; i++) sum += inputDataArray[i];
+          const avg = sum / inputDataArray.length;
+          const level = Math.min(100, Math.round((avg / 128) * 100));
+          this.currentMicLevel = level;
+          this.options.onAudioLevel?.(level);
+
+          if (level > 24 && !this.isAgentSpeaking) {
+            this.userHasSpoken = true;
             this.silenceStartTime = 0;
-            if (this.setupConfirmed && !this.isAgentSpeaking) {
-              onStatusChange?.('thinking');
+            if (this.setupConfirmed) {
+              onStatusChange?.('listening');
+            }
+          } else if (this.userHasSpoken && level <= 24 && !this.isAgentSpeaking) {
+            if (!this.silenceStartTime) {
+              this.silenceStartTime = Date.now();
+            } else if (Date.now() - this.silenceStartTime > 350) {
+              this.userHasSpoken = false;
+              this.silenceStartTime = 0;
+              if (this.setupConfirmed && !this.isAgentSpeaking) {
+                onStatusChange?.('thinking');
+              }
             }
           }
         }
@@ -442,17 +458,6 @@ export class GeminiLiveClient {
               !this.setupConfirmed
             )
               return;
-
-            if (this.isAgentSpeaking) {
-              if (this.currentMicLevel > 22) {
-                this.flushPlaybackQueue();
-                this.isAgentSpeaking = false;
-                this.userHasSpoken = true;
-                onStatusChange?.('listening');
-              } else {
-                return;
-              }
-            }
 
             const { pcm16Data } = event.data;
             if (pcm16Data) {
@@ -479,17 +484,6 @@ export class GeminiLiveClient {
             !this.setupConfirmed
           )
             return;
-
-          if (this.isAgentSpeaking) {
-            if (this.currentMicLevel > 22) {
-              this.flushPlaybackQueue();
-              this.isAgentSpeaking = false;
-              this.userHasSpoken = true;
-              onStatusChange?.('listening');
-            } else {
-              return;
-            }
-          }
 
           const input = e.inputBuffer.getChannelData(0);
           const base64Pcm = this.float32ToInt16Base64(input);
@@ -542,10 +536,15 @@ export class GeminiLiveClient {
 
       const sourceNode = audioCtx.createBufferSource();
       sourceNode.buffer = audioBuffer;
-      sourceNode.connect(audioCtx.destination);
+
+      if (this.outputAnalyser) {
+        sourceNode.connect(this.outputAnalyser);
+      } else {
+        sourceNode.connect(audioCtx.destination);
+      }
 
       const now = audioCtx.currentTime;
-      const startTime = Math.max(now, this.nextPlayTime);
+      const startTime = Math.max(now + 0.005, this.nextPlayTime);
       sourceNode.start(startTime);
       this.nextPlayTime = startTime + audioBuffer.duration;
 

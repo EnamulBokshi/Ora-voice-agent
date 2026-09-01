@@ -11,13 +11,14 @@ import {
   Layers,
   ChevronDown,
   ArrowRight,
+  Terminal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Role Definitions ─────────────────────────────────────────────────────────
 
 interface AgentRoleCard {
-  id: 'voice' | 'documents' | 'products';
+  id: 'prompt' | 'voice' | 'documents' | 'products';
   label: string;
   category: string;
   Icon: React.ElementType;
@@ -27,6 +28,15 @@ interface AgentRoleCard {
 }
 
 const AGENT_ROLES: AgentRoleCard[] = [
+  {
+    id: 'prompt',
+    label: 'System Prompt & Persona',
+    category: 'Behavior & Directives',
+    Icon: Terminal,
+    description: 'Configure custom instructions, Bangla/multilingual rules, greetings, and avoidances',
+    imageSrc: '/previews/agent-voice-role.jpg',
+    href: '/agent?role=prompt',
+  },
   {
     id: 'voice',
     label: 'Talk with ORA (Voice AI)',

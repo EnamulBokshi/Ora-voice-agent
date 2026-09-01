@@ -40,7 +40,7 @@ import { ARCHETYPES, type SetupArchetype } from '@/components/setup/setup-sectio
 import { ROLES, TRAIN_ITEMS, type AgentRole, type AgentView } from '@/components/agent/agent-section-nav';
 
 const CONFIG_STEPS: { step: SetupStepId; label: string }[] = [
-  { step: 'persona',     label: 'Persona & voice' },
+  { step: 'persona',     label: 'Persona & prompt' },
   { step: 'integration', label: 'Widget embed'     },
   { step: 'knowledge',   label: 'Store knowledge'  },
   { step: 'voice_test',  label: 'Test ORA live'    },
@@ -65,13 +65,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const rawRole = searchParams.get('role');
   const activeRole: AgentRole | null =
-    rawRole && ['voice', 'documents', 'products'].includes(rawRole)
+    rawRole && ['prompt', 'voice', 'documents', 'products'].includes(rawRole)
       ? (rawRole as AgentRole)
       : null;
 
   const rawView = searchParams.get('view');
   const activeAgentView: AgentView =
-    rawView && ['get-started', 'feed', 'knowledge', 'catalog'].includes(rawView)
+    rawView && ['get-started', 'feed', 'knowledge', 'catalog', 'prompt'].includes(rawView)
       ? (rawView as AgentView)
       : 'get-started';
 
