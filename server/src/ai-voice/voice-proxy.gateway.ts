@@ -32,6 +32,8 @@ interface ProxySession {
   audioOutputBytes: number;
   promptTokens: number;
   completionTokens: number;
+  isGreetingPending: boolean;
+  greetingDispatchedAt: number;
 }
 
 @Injectable()
@@ -374,6 +376,8 @@ export class VoiceProxyGateway {
       audioOutputBytes: 0,
       promptTokens: 0,
       completionTokens: 0,
+      isGreetingPending: false,
+      greetingDispatchedAt: 0,
     };
 
     const flushBufferedAiText = () => {
@@ -454,6 +458,7 @@ export class VoiceProxyGateway {
 
         // Google → client: audio response
         onAudioData: (base64AudioPcm) => {
+          session.isGreetingPending = false;
           if (base64AudioPcm) {
             session.audioOutputBytes += Math.round(base64AudioPcm.length * 0.75);
           }
@@ -471,6 +476,10 @@ export class VoiceProxyGateway {
 
         // Google → client: barge-in / interruption
         onInterrupted: () => {
+          // Prevent early false barge-in during initial greeting startup
+          if (session.isGreetingPending && Date.now() - session.greetingDispatchedAt < 1200) {
+            return;
+          }
           sendToClient({ type: 'interrupted' });
           flushBufferedUserText(); // user spoke again; save whatever they said before the barge-in
           flushBufferedAiText();
@@ -478,6 +487,7 @@ export class VoiceProxyGateway {
 
         // Google → client: agent finished speaking
         onTurnComplete: () => {
+          session.isGreetingPending = false;
           sendToClient({ type: 'turn_complete' });
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
@@ -577,21 +587,29 @@ export class VoiceProxyGateway {
 
     // ── Dispatch Proactive Initial Greeting ───────────────────────────────────
     try {
+      const isOraPlatform =
+        publishableKey === 'biz_live_ora_platform_system' ||
+        businessName === 'ORA Platform' ||
+        businessName === 'ORA';
       let greetingTrigger = '';
       if (authenticatedUser) {
-        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] The visitor just connected to voice. This is ${authenticatedUser.name || 'a store merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them warmly and professionally by name in ONE short, natural spoken sentence (e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you manage your store today?") and invite their questions.`;
+        greetingTrigger = `[SYSTEM_TRIGGER: GREETING] The user just connected. Greet them warmly and naturally in English: "Welcome back, ${authenticatedUser.name || ''}! How can I help you today?"`;
       } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
-        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] The visitor just connected to voice. Their name is ${resolvedName}. Greet them warmly in ONE short, engaging spoken sentence and ask how you can help them today.`;
-      } else {
+        greetingTrigger = `[SYSTEM_TRIGGER: GREETING] The visitor just connected. Greet them warmly in English: "Hi ${resolvedName}! How can I help you today?"`;
+      } else if (isOraPlatform) {
         const isPricing = currentPathParam === '/pricing';
-        const isDashboard = currentPathParam.startsWith('/dashboard');
-        const pageContextNote = isPricing
-          ? ' They are currently looking over the pricing page.'
-          : isDashboard
-          ? ' They are in the store dashboard.'
-          : '';
-        greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A visitor just connected to voice.${pageContextNote} Speak first: give a warm, energetic, and concise 1-sentence welcome greeting as ORA, and ask how you can assist them today.`;
+        if (isPricing) {
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING] The visitor just joined while looking at pricing plans. Greet them warmly and smoothly in English: "Hi! Welcome to ORA. Feel free to ask me anything about our plans or how ORA works!"`;
+        } else {
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING] A visitor just joined the website. Greet them warmly, smoothly, and naturally in English: "Hi! Welcome to ORA. How can I help you today?"`;
+        }
+      } else {
+        const storeDisplayName = businessName || 'our store';
+        greetingTrigger = `[SYSTEM_TRIGGER: GREETING] A visitor just joined the website. Greet them warmly, smoothly, and naturally in English: "Hi! Welcome to ${storeDisplayName}. How can I help you today?"`;
       }
+
+      session.isGreetingPending = true;
+      session.greetingDispatchedAt = Date.now();
 
       this.logger.log(
         `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger for session ${sessionId}`,
@@ -761,6 +779,10 @@ export class VoiceProxyGateway {
 
         if (msg.type === 'audio' && msg.data) {
           session.audioInputBytes += Math.round((msg.data as string).length * 0.75);
+          // Protect initial greeting from early mic initialization noise / clicks
+          if (session.isGreetingPending && Date.now() - session.greetingDispatchedAt < 600) {
+            return;
+          }
           sessionControls.sendAudioChunk(msg.data as string);
         } else if (msg.type === 'text' && msg.text) {
           const userText = (msg.text as string).trim();

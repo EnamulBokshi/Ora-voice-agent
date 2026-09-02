@@ -174,5 +174,83 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
       expect(instruction).not.toContain('/admin');
       expect(instruction).not.toContain('Stripe (USD cards) and bKash (BDT tokenized checkout)');
     });
+
+    it('should enforce English default and forbid unprompted foreign languages in system instructions', async () => {
+      mockBusinessModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'biz_platform',
+          name: 'ORA Platform',
+          publishableKey: 'biz_live_ora_platform_system',
+        }),
+      });
+
+      const instruction = await service.buildSystemInstruction('biz_platform');
+
+      expect(instruction).toContain('PRIMARY DEFAULT LANGUAGE: ENGLISH');
+      expect(instruction).toContain('NEVER speak in Chinese, Cantonese, Mandarin, Japanese');
+      expect(instruction).toContain('CONDITIONAL LANGUAGE SWITCHING');
+    });
+
+    it('should include consultative sales objection handling playbook and off-topic cartoon deflection', async () => {
+      mockBusinessModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'biz_platform',
+          name: 'ORA Platform',
+          publishableKey: 'biz_live_ora_platform_system',
+        }),
+      });
+
+      const instruction = await service.buildSystemInstruction('biz_platform');
+
+      // Objection handling
+      expect(instruction).toContain('SALES CONVERSION & OBJECTION HANDLING PLAYBOOK');
+      expect(instruction).toContain('This site isn\'t for me');
+
+      // Generalized off-topic deflection
+      expect(instruction).toContain('STRICT OFF-TOPIC GUARDRAIL & ZERO-ENTERTAINMENT RULE');
+      expect(instruction).toContain('ZERO-TOLERANCE FOR OFF-TOPIC CHAT');
+      expect(instruction).toContain('UNIVERSAL DEFLECTION PATTERN');
+    });
+
+    it('should assign General Business Sales Representative persona when business is general and has no products', async () => {
+      mockAgentConfigService.getConfig.mockResolvedValue({
+        config: { brandVoiceDescription: 'Warm and professional', businessArchetype: 'general' },
+        voice: { voiceId: 'Aoede' },
+        playbook: {},
+      });
+      mockProductsService.findAll.mockResolvedValue({
+        items: [],
+        pagination: { total: 0 },
+      });
+      mockBusinessModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'biz_consulting_456',
+          name: 'Acme Advisory Group',
+          publishableKey: 'biz_live_merchant_acme_456',
+        }),
+      });
+
+      const instruction = await service.buildSystemInstruction('biz_consulting_456');
+
+      expect(instruction).toContain('Acme Advisory Group');
+      expect(instruction).toContain('warm, knowledgeable, and professional AI Sales Representative');
+      expect(instruction).not.toContain('shopping assistant');
+      expect(instruction).not.toContain('guide them through checkout');
+      expect(instruction).not.toContain('add_to_cart / place_order');
+      expect(instruction).toContain('capture_sales_lead');
+    });
+
+    it('should give general archetype lead capture tools and NO cart or checkout tools', () => {
+      const generalTools = getToolsForArchetype('general', false);
+      const toolNames = generalTools.map((t) => t.name);
+
+      expect(toolNames).toContain('capture_sales_lead');
+      expect(toolNames).toContain('search_knowledge_base');
+      expect(toolNames).toContain('get_store_policy');
+      expect(toolNames).not.toContain('add_to_cart');
+      expect(toolNames).not.toContain('place_order');
+      expect(toolNames).not.toContain('redirect_to_checkout');
+      expect(toolNames).not.toContain('find_products');
+    });
   });
 });
