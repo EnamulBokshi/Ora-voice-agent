@@ -307,19 +307,6 @@ export function getToolsForArchetype(archetype?: string, isPlatform: boolean = f
     );
   }
 
-  // General business, corporate, services, or non-e-commerce websites
-  if (archetype === 'general') {
-    return ORA_TOOL_DECLARATIONS.filter((t) =>
-      [
-        'capture_sales_lead',
-        'search_knowledge_base',
-        'get_store_policy',
-        'update_customer_profile',
-        'get_customer_profile',
-      ].includes(t.name),
-    );
-  }
-
   // Standard Merchant E-commerce & Retail Storefronts (Shopify, WooCommerce, etc.)
   return ORA_TOOL_DECLARATIONS.filter((t) =>
     [

@@ -35,6 +35,7 @@ interface ProxySession {
   completionTokens: number;
   isGreetingPending: boolean;
   greetingDispatchedAt: number;
+  isClosingOnIdle?: boolean;
 }
 
 @Injectable()
@@ -427,12 +428,16 @@ export class VoiceProxyGateway {
         const audioOutSecs = session.audioOutputBytes / 48000;
         const promptToks = session.promptTokens + 800; // baseline system instructions
         const compToks = session.completionTokens;
+        const activeModelName =
+          this.configService.get<string>('GEMINI_MODEL')?.replace('models/', '') ||
+          'gemini-2.0-flash';
+
         this.usageTrackingService
           .recordUsage({
             businessId,
             sessionId,
             channelType: UsageChannelType.VOICE_STREAM,
-            model: 'gemini-2.0-flash',
+            model: activeModelName,
             promptTokens: promptToks,
             completionTokens: compToks,
             audioInputSeconds: audioInSecs,
