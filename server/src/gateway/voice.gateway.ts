@@ -8,11 +8,13 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { GeminiVoiceService } from '../ai-voice/gemini-voice.service';
+import { SessionTimerService, DEFAULT_SESSION_DURATION_SECONDS } from './session-timer.service';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -31,11 +33,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       closeSession: () => void;
     }
   >();
+  private readonly closingOnIdleSessions = new Set<string>();
 
   constructor(
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
+    private readonly sessionTimerService: SessionTimerService,
+    private readonly configService: ConfigService,
   ) { }
 
   handleConnection(client: Socket) {
@@ -44,11 +49,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     this.logger.log(`[VoiceGateway] Client disconnected: ${client.id}`);
+    this.closingOnIdleSessions.delete(client.id);
     const session = this.activeVoiceSessions.get(client.id);
     if (session) {
       session.closeSession();
       this.activeVoiceSessions.delete(client.id);
     }
+    // Always clear the session timer on disconnect
+    this.sessionTimerService.clearTimer(client.id);
   }
 
   @SubscribeMessage('start-voice-session')
@@ -167,6 +175,41 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             message: result?.message,
           });
         },
+        /**
+         * onInputTranscript — fires when Gemini transcribes what the user ACTUALLY SAID.
+         * This is the correct idle-reset signal: real speech, not background noise.
+         * Raw audio-chunk events are NOT used for idle detection (noise would reset the clock).
+         */
+        onInputTranscript: (_text: string, isFinal: boolean) => {
+          if (isFinal) {
+            // User finished a spoken turn — reset idle clock
+            this.sessionTimerService.markActivity(client.id);
+          }
+        },
+        /**
+         * onTurnComplete — fires when ORA finishes speaking its response.
+         * Idle countdown starts AFTER ORA's turn, not while it's mid-response.
+         * This prevents false idle timeouts during long ORA replies.
+         */
+        onTurnComplete: () => {
+          this.sessionTimerService.markAgentTurnComplete(client.id);
+          if (this.closingOnIdleSessions.has(client.id)) {
+            this.closingOnIdleSessions.delete(client.id);
+            this.logger.log(`[VoiceGateway] Goodbye turn completed for client ${client.id}. Emitting voice-session-ended.`);
+            client.emit('voice-session-ended', {
+              sessionId,
+              reason: 'idle_timeout',
+              message: 'Session closed due to inactivity. Start a new session anytime!',
+            });
+            setTimeout(() => {
+              const s = this.activeVoiceSessions.get(client.id);
+              if (s) {
+                s.closeSession();
+                this.activeVoiceSessions.delete(client.id);
+              }
+            }, 4000);
+          }
+        },
         onError: (err) => {
           client.emit('voice-error', { message: err.message || 'Gemini error' });
         },
@@ -178,11 +221,105 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       this.activeVoiceSessions.set(client.id, voiceSession);
 
+      // Resolve per-merchant session duration limit (or fall back to platform default)
+      const defaultDuration =
+        this.configService.get<number>('DEFAULT_SESSION_DURATION_SECONDS') ??
+        DEFAULT_SESSION_DURATION_SECONDS;
+      const sessionDurationSeconds: number =
+        typeof business.maxSessionDurationSeconds === 'number' && business.maxSessionDurationSeconds > 0
+          ? business.maxSessionDurationSeconds
+          : defaultDuration;
+
       client.emit('voice-session-started', {
         success: true,
         sessionId,
         businessId,
+        sessionDurationSeconds,
       });
+
+      // Start session duration timer
+      this.sessionTimerService.startTimer(
+        client.id,
+        sessionId,
+        businessId,
+        sessionDurationSeconds,
+        // onMaxWarning — fires at T-60s of hard session limit
+        (remainingSeconds) => {
+          client.emit('voice-session-warning', {
+            sessionId,
+            remainingSeconds,
+            message: `Your session will end in ${remainingSeconds} seconds.`,
+          });
+        },
+        // onMaxExpiry — fires at hard session limit (max duration)
+        () => {
+          const activeSession = this.activeVoiceSessions.get(client.id);
+          if (activeSession) {
+            activeSession.closeSession();
+            this.activeVoiceSessions.delete(client.id);
+          }
+          client.emit('voice-session-ended', {
+            sessionId,
+            reason: 'session_time_limit',
+            message: 'Session ended: maximum session duration reached.',
+          });
+        },
+        // onIdleWarning — fires after 15s of user silence
+        () => {
+          client.emit('voice-idle-warning', {
+            sessionId,
+            message: 'Are you still there? Your session will close in 20 seconds due to inactivity.',
+            secondsUntilClose: 20,
+          });
+          // Also prompt ORA to speak the warning aloud so the user hears it
+          const activeSession = this.activeVoiceSessions.get(client.id);
+          if (activeSession) {
+            try {
+              activeSession.sendTextMessage(
+                '[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for 15 seconds. ' +
+                'Ask them warmly and briefly if they are still there in ONE short sentence. Speak aloud now.',
+              );
+            } catch { /* non-critical */ }
+          }
+        },
+        // onIdleExpiry — fires 20s after the idle warning if user is still silent
+        () => {
+          const activeSession = this.activeVoiceSessions.get(client.id);
+          if (activeSession) {
+            this.closingOnIdleSessions.add(client.id);
+            this.logger.log(`[VoiceGateway] Idle expiry triggered for client ${client.id}. Requesting spoken goodbye.`);
+            try {
+              activeSession.sendTextMessage(
+                '[SYSTEM_TRIGGER: IDLE_CLOSE] The user did not respond. ' +
+                'Say a brief, warm goodbye in ONE short sentence and let them know they can start a new session anytime. Speak aloud now.',
+              );
+            } catch { /* non-critical */ }
+
+            // Fallback safety timeout
+            setTimeout(() => {
+              if (this.closingOnIdleSessions.has(client.id)) {
+                this.closingOnIdleSessions.delete(client.id);
+                const s = this.activeVoiceSessions.get(client.id);
+                if (s) {
+                  s.closeSession();
+                  this.activeVoiceSessions.delete(client.id);
+                }
+                client.emit('voice-session-ended', {
+                  sessionId,
+                  reason: 'idle_timeout',
+                  message: 'Session closed due to inactivity. Start a new session anytime!',
+                });
+              }
+            }, 15000);
+          } else {
+            client.emit('voice-session-ended', {
+              sessionId,
+              reason: 'idle_timeout',
+              message: 'Session closed due to inactivity. Start a new session anytime!',
+            });
+          }
+        },
+      );
 
       // Dispatch proactive initial greeting
       try {
@@ -208,6 +345,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const session = this.activeVoiceSessions.get(client.id);
     if (session && payload.audio) {
       session.sendAudioChunk(payload.audio);
+      // NOTE: markActivity() is intentionally NOT called here.
+      // Raw audio chunks carry background noise and would reset the idle clock
+      // even when the user is silent. Activity is only marked via Gemini's
+      // onInputTranscript (user finished speaking) and onTurnComplete (ORA
+      // finished responding) — both are semantic speech events, not raw audio.
     }
   }
 
@@ -219,6 +361,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.activeVoiceSessions.delete(client.id);
       client.emit('voice-session-ended', { success: true });
     }
+    // Clear timer on explicit stop
+    this.sessionTimerService.clearTimer(client.id);
   }
 
   private async recordOriginTelemetry(

@@ -8,14 +8,17 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { ConversationsService } from '../conversations/conversations.service';
 import { MessageRole } from '../conversations/schemas/message.schema';
+import { ConversationStatus } from '../conversations/schemas/conversation.schema';
 import { AiToolsExecutor } from '../ai-voice/tools/ai-tools.executor';
 import { RedisService } from '../common/redis/redis.service';
+import { SessionTimerService, DEFAULT_SESSION_DURATION_SECONDS } from './session-timer.service';
 
 /**
  * Fix 2 — Verification Parity:
@@ -45,6 +48,8 @@ export class ConversationGateway
     private readonly conversationsService: ConversationsService,
     private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly redisService: RedisService,
+    private readonly sessionTimerService: SessionTimerService,
+    private readonly configService: ConfigService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -53,6 +58,8 @@ export class ConversationGateway
 
   handleDisconnect(client: Socket) {
     this.logger.log(`[WebSocket] Client disconnected: ${client.id}`);
+    // Always clear the session timer on disconnect
+    this.sessionTimerService.clearTimer(client.id);
   }
 
   @SubscribeMessage('init-session')
@@ -86,12 +93,80 @@ export class ConversationGateway
       conversationId: conversation._id.toString(),
     };
 
+    // Resolve per-merchant session duration limit (or fall back to platform default)
+    const defaultDuration =
+      this.configService.get<number>('DEFAULT_SESSION_DURATION_SECONDS') ??
+      DEFAULT_SESSION_DURATION_SECONDS;
+    const sessionDurationSeconds: number =
+      typeof business.maxSessionDurationSeconds === 'number' && business.maxSessionDurationSeconds > 0
+        ? business.maxSessionDurationSeconds
+        : defaultDuration;
+
     client.emit('session-initialized', {
       success: true,
       sessionId,
       businessId: business._id.toString(),
       status: conversation.status,
+      sessionDurationSeconds,
     });
+
+    // Start session duration timer
+    this.sessionTimerService.startTimer(
+      client.id,
+      sessionId,
+      business._id.toString(),
+      sessionDurationSeconds,
+      // onMaxWarning — fires at T-60s of hard session limit
+      (remainingSeconds) => {
+        client.emit('session-warning', {
+          sessionId,
+          remainingSeconds,
+          message: `Your session will end in ${remainingSeconds} seconds.`,
+        });
+      },
+      // onMaxExpiry — fires at hard session limit (max duration)
+      async () => {
+        try {
+          await this.conversationsService.updateStatus(
+            business._id.toString(),
+            conversation._id.toString(),
+            ConversationStatus.CLOSED,
+          );
+        } catch (err: any) {
+          this.logger.warn(`[ConversationGateway] Failed to close conversation on max expiry: ${err?.message}`);
+        }
+        client.emit('session-ended', {
+          sessionId,
+          reason: 'session_time_limit',
+          message: 'Session ended: maximum session duration reached.',
+        });
+      },
+      // onIdleWarning — fires after 15s of user silence
+      () => {
+        client.emit('session-idle-warning', {
+          sessionId,
+          message: 'Are you still there? Your session will close in 10 seconds due to inactivity.',
+          secondsUntilClose: 10,
+        });
+      },
+      // onIdleExpiry — fires 10s after the idle warning if user is still silent
+      async () => {
+        try {
+          await this.conversationsService.updateStatus(
+            business._id.toString(),
+            conversation._id.toString(),
+            ConversationStatus.CLOSED,
+          );
+        } catch (err: any) {
+          this.logger.warn(`[ConversationGateway] Failed to close conversation on idle: ${err?.message}`);
+        }
+        client.emit('session-ended', {
+          sessionId,
+          reason: 'idle_timeout',
+          message: 'Session closed due to inactivity. Feel free to start a new chat anytime!',
+        });
+      },
+    );
   }
 
   @SubscribeMessage('send-message')
@@ -118,7 +193,10 @@ export class ConversationGateway
       sessionId,
     );
 
-    // 1. Save incoming user message
+    // 1. Mark user activity for idle detection (pure timestamp write, no timer restart)
+    this.sessionTimerService.markActivity(client.id);
+
+    // 2. Save incoming user message
     await this.conversationsService.appendMessage(
       conversation._id.toString(),
       MessageRole.USER,

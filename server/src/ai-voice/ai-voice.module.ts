@@ -22,6 +22,8 @@ import { CustomersModule } from '../customers/customers.module';
 import { BillingModule } from '../billing/billing.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 
+import { SessionTimerService } from '../gateway/session-timer.service';
+
 @Module({
   imports: [
     ConfigModule,
@@ -58,8 +60,9 @@ import { ConversationsModule } from '../conversations/conversations.module';
     AiToolsExecutor,
     VoiceProxyGateway,
     BootstrapRateLimitGuard,
+    SessionTimerService,
   ],
-  exports: [GeminiVoiceService, AiToolsExecutor, VoiceProxyGateway],
+  exports: [GeminiVoiceService, AiToolsExecutor, VoiceProxyGateway, SessionTimerService],
 })
 export class AiVoiceModule {}
 

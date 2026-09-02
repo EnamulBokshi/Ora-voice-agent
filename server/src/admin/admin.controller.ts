@@ -20,6 +20,7 @@ import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
+import { UpdateSessionLimitDto } from './dto/update-session-limit.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -141,6 +142,18 @@ export class AdminController {
     @Body('budgetCapUsd') budgetCapUsd: number | null,
   ) {
     return this.adminService.updateMerchantBudgetCap(id, budgetCapUsd);
+  }
+
+  /**
+   * Sets or clears the maximum per-customer session duration for a merchant.
+   * Pass `sessionDurationSeconds: null` to revert to the platform default (300s).
+   */
+  @Patch('businesses/:id/session-limit')
+  async updateMerchantSessionLimit(
+    @Param('id') id: string,
+    @Body() dto: UpdateSessionLimitDto,
+  ) {
+    return this.adminService.setMerchantSessionLimit(id, dto.sessionDurationSeconds);
   }
 }
 

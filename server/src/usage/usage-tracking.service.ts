@@ -269,7 +269,7 @@ export class UsageTrackingService {
     // Fetch all active businesses
     const businesses = await this.businessModel
       .find({})
-      .select('_id name domain status connectedPlatform monthlyAiBudgetUsd createdAt')
+      .select('_id name domain status connectedPlatform monthlyAiBudgetUsd maxSessionDurationSeconds createdAt')
       .lean()
       .exec();
 
@@ -361,6 +361,7 @@ export class UsageTrackingService {
         grossMarginPercent,
         budgetCapUsd: budgetCap,
         budgetStatus,
+        maxSessionDurationSeconds: (biz as any).maxSessionDurationSeconds ?? null,
       };
     });
   }

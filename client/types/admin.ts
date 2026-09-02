@@ -395,6 +395,8 @@ export interface MerchantCostItem {
   grossMarginPercent: number;
   budgetCapUsd: number | null;
   budgetStatus: 'normal' | 'warning' | 'exceeded';
+  /** Maximum per-customer session duration in seconds. Null = platform default (300s). */
+  maxSessionDurationSeconds: number | null;
 }
 
 

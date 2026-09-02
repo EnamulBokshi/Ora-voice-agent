@@ -17,6 +17,7 @@ import { MessageRole } from '../conversations/schemas/message.schema';
 import { CustomersService } from '../customers/customers.service';
 import { UsageTrackingService } from '../usage/usage-tracking.service';
 import { UsageChannelType } from '../usage/schemas/token-usage-record.schema';
+import { SessionTimerService, DEFAULT_SESSION_DURATION_SECONDS } from '../gateway/session-timer.service';
 
 interface ProxySession {
   clientWs: WebSocket;
@@ -32,13 +33,14 @@ interface ProxySession {
   audioOutputBytes: number;
   promptTokens: number;
   completionTokens: number;
+  isClosingOnIdle?: boolean;
 }
 
 @Injectable()
 export class VoiceProxyGateway {
   private readonly logger = new Logger(VoiceProxyGateway.name);
   private readonly sessions = new Map<string, ProxySession>();
-  private readonly businessCache = new Map<string, { businessId: string; name: string; expiresAt: number }>();
+  private readonly businessCache = new Map<string, { businessId: string; name: string; maxSessionDurationSeconds?: number | null; expiresAt: number }>();
   private readonly userCache = new Map<string, { user: { id: string; name: string; email: string; role: string; businessId?: string }; expiresAt: number }>();
   private wss: WebSocketServer | null = null;
 
@@ -53,6 +55,7 @@ export class VoiceProxyGateway {
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
     private readonly conversationsService: ConversationsService,
+    private readonly sessionTimerService: SessionTimerService,
     private readonly usageTrackingService?: UsageTrackingService,
   ) { }
 
@@ -204,11 +207,13 @@ export class VoiceProxyGateway {
     // ── Resolve Host Business from Publishable Key (Single Source of Truth) ───
     let businessId: string | null = null;
     let businessName: string = '';
+    let bizMaxSessionDurationSeconds: number | null = null;
 
     const cachedBiz = this.businessCache.get(publishableKey);
     if (cachedBiz && cachedBiz.expiresAt > Date.now()) {
       businessId = cachedBiz.businessId;
       businessName = cachedBiz.name;
+      bizMaxSessionDurationSeconds = cachedBiz.maxSessionDurationSeconds ?? null;
     } else {
       let business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
@@ -224,9 +229,11 @@ export class VoiceProxyGateway {
         const id = (business._id as any).toString();
         businessId = id;
         businessName = business.name;
+        bizMaxSessionDurationSeconds = (business as any).maxSessionDurationSeconds ?? null;
         this.businessCache.set(publishableKey, {
           businessId: id,
           name: businessName,
+          maxSessionDurationSeconds: bizMaxSessionDurationSeconds,
           expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
         });
       }
@@ -434,6 +441,7 @@ export class VoiceProxyGateway {
       }
 
       this.sessions.delete(sessionId);
+      this.sessionTimerService.clearTimer(sessionId);
       try {
         session.sessionControls?.closeSession();
       } catch { }
@@ -481,6 +489,23 @@ export class VoiceProxyGateway {
           sendToClient({ type: 'turn_complete' });
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
+          this.sessionTimerService.markAgentTurnComplete(sessionId);
+
+          if (session.isClosingOnIdle) {
+            this.logger.log(`[VoiceProxyGateway] Goodbye speech turn complete for session ${sessionId}. Scheduling clean termination.`);
+            sendToClient({
+              type: 'session_ended',
+              reason: 'idle_timeout',
+              message: 'Session closed due to inactivity. Start a new session anytime!',
+            });
+            // Allow 4 seconds for the client's browser WebAudio queue to finish speaking all audio packets before closing socket
+            setTimeout(() => {
+              cleanup();
+              if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.close(1000, 'Idle timeout completed');
+              }
+            }, 4000);
+          }
         },
 
         // Server-side user input transcription — Gemini’s own STT of the user’s microphone audio.
@@ -491,6 +516,7 @@ export class VoiceProxyGateway {
           session.bufferedUserText = (session.bufferedUserText ? session.bufferedUserText + ' ' : '') + text.trim();
           if (isFinal) {
             flushBufferedUserText();
+            this.sessionTimerService.markActivity(sessionId);
           }
         },
 
@@ -561,10 +587,20 @@ export class VoiceProxyGateway {
     session.sessionControls = sessionControls;
     this.sessions.set(sessionId, session);
 
+    // Resolve per-merchant session duration limit (or fall back to platform default)
+    const defaultDuration =
+      this.configService.get<number>('DEFAULT_SESSION_DURATION_SECONDS') ??
+      DEFAULT_SESSION_DURATION_SECONDS;
+    const sessionDurationSeconds: number =
+      typeof bizMaxSessionDurationSeconds === 'number' && bizMaxSessionDurationSeconds > 0
+        ? bizMaxSessionDurationSeconds
+        : defaultDuration;
+
     // ── Notify client that session is ready ───────────────────────────────────
     sendToClient({
       type: 'setup_complete',
       user: authenticatedUser || null,
+      sessionDurationSeconds,
       customer: {
         id: activeCustomer.id,
         isAnonymous: isUserAnon,
@@ -572,30 +608,86 @@ export class VoiceProxyGateway {
       },
     });
     this.logger.log(
-      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}). Active sessions: ${this.sessions.size}`,
+      `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}, Duration: ${sessionDurationSeconds}s). Active sessions: ${this.sessions.size}`,
     );
 
-    // ── Check if session has already been greeted ─────────────────────────────
-    let hasAlreadyBeenGreeted = false;
-    try {
-      const redis = this.redisService.getClient();
-      const greetedKey = `session:${sessionId}:greeted`;
-      const alreadyGreeted = await redis.get(greetedKey);
-      if (alreadyGreeted) {
-        hasAlreadyBeenGreeted = true;
-      }
-    } catch {}
+    // ── Start Session Timers (Max Duration + Idle 15s warning / 10s terminate) ──
+    this.sessionTimerService.startTimer(
+      sessionId,
+      sessionId,
+      businessId,
+      sessionDurationSeconds,
+      // onMaxWarning: 60s before hard limit
+      (remainingSeconds) => {
+        sendToClient({
+          type: 'session_warning',
+          remainingSeconds,
+          message: `Your session will end in ${remainingSeconds} seconds.`,
+        });
+      },
+      // onMaxExpiry: hard limit reached
+      () => {
+        sendToClient({
+          type: 'session_ended',
+          reason: 'session_time_limit',
+          message: 'Session ended: maximum session duration reached.',
+        });
+        cleanup();
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.close(1000, 'Session time limit reached');
+        }
+      },
+      // onIdleWarning: 15s of silence
+      () => {
+        sendToClient({
+          type: 'idle_warning',
+          message: 'Are you still there? Your session will close in 20 seconds due to inactivity.',
+          secondsUntilClose: 20,
+        });
+        try {
+          sessionControls.sendTextMessage(
+            '[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for 15 seconds. Ask them warmly and briefly if they are still there in ONE short sentence. Speak aloud now.',
+          );
+        } catch {}
+      },
+      // onIdleExpiry: 20s after idle warning if still silent
+      () => {
+        session.isClosingOnIdle = true;
+        this.logger.log(`[VoiceProxyGateway] Idle expiry triggered for session ${sessionId}. Requesting spoken goodbye.`);
+        try {
+          sessionControls.sendTextMessage(
+            '[SYSTEM_TRIGGER: IDLE_CLOSE] The user did not respond. Say a brief, warm goodbye in ONE short sentence and let them know they can start a new session anytime. Speak aloud now.',
+          );
+        } catch {}
+
+        // Fallback safety timer: if Gemini never responds or onTurnComplete does not fire within 15s, force close
+        setTimeout(() => {
+          if (!session.closed) {
+            this.logger.warn(`[VoiceProxyGateway] Fallback idle timeout close for session ${sessionId}`);
+            sendToClient({
+              type: 'session_ended',
+              reason: 'idle_timeout',
+              message: 'Session closed due to inactivity. Start a new session anytime!',
+            });
+            cleanup();
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.close(1000, 'Idle timeout fallback');
+            }
+          }
+        }, 15000);
+      },
+    );
 
     const skipGreetingParam = parsedUrl.query.skipGreeting === 'true';
 
-    // ── Dispatch Proactive Initial Greeting ONLY ONCE per session ─────────────
-    if (!hasAlreadyBeenGreeted && !skipGreetingParam) {
+    // ── Dispatch Proactive Initial Greeting on Voice Connection ─────────────
+    if (!skipGreetingParam) {
       try {
         let greetingTrigger = '';
         if (authenticatedUser) {
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them by name in ONE short sentence (under 10 words, e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you?").`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them by name in ONE warm, concise sentence (maximum 10-12 words, e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you today?"). Speak aloud now.`;
         } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them in ONE short sentence (under 10 words, e.g. "Hi ${resolvedName}! How can I help you today?").`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them in ONE warm, concise sentence (maximum 10-12 words, e.g. "Hi ${resolvedName}! How can I help you today?"). Speak aloud now.`;
         } else {
           const isPricing = currentPathParam === '/pricing';
           const isDocs = currentPathParam.startsWith('/docs');
@@ -607,28 +699,18 @@ export class VoiceProxyGateway {
             : isDashboard
             ? ' in dashboard'
             : '';
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] New visitor connected${pageContextNote}. Speak first in ONE short, friendly sentence (maximum 10-12 words, e.g. "Hi there! I'm ORA. How can I help you today?"). Do not give long speeches.`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] New visitor connected${pageContextNote}. Speak first in ONE short, friendly sentence (maximum 10-12 words, e.g. "Hi there! I'm ORA. How can I help you today?"). Do not give long speeches. Speak aloud now.`;
         }
 
         this.logger.log(
           `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger for session ${sessionId}`,
         );
         sessionControls.sendTextMessage(greetingTrigger);
-
-        // Mark as greeted in Redis
-        try {
-          const redis = this.redisService.getClient();
-          await redis.set(`session:${sessionId}:greeted`, '1', 'EX', 86400);
-        } catch {}
       } catch (greetErr: any) {
         this.logger.warn(
           `[VoiceProxyGateway] Greeting trigger notice for session ${sessionId}: ${greetErr.message}`,
         );
       }
-    } else {
-      this.logger.log(
-        `[VoiceProxyGateway] 🔇 Skipping initial greeting for resumed/previously greeted session ${sessionId}`,
-      );
     }
 
     // ── Route incoming messages from client → Google ──────────────────────────
@@ -790,9 +872,11 @@ export class VoiceProxyGateway {
         if (msg.type === 'audio' && msg.data) {
           session.audioInputBytes += Math.round((msg.data as string).length * 0.75);
           sessionControls.sendAudioChunk(msg.data as string);
+          // Note: markActivity() is intentionally NOT called on raw audio chunks to prevent noise false-resets
         } else if (msg.type === 'text' && msg.text) {
           const userText = (msg.text as string).trim();
           session.promptTokens += Math.ceil(userText.length / 4);
+          this.sessionTimerService.markActivity(sessionId);
           if (userText && session.conversationId) {
             this.conversationsService
               .appendMessage(session.conversationId, MessageRole.USER, userText)

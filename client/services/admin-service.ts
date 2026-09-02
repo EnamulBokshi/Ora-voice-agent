@@ -218,4 +218,27 @@ export async function updateMerchantBudgetCap(
   );
 }
 
+export async function updateMerchantSessionLimit(
+  businessId: string,
+  sessionDurationSeconds: number | null,
+): Promise<{
+  businessId: string;
+  maxSessionDurationSeconds: number | null;
+  effectiveSessionDurationSeconds: number;
+  isUsingDefault: boolean;
+  success: boolean;
+}> {
+  return apiClient<{
+    businessId: string;
+    maxSessionDurationSeconds: number | null;
+    effectiveSessionDurationSeconds: number;
+    isUsingDefault: boolean;
+    success: boolean;
+  }>(`/admin/businesses/${businessId}/session-limit`, {
+    method: 'PATCH',
+    body: JSON.stringify({ sessionDurationSeconds }),
+  });
+}
+
+
 

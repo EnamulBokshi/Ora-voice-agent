@@ -1340,5 +1340,42 @@ export class AdminService implements OnModuleInit {
     }
     return this.usageTrackingService.setMerchantBudgetCap(businessId, budgetCapUsd);
   }
+
+  /**
+   * Sets or clears the per-session duration limit for a specific merchant tenant.
+   * Pass null to revert to the platform-wide default (DEFAULT_SESSION_DURATION_SECONDS).
+   */
+  async setMerchantSessionLimit(
+    businessId: string,
+    sessionDurationSeconds: number | null,
+  ): Promise<any> {
+    const updated = await this.businessModel
+      .findByIdAndUpdate(
+        businessId,
+        { $set: { maxSessionDurationSeconds: sessionDurationSeconds } },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        `Business with ID '${businessId}' not found.`,
+        404,
+      );
+    }
+
+    const DEFAULT_DURATION = parseInt(process.env.DEFAULT_SESSION_DURATION_SECONDS || '300', 10);
+    const effectiveDuration = sessionDurationSeconds ?? DEFAULT_DURATION;
+
+    return {
+      businessId,
+      maxSessionDurationSeconds: updated.maxSessionDurationSeconds ?? null,
+      effectiveSessionDurationSeconds: effectiveDuration,
+      isUsingDefault: sessionDurationSeconds === null,
+      success: true,
+    };
+  }
 }
+
 

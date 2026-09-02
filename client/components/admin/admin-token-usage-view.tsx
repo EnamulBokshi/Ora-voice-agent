@@ -8,6 +8,7 @@ import {
   fetchTokenCostAnalytics,
   fetchMerchantsCost,
   updateMerchantBudgetCap,
+  updateMerchantSessionLimit,
 } from '@/services/admin-service';
 import {
   PlatformTokenAnalyticsResponse,
@@ -30,6 +31,8 @@ import {
   Loader2,
   SlidersHorizontal,
   Eye,
+  Timer,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -96,6 +99,9 @@ export function AdminTokenUsageView() {
   const [inspectedMerchant, setInspectedMerchant] = useState<MerchantCostItem | null>(null);
   const [budgetInput, setBudgetInput] = useState<string>('');
   const [savingBudget, setSavingBudget] = useState(false);
+  // Session Limit State
+  const [sessionInput, setSessionInput] = useState<string>('');
+  const [savingSession, setSavingSession] = useState(false);
 
   const loadData = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -168,6 +174,10 @@ export function AdminTokenUsageView() {
   const handleOpenInspect = (merchant: MerchantCostItem) => {
     setInspectedMerchant(merchant);
     setBudgetInput(merchant.budgetCapUsd ? merchant.budgetCapUsd.toString() : '');
+    // Convert stored seconds to minutes for the input
+    setSessionInput(
+      merchant.maxSessionDurationSeconds ? (merchant.maxSessionDurationSeconds / 60).toString() : ''
+    );
   };
 
   const handleSaveBudget = async () => {
@@ -182,6 +192,30 @@ export function AdminTokenUsageView() {
       console.error('Failed to update budget limit:', err);
     } finally {
       setSavingBudget(false);
+    }
+  };
+
+  const handleSaveSessionLimit = async (resetToDefault = false) => {
+    if (!inspectedMerchant) return;
+    setSavingSession(true);
+    try {
+      let durationSeconds: number | null = null;
+      if (!resetToDefault && sessionInput.trim() !== '') {
+        const minutes = parseFloat(sessionInput);
+        if (!isNaN(minutes) && minutes >= 1 && minutes <= 60) {
+          durationSeconds = Math.round(minutes * 60);
+        }
+      }
+      const result = await updateMerchantSessionLimit(inspectedMerchant.id, durationSeconds);
+      await loadData(true);
+      setInspectedMerchant((prev) =>
+        prev ? { ...prev, maxSessionDurationSeconds: result.maxSessionDurationSeconds } : null
+      );
+      if (resetToDefault) setSessionInput('');
+    } catch (err) {
+      console.error('Failed to update session limit:', err);
+    } finally {
+      setSavingSession(false);
     }
   };
 
@@ -988,6 +1022,62 @@ export function AdminTokenUsageView() {
                   Save Cap
                 </button>
               </div>
+            </div>
+
+            {/* Session Time Limit Card */}
+            <div className="rounded-xl border border-border bg-surface-lowest p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Timer size={14} className="text-primary" />
+                  <span>Session Time Limit</span>
+                </div>
+                {inspectedMerchant.maxSessionDurationSeconds ? (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border bg-primary/10 text-primary border-primary/30">
+                    {Math.round(inspectedMerchant.maxSessionDurationSeconds / 60)}m custom
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground font-medium">Platform default – 5 min</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    id="session-limit-input"
+                    type="number"
+                    min={1}
+                    max={60}
+                    step={1}
+                    placeholder="Duration in minutes (1–60)"
+                    value={sessionInput}
+                    onChange={(e) => setSessionInput(e.target.value)}
+                    className="w-full pr-10 pl-3 py-1.5 rounded-lg border border-border bg-surface-container text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary tabular-nums"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium">min</span>
+                </div>
+                <button
+                  onClick={() => handleSaveSessionLimit(false)}
+                  disabled={savingSession || sessionInput.trim() === ''}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs whitespace-nowrap"
+                >
+                  {savingSession && <Loader2 size={13} className="animate-spin" />}
+                  Set Limit
+                </button>
+                {inspectedMerchant.maxSessionDurationSeconds && (
+                  <button
+                    onClick={() => handleSaveSessionLimit(true)}
+                    disabled={savingSession}
+                    title="Reset to platform default (5 min)"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground bg-surface-high hover:bg-surface-bright hover:text-foreground transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <RotateCcw size={12} />
+                    Reset
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Customer voice &amp; chat sessions auto-close after this duration. Leave at platform default (5 min) unless this merchant needs a custom limit.
+              </p>
             </div>
 
             {/* Modal Footer */}

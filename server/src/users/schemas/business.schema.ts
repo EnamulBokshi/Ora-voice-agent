@@ -108,6 +108,14 @@ export class Business {
    */
   @Prop({ type: Number, default: null })
   monthlyAiBudgetUsd?: number | null;
+
+  /**
+   * Maximum allowed voice/chat session duration in seconds per customer session.
+   * Null means use the platform-wide default (DEFAULT_SESSION_DURATION_SECONDS env var, defaults to 300s).
+   * Set by SuperAdmin on a per-merchant basis. Range: 60–3600 seconds.
+   */
+  @Prop({ type: Number, default: null })
+  maxSessionDurationSeconds?: number | null;
 }
 
 export const BusinessSchema = SchemaFactory.createForClass(Business);

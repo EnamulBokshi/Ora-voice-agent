@@ -269,6 +269,45 @@ export class GeminiLiveClient {
               }
               break;
 
+            case 'idle_warning':
+              this.recordActivity();
+              onTranscript?.('system', message.message || '⚠️ Inactivity warning: session will close in 10s.');
+              break;
+
+            case 'session_warning':
+              this.recordActivity();
+              onTranscript?.('system', message.message || `⚠️ Session ending in ${message.remainingSeconds}s.`);
+              break;
+
+            case 'session_ended':
+              onTranscript?.('system', message.message || 'Session ended.');
+              // Mute mic immediately so user audio is no longer sent
+              this.setMuted(true);
+              if (this.micStream) {
+                try {
+                  this.micStream.getTracks().forEach((track) => track.stop());
+                } catch {}
+                this.micStream = null;
+              }
+
+              // Check if goodbye audio is still playing in WebAudio
+              const remainingPlaybackMs =
+                this.outputAudioCtx && this.outputAudioCtx.currentTime < this.nextPlayTime
+                  ? Math.max(0, (this.nextPlayTime - this.outputAudioCtx.currentTime) * 1000 + 300)
+                  : 0;
+
+              if (remainingPlaybackMs > 50) {
+                // Let the full goodbye speech finish playing out loud through the speakers
+                setTimeout(() => {
+                  this.stop();
+                  onStatusChange?.('idle');
+                }, remainingPlaybackMs);
+              } else {
+                this.stop();
+                onStatusChange?.('idle');
+              }
+              break;
+
             case 'error':
               onStatusChange?.('error');
               onError?.(message.message || 'Voice session error.');
@@ -297,10 +336,24 @@ export class GeminiLiveClient {
         if (ev.code === 1008) {
           onError?.('Access denied: Invalid publishable key.');
           onStatusChange?.('error');
+          this.stop();
         } else {
-          onStatusChange?.('idle');
+          // Check if goodbye audio is still playing in WebAudio before resetting UI
+          const remainingPlaybackMs =
+            this.outputAudioCtx && this.outputAudioCtx.currentTime < this.nextPlayTime
+              ? Math.max(0, (this.nextPlayTime - this.outputAudioCtx.currentTime) * 1000 + 300)
+              : 0;
+
+          if (remainingPlaybackMs > 50) {
+            setTimeout(() => {
+              onStatusChange?.('idle');
+              this.stop();
+            }, remainingPlaybackMs);
+          } else {
+            onStatusChange?.('idle');
+            this.stop();
+          }
         }
-        this.stop();
       };
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -420,24 +473,6 @@ export class GeminiLiveClient {
           const level = Math.min(100, Math.round((avg / 128) * 100));
           this.currentMicLevel = level;
           this.options.onAudioLevel?.(level);
-
-          if (level > 24 && !this.isAgentSpeaking) {
-            this.userHasSpoken = true;
-            this.silenceStartTime = 0;
-            if (this.setupConfirmed) {
-              onStatusChange?.('listening');
-            }
-          } else if (this.userHasSpoken && level <= 24 && !this.isAgentSpeaking) {
-            if (!this.silenceStartTime) {
-              this.silenceStartTime = Date.now();
-            } else if (Date.now() - this.silenceStartTime > 350) {
-              this.userHasSpoken = false;
-              this.silenceStartTime = 0;
-              if (this.setupConfirmed && !this.isAgentSpeaking) {
-                onStatusChange?.('thinking');
-              }
-            }
-          }
         }
 
         this.animFrameId = requestAnimationFrame(updateVolume);

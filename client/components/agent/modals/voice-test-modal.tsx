@@ -50,7 +50,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
-  const [sessionId] = useState<string>(() => `ses_${Math.random().toString(36).substring(2, 9)}`);
+  const [sessionId, setSessionId] = useState<string>(() => `ses_${Math.random().toString(36).substring(2, 9)}`);
   const [activeTools, setActiveTools] = useState<string[]>([
     'navigate_to_page',
     'find_products',
@@ -160,6 +160,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
         return;
       }
 
+      const freshSessionId = `ses_${Math.random().toString(36).substring(2, 9)}`;
+      setSessionId(freshSessionId);
+
       setStatus('connecting');
       setErrorMessage(null);
       addTranscript('system', 'Connecting to ORA Neural Voice Gateway...');
@@ -169,7 +172,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
 
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
-        sessionId,
+        sessionId: freshSessionId,
         authToken: token || undefined,
         clientContext: {
           currentPath: typeof window !== 'undefined' ? window.location.pathname : '/',
