@@ -214,8 +214,23 @@ export interface AdminUserDetail {
     publishableKey: string;
     status: string;
     connectedPlatform: string;
+    monthlyAiBudgetUsd?: number | null;
+    maxSessionDurationSeconds?: number | null;
     createdAt: string;
   } | null;
+  usage?: {
+    totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    voiceMinutes: number;
+    sessionsCount: number;
+    aiCostUsd: number;
+    grossProfitUsd?: number;
+    grossMarginPercent?: number;
+    budgetCapUsd: number | null;
+    budgetStatus: 'normal' | 'warning' | 'exceeded';
+    maxSessionDurationSeconds: number | null;
+  };
   subscription: {
     planId: string;
     planName: string;

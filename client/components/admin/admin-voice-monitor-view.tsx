@@ -58,43 +58,84 @@ export function AdminVoiceMonitorView() {
     <div className="flex flex-col min-h-full">
       <AdminHeader
         title="Live AI Voice Telemetry & Monitor"
-        description="Cross-merchant voice stream gateway, active conversation turn counters, and latency telemetry."
+        description="Voice stream gateway, active turns, and latency telemetry."
         onRefresh={() => loadData(true)}
         isRefreshing={refreshing}
       />
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 p-4 sm:p-6 space-y-6">
         {/* Voice Gateway Status Header Card */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-primary/30 bg-surface-container p-5 shadow-lg shadow-primary/5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
-              <Radio size={20} className="animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-foreground">ORA Live Voice Gateway</h2>
-                <span className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary border border-primary/40">
-                  ONLINE
-                </span>
+        <div className="rounded-2xl border border-border bg-surface-container p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-high border border-border text-foreground">
+                <Radio size={22} className="animate-pulse text-primary" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Streaming bidirectional PCM16 audio via Native Audio Engine
-              </p>
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-base font-heading font-bold text-foreground">
+                    ORA Live Voice Gateway
+                  </h2>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-primary border border-primary/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
+                    ONLINE
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Streaming bidirectional PCM16 audio via Native Audio Engine
+                </p>
+              </div>
+            </div>
+
+            {/* Model Badge */}
+            <div className="flex items-center gap-2 rounded-xl bg-surface-high border border-border px-3.5 py-2 shrink-0 self-start md:self-auto">
+              <span className="text-[11px] font-medium text-muted-foreground">ACTIVE MODEL:</span>
+              <span className="text-xs font-mono font-bold text-primary">{activeModel}</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs tabular-nums">
-            <div className="rounded-lg bg-surface-high px-3 py-2 border border-border">
-              <span className="text-muted-foreground font-medium">ACTIVE MODEL: </span>
-              <span className="font-bold text-primary">{activeModel}</span>
+          {/* Symmetrical 3-Card Telemetry Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="rounded-xl border border-border bg-surface-high/60 p-3.5 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Active Streams
+                </span>
+                <div className="text-2xl font-serif font-semibold text-primary tabular-nums">
+                  {activeCount}
+                </div>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+                <Radio size={18} className="animate-pulse" />
+              </div>
             </div>
-            <div className="rounded-lg bg-surface-high px-3 py-2 border border-border">
-              <span className="text-muted-foreground font-medium">ACTIVE STREAMS: </span>
-              <span className="font-bold text-primary">{activeCount}</span>
+
+            <div className="rounded-xl border border-border bg-surface-high/60 p-3.5 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Total Recorded
+                </span>
+                <div className="text-2xl font-serif font-semibold text-foreground tabular-nums">
+                  {sessions.length}
+                </div>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-lowest text-muted-foreground border border-border">
+                <Volume2 size={18} />
+              </div>
             </div>
-            <div className="rounded-lg bg-surface-high px-3 py-2 border border-border">
-              <span className="text-muted-foreground font-medium">TOTAL RECORDED: </span>
-              <span className="font-bold text-foreground">{sessions.length}</span>
+
+            <div className="rounded-xl border border-border bg-surface-high/60 p-3.5 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Audio Engine
+                </span>
+                <div className="text-xs font-mono font-bold text-foreground">
+                  PCM16 24kHz
+                </div>
+              </div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-lowest text-primary border border-border">
+                <UserCheck size={18} />
+              </div>
             </div>
           </div>
         </div>

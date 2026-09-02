@@ -873,21 +873,26 @@ export class AdminService implements OnModuleInit {
   }
 
   /**
-   * Retrieves single user drilldown context (identity, store, subscription, metrics, recent conversations).
+   * Retrieves single user drilldown context (identity, store, subscription, metrics, recent conversations, token usage & session limits).
    */
-  async getUserById(userId: string) {
-    const user = await this.adminUserModel.findById(userId).lean();
+  async getUserById(userIdOrBusinessId: string) {
+    let user = await this.adminUserModel.findById(userIdOrBusinessId).lean();
     if (!user) {
+      // Allow lookup by businessId (e.g. navigation from token usage or merchants directory)
+      user = await this.adminUserModel.findOne({ businessId: userIdOrBusinessId } as any).lean();
+    }
+
+    let business = user?.businessId
+      ? await this.businessModel.findById(user.businessId).lean()
+      : await this.businessModel.findById(userIdOrBusinessId).lean();
+
+    if (!user && !business) {
       throw new DomainException('USER_NOT_FOUND', 'User record not found.', HttpStatus.NOT_FOUND);
     }
 
-    const business = user.businessId
-      ? await this.businessModel.findById(user.businessId).lean()
-      : null;
-
     const bId = business ? (business as any)._id : null;
 
-    const [subscription, productsCount, conversationsCount, ordersCount, gmvAgg, recentConversations] = await Promise.all([
+    const [subscription, productsCount, conversationsCount, ordersCount, gmvAgg, recentConversations, merchantsCost] = await Promise.all([
       bId ? this.subscriptionModel.findOne({ businessId: bId as any }).lean() : null,
       bId ? this.productModel.countDocuments({ businessId: bId as any }) : 0,
       bId ? this.conversationModel.countDocuments({ businessId: bId as any }) : 0,
@@ -901,26 +906,29 @@ export class AdminService implements OnModuleInit {
           .find({ businessId: bId as any })
           .populate('customerId', 'name phone email')
           .sort({ updatedAt: -1 })
-          .limit(5)
+          .limit(10)
           .lean()
         : [],
+      this.usageTrackingService ? this.usageTrackingService.getMerchantsCostAnalytics() : Promise.resolve([]),
     ]);
+
+    const bizCost = merchantsCost.find((m: any) => m.id === bId?.toString());
 
     const planId = subscription?.planId?.toLowerCase() || 'free';
     const planName = planId === 'scale' ? 'Scale' : planId === 'growth' ? 'Growth' : 'Free';
     const isSubscriber = ['growth', 'scale'].includes(planId) && ['active', 'trialing'].includes(subscription?.status || 'active');
     const totalGmv = gmvAgg.length > 0 ? Math.round(Number(gmvAgg[0].total) * 100) / 100 : 0;
-    const voiceMinutes = Math.round(conversationsCount * 2.4);
+    const voiceMinutes = bizCost?.voiceMinutes ?? Math.round(conversationsCount * 2.4);
 
     return {
       user: {
-        id: (user as any)._id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        emailVerified: Boolean(user.emailVerified),
-        createdAt: (user as any).createdAt,
-        updatedAt: (user as any).updatedAt,
+        id: user ? (user as any)._id.toString() : (business as any)._id.toString(),
+        name: user?.name || (business as any)?.name || 'Store Merchant',
+        email: user?.email || 'unassigned@ora.ai',
+        role: user?.role || AdminRole.OWNER,
+        emailVerified: Boolean(user?.emailVerified),
+        createdAt: user ? (user as any).createdAt : (business as any).createdAt,
+        updatedAt: user ? (user as any).updatedAt : (business as any).updatedAt,
         business: business
           ? {
             id: (business as any)._id.toString(),
@@ -929,9 +937,22 @@ export class AdminService implements OnModuleInit {
             publishableKey: business.publishableKey,
             status: business.status || 'active',
             connectedPlatform: business.connectedPlatform || 'none',
+            monthlyAiBudgetUsd: (business as any).monthlyAiBudgetUsd ?? null,
+            maxSessionDurationSeconds: (business as any).maxSessionDurationSeconds ?? null,
             createdAt: (business as any).createdAt,
           }
           : null,
+        usage: bizCost || {
+          totalTokens: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          voiceMinutes: 0,
+          sessionsCount: 0,
+          aiCostUsd: 0,
+          budgetCapUsd: (business as any)?.monthlyAiBudgetUsd ?? null,
+          budgetStatus: 'normal',
+          maxSessionDurationSeconds: (business as any)?.maxSessionDurationSeconds ?? null,
+        },
         subscription: {
           planId,
           planName,

@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { AdminHeader } from './admin-header';
 import { PlatformStatCard } from './platform-stat-card';
 import { TablePagination } from '@/components/ui/table-pagination';
 import {
   fetchTokenCostAnalytics,
   fetchMerchantsCost,
-  updateMerchantBudgetCap,
-  updateMerchantSessionLimit,
 } from '@/services/admin-service';
 import {
   PlatformTokenAnalyticsResponse,
@@ -95,14 +94,6 @@ export function AdminTokenUsageView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'cost' | 'tokens' | 'margin' | 'mrr'>('cost');
 
-  // Detailed Merchant Modal State (Inspect & Budget)
-  const [inspectedMerchant, setInspectedMerchant] = useState<MerchantCostItem | null>(null);
-  const [budgetInput, setBudgetInput] = useState<string>('');
-  const [savingBudget, setSavingBudget] = useState(false);
-  // Session Limit State
-  const [sessionInput, setSessionInput] = useState<string>('');
-  const [savingSession, setSavingSession] = useState(false);
-
   const loadData = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
@@ -170,54 +161,6 @@ export function AdminTokenUsageView() {
     const start = (page - 1) * pageSize;
     return filteredMerchants.slice(start, start + pageSize);
   }, [filteredMerchants, page, pageSize]);
-
-  const handleOpenInspect = (merchant: MerchantCostItem) => {
-    setInspectedMerchant(merchant);
-    setBudgetInput(merchant.budgetCapUsd ? merchant.budgetCapUsd.toString() : '');
-    // Convert stored seconds to minutes for the input
-    setSessionInput(
-      merchant.maxSessionDurationSeconds ? (merchant.maxSessionDurationSeconds / 60).toString() : ''
-    );
-  };
-
-  const handleSaveBudget = async () => {
-    if (!inspectedMerchant) return;
-    setSavingBudget(true);
-    try {
-      const capValue = budgetInput.trim() === '' ? null : parseFloat(budgetInput);
-      await updateMerchantBudgetCap(inspectedMerchant.id, isNaN(capValue as number) ? null : capValue);
-      await loadData(true);
-      setInspectedMerchant((prev) => (prev ? { ...prev, budgetCapUsd: isNaN(capValue as number) ? null : capValue } : null));
-    } catch (err) {
-      console.error('Failed to update budget limit:', err);
-    } finally {
-      setSavingBudget(false);
-    }
-  };
-
-  const handleSaveSessionLimit = async (resetToDefault = false) => {
-    if (!inspectedMerchant) return;
-    setSavingSession(true);
-    try {
-      let durationSeconds: number | null = null;
-      if (!resetToDefault && sessionInput.trim() !== '') {
-        const minutes = parseFloat(sessionInput);
-        if (!isNaN(minutes) && minutes >= 1 && minutes <= 60) {
-          durationSeconds = Math.round(minutes * 60);
-        }
-      }
-      const result = await updateMerchantSessionLimit(inspectedMerchant.id, durationSeconds);
-      await loadData(true);
-      setInspectedMerchant((prev) =>
-        prev ? { ...prev, maxSessionDurationSeconds: result.maxSessionDurationSeconds } : null
-      );
-      if (resetToDefault) setSessionInput('');
-    } catch (err) {
-      console.error('Failed to update session limit:', err);
-    } finally {
-      setSavingSession(false);
-    }
-  };
 
   // SVG Chart Geometry Calculations
   const chartWidth = 800;
@@ -327,12 +270,12 @@ export function AdminTokenUsageView() {
     <div className="flex flex-col min-h-full">
       <AdminHeader
         title="AI Token Usage & Cost Management"
-        description="Track AI token usage, voice audio minutes, merchant costs, gross margins, and budget caps."
+        description="Token usage, voice minutes, costs, and budget limits."
         onRefresh={() => loadData(true)}
         isRefreshing={refreshing}
       />
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 p-4 sm:p-6 space-y-6">
         {/* Top Metric Cards (Modular) */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <PlatformStatCard
@@ -386,84 +329,78 @@ export function AdminTokenUsageView() {
         {/* Daily Time-Series & Channel Breakdown Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Chart: Continuous SVG Spline Area Chart */}
-          <div className="lg:col-span-2 rounded-xl border border-border bg-surface-container p-5 flex flex-col justify-between space-y-4">
+          <div className="lg:col-span-2 rounded-xl border border-border bg-surface-container p-4 sm:p-5 flex flex-col justify-between space-y-4 shadow-xs">
             <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <Activity size={16} className="text-primary" />
-                      {chartMeta.title}
-                    </h3>
-                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary border border-primary/20">
-                      {chartMeta.peakLabel}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {chartMeta.subtitle}
-                  </p>
+              {/* Row 1: Title & Peak Badge */}
+              <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
+                <h3 className="text-sm sm:text-base font-heading font-bold text-foreground flex items-center gap-2">
+                  <Activity size={16} className="text-primary shrink-0" />
+                  <span>{chartMeta.title}</span>
+                </h3>
+                <span className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-primary border border-primary/20">
+                  {chartMeta.peakLabel}
+                </span>
+              </div>
+
+              {/* Row 2: Timeframe & Metric Selector Controls */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 pt-3">
+                {/* Timeframe Pills */}
+                <div className="flex items-center gap-0.5 bg-surface-lowest p-1 rounded-lg border border-border shrink-0">
+                  {[
+                    { label: '7D', value: 7 },
+                    { label: '30D', value: 30 },
+                    { label: '90D', value: 90 },
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      onClick={() => setPeriod(item.value)}
+                      className={cn(
+                        'px-2.5 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap',
+                        period === item.value
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Timeframe & Metric Selector Pills */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Timeframe Pills */}
-                  <div className="flex items-center gap-1 bg-surface-lowest p-1 rounded-lg border border-border">
-                    {[
-                      { label: '7D', value: 7 },
-                      { label: '30D', value: 30 },
-                      { label: '90D', value: 90 },
-                    ].map((item) => (
-                      <button
-                        key={item.value}
-                        onClick={() => setPeriod(item.value)}
-                        className={cn(
-                          'px-2 py-0.5 text-xs font-semibold rounded-md transition-colors',
-                          period === item.value
-                            ? 'bg-primary text-primary-foreground shadow-xs'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Metric Pills */}
-                  <div className="flex items-center gap-1 bg-surface-lowest p-1 rounded-lg border border-border">
-                    <button
-                      onClick={() => setActiveMetric('tokens')}
-                      className={cn(
-                        'px-2.5 py-1 text-xs font-semibold rounded-md transition-colors',
-                        activeMetric === 'tokens'
-                          ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      Tokens
-                    </button>
-                    <button
-                      onClick={() => setActiveMetric('cost')}
-                      className={cn(
-                        'px-2.5 py-1 text-xs font-semibold rounded-md transition-colors',
-                        activeMetric === 'cost'
-                          ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      Cost ($)
-                    </button>
-                    <button
-                      onClick={() => setActiveMetric('voice')}
-                      className={cn(
-                        'px-2.5 py-1 text-xs font-semibold rounded-md transition-colors',
-                        activeMetric === 'voice'
-                          ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      Voice Mins
-                    </button>
-                  </div>
+                {/* Metric Pills */}
+                <div className="flex items-center gap-0.5 bg-surface-lowest p-1 rounded-lg border border-border flex-1 sm:flex-initial justify-between sm:justify-start">
+                  <button
+                    onClick={() => setActiveMetric('tokens')}
+                    className={cn(
+                      'flex-1 sm:flex-initial text-center px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap',
+                      activeMetric === 'tokens'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Tokens
+                  </button>
+                  <button
+                    onClick={() => setActiveMetric('cost')}
+                    className={cn(
+                      'flex-1 sm:flex-initial text-center px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap',
+                      activeMetric === 'cost'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Cost ($)
+                  </button>
+                  <button
+                    onClick={() => setActiveMetric('voice')}
+                    className={cn(
+                      'flex-1 sm:flex-initial text-center px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap',
+                      activeMetric === 'voice'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Voice Mins
+                  </button>
                 </div>
               </div>
 
@@ -605,11 +542,11 @@ export function AdminTokenUsageView() {
 
             {/* Timeline X-Axis Labels */}
             <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums pt-2 border-t border-border/60">
-              <span className="font-medium">{formatChartDate(continuousTimeline[0]?.date) || 'Start'}</span>
-              <span className="text-[11px] text-muted-foreground/80 font-semibold uppercase tracking-wider">
+              <span className="font-mono text-[11px] sm:text-xs font-medium">{formatChartDate(continuousTimeline[0]?.date) || 'Start'}</span>
+              <span className="hidden sm:inline-block text-[10px] sm:text-[11px] text-muted-foreground/80 font-mono font-semibold uppercase tracking-wider">
                 {period === 7 ? '7-Day Trajectory' : period === 30 ? '30-Day Trajectory' : '90-Day Trajectory'}
               </span>
-              <span className="font-medium">{formatChartDate(continuousTimeline[continuousTimeline.length - 1]?.date) || 'Today'}</span>
+              <span className="font-mono text-[11px] sm:text-xs font-medium">{formatChartDate(continuousTimeline[continuousTimeline.length - 1]?.date) || 'Today'}</span>
             </div>
           </div>
 
@@ -763,12 +700,16 @@ export function AdminTokenUsageView() {
                   paginatedMerchants.map((m) => (
                     <tr
                       key={m.id}
-                      onClick={() => handleOpenInspect(m)}
-                      className="hover:bg-surface-high/60 transition-colors cursor-pointer"
+                      className="hover:bg-surface-high/60 transition-colors"
                     >
                       {/* Merchant Name & Domain */}
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-foreground hover:text-primary transition-colors">{m.name}</div>
+                        <Link
+                          href={`/admin/users/${m.id}`}
+                          className="font-semibold text-foreground hover:text-primary transition-colors block truncate"
+                        >
+                          {m.name}
+                        </Link>
                         <div className="text-[11px] text-muted-foreground">{m.domain}</div>
                       </td>
 
@@ -821,7 +762,7 @@ export function AdminTokenUsageView() {
                       </td>
 
                       {/* Budget Guard Status */}
-                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 text-center">
                         {m.budgetCapUsd ? (
                           <div className="flex flex-col items-center">
                             <span className={cn(
@@ -840,15 +781,15 @@ export function AdminTokenUsageView() {
                       </td>
 
                       {/* Action */}
-                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleOpenInspect(m)}
+                      <td className="px-4 py-3 text-center">
+                        <Link
+                          href={`/admin/users/${m.id}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-high hover:bg-surface-bright text-[11px] font-medium text-foreground border border-border transition-colors"
-                          title="Inspect telemetry & budget"
+                          title="Inspect user, telemetry & session limits"
                         >
                           <Eye size={12} />
                           Inspect
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   ))
@@ -872,226 +813,6 @@ export function AdminTokenUsageView() {
           />
         </div>
       </div>
-
-      {/* ── Merchant AI Telemetry & Budget Inspection Modal ── */}
-      {inspectedMerchant && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-          onClick={() => {
-            if (!savingBudget) setInspectedMerchant(null);
-          }}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-border bg-surface-container p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-foreground">{inspectedMerchant.name}</h3>
-                  <span className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border',
-                    inspectedMerchant.planId === 'scale'
-                      ? 'bg-primary/10 text-primary border-primary/30'
-                      : inspectedMerchant.planId === 'growth'
-                      ? 'bg-chart-2/10 text-chart-2 border-chart-2/30'
-                      : 'bg-surface-high text-muted-foreground border-border'
-                  )}>
-                    {inspectedMerchant.planName}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{inspectedMerchant.domain}</p>
-              </div>
-
-              <button
-                onClick={() => setInspectedMerchant(null)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-surface-high hover:text-foreground transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* ── Spotlight Hero: Token Consumption ── */}
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total Token Consumption
-                </span>
-                <span className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/30">
-                  {inspectedMerchant.totalTokens > 1_000_000
-                    ? `${(inspectedMerchant.totalTokens / 1_000_000).toFixed(2)}M Tokens`
-                    : inspectedMerchant.totalTokens > 10_000
-                    ? `${(inspectedMerchant.totalTokens / 1000).toFixed(1)}k Tokens`
-                    : 'Active Stream'}
-                </span>
-              </div>
-
-              {/* Large Big Number */}
-              <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold font-serif text-primary tabular-nums">
-                  {inspectedMerchant.totalTokens.toLocaleString()}
-                </div>
-                <span className="text-xs text-muted-foreground font-medium">total tokens</span>
-              </div>
-
-              {/* Symmetrical In / Out Token Split */}
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
-                <div className="rounded-lg border border-border bg-surface-lowest p-2.5 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground font-medium">Input (Prompt)</span>
-                  <span className="font-semibold text-foreground tabular-nums font-serif">
-                    {(inspectedMerchant.promptTokens || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="rounded-lg border border-border bg-surface-lowest p-2.5 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground font-medium">Output (Completion)</span>
-                  <span className="font-semibold text-foreground tabular-nums font-serif">
-                    {(inspectedMerchant.completionTokens || 0).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Symmetrical 2-Column Supporting Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Monthly AI Cost */}
-              <div className="flex flex-col justify-between rounded-xl border border-border bg-surface-lowest p-3.5 space-y-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Monthly AI Cost
-                </span>
-                <div className="text-xl font-bold font-serif text-primary tabular-nums">
-                  ${inspectedMerchant.aiCostUsd.toFixed(3)}
-                </div>
-                <div className="text-[10px] text-muted-foreground tabular-nums">
-                  ≈ ৳{(inspectedMerchant.aiCostUsd * 122).toFixed(1)} BDT
-                </div>
-              </div>
-
-              {/* Voice Streaming Compute */}
-              <div className="flex flex-col justify-between rounded-xl border border-border bg-surface-lowest p-3.5 space-y-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Voice Streaming
-                </span>
-                <div className="text-xl font-bold font-serif text-foreground tabular-nums">
-                  {inspectedMerchant.voiceMinutes}m
-                </div>
-                <div className="text-[10px] text-muted-foreground tabular-nums">
-                  {inspectedMerchant.sessionsCount || 0} {inspectedMerchant.sessionsCount === 1 ? 'session' : 'sessions'}
-                </div>
-              </div>
-            </div>
-
-            {/* Symmetrical Clean Budget Guard */}
-            <div className="rounded-xl border border-border bg-surface-lowest p-3.5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <ShieldAlert size={14} className="text-primary" />
-                  <span>Monthly Spend Limit</span>
-                </div>
-                {inspectedMerchant.budgetCapUsd ? (
-                  <span className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border',
-                    inspectedMerchant.budgetStatus === 'exceeded'
-                      ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                      : 'bg-primary/10 text-primary border-primary/30'
-                  )}>
-                    Cap: ${inspectedMerchant.budgetCapUsd}
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground font-medium">Unlimited</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    placeholder="Set spend cap (leave blank for unlimited)"
-                    value={budgetInput}
-                    onChange={(e) => setBudgetInput(e.target.value)}
-                    className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-border bg-surface-container text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary tabular-nums"
-                  />
-                </div>
-                <button
-                  onClick={handleSaveBudget}
-                  disabled={savingBudget}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs whitespace-nowrap"
-                >
-                  {savingBudget && <Loader2 size={13} className="animate-spin" />}
-                  Save Cap
-                </button>
-              </div>
-            </div>
-
-            {/* Session Time Limit Card */}
-            <div className="rounded-xl border border-border bg-surface-lowest p-3.5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Timer size={14} className="text-primary" />
-                  <span>Session Time Limit</span>
-                </div>
-                {inspectedMerchant.maxSessionDurationSeconds ? (
-                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border bg-primary/10 text-primary border-primary/30">
-                    {Math.round(inspectedMerchant.maxSessionDurationSeconds / 60)}m custom
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground font-medium">Platform default – 5 min</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <input
-                    id="session-limit-input"
-                    type="number"
-                    min={1}
-                    max={60}
-                    step={1}
-                    placeholder="Duration in minutes (1–60)"
-                    value={sessionInput}
-                    onChange={(e) => setSessionInput(e.target.value)}
-                    className="w-full pr-10 pl-3 py-1.5 rounded-lg border border-border bg-surface-container text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary tabular-nums"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium">min</span>
-                </div>
-                <button
-                  onClick={() => handleSaveSessionLimit(false)}
-                  disabled={savingSession || sessionInput.trim() === ''}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs whitespace-nowrap"
-                >
-                  {savingSession && <Loader2 size={13} className="animate-spin" />}
-                  Set Limit
-                </button>
-                {inspectedMerchant.maxSessionDurationSeconds && (
-                  <button
-                    onClick={() => handleSaveSessionLimit(true)}
-                    disabled={savingSession}
-                    title="Reset to platform default (5 min)"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground bg-surface-high hover:bg-surface-bright hover:text-foreground transition-colors disabled:opacity-50 whitespace-nowrap"
-                  >
-                    <RotateCcw size={12} />
-                    Reset
-                  </button>
-                )}
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Customer voice &amp; chat sessions auto-close after this duration. Leave at platform default (5 min) unless this merchant needs a custom limit.
-              </p>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end pt-1">
-              <button
-                onClick={() => setInspectedMerchant(null)}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-foreground bg-surface-high hover:bg-surface-bright transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

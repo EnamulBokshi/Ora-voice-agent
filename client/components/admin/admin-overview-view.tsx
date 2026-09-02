@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { AdminHeader } from './admin-header';
 import { PlatformStatCard } from './platform-stat-card';
+import { MetricDisplay } from '@/components/ui/metric-display';
 import { fetchPlatformStats, fetchVoiceSessions } from '@/services/admin-service';
 import { PlatformStatsData, VoiceSessionItem } from '@/types/admin';
 import { cn } from '@/lib/utils';
@@ -111,12 +112,12 @@ export function AdminOverviewView() {
     <div className="flex flex-col min-h-full">
       <AdminHeader
         title="Platform Command Overview"
-        description="Global system telemetry, multi-tenant merchant directory, revenue metrics, and AI voice streams."
+        description="Platform telemetry, merchants, revenue, and live AI streams."
         onRefresh={() => loadData(true)}
         isRefreshing={refreshing}
       />
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 p-4 sm:p-6 space-y-6">
         {error && (
           <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs text-destructive">
             <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -223,35 +224,35 @@ export function AdminOverviewView() {
           <div className="lg:col-span-2 rounded-xl border border-border bg-surface-container p-5 flex flex-col justify-between space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
               <div>
-                <h3 className="text-sm font-bold text-foreground">Platform Activity Trajectory</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Daily aggregated performance telemetry across all merchant stores
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Activity size={15} className="text-primary" />
+                  <span>Platform Activity Trajectory</span>
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Daily performance telemetry across all merchant stores
                 </p>
               </div>
 
-              {/* Metric Selector Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-                {(
-                  [
-                    { id: 'voiceMinutes', label: 'Voice Mins' },
-                    { id: 'conversations', label: 'Conversations' },
-                    { id: 'newStores', label: 'New Stores' },
-                    { id: 'gmv', label: 'GMV ($)' },
-                  ] as const
-                ).map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setActiveMetric(m.id)}
-                    className={cn(
-                      'px-2 py-1 text-[11px] font-semibold rounded-md transition-all whitespace-nowrap',
-                      activeMetric === m.id
-                        ? 'bg-primary/20 text-primary border border-primary/40'
-                        : 'bg-surface-high text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
+              {/* Metric Selector Dropdown */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={activeMetric}
+                  onChange={(e) =>
+                    setActiveMetric(
+                      e.target.value as
+                        | 'voiceMinutes'
+                        | 'conversations'
+                        | 'newStores'
+                        | 'gmv',
+                    )
+                  }
+                  className="rounded-lg border border-border bg-surface-high px-3 py-1.5 text-xs font-semibold text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/30 cursor-pointer shadow-xs"
+                >
+                  <option value="voiceMinutes">Voice Mins</option>
+                  <option value="conversations">Conversations</option>
+                  <option value="newStores">New Stores</option>
+                  <option value="gmv">GMV ($)</option>
+                </select>
               </div>
             </div>
 
@@ -281,11 +282,11 @@ export function AdminOverviewView() {
                     >
                       {/* Tooltip */}
                       {isHovered && (
-                        <div className="absolute -top-10 z-20 whitespace-nowrap rounded-md bg-surface-high border border-border px-2 py-1 text-[10px] font-mono shadow-xl text-foreground">
-                          <span className="font-bold text-primary">
+                        <div className="absolute -top-10 z-20 whitespace-nowrap rounded-lg bg-surface-high border border-border px-2.5 py-1 text-xs shadow-xl text-foreground">
+                          <span className="font-serif font-bold text-primary tabular-nums">
                             {activeMetric === 'gmv' ? `$${val.toLocaleString()}` : val.toLocaleString()}
                           </span>{' '}
-                          <span className="text-muted-foreground">({point.date})</span>
+                          <span className="text-muted-foreground text-[10px]">({point.date})</span>
                         </div>
                       )}
 
@@ -305,12 +306,12 @@ export function AdminOverviewView() {
             </div>
 
             {/* Timeline X-Axis Labels */}
-            <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground pt-2 border-t border-border">
-              <span>{timeline[0]?.date || 'Start Date'}</span>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-border">
+              <span className="tabular-nums">{timeline[0]?.date || 'Start Date'}</span>
               <span className="text-foreground font-semibold">
                 Metric: {activeMetric.toUpperCase()} ({period.toUpperCase()})
               </span>
-              <span>{timeline[timeline.length - 1]?.date || 'Today'}</span>
+              <span className="tabular-nums">{timeline[timeline.length - 1]?.date || 'Today'}</span>
             </div>
           </div>
 
@@ -319,10 +320,13 @@ export function AdminOverviewView() {
             {/* Subscription Tier Distribution Card */}
             <div className="rounded-xl border border-border bg-surface-container p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">Subscription Tiers</h3>
-                <span className="text-[10px] font-mono font-semibold text-primary">
-                  ${totalGrowthMRR.toLocaleString()}/mo MRR
-                </span>
+                <h3 className="text-sm font-bold text-foreground font-heading">Subscription Tiers</h3>
+                <div className="flex items-baseline gap-1">
+                  <span className="font-serif font-semibold text-primary text-base tabular-nums">
+                    ${totalGrowthMRR.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-medium">/mo MRR</span>
+                </div>
               </div>
 
               {/* Stacked Progress Bar */}
@@ -350,7 +354,9 @@ export function AdminOverviewView() {
                     <div className="h-2.5 w-2.5 rounded-full bg-primary" />
                     <span className="text-foreground font-medium">Scale ($199/mo)</span>
                   </div>
-                  <span className="font-mono text-foreground font-bold">{planDist.scale} stores</span>
+                  <span className="font-serif font-semibold text-foreground tabular-nums text-sm">
+                    {planDist.scale} <span className="text-[11px] font-sans font-normal text-muted-foreground">stores</span>
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -358,7 +364,9 @@ export function AdminOverviewView() {
                     <div className="h-2.5 w-2.5 rounded-full bg-primary/60" />
                     <span className="text-foreground font-medium">Growth ($49/mo)</span>
                   </div>
-                  <span className="font-mono text-foreground font-bold">{planDist.growth} stores</span>
+                  <span className="font-serif font-semibold text-foreground tabular-nums text-sm">
+                    {planDist.growth} <span className="text-[11px] font-sans font-normal text-muted-foreground">stores</span>
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -366,7 +374,9 @@ export function AdminOverviewView() {
                     <div className="h-2.5 w-2.5 rounded-full bg-surface-bright" />
                     <span className="text-muted-foreground font-medium">Free Tier ($0/mo)</span>
                   </div>
-                  <span className="font-mono text-muted-foreground">{planDist.free} stores</span>
+                  <span className="font-serif font-semibold text-muted-foreground tabular-nums text-sm">
+                    {planDist.free} <span className="text-[11px] font-sans font-normal text-muted-foreground">stores</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -374,27 +384,31 @@ export function AdminOverviewView() {
             {/* AI Voice vs Chat Split Card */}
             <div className="rounded-xl border border-border bg-surface-container p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">Traffic Channels</h3>
-                <span className="text-[10px] font-mono text-muted-foreground">Channel Ratio</span>
+                <h3 className="text-sm font-bold text-foreground font-heading">Traffic Channels</h3>
+                <span className="text-[11px] text-muted-foreground font-medium">Channel Ratio</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-surface-high p-3 space-y-1">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl bg-surface-high border border-border/60 p-3.5 space-y-1.5">
                   <div className="flex items-center gap-1.5 text-primary">
                     <Mic size={14} />
-                    <span className="font-bold text-[11px]">AI Voice</span>
+                    <span className="font-bold text-xs">AI Voice</span>
                   </div>
-                  <div className="text-lg font-bold font-mono text-foreground">{voicePct}%</div>
-                  <p className="text-[10px] text-muted-foreground">{voiceTotal.toLocaleString()} calls</p>
+                  <div className="pt-0.5">
+                    <MetricDisplay value={`${voicePct}%`} size="md" className="text-primary" />
+                  </div>
+                  <p className="text-xs text-muted-foreground tabular-nums">{voiceTotal.toLocaleString()} calls</p>
                 </div>
 
-                <div className="rounded-lg bg-surface-high p-3 space-y-1">
+                <div className="rounded-xl bg-surface-high border border-border/60 p-3.5 space-y-1.5">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <MessageSquare size={14} />
-                    <span className="font-bold text-[11px]">Text Chat</span>
+                    <span className="font-bold text-xs">Text Chat</span>
                   </div>
-                  <div className="text-lg font-bold font-mono text-foreground">{textPct}%</div>
-                  <p className="text-[10px] text-muted-foreground">{textTotal.toLocaleString()} chats</p>
+                  <div className="pt-0.5">
+                    <MetricDisplay value={`${textPct}%`} size="md" className="text-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground tabular-nums">{textTotal.toLocaleString()} chats</p>
                 </div>
               </div>
             </div>
