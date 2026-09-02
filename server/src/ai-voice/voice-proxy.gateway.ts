@@ -33,7 +33,8 @@ interface ProxySession {
   audioOutputBytes: number;
   promptTokens: number;
   completionTokens: number;
-  isClosingOnIdle?: boolean;
+  isGreetingPending: boolean;
+  greetingDispatchedAt: number;
 }
 
 @Injectable()
@@ -335,7 +336,7 @@ export class VoiceProxyGateway {
         if (existingSession.clientWs.readyState === WebSocket.OPEN) {
           existingSession.clientWs.close(1000, 'Replaced by new session');
         }
-      } catch {}
+      } catch { }
       this.sessions.delete(sessionId);
     }
 
@@ -352,10 +353,10 @@ export class VoiceProxyGateway {
           pageTitle: pageTitleParam,
           authenticatedUser: authenticatedUser
             ? {
-                name: authenticatedUser.name,
-                email: authenticatedUser.email,
-                role: authenticatedUser.role,
-              }
+              name: authenticatedUser.name,
+              email: authenticatedUser.email,
+              role: authenticatedUser.role,
+            }
             : undefined,
         },
         activeCustomer.id,
@@ -381,6 +382,8 @@ export class VoiceProxyGateway {
       audioOutputBytes: 0,
       promptTokens: 0,
       completionTokens: 0,
+      isGreetingPending: false,
+      greetingDispatchedAt: 0,
     };
 
     const flushBufferedAiText = () => {
@@ -415,7 +418,7 @@ export class VoiceProxyGateway {
       if (session.conversationId) {
         this.conversationsService
           .updateStatus(businessId, session.conversationId, ConversationStatus.CLOSED)
-          .catch(() => {});
+          .catch(() => { });
       }
 
       // Record voice token & audio compute OpEx
@@ -462,6 +465,7 @@ export class VoiceProxyGateway {
 
         // Google → client: audio response
         onAudioData: (base64AudioPcm) => {
+          session.isGreetingPending = false;
           if (base64AudioPcm) {
             session.audioOutputBytes += Math.round(base64AudioPcm.length * 0.75);
           }
@@ -479,6 +483,10 @@ export class VoiceProxyGateway {
 
         // Google → client: barge-in / interruption
         onInterrupted: () => {
+          // Prevent early false barge-in during initial greeting startup
+          if (session.isGreetingPending && Date.now() - session.greetingDispatchedAt < 1200) {
+            return;
+          }
           sendToClient({ type: 'interrupted' });
           flushBufferedUserText(); // user spoke again; save whatever they said before the barge-in
           flushBufferedAiText();
@@ -486,6 +494,7 @@ export class VoiceProxyGateway {
 
         // Google → client: agent finished speaking
         onTurnComplete: () => {
+          session.isGreetingPending = false;
           sendToClient({ type: 'turn_complete' });
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
@@ -648,7 +657,7 @@ export class VoiceProxyGateway {
           sessionControls.sendTextMessage(
             '[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for 15 seconds. Ask them warmly and briefly if they are still there in ONE short sentence. Speak aloud now.',
           );
-        } catch {}
+        } catch { }
       },
       // onIdleExpiry: 20s after idle warning if still silent
       () => {
@@ -658,7 +667,7 @@ export class VoiceProxyGateway {
           sessionControls.sendTextMessage(
             '[SYSTEM_TRIGGER: IDLE_CLOSE] The user did not respond. Say a brief, warm goodbye in ONE short sentence and let them know they can start a new session anytime. Speak aloud now.',
           );
-        } catch {}
+        } catch { }
 
         // Fallback safety timer: if Gemini never responds or onTurnComplete does not fire within 15s, force close
         setTimeout(() => {
@@ -695,10 +704,10 @@ export class VoiceProxyGateway {
           const pageContextNote = isPricing
             ? ' on pricing page'
             : isDocs
-            ? ' on docs guide'
-            : isDashboard
-            ? ' in dashboard'
-            : '';
+              ? ' on docs guide'
+              : isDashboard
+                ? ' in dashboard'
+                : '';
           greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] New visitor connected${pageContextNote}. Speak first in ONE short, friendly sentence (maximum 10-12 words, e.g. "Hi there! I'm ORA. How can I help you today?"). Do not give long speeches. Speak aloud now.`;
         }
 
@@ -794,7 +803,7 @@ export class VoiceProxyGateway {
               const parsed = existing ? JSON.parse(existing) : {};
               if (clientData.name) parsed.name = clientData.name;
               await redis.set(`session:${sessionId}:customer`, JSON.stringify(parsed), 'EX', 86400);
-            } catch {}
+            } catch { }
 
             sendToClient({
               type: 'customer_details_confirmed',
@@ -827,7 +836,7 @@ export class VoiceProxyGateway {
           if (session.conversationId) {
             this.conversationsService
               .updateStatus(businessId, session.conversationId, ConversationStatus.SUSPENDED)
-              .catch(() => {});
+              .catch(() => { });
           }
 
           const rToken = `res_${sessionId}_${Date.now()}`;
@@ -839,7 +848,7 @@ export class VoiceProxyGateway {
               'EX',
               86400,
             );
-          } catch (e) {}
+          } catch (e) { }
           sendToClient({ type: 'session_suspended', resumptionToken: rToken });
           cleanup();
           if (clientWs.readyState === WebSocket.OPEN) {
@@ -871,6 +880,10 @@ export class VoiceProxyGateway {
 
         if (msg.type === 'audio' && msg.data) {
           session.audioInputBytes += Math.round((msg.data as string).length * 0.75);
+          // Protect initial greeting from early mic initialization noise / clicks
+          if (session.isGreetingPending && Date.now() - session.greetingDispatchedAt < 600) {
+            return;
+          }
           sessionControls.sendAudioChunk(msg.data as string);
           // Note: markActivity() is intentionally NOT called on raw audio chunks to prevent noise false-resets
         } else if (msg.type === 'text' && msg.text) {

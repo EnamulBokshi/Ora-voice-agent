@@ -175,39 +175,82 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
       expect(instruction).not.toContain('Stripe (USD cards) and bKash (BDT tokenized checkout)');
     });
 
-    it('should inject custom system prompt, Bangla language rules, greetings, and avoidances when configured', async () => {
+    it('should enforce English default and forbid unprompted foreign languages in system instructions', async () => {
       mockBusinessModel.findById.mockReturnValue({
         exec: jest.fn().mockResolvedValue({
-          _id: 'biz_bangla_store',
-          name: 'Dhaka Threads',
-          publishableKey: 'biz_live_dhaka_threads_456',
+          _id: 'biz_platform',
+          name: 'ORA Platform',
+          publishableKey: 'biz_live_ora_platform_system',
         }),
       });
 
+      const instruction = await service.buildSystemInstruction('biz_platform');
+
+      expect(instruction).toContain('PRIMARY DEFAULT LANGUAGE: ENGLISH');
+      expect(instruction).toContain('NEVER speak in Chinese, Cantonese, Mandarin, Japanese');
+      expect(instruction).toContain('CONDITIONAL LANGUAGE SWITCHING');
+    });
+
+    it('should include consultative sales objection handling playbook and off-topic cartoon deflection', async () => {
+      mockBusinessModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'biz_platform',
+          name: 'ORA Platform',
+          publishableKey: 'biz_live_ora_platform_system',
+        }),
+      });
+
+      const instruction = await service.buildSystemInstruction('biz_platform');
+
+      // Objection handling
+      expect(instruction).toContain('SALES CONVERSION & OBJECTION HANDLING PLAYBOOK');
+      expect(instruction).toContain('This site isn\'t for me');
+
+      // Generalized off-topic deflection
+      expect(instruction).toContain('STRICT OFF-TOPIC GUARDRAIL & ZERO-ENTERTAINMENT RULE');
+      expect(instruction).toContain('ZERO-TOLERANCE FOR OFF-TOPIC CHAT');
+      expect(instruction).toContain('UNIVERSAL DEFLECTION PATTERN');
+    });
+
+    it('should assign General Business Sales Representative persona when business is general and has no products', async () => {
       mockAgentConfigService.getConfig.mockResolvedValue({
-        config: {
-          brandVoiceDescription: 'Warm, respectful and consultative',
-          businessArchetype: 'ecommerce',
-          systemPrompt: 'You are the primary sales assistant for Dhaka Threads. Always offer 10% off with promo code EID10.',
-          greetingMessage: 'Greet with "আসসালামু আলাইকুম! Dhaka Threads-এ স্বাগতম।" and ask what outfit they are looking for.',
-          avoidances: 'Never mention competitors like Aarong or Yellow. Never discuss political matters.',
-          language: 'bn',
-        },
+        config: { brandVoiceDescription: 'Warm and professional', businessArchetype: 'general' },
         voice: { voiceId: 'Aoede' },
         playbook: {},
       });
+      mockProductsService.findAll.mockResolvedValue({
+        items: [],
+        pagination: { total: 0 },
+      });
+      mockBusinessModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: 'biz_consulting_456',
+          name: 'Acme Advisory Group',
+          publishableKey: 'biz_live_merchant_acme_456',
+        }),
+      });
 
-      const instruction = await service.buildSystemInstruction('biz_bangla_store');
+      const instruction = await service.buildSystemInstruction('biz_consulting_456');
 
-      // Assert custom prompt elements are injected
-      expect(instruction).toContain('STORE OWNER CUSTOM SYSTEM PROMPT');
-      expect(instruction).toContain('Always offer 10% off with promo code EID10');
-      expect(instruction).toContain('LANGUAGE REQUIREMENT (STRICT)');
-      expect(instruction).toContain('Bengali (Bangla / বাংলা)');
-      expect(instruction).toContain('GREETING & CUSTOMER TREATMENT GUIDELINES');
-      expect(instruction).toContain('আসসালামু আলাইকুম! Dhaka Threads-এ স্বাগতম।');
-      expect(instruction).toContain('STRICT AVOIDANCES & RESTRICTIONS');
-      expect(instruction).toContain('Never mention competitors like Aarong or Yellow');
+      expect(instruction).toContain('Acme Advisory Group');
+      expect(instruction).toContain('warm, knowledgeable, and professional AI Sales Representative');
+      expect(instruction).not.toContain('shopping assistant');
+      expect(instruction).not.toContain('guide them through checkout');
+      expect(instruction).not.toContain('add_to_cart / place_order');
+      expect(instruction).toContain('capture_sales_lead');
+    });
+
+    it('should give general archetype lead capture tools and NO cart or checkout tools', () => {
+      const generalTools = getToolsForArchetype('general', false);
+      const toolNames = generalTools.map((t) => t.name);
+
+      expect(toolNames).toContain('capture_sales_lead');
+      expect(toolNames).toContain('search_knowledge_base');
+      expect(toolNames).toContain('get_store_policy');
+      expect(toolNames).not.toContain('add_to_cart');
+      expect(toolNames).not.toContain('place_order');
+      expect(toolNames).not.toContain('redirect_to_checkout');
+      expect(toolNames).not.toContain('find_products');
     });
   });
 });

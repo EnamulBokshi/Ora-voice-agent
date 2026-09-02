@@ -324,7 +324,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Dispatch proactive initial greeting
       try {
         voiceSession.sendTextMessage(
-          '[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A visitor just connected to voice. Give a warm, energetic, and concise 1-sentence welcome greeting as ORA, and ask how you can assist them today.',
+          '[SYSTEM_TRIGGER: GREETING] A visitor just joined the website. Greet them warmly, smoothly, and naturally in English: "Hi! Welcome to ORA. How can I help you today?"',
         );
       } catch (greetErr: any) {
         this.logger.warn(`[VoiceGateway] Greeting trigger notice: ${greetErr.message}`);
