@@ -1,0 +1,33 @@
+# ORA | The AI Sales Brain for Every Merchant
+
+> ORA is a real-time conversational AI sales agent built for e-commerce merchants. It deploys directly onto online storefronts (Shopify, WooCommerce, Custom Headless APIs) as an intelligent voice and chat widget that automates sales consultations, recovers abandoned carts, and completes checkouts natively 24/7.
+
+## Core Capabilities & Performance Benchmarks
+
+- **Real-Time Voice Consultation**: Sub-350ms ultra-low audio latency streaming over bidirectional WebSockets and WebRTC audio processors.
+- **Product Catalog Intelligence**: Instant synchronization of product catalogs, variable SKUs, live stock levels, and store FAQs.
+- **Abandoned Cart Recovery**: Proactive conversational engagement when shoppers pause at checkout, yielding an average +34% conversion rate (CVR) lift.
+- **Dual Payment & Regional Checkout**:
+  - **Global (USD)**: Auto-renewing subscriptions, Stripe payment gateway, and Shopify native checkout link generation.
+  - **Emerging Markets / South Asia (BDT)**: Direct bKash Tokenized Checkout agreements and native Cash on Delivery (COD) verification.
+- **Multilingual & Multimodal**: Fluid voice interactions in English and Bengali.
+
+## Key URLs & Resources
+
+- [Official Website](https://tryora.live): Main platform overview, live interactive demo, and feature breakdown.
+- [Pricing & Subscription Plans](https://tryora.live/pricing): Tier breakdown (Starter at $39/mo, Growth at $99/mo, Pro at $249/mo, Enterprise, with local BDT equivalents).
+- [Storefront Solutions](https://tryora.live/solutions): Platform-specific architectures for Shopify, WooCommerce, Headless APIs, and Regional bKash payments.
+- [Integration Documentation](https://tryora.live/docs): Step-by-step setup guides for Shopify Theme App Embed, WooCommerce WordPress plugin, and API keys.
+
+## Technical Architecture & Developer Integration
+
+- **Widget Embed**:
+  ```html
+  <script 
+    src="https://tryora.live/widget/loader.js" 
+    data-publishable-key="biz_live_your_key" 
+    async>
+  </script>
+  ```
+- **Security & Scoping**: Strict multi-tenant isolation by `businessId`, AES-256 field encryption for customer PII, rotating session JWTs, and cryptographically hashed API keys.
+- **AI Stack**: Low-latency voice pipelines with speech-to-text (STT), high-speed LLM reasoning, and natural speech synthesis (TTS) tuned for conversational commerce.

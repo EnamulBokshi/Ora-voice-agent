@@ -5,7 +5,7 @@ import { MarketingFooter } from '@/components/marketing/footer';
 import { DocsPageClient } from '@/components/docs/docs-page-client';
 
 export const metadata: Metadata = {
-  title: 'Storefront Setup & Integration Guide — ORA Voice AI',
+  title: 'Storefront Setup & Integration Guide | ORA Voice AI',
   description:
     'Step-by-step setup guides for integrating ORA onto Shopify, WooCommerce, Next.js, and custom storefronts. Learn how to customize widget appearance and sync product catalogs.',
   keywords: [
@@ -14,11 +14,15 @@ export const metadata: Metadata = {
     'WooCommerce voice AI',
     'storefront widget embed',
     'conversational commerce setup',
-    'product catalog sync'
+    'product catalog sync',
   ],
+  alternates: {
+    canonical: 'https://tryora.live/docs',
+  },
   openGraph: {
     title: 'ORA Storefront Setup & Integration Guide',
     description: 'Learn how to integrate ORA onto your online storefront and start selling with voice in minutes.',
+    url: 'https://tryora.live/docs',
     type: 'website',
   },
 };

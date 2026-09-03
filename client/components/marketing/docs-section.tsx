@@ -63,11 +63,11 @@ export function DocsSection() {
             Launch in minutes
           </h2>
           <p style={{ fontSize: '1.0625rem', color: 'var(--lp-text-secondary)', lineHeight: 1.7 }}>
-            From a single-line embed to platform syncing — effortless setup for any storefront.
+            From a single-line embed to platform syncing, effortless setup for any storefront.
           </p>
         </div>
 
-        {/* Flat doc rows — bordered, minimalist, no cards */}
+        {/* Flat doc rows: bordered, minimalist, no cards */}
         <div
           role="list"
           aria-label="Documentation sections"

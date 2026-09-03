@@ -50,7 +50,7 @@ export function MarketingFooter() {
           <div style={{ gridColumn: 'span 1' }}>
             <Link
               href="/"
-              aria-label="ORA — Home"
+              aria-label="ORA Home"
               style={{
                 display: 'flex',
                 alignItems: 'center',

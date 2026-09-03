@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { SetupGuideClient } from '@/components/setup/setup-guide-client';
 
 export const metadata: Metadata = {
-  title: 'Setup Guide — ORA Command Center',
+  title: 'Setup Guide | ORA Command Center',
   description: 'Step-by-step onboarding guide to configure persona, knowledge base, integrations, and live voice for your store.',
 };
 

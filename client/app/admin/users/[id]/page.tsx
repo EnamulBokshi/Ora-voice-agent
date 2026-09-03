@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { AdminUserDetailView } from '@/components/admin/admin-user-detail-view';
 
 export const metadata: Metadata = {
-  title: 'User Inspection & Telemetry — ORA SuperAdmin',
+  title: 'User Inspection & Telemetry | ORA SuperAdmin',
   description: 'Detailed user identity, AI token telemetry, session duration controls, and store tenant configuration.',
 };
 

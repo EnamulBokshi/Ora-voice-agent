@@ -126,7 +126,7 @@ export function MarketingNavbar() {
     <header className={`lp-navbar${scrolled ? ' scrolled' : ''}`} role="banner">
       <div className="lp-nav-inner">
         {/* Logo */}
-        <Link href="/" className="lp-logo" aria-label="ORA — Home">
+        <Link href="/" className="lp-logo" aria-label="ORA Home">
           <div className="lp-logo-mark" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path

@@ -1,4 +1,4 @@
-﻿export function FeaturesSection() {
+export function FeaturesSection() {
   const panelStyle: React.CSSProperties = {
     border: '1px solid var(--lp-border)',
     background: 'transparent',
@@ -44,15 +44,9 @@
           </p>
         </div>
 
-        {/* Feature grid — flat panels, no card shadows */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1.5rem',
-          }}
-        >
-          {/* ── Large panel: Visual Sales Builder ── */}
+        {/* Feature grid: flat panels, no card shadows */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+          {/* Bento item 1: Visual playbook (large, spans 2 cols) */}
           <div
             style={{
               ...panelStyle,
@@ -70,7 +64,7 @@
               Visual Sales Playbook Builder
             </h3>
             <p style={{ fontSize: '0.9375rem', color: 'var(--lp-text-secondary)', lineHeight: 1.65, maxWidth: '28rem' }}>
-              Build cart recovery sequences, upsell journeys, and FAQ handlers — no code needed.
+              Build cart recovery sequences, upsell journeys, and FAQ handlers with zero code.
             </p>
 
             {/* Playbook flow rows */}

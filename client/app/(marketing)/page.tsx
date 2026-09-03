@@ -8,6 +8,12 @@ import { StatsSection } from '@/components/marketing/stats-section';
 import { TestimonialSection } from '@/components/marketing/testimonial-section';
 import { CtaSection } from '@/components/marketing/cta-section';
 import { MarketingFooter } from '@/components/marketing/footer';
+import {
+  JsonLd,
+  oraOrganizationSchema,
+  oraSoftwareSchema,
+  oraFaqSchema,
+} from '@/components/marketing/json-ld';
 
 /**
  * ORA public marketing landing page — accessible at /
@@ -16,6 +22,9 @@ import { MarketingFooter } from '@/components/marketing/footer';
 export default function LandingPage() {
   return (
     <>
+      <JsonLd data={oraOrganizationSchema} />
+      <JsonLd data={oraSoftwareSchema} />
+      <JsonLd data={oraFaqSchema} />
       <MarketingNavbar />
       <HeroSection />
       <TrustBar />

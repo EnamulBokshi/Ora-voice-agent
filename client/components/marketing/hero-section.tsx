@@ -23,7 +23,7 @@ export function HeroSection() {
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div className="lp-announce-pill lp-animate-fade-up">
               <span className="lp-badge-lime">New</span>
-              <span>Introducing ORA 2.0 — Smarter AI Sales Agent</span>
+              <span>Introducing ORA 2.0: Smarter AI Sales Agent</span>
               <svg
                 width="14"
                 height="14"
@@ -62,7 +62,7 @@ export function HeroSection() {
             }}
           >
             ORA automates your e-commerce sales conversations, recovers abandoned carts, and
-            turns every shopper interaction into revenue — 24/7, across every channel.
+            turns every shopper interaction into revenue 24/7, across every channel.
           </p>
 
           {/* CTA row */}

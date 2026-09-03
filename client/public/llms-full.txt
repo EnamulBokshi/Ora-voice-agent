@@ -1,0 +1,52 @@
+# ORA: Complete Platform & Technical Architecture Reference
+
+## Overview
+ORA (https://tryora.live) is a multimodal AI sales agent platform designed for online e-commerce stores. It turns passive storefront visitors into paying customers by actively conducting voice-driven sales consultations, answering product sizing/stock queries, generating custom promotional discounts, and recovering abandoned shopping carts.
+
+## Technical Specifications
+- **Latency**: Sub-350ms end-to-end voice latency over streaming WebSockets.
+- **Languages**: English and Bengali (multilingual speech recognition and synthesis).
+- **Supported E-Commerce Platforms**:
+  - Shopify (Theme App Embed, Admin GraphQL, Storefront Webhooks)
+  - WooCommerce (WordPress Plugin, REST API v3)
+  - Headless / Custom Commerce (Next.js, Remix, Hydrogen, Nuxt, iOS/Android SDKs)
+- **Payment & Checkout Integrations**:
+  - Stripe: Credit cards, Apple Pay, Google Pay for international USD transactions.
+  - bKash: Tokenized Checkout agreement with recurring billing for Bangladesh merchants in BDT.
+  - Cash on Delivery (COD): Conversational address and phone verification flows.
+
+## Pricing Tiers (USD & BDT)
+1. **Starter ($39 / month or 4,500 BDT / month)**:
+   - Up to 500 monthly conversation minutes
+   - Up to 1,000 product SKUs synced
+   - Standard voice models & live chat widget
+   - Community and email support
+2. **Growth ($99 / month or 11,500 BDT / month)**:
+   - Up to 2,000 monthly conversation minutes
+   - Up to 5,000 product SKUs synced
+   - Advanced cart recovery sequences and intent triggers
+   - Full Shopify & WooCommerce 1-click sync
+   - Priority support
+3. **Pro ($249 / month or 29,000 BDT / month)**:
+   - Up to 6,000 monthly conversation minutes
+   - Unlimited catalog SKUs synced
+   - Custom voice fine-tuning & brand tone configuration
+   - Full analytics, conversion funnels, and CRM webhooks
+   - 24/7 dedicated support
+4. **Enterprise (Custom Pricing)**:
+   - Dedicated infrastructure and private fine-tuned LLM
+   - 99.9% uptime SLA
+   - Custom ERP / custom inventory integrations
+
+## Security and Compliance
+- Multi-tenant architecture with strict database scoping by `businessId`.
+- No sensitive keys or tokens logged.
+- Customer PII encrypted at rest using AES-256.
+- Role-Based Access Control (RBAC): SuperAdmin, Owner, Admin, Staff.
+
+## Contact & Links
+- Website: https://tryora.live
+- Documentation: https://tryora.live/docs
+- Solutions: https://tryora.live/solutions
+- Pricing: https://tryora.live/pricing
+- App & Dashboard: https://tryora.live/auth
