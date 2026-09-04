@@ -47,6 +47,18 @@ export class BusinessController {
     @Body() dto: UpdateBusinessDto,
   ) {
     const updated = await this.usersService.updateBusiness(req.businessId, dto);
+
+    // If widget visibility toggle changed, immediately invalidate gateway cache
+    if (dto.isWidgetActive !== undefined && this.voiceProxyGateway) {
+      if (updated?.publishableKey) {
+        this.voiceProxyGateway.invalidatePublishableKey(updated.publishableKey);
+      }
+      // If disabled, cleanly close any active live voice sessions for this merchant
+      if (dto.isWidgetActive === false) {
+        this.voiceProxyGateway.terminateBusinessSessions(req.businessId);
+      }
+    }
+
     return {
       message: 'Store settings updated successfully.',
       business: updated,

@@ -19,13 +19,16 @@ import { resendOnboardingApi } from '@/services/auth-service';
 import {
   deletePublishableKeyApi,
   generatePublishableKeyApi,
+  toggleWidgetStatusApi,
 } from '@/services/business-service';
 
 interface MerchantCredentialsCardProps {
   businessName?: string;
   publishableKey?: string | null;
+  isWidgetActive?: boolean;
   onOpenTestModal?: () => void;
   onKeyChange?: (newKey: string | null) => void;
+  onWidgetStatusChange?: (isActive: boolean) => void;
 }
 
 type PlatformTab = 'html' | 'shopify' | 'woocommerce' | 'react';
@@ -56,8 +59,10 @@ const PLATFORMS: { id: PlatformTab; label: string; stepTip: string }[] = [
 export function MerchantCredentialsCard({
   businessName = 'Store',
   publishableKey = '',
+  isWidgetActive = true,
   onOpenTestModal,
   onKeyChange,
+  onWidgetStatusChange,
 }: MerchantCredentialsCardProps) {
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
@@ -65,12 +70,46 @@ export function MerchantCredentialsCard({
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+  // Widget visibility state
+  const [widgetActive, setWidgetActive] = useState(isWidgetActive !== false);
+  const [isTogglingWidget, setIsTogglingWidget] = useState(false);
+
+  React.useEffect(() => {
+    if (typeof isWidgetActive === 'boolean') {
+      setWidgetActive(isWidgetActive);
+    }
+  }, [isWidgetActive]);
+
   // Key lifecycle states
   const [isRevoking, setIsRevoking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handleToggleWidget = async () => {
+    const nextState = !widgetActive;
+    setIsTogglingWidget(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const res = await toggleWidgetStatusApi(nextState);
+      const isAct = res.business?.isWidgetActive !== false;
+      setWidgetActive(isAct);
+      setSuccessMessage(
+        isAct
+          ? 'ORA is now active on your storefront.'
+          : 'ORA is now paused and hidden from your storefront.',
+      );
+      if (onWidgetStatusChange) {
+        onWidgetStatusChange(isAct);
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to update storefront widget status.');
+    } finally {
+      setIsTogglingWidget(false);
+    }
+  };
 
   const hasActiveKey = Boolean(publishableKey && publishableKey.trim().length > 0);
 
@@ -194,6 +233,62 @@ export function MerchantCredentialsCard({
           <div className="flex items-center gap-2 p-3 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[12.5px]">
             <AlertTriangle size={15} className="shrink-0" />
             <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* ── Section 0: Storefront Widget Visibility Switch ── */}
+        {hasActiveKey && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-md border border-border/80 bg-surface-high/30">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[13.5px] font-semibold text-foreground font-serif">
+                  Storefront Deployment Status
+                </h3>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-medium border ${
+                    widgetActive
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-[#C8F031]'
+                      : 'border-border/60 bg-surface-high/60 text-muted-foreground'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      widgetActive ? 'bg-emerald-400 dark:bg-[#C8F031] animate-pulse' : 'bg-muted-foreground'
+                    }`}
+                  />
+                  {widgetActive ? 'Live on Store' : 'Paused / Hidden'}
+                </span>
+              </div>
+              <p className="text-[12px] text-muted-foreground">
+                {widgetActive
+                  ? 'ORA is currently active on your website. Shoppers can see and speak with ORA.'
+                  : 'ORA is hidden from your website. You can turn it back on anytime without touching your code.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleToggleWidget}
+                disabled={isTogglingWidget}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  widgetActive ? 'bg-foreground dark:bg-[#C8F031]' : 'bg-surface-bright border-border/80'
+                } ${isTogglingWidget ? 'opacity-60 cursor-wait' : ''}`}
+                role="switch"
+                aria-checked={widgetActive}
+                title={widgetActive ? 'Turn ORA OFF on your storefront' : 'Turn ORA ON on your storefront'}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background dark:bg-black shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    widgetActive ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-[12px] font-medium text-foreground min-w-[50px]">
+                {isTogglingWidget ? 'Saving...' : widgetActive ? 'Active' : 'Paused'}
+              </span>
+            </div>
           </div>
         )}
 

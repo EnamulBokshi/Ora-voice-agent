@@ -9,6 +9,7 @@ export interface UpdateBusinessInput {
   currency?: string;
   timezone?: string;
   supportEmail?: string;
+  isWidgetActive?: boolean;
 }
 
 export async function getCurrentBusinessApi(accessToken?: string): Promise<Business | null> {
@@ -37,6 +38,13 @@ export async function updateBusinessApi(
     headers,
     body: JSON.stringify(data),
   });
+}
+
+export async function toggleWidgetStatusApi(
+  isWidgetActive: boolean,
+  accessToken?: string,
+): Promise<{ message: string; business: Business }> {
+  return updateBusinessApi({ isWidgetActive }, accessToken);
 }
 
 export async function deletePublishableKeyApi(accessToken?: string): Promise<{

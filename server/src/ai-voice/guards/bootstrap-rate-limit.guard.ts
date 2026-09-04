@@ -99,6 +99,22 @@ export class BootstrapRateLimitGuard implements CanActivate {
       );
     }
 
+    if (business.keyStatus === 'suspended') {
+      throw new DomainException(
+        'KEY_SUSPENDED',
+        'This publishable key has been suspended by administration.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    if (business.isWidgetActive === false) {
+      throw new DomainException(
+        'WIDGET_DISABLED',
+        'Storefront widget has been disabled by the merchant.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     // 3. Domain Allowlist Check
     const origin =
       (request.headers['origin'] as string) ||

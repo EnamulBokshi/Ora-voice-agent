@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class UpdateBusinessDto {
   @IsString()
@@ -28,4 +28,8 @@ export class UpdateBusinessDto {
   @IsString()
   @IsOptional()
   supportEmail?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isWidgetActive?: boolean;
 }

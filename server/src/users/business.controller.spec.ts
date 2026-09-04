@@ -17,6 +17,7 @@ describe('BusinessController', () => {
 
     mockVoiceProxyGateway = {
       invalidatePublishableKey: jest.fn(),
+      terminateBusinessSessions: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -82,6 +83,51 @@ describe('BusinessController', () => {
       expect(mockVoiceProxyGateway.invalidatePublishableKey).toHaveBeenCalled();
       expect(mockUsersService.generatePublishableKey).toHaveBeenCalledWith('biz_123');
       expect(result.publishableKey).toBe('biz_live_newkey');
+      expect(result.business).toEqual(updatedBiz);
+    });
+  });
+
+  describe('updateCurrentBusiness', () => {
+    it('should update business settings and invalidate cache when isWidgetActive is toggled', async () => {
+      const updatedBiz = {
+        _id: 'biz_123',
+        name: 'My Store',
+        publishableKey: 'biz_live_123',
+        isWidgetActive: false,
+      };
+
+      mockUsersService.updateBusiness = jest.fn().mockResolvedValue(updatedBiz);
+
+      const result = await controller.updateCurrentBusiness(
+        { businessId: 'biz_123' },
+        { isWidgetActive: false },
+      );
+
+      expect(mockUsersService.updateBusiness).toHaveBeenCalledWith('biz_123', { isWidgetActive: false });
+      expect(mockVoiceProxyGateway.invalidatePublishableKey).toHaveBeenCalledWith('biz_live_123');
+      expect(mockVoiceProxyGateway.terminateBusinessSessions).toHaveBeenCalledWith('biz_123');
+      expect(result.business).toEqual(updatedBiz);
+      expect(result.message).toBe('Store settings updated successfully.');
+    });
+
+    it('should update business without terminating sessions when isWidgetActive is true', async () => {
+      const updatedBiz = {
+        _id: 'biz_123',
+        name: 'My Store',
+        publishableKey: 'biz_live_123',
+        isWidgetActive: true,
+      };
+
+      mockUsersService.updateBusiness = jest.fn().mockResolvedValue(updatedBiz);
+
+      const result = await controller.updateCurrentBusiness(
+        { businessId: 'biz_123' },
+        { isWidgetActive: true },
+      );
+
+      expect(mockUsersService.updateBusiness).toHaveBeenCalledWith('biz_123', { isWidgetActive: true });
+      expect(mockVoiceProxyGateway.invalidatePublishableKey).toHaveBeenCalledWith('biz_live_123');
+      expect(mockVoiceProxyGateway.terminateBusinessSessions).not.toHaveBeenCalled();
       expect(result.business).toEqual(updatedBiz);
     });
   });

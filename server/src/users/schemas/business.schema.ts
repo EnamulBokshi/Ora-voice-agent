@@ -22,6 +22,13 @@ export class Business {
   keyStatus?: string;
 
   /**
+   * Merchant-level storefront widget visibility toggle.
+   * When false, the widget does not mount or run on the merchant's business site.
+   */
+  @Prop({ type: Boolean, default: true })
+  isWidgetActive: boolean;
+
+  /**
    * Detected web origins and referrers using this publishable key.
    * Used for multi-site leak detection and domain mismatch telemetry.
    */

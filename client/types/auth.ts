@@ -14,6 +14,7 @@ export interface Business {
   domain?: string;
   publishableKey?: string | null;
   status?: string;
+  isWidgetActive?: boolean;
 }
 
 export interface AuthResponseData {

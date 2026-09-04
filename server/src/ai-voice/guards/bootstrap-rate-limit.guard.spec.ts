@@ -121,4 +121,56 @@ describe('BootstrapRateLimitGuard', () => {
     expect(thrownError.code).toBe('STOREFRONT_RATE_LIMIT_EXCEEDED');
     expect(thrownError.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
   });
+
+  it('should throw FORBIDDEN when store key is suspended by SuperAdmin', async () => {
+    mockBusinessModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: 'biz_123',
+        name: 'Acme Store',
+        publishableKey: 'biz_live_valid_key',
+        status: 'active',
+        keyStatus: 'suspended',
+        isWidgetActive: true,
+      }),
+    });
+
+    const context = createMockContext({ 'x-publishable-key': 'biz_live_valid_key' });
+
+    let thrownError: any;
+    try {
+      await guard.canActivate(context);
+    } catch (err) {
+      thrownError = err;
+    }
+
+    expect(thrownError).toBeInstanceOf(DomainException);
+    expect(thrownError.code).toBe('KEY_SUSPENDED');
+    expect(thrownError.getStatus()).toBe(HttpStatus.FORBIDDEN);
+  });
+
+  it('should throw FORBIDDEN when storefront widget is disabled by merchant', async () => {
+    mockBusinessModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue({
+        _id: 'biz_123',
+        name: 'Acme Store',
+        publishableKey: 'biz_live_valid_key',
+        status: 'active',
+        keyStatus: 'active',
+        isWidgetActive: false,
+      }),
+    });
+
+    const context = createMockContext({ 'x-publishable-key': 'biz_live_valid_key' });
+
+    let thrownError: any;
+    try {
+      await guard.canActivate(context);
+    } catch (err) {
+      thrownError = err;
+    }
+
+    expect(thrownError).toBeInstanceOf(DomainException);
+    expect(thrownError.code).toBe('WIDGET_DISABLED');
+    expect(thrownError.getStatus()).toBe(HttpStatus.FORBIDDEN);
+  });
 });

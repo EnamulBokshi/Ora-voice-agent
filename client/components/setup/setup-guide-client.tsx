@@ -261,15 +261,24 @@ function SetupGuideClientInner() {
 
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [publishableKey, setPublishableKey]     = useState<string>('biz_live_demo');
+  const [isWidgetActive, setIsWidgetActive]     = useState<boolean>(true);
 
   useEffect(() => {
     getMeApi()
       .then((res) => {
         if (res?.business?.publishableKey) setPublishableKey(res.business.publishableKey);
         else if (demoProfile?.business?.publishableKey) setPublishableKey(demoProfile.business.publishableKey);
+        if (typeof res?.business?.isWidgetActive === 'boolean') {
+          setIsWidgetActive(res.business.isWidgetActive);
+        } else if (typeof demoProfile?.business?.isWidgetActive === 'boolean') {
+          setIsWidgetActive(demoProfile.business.isWidgetActive);
+        }
       })
       .catch(() => {
         if (demoProfile?.business?.publishableKey) setPublishableKey(demoProfile.business.publishableKey);
+        if (typeof demoProfile?.business?.isWidgetActive === 'boolean') {
+          setIsWidgetActive(demoProfile.business.isWidgetActive);
+        }
       });
   }, []);
 
@@ -291,7 +300,7 @@ function SetupGuideClientInner() {
 
   const getPreview = (id: SetupStepId) => {
     if (id === 'persona')     return <PersonaPreview archetype={activeArchetype} onSaved={() => markStepComplete('persona')} />;
-    if (id === 'integration') return <IntegrationPreview publishableKey={publishableKey} onCopied={() => markStepComplete('integration')} />;
+    if (id === 'integration') return <IntegrationPreview publishableKey={publishableKey} isWidgetActive={isWidgetActive} onCopied={() => markStepComplete('integration')} />;
     if (id === 'knowledge')   return <KnowledgePreview onCompleted={() => markStepComplete('knowledge')} />;
     if (id === 'voice_test')  return <VoiceTestPreview onOpenTestModal={handleLaunchVoice} />;
   };

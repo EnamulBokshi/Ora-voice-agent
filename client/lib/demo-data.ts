@@ -527,5 +527,6 @@ export const demoProfile: ProfileResponseData = {
     domain: 'store.artisangoods.io',
     publishableKey: 'biz_live_89a2b1c4e7f09312',
     status: 'active',
+    isWidgetActive: true,
   },
 };

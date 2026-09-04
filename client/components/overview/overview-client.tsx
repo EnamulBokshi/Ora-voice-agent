@@ -23,6 +23,7 @@ import { demoProfile, demoDashboardStats } from '@/lib/demo-data';
 import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { formatCurrency } from '@/lib/format';
 import { getMeApi } from '@/services/auth-service';
+import { toggleWidgetStatusApi } from '@/services/business-service';
 import { useSetupProgress } from '@/hooks/use-setup-progress';
 
 // ── Reusable components ──────────────────────────────────────────────────────
@@ -71,9 +72,27 @@ export function OverviewClient() {
   const [userName, setUserName] = useState<string>(
     DEMO_MODE_ENABLED ? demoProfile.user.name : '',
   );
+  const [isWidgetActive, setIsWidgetActive] = useState<boolean>(
+    demoProfile.business?.isWidgetActive !== false,
+  );
+  const [isTogglingWidget, setIsTogglingWidget] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const { completedCount, totalSteps, isAllCompleted } = useSetupProgress();
+
+  const handleToggleWidget = async () => {
+    const next = !isWidgetActive;
+    setIsWidgetActive(next);
+    setIsTogglingWidget(true);
+    try {
+      const res = await toggleWidgetStatusApi(next);
+      setIsWidgetActive(res.business?.isWidgetActive !== false);
+    } catch {
+      setIsWidgetActive(!next);
+    } finally {
+      setIsTogglingWidget(false);
+    }
+  };
 
   const load = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true);
@@ -88,6 +107,9 @@ export function OverviewClient() {
 
       if (me.status === 'fulfilled' && me.value?.user?.name) {
         setUserName(me.value.user.name);
+        if (me.value?.business) {
+          setIsWidgetActive(me.value.business.isWidgetActive !== false);
+        }
       } else if (DEMO_MODE_ENABLED) {
         setUserName(demoProfile.user.name);
       }
@@ -279,6 +301,9 @@ export function OverviewClient() {
             activeConversations={stats.activeChats}
             voiceSessions={stats.activeVoiceCalls}
             productsCount={stats.productTotal}
+            isWidgetActive={isWidgetActive}
+            onToggleWidget={handleToggleWidget}
+            isTogglingWidget={isTogglingWidget}
           />
 
           {/* ── Unified Block 1: Store Performance (Flat Strip + Chart) ── */}

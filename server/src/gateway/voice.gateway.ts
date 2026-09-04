@@ -108,6 +108,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    // Check if merchant disabled the storefront widget
+    if (business.isWidgetActive === false) {
+      this.logger.warn(
+        `[VoiceGateway] Connection rejected: widget disabled by merchant for business ${business._id} (${business.name})`,
+      );
+      client.emit('voice-error', {
+        message: 'Storefront widget has been disabled by the store owner.',
+      });
+      return;
+    }
+
     // Extract connection origin/referer telemetry
     const rawOrigin =
       (client.handshake.headers.origin as string) ||

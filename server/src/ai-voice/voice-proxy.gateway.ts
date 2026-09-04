@@ -42,7 +42,7 @@ interface ProxySession {
 export class VoiceProxyGateway {
   private readonly logger = new Logger(VoiceProxyGateway.name);
   private readonly sessions = new Map<string, ProxySession>();
-  private readonly businessCache = new Map<string, { businessId: string; name: string; maxSessionDurationSeconds?: number | null; expiresAt: number }>();
+  private readonly businessCache = new Map<string, { businessId: string; name: string; isWidgetActive: boolean; maxSessionDurationSeconds?: number | null; expiresAt: number }>();
   private readonly userCache = new Map<string, { user: { id: string; name: string; email: string; role: string; businessId?: string }; expiresAt: number }>();
   private wss: WebSocketServer | null = null;
 
@@ -74,6 +74,34 @@ export class VoiceProxyGateway {
       this.businessCache.clear();
       this.userCache.clear();
       this.logger.log('[VoiceProxyGateway] All cached business and user keys cleared.');
+    }
+  }
+
+  /**
+   * Terminate all active live customer sessions for a business when widget is toggled off.
+   * Sends code 1008 and teardown signal, cleanly releasing resources and removing widget from client DOM.
+   */
+  terminateBusinessSessions(businessId: string): void {
+    let count = 0;
+    for (const [sessionId, session] of this.sessions.entries()) {
+      if (session.businessId === businessId && !session.closed) {
+        session.closed = true;
+        count++;
+        try {
+          session.sessionControls?.closeSession?.();
+        } catch {}
+        try {
+          if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+            session.clientWs.send(JSON.stringify({ type: 'error', message: 'Widget disabled by store owner.' }));
+            session.clientWs.close(1008, 'Widget disabled by store owner');
+          }
+        } catch {}
+        this.sessions.delete(sessionId);
+        this.sessionTimerService.clearTimer(sessionId);
+      }
+    }
+    if (count > 0) {
+      this.logger.log(`[VoiceProxyGateway] Terminated ${count} active voice session(s) for business ${businessId} due to storefront widget deactivation.`);
     }
   }
 
@@ -210,12 +238,14 @@ export class VoiceProxyGateway {
     let businessId: string | null = null;
     let businessName: string = '';
     let bizMaxSessionDurationSeconds: number | null = null;
+    let isWidgetActive: boolean = true;
 
     const cachedBiz = this.businessCache.get(publishableKey);
     if (cachedBiz && cachedBiz.expiresAt > Date.now()) {
       businessId = cachedBiz.businessId;
       businessName = cachedBiz.name;
       bizMaxSessionDurationSeconds = cachedBiz.maxSessionDurationSeconds ?? null;
+      isWidgetActive = cachedBiz.isWidgetActive;
     } else {
       let business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
@@ -232,9 +262,11 @@ export class VoiceProxyGateway {
         businessId = id;
         businessName = business.name;
         bizMaxSessionDurationSeconds = (business as any).maxSessionDurationSeconds ?? null;
+        isWidgetActive = (business as any).isWidgetActive !== false;
         this.businessCache.set(publishableKey, {
           businessId: id,
           name: businessName,
+          isWidgetActive,
           maxSessionDurationSeconds: bizMaxSessionDurationSeconds,
           expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
         });
@@ -247,6 +279,16 @@ export class VoiceProxyGateway {
       );
       sendToClient({ type: 'error', message: 'Invalid or inactive publishable key. Access denied.' });
       clientWs.close(1008, 'Invalid publishable key');
+      return;
+    }
+
+    // If merchant has disabled storefront widget and this is an unauthenticated public shopper, reject
+    if (!authenticatedUser && !isWidgetActive) {
+      this.logger.warn(
+        `[VoiceProxyGateway] Connection rejected: storefront widget is disabled by merchant for business ${businessId} (${businessName}) for session ${sessionId}`,
+      );
+      sendToClient({ type: 'error', message: 'Storefront widget is disabled by store owner.' });
+      clientWs.close(1008, 'Widget disabled');
       return;
     }
 

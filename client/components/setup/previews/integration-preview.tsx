@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 interface IntegrationPreviewProps {
   publishableKey?: string;
+  isWidgetActive?: boolean;
   onCopied?: () => void;
 }
 
@@ -40,6 +41,7 @@ const PLATFORMS: { id: PlatformTab; label: string; fileTarget: string; instructi
 
 export function IntegrationPreview({
   publishableKey = 'biz_live_demo_key',
+  isWidgetActive = true,
   onCopied,
 }: IntegrationPreviewProps) {
   const [platform, setPlatform] = useState<PlatformTab>('html');
@@ -167,11 +169,17 @@ export function IntegrationPreview({
           <div className="flex items-center gap-2.5 min-w-0">
             <Zap size={14} className="text-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Gateway Status</p>
-              <p className="text-[12px] font-medium text-foreground">WebSocket Live & Encrypted</p>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Storefront Status</p>
+              <p className="text-[12px] font-medium text-foreground">
+                {isWidgetActive !== false ? 'Live on Storefront' : 'Storefront Paused'}
+              </p>
             </div>
           </div>
-          <span className="w-2 h-2 rounded-full bg-[color:var(--status-online)] flex-shrink-0" />
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+              isWidgetActive !== false ? 'bg-[color:var(--status-online)]' : 'bg-amber-400'
+            }`}
+          />
         </div>
       </div>
     </div>

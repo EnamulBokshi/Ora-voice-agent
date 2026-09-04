@@ -17,6 +17,7 @@ import {
   deletePublishableKeyApi,
   generatePublishableKeyApi,
   updateBusinessApi,
+  toggleWidgetStatusApi,
 } from '@/services/business-service';
 
 interface BusinessDetailsCardProps {
@@ -44,8 +45,42 @@ export function BusinessDetailsCard({
   const [localKey, setLocalKey] = useState<string | null | undefined>(
     business?.publishableKey,
   );
+  const [isWidgetActive, setIsWidgetActive] = useState<boolean>(
+    business?.isWidgetActive !== false,
+  );
+  const [isTogglingWidget, setIsTogglingWidget] = useState(false);
+
+  React.useEffect(() => {
+    if (business) {
+      setIsWidgetActive(business.isWidgetActive !== false);
+      setLocalKey(business.publishableKey);
+    }
+  }, [business]);
 
   const hasActiveKey = Boolean(localKey && localKey.trim().length > 0);
+
+  const handleToggleWidget = async () => {
+    const nextState = !isWidgetActive;
+    setIsTogglingWidget(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const res = await toggleWidgetStatusApi(nextState);
+      setIsWidgetActive(res.business?.isWidgetActive !== false);
+      setSuccessMessage(
+        nextState
+          ? 'ORA storefront widget is now active and visible on your site.'
+          : 'ORA storefront widget is now paused and hidden from your site.',
+      );
+      if (onBusinessUpdated && res.business) {
+        onBusinessUpdated(res.business);
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to update widget visibility status.');
+    } finally {
+      setIsTogglingWidget(false);
+    }
+  };
 
   if (!business) {
     return (
@@ -280,21 +315,77 @@ export function BusinessDetailsCard({
             )}
           </div>
 
-          <div className="pt-1">
+          <div className="pt-1 space-y-4">
             {hasActiveKey ? (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-high/30 border border-border/50 rounded-md p-3.5">
-                <span className="font-mono text-[12px] text-foreground font-medium break-all select-all">
-                  {localKey}
-                </span>
-                <button
-                  onClick={handleCopyKey}
-                  className="px-3 py-1.5 rounded-md bg-surface-high hover:bg-surface-bright border border-border/60 text-[12px] font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
-                  title="Copy Key"
-                >
-                  {copiedKey ? <Check size={13} className="text-foreground dark:text-[#C8F031]" /> : <Copy size={13} />}
-                  <span>{copiedKey ? 'Copied' : 'Copy Key'}</span>
-                </button>
-              </div>
+              <>
+                {/* ── Live Storefront Widget Visibility Switch ── */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-md border border-border/60 bg-surface-high/20">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-semibold text-foreground font-serif">
+                        Storefront Widget Visibility
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-medium border ${
+                          isWidgetActive
+                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-[#C8F031]'
+                            : 'border-border/60 bg-surface-high/60 text-muted-foreground'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isWidgetActive ? 'bg-emerald-400 dark:bg-[#C8F031] animate-pulse' : 'bg-muted-foreground'
+                          }`}
+                        />
+                        {isWidgetActive ? 'Live on Store' : 'Paused / Hidden'}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-muted-foreground">
+                      {isWidgetActive
+                        ? 'ORA is currently active and helping shoppers on your storefront.'
+                        : 'ORA is hidden from your store. Shoppers will not see the orb until you re-enable it.'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleToggleWidget}
+                      disabled={isTogglingWidget}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        isWidgetActive ? 'bg-foreground dark:bg-[#C8F031]' : 'bg-surface-bright border-border/80'
+                      } ${isTogglingWidget ? 'opacity-60 cursor-wait' : ''}`}
+                      role="switch"
+                      aria-checked={isWidgetActive}
+                      title={isWidgetActive ? 'Click to turn ORA OFF on your storefront' : 'Click to turn ORA ON on your storefront'}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background dark:bg-black shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          isWidgetActive ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-[11.5px] font-medium text-foreground min-w-[50px]">
+                      {isTogglingWidget ? 'Saving...' : isWidgetActive ? 'Active' : 'Paused'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-high/30 border border-border/50 rounded-md p-3.5">
+                  <span className="font-mono text-[12px] text-foreground font-medium break-all select-all">
+                    {localKey}
+                  </span>
+                  <button
+                    onClick={handleCopyKey}
+                    className="px-3 py-1.5 rounded-md bg-surface-high hover:bg-surface-bright border border-border/60 text-[12px] font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    title="Copy Key"
+                  >
+                    {copiedKey ? <Check size={13} className="text-foreground dark:text-[#C8F031]" /> : <Copy size={13} />}
+                    <span>{copiedKey ? 'Copied' : 'Copy Key'}</span>
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
                 <div>
