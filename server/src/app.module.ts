@@ -28,6 +28,7 @@ import { LiveDeskModule } from './live-desk/live-desk.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UsageModule } from './usage/usage.module';
+import { ApiAccessModule } from './api-access/api-access.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { UsageModule } from './usage/usage.module';
     AdminModule,
     NotificationsModule,
     UsageModule,
+    ApiAccessModule,
   ],
   controllers: [AppController],
   providers: [AppService],

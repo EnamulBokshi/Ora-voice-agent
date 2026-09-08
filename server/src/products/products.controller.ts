@@ -13,22 +13,24 @@ import {
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { QueryProductsDto } from './dto/query-products.dto';
+import { CreateProductDto } from './dto/create-product.dto';
 import { BatchSyncProductsDto } from './dto/batch-sync-products.dto';
 import { VerifyLiveDto } from './dto/verify-live.dto';
 import { UpdateProductOverrideDto } from './dto/update-product-override.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { DualAuthGuard } from '../common/guards/dual-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Scopes } from '../api-access/decorators/scopes.decorator';
+import { ApiScope } from '../api-access/schemas/api-client.schema';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('products')
-@UseGuards(JwtAuthGuard, TenantScopeGuard)
+@UseGuards(DualAuthGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
+  @Scopes(ApiScope.PRODUCTS_READ)
   async findAll(
     @CurrentUser() user: JwtPayloadUser,
     @Query() query: QueryProductsDto,
@@ -37,6 +39,7 @@ export class ProductsController {
   }
 
   @Get(':id')
+  @Scopes(ApiScope.PRODUCTS_READ)
   async findOne(
     @CurrentUser() user: JwtPayloadUser,
     @Param('id') id: string,
@@ -44,11 +47,22 @@ export class ProductsController {
     return this.productsService.findOne(user.businessId, id);
   }
 
+  @Post()
+  @Scopes(ApiScope.PRODUCTS_WRITE)
+  @Roles('owner' as any, 'admin' as any)
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: CreateProductDto,
+  ) {
+    return this.productsService.create(user.businessId, dto);
+  }
+
   /**
    * Manual Product Override Endpoint (Admin Correction of Mirrored Record)
    */
   @Patch(':id')
-  @UseGuards(RolesGuard)
+  @Scopes(ApiScope.PRODUCTS_WRITE)
   @Roles('owner' as any, 'admin' as any)
   @HttpCode(HttpStatus.OK)
   async manualOverride(
@@ -60,7 +74,7 @@ export class ProductsController {
   }
 
   @Post('batch-sync')
-  @UseGuards(RolesGuard)
+  @Scopes(ApiScope.PRODUCTS_WRITE)
   @Roles('owner' as any, 'admin' as any)
   @HttpCode(HttpStatus.OK)
   async batchSync(
@@ -71,6 +85,7 @@ export class ProductsController {
   }
 
   @Post(':id/verify-live')
+  @Scopes(ApiScope.PRODUCTS_READ, ApiScope.PRODUCTS_WRITE)
   @HttpCode(HttpStatus.OK)
   async verifyLive(
     @CurrentUser() user: JwtPayloadUser,
@@ -81,7 +96,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
+  @Scopes(ApiScope.PRODUCTS_WRITE)
   @Roles('owner' as any, 'admin' as any)
   @HttpCode(HttpStatus.OK)
   async remove(

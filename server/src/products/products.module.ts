@@ -6,12 +6,14 @@ import { ProductsController } from './products.controller';
 import { Product, ProductSchema } from './schemas/product.schema';
 import { RedisModule } from '../common/redis/redis.module';
 import { VectorModule } from '../vector/vector.module';
+import { ApiAccessModule } from '../api-access/api-access.module';
 
 @Module({
   imports: [
     ConfigModule,
     RedisModule,
     forwardRef(() => VectorModule),
+    forwardRef(() => ApiAccessModule),
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
     ]),

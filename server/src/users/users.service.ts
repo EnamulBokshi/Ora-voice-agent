@@ -46,10 +46,35 @@ export class UsersService implements OnModuleInit {
         }
       }
 
+      // 1b. Heal any existing business records that have null or missing secretApiKey
+      const businessesWithoutSecretKey = await this.businessModel
+        .find({
+          $or: [
+            { secretApiKey: null },
+            { secretApiKey: { $exists: false } },
+            { secretApiKey: '' },
+          ],
+        })
+        .exec();
+
+      if (businessesWithoutSecretKey.length > 0) {
+        this.logger.log(
+          `[UsersService] Healing ${businessesWithoutSecretKey.length} business document(s) with missing secretApiKey...`,
+        );
+        for (const biz of businessesWithoutSecretKey) {
+          const secretHex = crypto.randomBytes(16).toString('hex');
+          biz.secretApiKey = `ora_sk_live_${secretHex}`;
+          await biz.save();
+        }
+      }
+
       // 2. Drop legacy non-sparse index and ensure sparse unique index exists
       await this.businessModel.collection.dropIndex('publishableKey_1').catch(() => null);
       await this.businessModel.collection
         .createIndex({ publishableKey: 1 }, { unique: true, sparse: true })
+        .catch(() => null);
+      await this.businessModel.collection
+        .createIndex({ secretApiKey: 1 }, { unique: true, sparse: true })
         .catch(() => null);
     } catch (err: any) {
       this.logger.warn(`[UsersService] Index initialization hint: ${err.message}`);
@@ -58,10 +83,12 @@ export class UsersService implements OnModuleInit {
 
   async createBusiness(name: string, domain?: string): Promise<BusinessDocument> {
     const randomHex = crypto.randomBytes(12).toString('hex');
+    const secretHex = crypto.randomBytes(16).toString('hex');
     const business = new this.businessModel({
       name,
       domain,
       publishableKey: `biz_live_${randomHex}`,
+      secretApiKey: `ora_sk_live_${secretHex}`,
       status: 'pending',
     });
 
@@ -197,6 +224,29 @@ export class UsersService implements OnModuleInit {
     business.publishableKey = publishableKey;
     const saved = await business.save();
     return { business: saved, publishableKey };
+  }
+
+  async deleteSecretKey(businessId: string): Promise<BusinessDocument> {
+    const business = await this.businessModel.findById(businessId).exec();
+    if (!business) {
+      throw new DomainException('BUSINESS_NOT_FOUND', 'Business not found.', HttpStatus.NOT_FOUND);
+    }
+    business.secretApiKey = null;
+    return business.save();
+  }
+
+  async generateSecretKey(
+    businessId: string,
+  ): Promise<{ business: BusinessDocument; secretApiKey: string }> {
+    const business = await this.businessModel.findById(businessId).exec();
+    if (!business) {
+      throw new DomainException('BUSINESS_NOT_FOUND', 'Business not found.', HttpStatus.NOT_FOUND);
+    }
+    const secretHex = crypto.randomBytes(16).toString('hex');
+    const secretApiKey = `ora_sk_live_${secretHex}`;
+    business.secretApiKey = secretApiKey;
+    const saved = await business.save();
+    return { business: saved, secretApiKey };
   }
 }
 

@@ -14,6 +14,9 @@ export class Business {
   @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
   publishableKey?: string | null;
 
+  @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
+  secretApiKey?: string | null;
+
   @Prop({
     type: String,
     enum: ['active', 'suspended', 'revoked', 'none'],

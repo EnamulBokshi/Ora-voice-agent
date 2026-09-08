@@ -96,4 +96,29 @@ export class BusinessController {
       business: result.business,
     };
   }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
+  @Post('secret-key')
+  @HttpCode(HttpStatus.CREATED)
+  async generateSecretKey(@Req() req: any) {
+    const result = await this.usersService.generateSecretKey(req.businessId);
+    return {
+      message: 'Secret API key generated successfully.',
+      secretApiKey: result.secretApiKey,
+      business: result.business,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.OWNER, AdminRole.ADMIN)
+  @Delete('secret-key')
+  @HttpCode(HttpStatus.OK)
+  async deleteSecretKey(@Req() req: any) {
+    const updated = await this.usersService.deleteSecretKey(req.businessId);
+    return {
+      message: 'Secret API key revoked successfully.',
+      business: updated,
+    };
+  }
 }
