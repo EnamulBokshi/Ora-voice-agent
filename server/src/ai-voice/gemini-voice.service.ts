@@ -4,6 +4,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import WebSocket from 'ws';
 import { ORA_TOOL_DECLARATIONS, getToolsForArchetype } from './tools/ai-tools.definition';
+import {
+  resolveAgentCapability,
+  toolUsageHints,
+} from './tools/archetype-capabilities';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { AgentConfigService } from '../agent-config/agent-config.service';
 import { ProductsService } from '../products/products.service';
@@ -82,7 +86,7 @@ export interface GeminiVoiceSessionControls {
 @Injectable()
 export class GeminiVoiceService {
   private readonly logger = new Logger(GeminiVoiceService.name);
-  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; isPlatform: boolean; voiceName: string; expiresAt: number }>();
+  private readonly instructionCache = new Map<string, { instruction: string; archetype: string; isPlatform: boolean; hasCatalog: boolean; voiceName: string; expiresAt: number }>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -232,6 +236,7 @@ export class GeminiVoiceService {
         const cached = this.instructionCache.get(options.businessId);
         const archetype = cached?.archetype || 'general';
         const isPlatform = cached?.isPlatform || false;
+        const hasCatalog = cached?.hasCatalog || false;
         const voiceName = normalizeGeminiVoice(cached?.voiceName);
 
         // Send Setup Handshake Payload with dynamic merchant voice
@@ -256,7 +261,11 @@ export class GeminiVoiceService {
             },
             tools: [
               {
-                functionDeclarations: getToolsForArchetype(archetype, isPlatform),
+                functionDeclarations: getToolsForArchetype(
+                  archetype,
+                  isPlatform,
+                  hasCatalog,
+                ),
               },
             ],
             // ── Server-side transcription (parallel to audio, zero latency impact) ───
@@ -560,11 +569,24 @@ export class GeminiVoiceService {
 
       const isOraPlatform = bizDoc?.publishableKey === 'biz_live_ora_platform_system';
 
+      const hasCatalog = !!(
+        productsRes &&
+        productsRes.items &&
+        productsRes.items.length > 0
+      );
+
+      // The prompt and the tool declarations are both derived from this one
+      // decision, so they cannot disagree.
+      const capability = resolveAgentCapability({
+        archetype: businessArchetype,
+        isPlatform: isOraPlatform,
+        hasCatalog,
+      });
+      const isEcommerce = capability.isCommerce;
+
       let catalogSummary = '';
-      let hasProducts = false;
-      if (!isOraPlatform && businessArchetype !== 'saas' && businessArchetype !== 'portfolio' && businessArchetype !== 'agency_services' && businessArchetype !== 'consulting') {
+      if (isEcommerce) {
         if (productsRes && productsRes.items && productsRes.items.length > 0) {
-          hasProducts = true;
           const categories = Array.from(
             new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
           );
@@ -578,15 +600,6 @@ export class GeminiVoiceService {
           catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
         }
       }
-
-      const isEcommerce =
-        !isOraPlatform &&
-        (businessArchetype === 'ecommerce' ||
-          (hasProducts &&
-            businessArchetype !== 'saas' &&
-            businessArchetype !== 'portfolio' &&
-            businessArchetype !== 'agency_services' &&
-            businessArchetype !== 'consulting'));
 
       let knowledgeSummary = '';
       if (docsRes && docsRes.items && docsRes.items.length > 0) {
@@ -807,23 +820,9 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
    - Step 4 (Low-Friction Next Step): Invite a low-commitment next step ("Can I take your email so our team can send you a quick personalized summary?", or offer to answer any questions about our offerings).
    - Step 5 (Graceful Respect): If the visitor insists after a gentle probe that they truly want to leave, graciously respect it: "Understood! Thank you for stopping by ${entityLabel}. If you ever need us, we're right here. Have a great day!"`;
 
-        const toolRules = isEcommerce
-          ? [
-            '   - find_products: When the customer asks for a specific product, item, category, or price range.',
-            '   - get_product_details: When the customer asks for specific details or full descriptions of a product.',
-            '   - add_to_cart / place_order: When the customer explicitly asks to purchase or add items to their cart.',
-            '   - redirect_to_checkout: When the customer asks to checkout or complete their order.',
-            '   - search_knowledge_base / get_store_policy: When the customer asks for specific store policies, shipping rules, return procedures, or FAQs.',
-            '   - update_customer_profile: When the customer shares their name, email, phone, or shipping address.',
-            '   - get_customer_profile: When the customer asks what details you have saved for them.',
-          ]
-          : [
-            '   - capture_sales_lead: When the prospective client shares their name, email, phone, or requirements for follow-up.',
-            '   - search_knowledge_base: When the visitor asks for specific details covered in company documents or FAQs.',
-            '   - get_store_policy: When the visitor asks about terms of service, privacy, or company policies.',
-            '   - update_customer_profile: When the visitor shares their name, contact info, or preferences.',
-            '   - get_customer_profile: When the visitor asks what details you have saved for them.',
-          ];
+        // Derived from the same capability decision as the declarations, so
+        // the prompt cannot describe a tool the model was never given.
+        const toolRules = toolUsageHints(capability);
 
         baseInstruction = [
           persona,
@@ -858,13 +857,13 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
       }
 
       const voiceName = normalizeGeminiVoice(agentConfig?.voice?.voiceId);
-      const effectiveArchetype = isEcommerce ? 'ecommerce' : businessArchetype;
 
       // Cache base template for 5 minutes
       this.instructionCache.set(businessId, {
         instruction: baseInstruction,
-        archetype: effectiveArchetype,
-        isPlatform: isOraPlatform,
+        archetype: capability.archetype,
+        isPlatform: capability.isPlatform,
+        hasCatalog,
         voiceName: voiceName,
         expiresAt: Date.now() + 5 * 60 * 1000,
       });
@@ -966,8 +965,12 @@ REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
     return [baseInstruction, customerContext, browsingContext].filter(Boolean).join('\n\n');
   }
 
-  getToolDeclarations(archetype?: string, isPlatform: boolean = false) {
-    return getToolsForArchetype(archetype, isPlatform);
+  getToolDeclarations(
+    archetype?: string,
+    isPlatform: boolean = false,
+    hasCatalog?: boolean,
+  ) {
+    return getToolsForArchetype(archetype, isPlatform, hasCatalog);
   }
 
   public invalidateInstructionCache(businessId?: string): void {

@@ -13,6 +13,8 @@ import {
   Layers,
   Briefcase,
   Building2,
+  Handshake,
+  Stethoscope,
   Save,
   CheckCircle2,
   AlertCircle,
@@ -49,12 +51,23 @@ interface ArchetypeOption {
   icon: React.ElementType;
 }
 
+/**
+ * Must stay in sync with the businessArchetype enum on AgentConfig
+ * (server/src/agent-config/schemas/agent-config.schema.ts). A value that is
+ * not in that enum fails validation on save.
+ *
+ * Only 'ecommerce' turns on catalogue, cart and checkout behaviour. Every
+ * other archetype gets the knowledge and lead-capture agent, so pick the one
+ * that describes the business rather than the closest retail label.
+ */
 const ARCHETYPES: ArchetypeOption[] = [
+  { id: 'general', name: 'General Business', category: 'Default', icon: Building2 },
   { id: 'ecommerce', name: 'E-Commerce', category: 'Retail', icon: ShoppingBag },
   { id: 'saas', name: 'SaaS Product', category: 'Software', icon: Layers },
   { id: 'agency_services', name: 'Agency & Services', category: 'Services', icon: Briefcase },
+  { id: 'consulting', name: 'Consulting', category: 'Services', icon: Handshake },
+  { id: 'clinic_appointments', name: 'Clinic & Appointments', category: 'Healthcare', icon: Stethoscope },
   { id: 'portfolio', name: 'Portfolio', category: 'Personal', icon: Globe },
-  { id: 'enterprise', name: 'Enterprise', category: 'Corporate', icon: Building2 },
 ];
 
 // ─── Voice Options ────────────────────────────────────────────────────────────
@@ -260,7 +273,7 @@ export function AgentPersonaTab() {
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   // Baseline states (from DB)
-  const [initialArchetype, setInitialArchetype] = useState<string>('ecommerce');
+  const [initialArchetype, setInitialArchetype] = useState<string>('general');
   const [initialBrandVoice, setInitialBrandVoice] = useState<string>('');
   const [initialBusinessSummary, setInitialBusinessSummary] = useState<string>('');
   const [initialCustomDirectives, setInitialCustomDirectives] = useState<string>('');
@@ -271,7 +284,7 @@ export function AgentPersonaTab() {
   const [initialVoiceId, setInitialVoiceId] = useState<string>('Aoede');
 
   // Form states
-  const [archetype, setArchetype] = useState<string>('ecommerce');
+  const [archetype, setArchetype] = useState<string>('general');
   const [brandVoice, setBrandVoice] = useState<string>('');
   const [businessSummary, setBusinessSummary] = useState<string>('');
   const [customDirectives, setCustomDirectives] = useState<string>('');
@@ -470,7 +483,10 @@ export function AgentPersonaTab() {
 
   // Preset click handler
   const handleApplyPreset = (preset: PresetTemplate) => {
-    setArchetype(preset.archetype);
+    // A preset is a tone and script template, so it only fills in the
+    // archetype while the business is still unclassified. Applying
+    // "Conversion Closer" must not silently turn a clinic into a store.
+    setArchetype((current) => (current === 'general' ? preset.archetype : current));
     setLanguage(preset.language);
     setBrandVoice(preset.brandVoice);
     setGreetingMessage(preset.greetingMessage);

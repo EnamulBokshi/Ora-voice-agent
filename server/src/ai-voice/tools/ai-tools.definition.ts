@@ -1,3 +1,5 @@
+import { resolveAgentCapability } from './archetype-capabilities';
+
 export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'find_products',
@@ -250,78 +252,17 @@ export const ORA_TOOL_DECLARATIONS = [
   },
 ];
 
-export function getToolsForArchetype(archetype?: string, isPlatform: boolean = false) {
-  // Platform Host Agent gets specialized platform sales & navigation tools
-  if (isPlatform || archetype === 'platform_saas') {
-    return ORA_TOOL_DECLARATIONS.filter((t) =>
-      [
-        'get_pricing_plans',
-        'capture_sales_lead',
-        'get_integration_guide',
-        'navigate_to_page',
-        'search_knowledge_base',
-        'update_agent_directives',
-        'update_customer_profile',
-        'get_customer_profile',
-      ].includes(t.name),
-    );
-  }
+export function getToolsForArchetype(
+  archetype?: string,
+  isPlatform: boolean = false,
+  hasCatalog?: boolean,
+) {
+  const { toolNames } = resolveAgentCapability({
+    archetype,
+    isPlatform,
+    hasCatalog,
+  });
 
-  // Non-e-commerce merchant sites (portfolio, agency, consulting)
-  if (archetype === 'portfolio' || archetype === 'agency_services' || archetype === 'consulting') {
-    return ORA_TOOL_DECLARATIONS.filter((t) =>
-      [
-        'navigate_to_page',
-        'search_knowledge_base',
-        'get_store_policy',
-        'update_customer_profile',
-        'get_customer_profile',
-        'update_agent_directives',
-      ].includes(t.name),
-    );
-  }
-
-  // Merchant SaaS sites (a merchant who sells their own software)
-  if (archetype === 'saas') {
-    return ORA_TOOL_DECLARATIONS.filter((t) =>
-      [
-        'navigate_to_page',
-        'search_knowledge_base',
-        'get_store_policy',
-        'update_customer_profile',
-        'get_customer_profile',
-      ].includes(t.name),
-    );
-  }
-
-  // General business, corporate, services, or non-e-commerce websites
-  if (archetype === 'general') {
-    return ORA_TOOL_DECLARATIONS.filter((t) =>
-      [
-        'capture_sales_lead',
-        'search_knowledge_base',
-        'get_store_policy',
-        'update_customer_profile',
-        'get_customer_profile',
-      ].includes(t.name),
-    );
-  }
-
-  // Standard Merchant E-commerce & Retail Storefronts (Shopify, WooCommerce, etc.)
-  return ORA_TOOL_DECLARATIONS.filter((t) =>
-    [
-      'find_products',
-      'get_product_details',
-      'add_to_cart',
-      'place_order',
-      'redirect_to_checkout',
-      'navigate_to_page',
-      'search_knowledge_base',
-      'get_store_policy',
-      'update_customer_profile',
-      'get_customer_profile',
-    ].includes(t.name),
-  );
+  // Preserve the declaration order of ORA_TOOL_DECLARATIONS.
+  return ORA_TOOL_DECLARATIONS.filter((t) => toolNames.includes(t.name));
 }
-
-
