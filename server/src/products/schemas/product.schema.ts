@@ -59,6 +59,13 @@ export class Product {
   @Prop({ trim: true, index: true })
   category?: string;
 
+  /**
+   * Manufacturer or vendor, e.g. Shopify's `vendor`. Filterable through the
+   * `brand` query parameter and scored by product search.
+   */
+  @Prop({ trim: true, index: true })
+  brand?: string;
+
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   attributes: Record<string, any>;
 

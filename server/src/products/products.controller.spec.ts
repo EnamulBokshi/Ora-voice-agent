@@ -87,12 +87,17 @@ describe('ProductsController', () => {
         },
       ],
     };
-    mockProductsService.batchSync.mockResolvedValue({ syncedCount: 1 });
+    // Matches what ProductsService.batchSync actually returns.
+    mockProductsService.batchSync.mockResolvedValue({
+      upsertedCount: 1,
+      modifiedCount: 0,
+      matchedCount: 0,
+    });
 
     const result = await controller.batchSync(mockUser, dto);
 
     expect(mockProductsService.batchSync).toHaveBeenCalledWith(mockBusinessId, dto);
-    expect(result.syncedCount).toBe(1);
+    expect(result.upsertedCount).toBe(1);
   });
 
   it('should delegate manualOverride with user.businessId, id, and dto', async () => {

@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProductAvailability } from '../schemas/product.schema';
 
@@ -12,6 +12,7 @@ export class QueryProductsDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
+  @Max(100)
   @Type(() => Number)
   limit?: number = 20;
 

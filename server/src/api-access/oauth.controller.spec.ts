@@ -124,7 +124,9 @@ describe('OAuthController', () => {
     const mockUser = {
       sub: 'admin_user_id',
       businessId: mockBusinessId,
+      email: 'owner@example.com',
       role: 'owner' as any,
+      sessionId: 'sess_oauth_spec',
     };
 
     it('createClient should delegate to apiClientService.createClient with user.businessId', async () => {

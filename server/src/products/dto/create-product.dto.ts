@@ -51,6 +51,10 @@ export class CreateProductDto {
   category?: string;
 
   @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
   @IsObject()
   attributes?: Record<string, any>;
 

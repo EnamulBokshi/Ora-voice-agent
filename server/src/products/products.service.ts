@@ -165,7 +165,7 @@ export class ProductsService {
             let score = 0;
             const nameLower = (item.name || '').toLowerCase();
             const catLower = (item.category || '').toLowerCase();
-            const brandLower = ((item as any).brand || '').toLowerCase();
+            const brandLower = (item.brand || '').toLowerCase();
             const descLower = (item.description || '').toLowerCase();
 
             for (const term of rawTerms) {
@@ -293,6 +293,7 @@ export class ProductsService {
     if (dto.availability !== undefined) product.availability = dto.availability;
     if (dto.stockQuantity !== undefined) product.stockQuantity = dto.stockQuantity;
     if (dto.category !== undefined) product.category = dto.category;
+    if (dto.brand !== undefined) product.brand = dto.brand;
     if (dto.attributes !== undefined) product.attributes = dto.attributes;
 
     product.sourceTier = SourceTier.TIER4_MANUAL;
@@ -331,27 +332,25 @@ export class ProductsService {
   }
 
   async remove(businessId: string, id: string): Promise<{ message: string }> {
-    // Purge corresponding vector embedding if it exists
+    // Resolve first, so `id` may be the Mongo _id or the connector's
+    // nativeProductId, exactly as it may be on GET, PATCH and verify-live. A
+    // raw deleteOne({ _id: id }) threw a CastError -- surfacing as a 500 --
+    // whenever a caller passed a nativeProductId.
+    const product = await this.findOne(businessId, id);
+
+    // Purge the corresponding vector embedding if it exists.
     if (this.vectorStoreService) {
       await this.vectorStoreService
-        .deleteVectorByEntityId(businessId, id)
+        .deleteVectorByEntityId(businessId, product._id.toString())
         .catch(() => {});
     }
 
-    const result = await this.productModel
+    await this.productModel
       .deleteOne({
-        _id: id as any,
+        _id: product._id,
         businessId: businessId as any,
       })
       .exec();
-
-    if (result.deletedCount === 0) {
-      throw new DomainException(
-        'PRODUCT_NOT_FOUND',
-        `Product with ID '${id}' not found.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
 
     this.invalidateRagCache(businessId);
     return { message: 'Product deleted successfully.' };
