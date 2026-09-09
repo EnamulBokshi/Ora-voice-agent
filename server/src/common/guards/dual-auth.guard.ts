@@ -22,11 +22,6 @@ import { ApiScope } from '../../api-access/schemas/api-client.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { DomainException } from '../exceptions/domain.exception';
 
-/**
- * Development-only playground key. Never matched when NODE_ENV=production.
- */
-const DEV_MOCK_PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
-
 /** A secret API key acts for the entire tenant, so it carries every scope. */
 const SECRET_KEY_SCOPES: ApiScope[] = Object.values(ApiScope);
 
@@ -66,11 +61,7 @@ export class DualAuthGuard implements CanActivate {
     const authHeader: string = request.headers['authorization'] || '';
     if (!apiKey && authHeader.toLowerCase().startsWith('bearer ')) {
       const candidate = authHeader.slice(7).trim();
-      if (
-        candidate.startsWith('ora_sk_') ||
-        candidate === 'ora_dev_key' ||
-        candidate === DEV_MOCK_PUBLISHABLE_KEY
-      ) {
+      if (candidate.startsWith('ora_sk_')) {
         apiKey = candidate;
       }
     }
@@ -224,34 +215,12 @@ export class DualAuthGuard implements CanActivate {
 
     // Secret keys only. Publishable keys are public and must never authenticate
     // a REST endpoint. `status: 'active'` makes suspension take effect at once.
-    let business = await businessModel
+    // Every key is a real credential in the database -- there is no literal the
+    // guard recognises on its own. Provision a local one with
+    // `pnpm run seed:dev-store`.
+    const business = await businessModel
       .findOne({ secretApiKey: apiKey, status: 'active' })
       .exec();
-
-    // In development mode, accept dev keys and link to active or playground store
-    if (
-      !business &&
-      process.env.NODE_ENV !== 'production' &&
-      (apiKey === 'ora_dev_key' ||
-        apiKey.startsWith('ora_sk_dev') ||
-        apiKey === DEV_MOCK_PUBLISHABLE_KEY)
-    ) {
-      business = await businessModel.findOne({ status: 'active' }).exec();
-      if (!business) {
-        business = await businessModel
-          .findOneAndUpdate(
-            { publishableKey: DEV_MOCK_PUBLISHABLE_KEY },
-            {
-              name: 'Dev Playground Store',
-              publishableKey: DEV_MOCK_PUBLISHABLE_KEY,
-              secretApiKey: 'ora_sk_dev_key',
-              status: 'active',
-            },
-            { upsert: true, returnDocument: 'after' },
-          )
-          .exec();
-      }
-    }
 
     if (!business) {
       throw new DomainException(

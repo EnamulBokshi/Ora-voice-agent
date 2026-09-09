@@ -25,9 +25,15 @@ export class ShopifyConnectorService {
   ) {}
 
   verifyWebhookHmac(rawBody: Buffer, hmacHeader: string): boolean {
-    const secret =
-      this.configService.get<string>('SHOPIFY_API_SECRET') ||
-      'ora_shopify_secret_dev_key';
+    // No fallback secret: an unset SHOPIFY_API_SECRET must fail every
+    // verification rather than accept a signature anyone can compute.
+    const secret = this.configService.get<string>('SHOPIFY_API_SECRET');
+    if (!secret) {
+      this.logger.error(
+        `[ShopifyConnector] SHOPIFY_API_SECRET is not configured, so no webhook signature can be verified.`,
+      );
+      return false;
+    }
 
     if (!hmacHeader) return false;
 

@@ -120,19 +120,34 @@ describe('DualAuthGuard', () => {
       expect(req.businessId).toBe(mockBusinessId);
     });
 
-    it('should authenticate dev key ora_dev_key in non-production mode', async () => {
-      const { context, req } = createMockContext({
+    it('should reject the ora_dev_key literal outside production', async () => {
+      process.env.NODE_ENV = 'development';
+      const { context } = createMockContext({
         'x-api-key': 'ora_dev_key',
       });
 
-      mockBusinessModel.findOne
-        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(null) })
-        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(mockBusinessDoc) });
+      mockBusinessModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
-      const allowed = await guard.canActivate(context);
+      await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+      // A failed authentication must never provision a tenant.
+      expect(mockBusinessModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
 
-      expect(allowed).toBe(true);
-      expect(req.businessId).toBe(mockBusinessId);
+    it('should not fall back to an arbitrary active business', async () => {
+      process.env.NODE_ENV = 'development';
+      const { context } = createMockContext({
+        'x-api-key': 'ora_sk_dev_unknown',
+      });
+
+      mockBusinessModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+      // One lookup only: the key itself. No second "any active store" query.
+      expect(mockBusinessModel.findOne).toHaveBeenCalledTimes(1);
     });
 
     it('should throw DomainException for invalid API key', async () => {

@@ -23,9 +23,15 @@ export class WooCommerceConnectorService {
   ) {}
 
   verifyWebhookHmac(rawBody: Buffer, signatureHeader: string): boolean {
-    const secret =
-      this.configService.get<string>('WOOCOMMERCE_WEBHOOK_SECRET') ||
-      'ora_woocommerce_secret_dev_key';
+    // No fallback secret: an unset WOOCOMMERCE_WEBHOOK_SECRET must fail every
+    // verification rather than accept a signature anyone can compute.
+    const secret = this.configService.get<string>('WOOCOMMERCE_WEBHOOK_SECRET');
+    if (!secret) {
+      this.logger.error(
+        `[WooCommerceConnector] WOOCOMMERCE_WEBHOOK_SECRET is not configured, so no webhook signature can be verified.`,
+      );
+      return false;
+    }
 
     if (!signatureHeader) return false;
 
