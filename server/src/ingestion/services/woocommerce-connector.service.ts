@@ -8,6 +8,7 @@ import { SourceTier, ProductAvailability } from '../../products/schemas/product.
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { VectorStoreService } from '../../vector/vector-store.service';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
+import { BusinessCredentialsUtil } from '../../common/utils/business-credentials.util';
 
 @Injectable()
 export class WooCommerceConnectorService {
@@ -22,13 +23,23 @@ export class WooCommerceConnectorService {
     private readonly vectorStoreService?: VectorStoreService,
   ) {}
 
-  verifyWebhookHmac(rawBody: Buffer, signatureHeader: string): boolean {
+  /**
+   * @param storeSecret The store's own webhook secret, when it has one. A
+   * merchant sets this string in their WooCommerce store, so verifying against
+   * it means one leaked secret cannot forge another tenant's webhooks.
+   */
+  verifyWebhookHmac(
+    rawBody: Buffer,
+    signatureHeader: string,
+    storeSecret?: string,
+  ): boolean {
     // No fallback secret: an unset WOOCOMMERCE_WEBHOOK_SECRET must fail every
     // verification rather than accept a signature anyone can compute.
-    const secret = this.configService.get<string>('WOOCOMMERCE_WEBHOOK_SECRET');
+    const secret =
+      storeSecret || this.configService.get<string>('WOOCOMMERCE_WEBHOOK_SECRET');
     if (!secret) {
       this.logger.error(
-        `[WooCommerceConnector] WOOCOMMERCE_WEBHOOK_SECRET is not configured, so no webhook signature can be verified.`,
+        `[WooCommerceConnector] Neither a per-store webhook secret nor WOOCOMMERCE_WEBHOOK_SECRET is configured, so no webhook signature can be verified.`,
       );
       return false;
     }
@@ -114,12 +125,19 @@ export class WooCommerceConnectorService {
    * (ingestion lag). Returns [] if credentials are missing or the API call fails.
    */
   async searchProductsLive(businessId: string, query: string): Promise<any[]> {
-    const business = await this.businessModel.findById(businessId as any).exec();
-    if (
-      !business?.woocommerceStoreUrl ||
-      !business?.woocommerceConsumerKey ||
-      !business?.woocommerceConsumerSecret
-    ) {
+    const business = await this.businessModel
+      .findById(businessId as any)
+      .select('+woocommerceConsumerKey +woocommerceConsumerSecret')
+      .exec();
+
+    const consumerKey = BusinessCredentialsUtil.reveal(
+      business?.woocommerceConsumerKey,
+    );
+    const consumerSecret = BusinessCredentialsUtil.reveal(
+      business?.woocommerceConsumerSecret,
+    );
+
+    if (!business?.woocommerceStoreUrl || !consumerKey || !consumerSecret) {
       this.logger.warn(
         `[WooCommerceConnector] No WooCommerce credentials configured for business ${businessId} — Gap B live search skipped.`,
       );
@@ -129,7 +147,7 @@ export class WooCommerceConnectorService {
     const storeUrl = business.woocommerceStoreUrl.replace(/\/$/, '');
     const url = `${storeUrl}/wp-json/wc/v3/products?search=${encodeURIComponent(query)}&per_page=5&status=publish`;
     const credentials = Buffer.from(
-      `${business.woocommerceConsumerKey}:${business.woocommerceConsumerSecret}`,
+      `${consumerKey}:${consumerSecret}`,
     ).toString('base64');
 
     try {

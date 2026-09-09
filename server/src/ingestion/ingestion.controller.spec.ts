@@ -23,6 +23,13 @@ describe('IngestionController -- platform webhooks', () => {
 
   const req = () => ({ rawBody }) as any;
 
+  /** Mongoose queries here are used both bare and with .select(). */
+  const mockQuery = (result: any) => {
+    const query: any = { exec: jest.fn().mockResolvedValue(result) };
+    query.select = jest.fn().mockReturnValue(query);
+    return query;
+  };
+
   beforeEach(async () => {
     mockShopifyService = {
       verifyWebhookHmac: jest.fn().mockReturnValue(true),
@@ -86,6 +93,12 @@ describe('IngestionController -- platform webhooks', () => {
   it('rejects an invalid WooCommerce signature outside production', async () => {
     process.env.NODE_ENV = 'development';
     mockWooService.verifyWebhookHmac.mockReturnValue(false);
+    mockBusinessModel.findOne.mockReturnValue(
+      mockQuery({
+        _id: { toString: () => mockBusinessId },
+        woocommerceWebhookSecret: undefined,
+      }),
+    );
 
     await expect(
       controller.handlePlatformWebhook(
@@ -111,11 +124,9 @@ describe('IngestionController -- platform webhooks', () => {
   });
 
   it('resolves the tenant from the shop domain', async () => {
-    mockBusinessModel.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue({
-        _id: { toString: () => mockBusinessId },
-      }),
-    });
+    mockBusinessModel.findOne.mockReturnValue(
+      mockQuery({ _id: { toString: () => mockBusinessId } }),
+    );
 
     await callShopify();
 
@@ -127,10 +138,38 @@ describe('IngestionController -- platform webhooks', () => {
     );
   });
 
+  it('verifies a WooCommerce webhook against the store\'s own secret', async () => {
+    mockBusinessModel.findOne.mockReturnValue(
+      mockQuery({
+        _id: { toString: () => mockBusinessId },
+        woocommerceWebhookSecret: 'per_store_secret',
+      }),
+    );
+
+    await controller.handlePlatformWebhook(
+      'woocommerce',
+      undefined as any,
+      undefined as any,
+      undefined as any,
+      undefined as any,
+      'valid_signature',
+      'https://store.example.com',
+      req(),
+      { id: 1 },
+    );
+
+    expect(mockWooService.verifyWebhookHmac).toHaveBeenCalledWith(
+      rawBody,
+      'valid_signature',
+      'per_store_secret',
+    );
+    expect(mockWooService.syncProducts).toHaveBeenCalledWith(mockBusinessId, [
+      { id: 1 },
+    ]);
+  });
+
   it('ignores a businessId in the payload when the domain is unknown', async () => {
-    mockBusinessModel.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(null),
-    });
+    mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
     await expect(
       callShopify({ payload: { id: 1, businessId: 'other_business_id_999' } }),
@@ -139,9 +178,7 @@ describe('IngestionController -- platform webhooks', () => {
   });
 
   it('ignores a businessId in the payload on the WooCommerce path', async () => {
-    mockBusinessModel.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(null),
-    });
+    mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
     await expect(
       controller.handlePlatformWebhook(

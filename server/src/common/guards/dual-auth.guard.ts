@@ -21,6 +21,7 @@ import { SCOPES_KEY } from '../../api-access/decorators/scopes.decorator';
 import { ApiScope } from '../../api-access/schemas/api-client.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { DomainException } from '../exceptions/domain.exception';
+import { ApiKeyUtil } from '../utils/api-key.util';
 
 /** A secret API key acts for the entire tenant, so it carries every scope. */
 const SECRET_KEY_SCOPES: ApiScope[] = Object.values(ApiScope);
@@ -190,6 +191,44 @@ export class DualAuthGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Accepts a key issued before hashing was introduced, then rewrites the
+   * record so the plaintext stops existing. `scripts/migrate-hash-secret-keys.ts`
+   * does this in bulk; this covers a key that was in flight when it ran.
+   */
+  private async migrateLegacyPlaintextKey(
+    apiKey: string,
+    businessModel: Model<BusinessDocument>,
+  ) {
+    const legacy = await businessModel
+      .findOne({ secretApiKey: apiKey, status: 'active' })
+      .select('+secretApiKey')
+      .exec();
+
+    if (!legacy) {
+      return null;
+    }
+
+    legacy.secretApiKeyHash = ApiKeyUtil.hash(apiKey);
+    legacy.secretApiKeyHint = ApiKeyUtil.hint(apiKey);
+    legacy.secretApiKey = null;
+
+    try {
+      await legacy.save();
+      this.logger.log(
+        `[DualAuthGuard] Migrated the plaintext secret key of business ${legacy._id.toString()} to a hash.`,
+      );
+    } catch (err: any) {
+      // Authentication itself succeeded, so a failed rewrite must not deny the
+      // request; the bulk migration will pick the record up.
+      this.logger.error(
+        `[DualAuthGuard] Failed to migrate the secret key of business ${legacy._id.toString()}: ${err.message}`,
+      );
+    }
+
+    return legacy;
+  }
+
   private async authenticateApiKey(
     apiKey: string,
     request: any,
@@ -218,9 +257,22 @@ export class DualAuthGuard implements CanActivate {
     // Every key is a real credential in the database -- there is no literal the
     // guard recognises on its own. Provision a local one with
     // `pnpm run seed:dev-store`.
-    const business = await businessModel
-      .findOne({ secretApiKey: apiKey, status: 'active' })
+    //
+    // Only the hash is stored, so the presented key is hashed and looked up by
+    // its index rather than compared against a stored plaintext.
+    let business = await businessModel
+      .findOne({
+        secretApiKeyHash: ApiKeyUtil.hash(apiKey),
+        status: 'active',
+      })
       .exec();
+
+    if (!business) {
+      business = await this.migrateLegacyPlaintextKey(
+        apiKey,
+        businessModel,
+      );
+    }
 
     if (!business) {
       throw new DomainException(

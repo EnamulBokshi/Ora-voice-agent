@@ -7,6 +7,7 @@ import { AdminUser, AdminUserDocument } from './schemas/admin-user.schema';
 import { Business, BusinessDocument } from './schemas/business.schema';
 import { AdminRole } from './enums/admin-role.enum';
 import { DomainException } from '../common/exceptions/domain.exception';
+import { ApiKeyUtil } from '../common/utils/api-key.util';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
@@ -46,27 +47,10 @@ export class UsersService implements OnModuleInit {
         }
       }
 
-      // 1b. Heal any existing business records that have null or missing secretApiKey
-      const businessesWithoutSecretKey = await this.businessModel
-        .find({
-          $or: [
-            { secretApiKey: null },
-            { secretApiKey: { $exists: false } },
-            { secretApiKey: '' },
-          ],
-        })
-        .exec();
-
-      if (businessesWithoutSecretKey.length > 0) {
-        this.logger.log(
-          `[UsersService] Healing ${businessesWithoutSecretKey.length} business document(s) with missing secretApiKey...`,
-        );
-        for (const biz of businessesWithoutSecretKey) {
-          const secretHex = crypto.randomBytes(16).toString('hex');
-          biz.secretApiKey = `ora_sk_live_${secretHex}`;
-          await biz.save();
-        }
-      }
+      // A secret key is only useful if the merchant sees the plaintext, which
+      // happens once, at generation. Minting one here would store a hash for a
+      // key nobody can read, so a business has no secret key until
+      // POST /business/secret-key is called.
 
       // 2. Drop legacy non-sparse index and ensure sparse unique index exists
       await this.businessModel.collection.dropIndex('publishableKey_1').catch(() => null);
@@ -76,6 +60,9 @@ export class UsersService implements OnModuleInit {
       await this.businessModel.collection
         .createIndex({ secretApiKey: 1 }, { unique: true, sparse: true })
         .catch(() => null);
+      await this.businessModel.collection
+        .createIndex({ secretApiKeyHash: 1 }, { unique: true, sparse: true })
+        .catch(() => null);
     } catch (err: any) {
       this.logger.warn(`[UsersService] Index initialization hint: ${err.message}`);
     }
@@ -83,12 +70,12 @@ export class UsersService implements OnModuleInit {
 
   async createBusiness(name: string, domain?: string): Promise<BusinessDocument> {
     const randomHex = crypto.randomBytes(12).toString('hex');
-    const secretHex = crypto.randomBytes(16).toString('hex');
+    // No secret key here: it can only be handed over once, so the merchant
+    // asks for it explicitly via POST /business/secret-key.
     const business = new this.businessModel({
       name,
       domain,
       publishableKey: `biz_live_${randomHex}`,
-      secretApiKey: `ora_sk_live_${secretHex}`,
       status: 'pending',
     });
 
@@ -232,9 +219,15 @@ export class UsersService implements OnModuleInit {
       throw new DomainException('BUSINESS_NOT_FOUND', 'Business not found.', HttpStatus.NOT_FOUND);
     }
     business.secretApiKey = null;
+    business.secretApiKeyHash = null;
+    business.secretApiKeyHint = null;
     return business.save();
   }
 
+  /**
+   * Issues a new secret key. Only the hash is stored, so the plaintext
+   * returned here is the merchant's single opportunity to copy it.
+   */
   async generateSecretKey(
     businessId: string,
   ): Promise<{ business: BusinessDocument; secretApiKey: string }> {
@@ -242,9 +235,10 @@ export class UsersService implements OnModuleInit {
     if (!business) {
       throw new DomainException('BUSINESS_NOT_FOUND', 'Business not found.', HttpStatus.NOT_FOUND);
     }
-    const secretHex = crypto.randomBytes(16).toString('hex');
-    const secretApiKey = `ora_sk_live_${secretHex}`;
-    business.secretApiKey = secretApiKey;
+    const secretApiKey = ApiKeyUtil.generateSecretKey();
+    business.secretApiKey = null;
+    business.secretApiKeyHash = ApiKeyUtil.hash(secretApiKey);
+    business.secretApiKeyHint = ApiKeyUtil.hint(secretApiKey);
     const saved = await business.save();
     return { business: saved, secretApiKey };
   }

@@ -103,9 +103,13 @@ export class BusinessController {
   @HttpCode(HttpStatus.CREATED)
   async generateSecretKey(@Req() req: any) {
     const result = await this.usersService.generateSecretKey(req.businessId);
+    // Only the hash is stored, so this response is the one and only time the
+    // plaintext key exists outside the caller's own records.
     return {
-      message: 'Secret API key generated successfully.',
+      message:
+        'Secret API key generated successfully. Copy it now -- it cannot be shown again.',
       secretApiKey: result.secretApiKey,
+      secretApiKeyHint: result.business.secretApiKeyHint,
       business: result.business,
     };
   }

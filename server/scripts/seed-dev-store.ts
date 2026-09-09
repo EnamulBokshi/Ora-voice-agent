@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import mongoose, { Schema, Document } from 'mongoose';
+import { ApiKeyUtil } from '../src/common/utils/api-key.util';
 
 // ─── 1. Load Environment Variables ──────────────────────────────────────────
 const envPath = path.resolve(__dirname, '../.env');
@@ -58,7 +59,8 @@ interface IBusiness extends Document {
   name: string;
   domain?: string;
   publishableKey?: string;
-  secretApiKey?: string;
+  secretApiKeyHash?: string;
+  secretApiKeyHint?: string;
   keyStatus?: string;
   status: string;
   connectedPlatform: string;
@@ -69,7 +71,8 @@ const BusinessMongooseSchema = new Schema<IBusiness>(
     name: { type: String, required: true, trim: true },
     domain: { type: String, trim: true },
     publishableKey: { type: String, unique: true, sparse: true, index: true },
-    secretApiKey: { type: String, unique: true, sparse: true, index: true },
+    secretApiKeyHash: { type: String, unique: true, sparse: true, index: true },
+    secretApiKeyHint: { type: String },
     keyStatus: { type: String, default: 'active' },
     status: { type: String, default: 'active' },
     connectedPlatform: { type: String, default: 'none' },
@@ -99,12 +102,22 @@ async function seedDevStore(): Promise<void> {
       {
         name: storeName,
         publishableKey,
-        secretApiKey,
+        // Only the hash is stored, exactly as the running app does. The
+        // plaintext below is printed once and is not recoverable afterwards.
+        secretApiKeyHash: ApiKeyUtil.hash(secretApiKey),
+        secretApiKeyHint: ApiKeyUtil.hint(secretApiKey),
         keyStatus: 'active',
         status: 'active',
         connectedPlatform: 'none',
       },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
+    ).exec();
+
+    // A re-seed with a fresh random key would otherwise leave the previous
+    // plaintext column populated on an old record.
+    await BusinessModel.updateOne(
+      { _id: business._id },
+      { $unset: { secretApiKey: '' } },
     ).exec();
 
     console.log('---------------------------------------------------------');

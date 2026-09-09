@@ -2,11 +2,37 @@ import * as crypto from 'crypto';
 
 export class EncryptionUtil {
   private static readonly ALGORITHM = 'aes-256-gcm';
-  private static readonly KEY =
-    process.env.ENCRYPTION_SECRET || 'ora-aes-256-secret-key-32bytes!';
+  private static readonly DEV_KEY = 'ora-aes-256-secret-key-32bytes!';
+  private static warnedAboutDevKey = false;
+
+  /**
+   * A shipped default key encrypts nothing from anyone who has the source, so
+   * production refuses to run without ENCRYPTION_SECRET. Local development
+   * keeps the default and says so once.
+   */
+  private static resolveSecret(): string {
+    const configured = process.env.ENCRYPTION_SECRET;
+    if (configured) return configured;
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'ENCRYPTION_SECRET is not set. Refusing to encrypt or decrypt data at rest with the development key.',
+      );
+    }
+
+    if (!this.warnedAboutDevKey) {
+      this.warnedAboutDevKey = true;
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[EncryptionUtil] ENCRYPTION_SECRET is not set; using the development key. Never do this outside local development.',
+      );
+    }
+
+    return this.DEV_KEY;
+  }
 
   private static getKey(): Buffer {
-    return crypto.scryptSync(this.KEY, 'ora-salt', 32);
+    return crypto.scryptSync(this.resolveSecret(), 'ora-salt', 32);
   }
 
   static encrypt(text: string): string {

@@ -8,6 +8,7 @@ import { OAuthScopesGuard } from '../../api-access/guards/oauth-scopes.guard';
 import { MACHINE_TOKEN_AUDIENCE } from '../../api-access/oauth.service';
 import { ApiScope } from '../../api-access/schemas/api-client.schema';
 import { Business } from '../../users/schemas/business.schema';
+import { ApiKeyUtil } from '../utils/api-key.util';
 import { DomainException } from '../exceptions/domain.exception';
 
 describe('DualAuthGuard', () => {
@@ -61,6 +62,15 @@ describe('DualAuthGuard', () => {
     guard = module.get<DualAuthGuard>(DualAuthGuard);
   });
 
+  /** Mongoose queries here are used both bare and with .select(). */
+  const mockQuery = (result: any) => {
+    const query: any = {
+      exec: jest.fn().mockResolvedValue(result),
+    };
+    query.select = jest.fn().mockReturnValue(query);
+    return query;
+  };
+
   const createMockContext = (headers: Record<string, string> = {}, user?: any) => {
     const req: any = {
       headers,
@@ -84,9 +94,7 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'ora_sk_live_test123',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockBusinessDoc),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(mockBusinessDoc));
 
       const allowed = await guard.canActivate(context);
 
@@ -99,8 +107,9 @@ describe('DualAuthGuard', () => {
         isApiKey: true,
       });
       expect(mockJwtService.decode).not.toHaveBeenCalled();
+      // The plaintext key is never used as a query value.
       expect(mockBusinessModel.findOne).toHaveBeenCalledWith({
-        secretApiKey: 'ora_sk_live_test123',
+        secretApiKeyHash: ApiKeyUtil.hash('ora_sk_live_test123'),
         status: 'active',
       });
     });
@@ -110,9 +119,7 @@ describe('DualAuthGuard', () => {
         authorization: 'Bearer ora_sk_live_test123',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockBusinessDoc),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(mockBusinessDoc));
 
       const allowed = await guard.canActivate(context);
 
@@ -126,9 +133,7 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'ora_dev_key',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
       await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
       // A failed authentication must never provision a tenant.
@@ -141,13 +146,20 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'ora_sk_dev_unknown',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
       await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
-      // One lookup only: the key itself. No second "any active store" query.
-      expect(mockBusinessModel.findOne).toHaveBeenCalledTimes(1);
+      // Two lookups at most, both keyed on the presented credential: the hash,
+      // then the legacy plaintext. Never an unkeyed "any active store" query.
+      expect(mockBusinessModel.findOne.mock.calls).toEqual([
+        [
+          {
+            secretApiKeyHash: ApiKeyUtil.hash('ora_sk_dev_unknown'),
+            status: 'active',
+          },
+        ],
+        [{ secretApiKey: 'ora_sk_dev_unknown', status: 'active' }],
+      ]);
     });
 
     it('should throw DomainException for invalid API key', async () => {
@@ -155,9 +167,7 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'invalid_unknown_key',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
       await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
     });
@@ -167,16 +177,62 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'biz_live_test123',
       });
 
-      // The guard queries secretApiKey only, so the publishable key matches nothing.
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      });
+      // The guard queries the secret key hash only, so a publishable key
+      // matches nothing.
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
       await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
       expect(mockBusinessModel.findOne).toHaveBeenCalledWith({
-        secretApiKey: 'biz_live_test123',
+        secretApiKeyHash: ApiKeyUtil.hash('biz_live_test123'),
         status: 'active',
       });
+    });
+
+    it('should accept a legacy plaintext key and rewrite it as a hash', async () => {
+      const { context, req } = createMockContext({
+        'x-api-key': 'ora_sk_live_legacy',
+      });
+
+      const legacyDoc: any = {
+        _id: { toString: () => mockBusinessId },
+        secretApiKey: 'ora_sk_live_legacy',
+        status: 'active',
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+
+      mockBusinessModel.findOne
+        .mockReturnValueOnce(mockQuery(null))
+        .mockReturnValueOnce(mockQuery(legacyDoc));
+
+      const allowed = await guard.canActivate(context);
+
+      expect(allowed).toBe(true);
+      expect(req.businessId).toBe(mockBusinessId);
+      expect(legacyDoc.secretApiKeyHash).toBe(
+        ApiKeyUtil.hash('ora_sk_live_legacy'),
+      );
+      expect(legacyDoc.secretApiKeyHint).toBe('gacy');
+      expect(legacyDoc.secretApiKey).toBeNull();
+      expect(legacyDoc.save).toHaveBeenCalled();
+    });
+
+    it('should still authenticate when rewriting a legacy key fails', async () => {
+      const { context } = createMockContext({
+        'x-api-key': 'ora_sk_live_legacy',
+      });
+
+      const legacyDoc: any = {
+        _id: { toString: () => mockBusinessId },
+        secretApiKey: 'ora_sk_live_legacy',
+        status: 'active',
+        save: jest.fn().mockRejectedValue(new Error('write concern failed')),
+      };
+
+      mockBusinessModel.findOne
+        .mockReturnValueOnce(mockQuery(null))
+        .mockReturnValueOnce(mockQuery(legacyDoc));
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
     });
 
     it('should ignore the X-Publishable-Key header entirely', async () => {
@@ -213,9 +269,7 @@ describe('DualAuthGuard', () => {
       });
 
       // status: 'active' is part of the query, so a suspended tenant returns null.
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(null),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(null));
 
       await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
     });
@@ -225,9 +279,7 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'ora_sk_live_test123',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockBusinessDoc),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(mockBusinessDoc));
       // Route requires super_admin, which an API key never holds.
       mockReflector.getAllAndOverride.mockImplementation((key: string) =>
         key === 'roles' ? ['super_admin'] : undefined,
@@ -241,9 +293,7 @@ describe('DualAuthGuard', () => {
         'x-api-key': 'ora_sk_live_test123',
       });
 
-      mockBusinessModel.findOne.mockReturnValue({
-        exec: jest.fn().mockResolvedValue(mockBusinessDoc),
-      });
+      mockBusinessModel.findOne.mockReturnValue(mockQuery(mockBusinessDoc));
       mockReflector.getAllAndOverride.mockImplementation((key: string) =>
         key === 'roles'
           ? ['owner', 'admin']

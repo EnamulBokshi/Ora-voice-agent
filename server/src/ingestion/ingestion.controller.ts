@@ -37,6 +37,7 @@ import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
+import { BusinessCredentialsUtil } from '../common/utils/business-credentials.util';
 
 /**
  * A signature covers the exact bytes that were received, so a parsed body is
@@ -146,34 +147,41 @@ export class IngestionController {
         throw new BadRequestException(UNVERIFIABLE_BODY_MESSAGE);
       }
 
-      const isVerified = this.woocommerceService.verifyWebhookHmac(rawBody, wcSignature);
-      if (!isVerified) {
-        throw new UnauthorizedException('Invalid WooCommerce webhook signature.');
-      }
-
-      // As above: the tenant comes from the signed request's store URL only.
-      let businessId: string | undefined;
+      // The store URL identifies which merchant's secret to verify against; it
+      // does not authorize anything on its own. Naming a tenant whose secret
+      // the caller does not hold simply fails the signature check below.
       const storeUrl = payload?.store_url || wcSourceHeader;
+      let business: BusinessDocument | null = null;
 
       if (storeUrl) {
         const urlClean = storeUrl.replace(/\/$/, '');
-        const business = await this.businessModel.findOne({
-          $or: [
-            { woocommerceStoreUrl: storeUrl },
-            { woocommerceStoreUrl: urlClean },
-          ],
-        }).exec();
-
-        if (business) {
-          businessId = business._id.toString();
-        }
+        business = await this.businessModel
+          .findOne({
+            $or: [
+              { woocommerceStoreUrl: storeUrl },
+              { woocommerceStoreUrl: urlClean },
+            ],
+          })
+          .select('+woocommerceWebhookSecret')
+          .exec();
       }
 
-      if (!businessId) {
+      if (!business) {
         throw new BadRequestException(
           'No merchant is connected to the WooCommerce store URL that sent this webhook.',
         );
       }
+
+      const isVerified = this.woocommerceService.verifyWebhookHmac(
+        rawBody,
+        wcSignature,
+        BusinessCredentialsUtil.reveal(business.woocommerceWebhookSecret),
+      );
+      if (!isVerified) {
+        throw new UnauthorizedException('Invalid WooCommerce webhook signature.');
+      }
+
+      const businessId = business._id.toString();
 
       const products = Array.isArray(payload) ? payload : payload?.products || [payload];
       return this.woocommerceService.syncProducts(businessId, products);

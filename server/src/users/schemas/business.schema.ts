@@ -14,8 +14,29 @@ export class Business {
   @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
   publishableKey?: string | null;
 
-  @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
+  /**
+   * @deprecated Legacy plaintext secret key, kept only so a key issued before
+   * hashing was introduced still authenticates once, at which point it is
+   * migrated to `secretApiKeyHash` and cleared. Hidden from queries by
+   * default; `scripts/migrate-hash-secret-keys.ts` empties the field.
+   */
+  @Prop({
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+    required: false,
+    select: false,
+  })
   secretApiKey?: string | null;
+
+  /** SHA-256 of the secret API key. The plaintext is shown once, at creation. */
+  @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
+  secretApiKeyHash?: string | null;
+
+  /** Last 4 characters of the secret key, so the merchant can identify it. */
+  @Prop({ type: String, required: false })
+  secretApiKeyHint?: string | null;
 
   @Prop({
     type: String,
@@ -85,18 +106,32 @@ export class Business {
   @Prop({ trim: true })
   shopifyStoreUrl?: string;
 
-  @Prop({ trim: true })
+  /**
+   * Shopify Admin API access token, encrypted with EncryptionUtil. Read it
+   * through `BusinessCredentials.shopifyAccessToken()`, which also accepts a
+   * value written before encryption was introduced.
+   */
+  @Prop({ trim: true, select: false })
   shopifyAccessToken?: string;
 
   // --- Tier 1: WooCommerce Connector ---
   @Prop({ trim: true })
   woocommerceStoreUrl?: string;
 
-  @Prop({ trim: true })
+  @Prop({ trim: true, select: false })
   woocommerceConsumerKey?: string;
 
-  @Prop({ trim: true })
+  /** Encrypted at rest, like `shopifyAccessToken`. */
+  @Prop({ trim: true, select: false })
   woocommerceConsumerSecret?: string;
+
+  /**
+   * Per-store WooCommerce webhook secret, encrypted at rest. A merchant sets
+   * this string in their own store, so each tenant can have its own. Falls
+   * back to WOOCOMMERCE_WEBHOOK_SECRET when unset.
+   */
+  @Prop({ trim: true, select: false })
+  woocommerceWebhookSecret?: string;
 
   // --- Tier 4: Manual Endpoint Connector ---
   @Prop({ trim: true })

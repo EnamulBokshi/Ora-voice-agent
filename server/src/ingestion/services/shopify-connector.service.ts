@@ -9,6 +9,7 @@ import { SourceTier, ProductAvailability } from '../../products/schemas/product.
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { VectorStoreService } from '../../vector/vector-store.service';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
+import { BusinessCredentialsUtil } from '../../common/utils/business-credentials.util';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -176,8 +177,16 @@ export class ShopifyConnectorService {
    * (ingestion lag). Returns [] if credentials are missing or the API call fails.
    */
   async searchProductsLive(businessId: string, query: string): Promise<any[]> {
-    const business = await this.businessModel.findById(businessId as any).exec();
-    if (!business?.shopifyStoreUrl || !business?.shopifyAccessToken) {
+    const business = await this.businessModel
+      .findById(businessId as any)
+      .select('+shopifyAccessToken')
+      .exec();
+
+    const accessToken = BusinessCredentialsUtil.reveal(
+      business?.shopifyAccessToken,
+    );
+
+    if (!business?.shopifyStoreUrl || !accessToken) {
       this.logger.warn(
         `[ShopifyConnector] No Shopify credentials configured for business ${businessId} — Gap B live search skipped.`,
       );
@@ -194,7 +203,7 @@ export class ShopifyConnectorService {
 
       const response = await fetch(url, {
         headers: {
-          'X-Shopify-Access-Token': business.shopifyAccessToken,
+          'X-Shopify-Access-Token': accessToken,
           'Content-Type': 'application/json',
         },
       });
