@@ -99,6 +99,10 @@ describe('DualAuthGuard', () => {
         isApiKey: true,
       });
       expect(mockJwtService.decode).not.toHaveBeenCalled();
+      expect(mockBusinessModel.findOne).toHaveBeenCalledWith({
+        secretApiKey: 'ora_sk_live_test123',
+        status: 'active',
+      });
     });
 
     it('should authenticate via Authorization: Bearer ora_sk_... without login', async () => {
@@ -141,6 +145,97 @@ describe('DualAuthGuard', () => {
       });
 
       await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+    });
+
+    it('should reject a public publishable key presented as X-API-Key', async () => {
+      const { context } = createMockContext({
+        'x-api-key': 'biz_live_test123',
+      });
+
+      // The guard queries secretApiKey only, so the publishable key matches nothing.
+      mockBusinessModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+      expect(mockBusinessModel.findOne).toHaveBeenCalledWith({
+        secretApiKey: 'biz_live_test123',
+        status: 'active',
+      });
+    });
+
+    it('should ignore the X-Publishable-Key header entirely', async () => {
+      const { context } = createMockContext({
+        'x-publishable-key': 'biz_live_test123',
+      });
+
+      jest.spyOn((guard as any).jwtAuthGuard, 'canActivate').mockRejectedValue(
+        new Error('no session'),
+      );
+
+      // Falls through to the dashboard session path instead of authenticating.
+      await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+      expect(mockBusinessModel.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should not accept a publishable key via Authorization: Bearer', async () => {
+      const { context } = createMockContext({
+        authorization: 'Bearer biz_live_test123',
+      });
+
+      mockJwtService.decode.mockReturnValue(null);
+      jest.spyOn((guard as any).jwtAuthGuard, 'canActivate').mockRejectedValue(
+        new Error('no session'),
+      );
+
+      await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+      expect(mockBusinessModel.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should not authenticate a suspended business', async () => {
+      const { context } = createMockContext({
+        'x-api-key': 'ora_sk_live_test123',
+      });
+
+      // status: 'active' is part of the query, so a suspended tenant returns null.
+      mockBusinessModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await expect(guard.canActivate(context)).rejects.toThrow(DomainException);
+    });
+
+    it('should enforce @Roles on the API key path', async () => {
+      const { context } = createMockContext({
+        'x-api-key': 'ora_sk_live_test123',
+      });
+
+      mockBusinessModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockBusinessDoc),
+      });
+      // Route requires super_admin, which an API key never holds.
+      mockReflector.getAllAndOverride.mockImplementation((key: string) =>
+        key === 'roles' ? ['super_admin'] : undefined,
+      );
+
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow an API key on a route requiring owner or admin', async () => {
+      const { context } = createMockContext({
+        'x-api-key': 'ora_sk_live_test123',
+      });
+
+      mockBusinessModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockBusinessDoc),
+      });
+      mockReflector.getAllAndOverride.mockImplementation((key: string) =>
+        key === 'roles'
+          ? ['owner', 'admin']
+          : [ApiScope.PRODUCTS_WRITE, ApiScope.PRODUCTS_READ],
+      );
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
     });
   });
 

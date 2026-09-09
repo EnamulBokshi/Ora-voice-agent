@@ -38,6 +38,13 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 
+/**
+ * A signature covers the exact bytes that were received, so a parsed body is
+ * not a usable substitute. main.ts creates the app with `rawBody: true`.
+ */
+const UNVERIFIABLE_BODY_MESSAGE =
+  'Raw request body is unavailable, so the webhook signature cannot be verified.';
+
 @Controller('ingestion')
 export class IngestionController {
   constructor(
@@ -83,18 +90,26 @@ export class IngestionController {
     @Headers('x-shopify-shop-domain') shopifyDomain: string,
     @Headers('x-wc-webhook-signature') wcSignature: string,
     @Headers('x-wc-webhook-source') wcSourceHeader: string,
-    @Headers('x-business-id') businessIdHeader: string,
     @Req() req: Request,
     @Body() payload: any,
   ) {
-    const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(payload || {}));
+    // Re-serializing the parsed body cannot reproduce the bytes that were
+    // signed, so a missing rawBody is a misconfiguration, not a fallback.
+    const rawBody: Buffer | undefined = (req as any).rawBody;
 
     if (platform === 'shopify') {
+      if (!rawBody) {
+        throw new BadRequestException(UNVERIFIABLE_BODY_MESSAGE);
+      }
+
       const isVerified = this.shopifyService.verifyWebhookHmac(rawBody, shopifyHmac);
-      if (!isVerified && process.env.NODE_ENV === 'production') {
+      if (!isVerified) {
         throw new UnauthorizedException('Invalid Shopify webhook HMAC signature.');
       }
 
+      // The tenant is resolved only from the signed request's shop domain. A
+      // businessId in a header or the body is never trusted, so a caller
+      // cannot direct a verified payload at another merchant.
       let businessId: string | undefined;
 
       if (shopifyDomain) {
@@ -113,12 +128,8 @@ export class IngestionController {
       }
 
       if (!businessId) {
-        businessId = businessIdHeader || payload?.businessId;
-      }
-
-      if (!businessId) {
         throw new BadRequestException(
-          'Merchant business not found for Shopify store domain and no fallback businessId provided.',
+          'No merchant is connected to the Shopify store domain that sent this webhook.',
         );
       }
 
@@ -131,11 +142,16 @@ export class IngestionController {
     }
 
     if (platform === 'woocommerce') {
+      if (!rawBody) {
+        throw new BadRequestException(UNVERIFIABLE_BODY_MESSAGE);
+      }
+
       const isVerified = this.woocommerceService.verifyWebhookHmac(rawBody, wcSignature);
-      if (!isVerified && process.env.NODE_ENV === 'production') {
+      if (!isVerified) {
         throw new UnauthorizedException('Invalid WooCommerce webhook signature.');
       }
 
+      // As above: the tenant comes from the signed request's store URL only.
       let businessId: string | undefined;
       const storeUrl = payload?.store_url || wcSourceHeader;
 
@@ -154,12 +170,8 @@ export class IngestionController {
       }
 
       if (!businessId) {
-        businessId = businessIdHeader || payload?.businessId;
-      }
-
-      if (!businessId) {
         throw new BadRequestException(
-          'Merchant business not found for WooCommerce store URL and no fallback businessId provided.',
+          'No merchant is connected to the WooCommerce store URL that sent this webhook.',
         );
       }
 

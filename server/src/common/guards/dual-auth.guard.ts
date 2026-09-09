@@ -17,13 +17,26 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 import { AdminRole } from '../../users/enums/admin-role.enum';
 import { OAuthScopesGuard } from '../../api-access/guards/oauth-scopes.guard';
 import { MACHINE_TOKEN_AUDIENCE } from '../../api-access/oauth.service';
+import { SCOPES_KEY } from '../../api-access/decorators/scopes.decorator';
+import { ApiScope } from '../../api-access/schemas/api-client.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { DomainException } from '../exceptions/domain.exception';
+
+/**
+ * Development-only playground key. Never matched when NODE_ENV=production.
+ */
+const DEV_MOCK_PUBLISHABLE_KEY = 'biz_live_mock_key_12345';
+
+/** A secret API key acts for the entire tenant, so it carries every scope. */
+const SECRET_KEY_SCOPES: ApiScope[] = Object.values(ApiScope);
 
 /**
  * DualAuthGuard allows an endpoint to be authenticated via:
  * 1. Zero-Login Secret API Key: Header `X-API-Key: ora_sk_...` or `Authorization: Bearer ora_sk_...`.
  *    Direct server-to-server access without any login or token exchange.
+ *    Publishable widget keys (`biz_live_...`) are public -- they are embedded in
+ *    storefront HTML -- and are NEVER accepted here. They authorize WebSocket
+ *    session initiation only (see ConversationGateway / VoiceGateway).
  * 2. OAuth 2.0 Machine Bearer Token: For clients using rotating client_credentials tokens.
  * 3. Merchant Dashboard User Session: Human admin login via cookies or dashboard JWT.
  */
@@ -44,25 +57,33 @@ export class DualAuthGuard implements CanActivate {
     // ──────────────────────────────────────────────────────────────────────────
     // 1. Check for Static API Key (Zero-Login Developer Flow)
     // ──────────────────────────────────────────────────────────────────────────
-    const headerApiKey =
-      request.headers['x-api-key'] || request.headers['x-publishable-key'];
+    const headerApiKey = request.headers['x-api-key'];
     let apiKey: string | undefined =
-      typeof headerApiKey === 'string' ? headerApiKey.trim() : undefined;
+      typeof headerApiKey === 'string' && headerApiKey.trim()
+        ? headerApiKey.trim()
+        : undefined;
 
     const authHeader: string = request.headers['authorization'] || '';
     if (!apiKey && authHeader.toLowerCase().startsWith('bearer ')) {
       const candidate = authHeader.slice(7).trim();
       if (
         candidate.startsWith('ora_sk_') ||
-        candidate.startsWith('biz_live_') ||
-        candidate === 'ora_dev_key'
+        candidate === 'ora_dev_key' ||
+        candidate === DEV_MOCK_PUBLISHABLE_KEY
       ) {
         apiKey = candidate;
       }
     }
 
     if (apiKey) {
-      return this.authenticateApiKey(apiKey, request);
+      const authenticated = await this.authenticateApiKey(apiKey, request);
+      if (!authenticated) {
+        return false;
+      }
+      // A secret API key acts for the whole tenant, so it holds every scope.
+      // @Scopes() and @Roles() on the route are still evaluated, so a route
+      // that later narrows them is enforced on this path too.
+      return this.enforceRouteAuthorization(context, SECRET_KEY_SCOPES);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -136,6 +157,35 @@ export class DualAuthGuard implements CanActivate {
       return false;
     }
 
+    return this.enforceRouteAuthorization(context);
+  }
+
+  /**
+   * Applies the route's @Scopes() and @Roles() metadata after a credential has
+   * been accepted. `grantedScopes` is omitted for credentials that carry no
+   * scopes of their own (a human dashboard session), where only @Roles() apply.
+   */
+  private enforceRouteAuthorization(
+    context: ExecutionContext,
+    grantedScopes?: ApiScope[],
+  ): boolean {
+    if (grantedScopes) {
+      const requiredScopes =
+        this.reflector.getAllAndOverride<ApiScope[]>(SCOPES_KEY, [
+          context.getHandler(),
+          context.getClass(),
+        ]) || [];
+
+      const missing = requiredScopes.filter((s) => !grantedScopes.includes(s));
+      if (missing.length > 0) {
+        throw new DomainException(
+          'insufficient_scope',
+          `This credential is missing required scope(s): ${missing.join(', ')}.`,
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
     const requiredRoles = this.reflector.getAllAndOverride<AdminRole[]>(
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
@@ -172,10 +222,10 @@ export class DualAuthGuard implements CanActivate {
       );
     }
 
+    // Secret keys only. Publishable keys are public and must never authenticate
+    // a REST endpoint. `status: 'active'` makes suspension take effect at once.
     let business = await businessModel
-      .findOne({
-        $or: [{ secretApiKey: apiKey }, { publishableKey: apiKey }],
-      })
+      .findOne({ secretApiKey: apiKey, status: 'active' })
       .exec();
 
     // In development mode, accept dev keys and link to active or playground store
@@ -184,16 +234,16 @@ export class DualAuthGuard implements CanActivate {
       process.env.NODE_ENV !== 'production' &&
       (apiKey === 'ora_dev_key' ||
         apiKey.startsWith('ora_sk_dev') ||
-        apiKey === 'biz_live_mock_key_12345')
+        apiKey === DEV_MOCK_PUBLISHABLE_KEY)
     ) {
       business = await businessModel.findOne({ status: 'active' }).exec();
       if (!business) {
         business = await businessModel
           .findOneAndUpdate(
-            { publishableKey: 'biz_live_mock_key_12345' },
+            { publishableKey: DEV_MOCK_PUBLISHABLE_KEY },
             {
               name: 'Dev Playground Store',
-              publishableKey: 'biz_live_mock_key_12345',
+              publishableKey: DEV_MOCK_PUBLISHABLE_KEY,
               secretApiKey: 'ora_sk_dev_key',
               status: 'active',
             },

@@ -34,10 +34,16 @@ export class WooCommerceConnectorService {
       .update(rawBody)
       .digest('base64');
 
-    return crypto.timingSafeEqual(
-      Buffer.from(calculatedHmac),
-      Buffer.from(signatureHeader),
-    );
+    const expectedBuffer = Buffer.from(calculatedHmac);
+    const providedBuffer = Buffer.from(signatureHeader);
+
+    // timingSafeEqual throws RangeError on a length mismatch, which would
+    // surface as a 500 instead of a rejected webhook.
+    if (expectedBuffer.length !== providedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
   }
 
 
