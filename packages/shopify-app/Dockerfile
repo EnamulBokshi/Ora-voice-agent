@@ -29,6 +29,12 @@ COPY . .
 # same-origin calls need no absolute URL and no CORS.
 ARG NEXT_PUBLIC_ORA_API_URL
 ENV NEXT_PUBLIC_ORA_API_URL=${NEXT_PUBLIC_ORA_API_URL:-/api/v1}
+
+# Inlined into the shopify-api-key meta tag at build time, because the page is
+# statically prerendered. App Bridge will not initialize without it, and a
+# mismatch with the app's Client ID makes idToken() hang rather than fail.
+ARG NEXT_PUBLIC_SHOPIFY_API_KEY
+ENV NEXT_PUBLIC_SHOPIFY_API_KEY=${NEXT_PUBLIC_SHOPIFY_API_KEY}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 

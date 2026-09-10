@@ -705,18 +705,32 @@ export class ShopifyService {
     await this.ensureOwner(business, normalized, details);
     await this.registerWebhooks(normalized, accessToken);
 
-    await this.syncQueue.add(
-      'initial-catalog-sync',
-      { businessId: business._id.toString(), shopDomain: normalized },
-      {
-        // The shop domain is the job id, so a reinstall replaces a pending job
-        // instead of queueing a second full walk of the same catalog.
-        jobId: `initial-sync:${normalized}`,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-        removeOnComplete: true,
-      },
-    );
+    // The enqueue is deliberately not allowed to fail the install. By this
+    // point the tenant, its owner, and its webhooks all exist, and throwing
+    // would leave the merchant provisioned but without a session — and the
+    // install branch does not run again, because the Business now exists. A
+    // missing initial import is recoverable; a tenant nobody can sign into is
+    // not. Webhooks keep the catalog current either way.
+    try {
+      await this.syncQueue.add(
+        'initial-catalog-sync',
+        { businessId: business._id.toString(), shopDomain: normalized },
+        {
+          // Keyed by shop so a reinstall replaces a pending job instead of
+          // queueing a second full walk of the same catalog. BullMQ rejects a
+          // custom job id containing ':' ("Custom Ids cannot contain :"), which
+          // rules out the obvious `initial-sync:<shop>` shape.
+          jobId: `initial-sync-${normalized}`,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: true,
+        },
+      );
+    } catch (err: any) {
+      this.logger.error(
+        `[ShopifyService] Initial catalog sync could not be queued for ${normalized}: ${err.message}. The store is installed; re-queue the import manually.`,
+      );
+    }
 
     this.logger.log(
       `[ShopifyService] Provisioned ${normalized} as business ${business._id.toString()}.`,
@@ -863,17 +877,43 @@ export class ShopifyService {
    * the stored one, so a scope change does not leave a token that cannot do
    * what the app now asks of it.
    */
+  /**
+   * Expands a granted scope list so it can be compared with a requested one.
+   *
+   * Shopify collapses `read_x` into `write_x` when both are requested, so a
+   * store granted `read_products,write_products` reports only
+   * `write_products`. Comparing the raw lists therefore never matches, and
+   * every session exchange would pointlessly re-run token exchange.
+   */
+  private expandScopes(scopes: string[]): Set<string> {
+    const expanded = new Set<string>();
+    for (const scope of scopes) {
+      expanded.add(scope);
+      if (scope.startsWith('write_')) {
+        expanded.add(`read_${scope.slice('write_'.length)}`);
+      }
+    }
+    return expanded;
+  }
+
   private async refreshScopesIfChanged(
     business: BusinessDocument,
     shopDomain: string,
     sessionToken: string,
   ): Promise<void> {
-    const stored = [...(business.shopifyScopes || [])].sort();
-    const wanted = [...this.scopes].sort();
+    const granted = this.expandScopes(business.shopifyScopes || []);
+    const wanted = this.scopes;
 
-    if (stored.length === wanted.length && stored.every((s, i) => s === wanted[i])) {
+    // Only a scope the app needs and does not have is worth re-exchanging for.
+    // Extra granted scopes are not a mismatch.
+    const missing = wanted.filter((scope) => !granted.has(scope));
+    if (missing.length === 0) {
       return;
     }
+
+    this.logger.log(
+      `[ShopifyService] ${shopDomain} is missing scope(s) ${missing.join(', ')}; re-running token exchange.`,
+    );
 
     try {
       const { accessToken, scopes } = await this.exchangeSessionToken(
@@ -882,7 +922,7 @@ export class ShopifyService {
       );
 
       business.shopifyAccessToken = BusinessCredentialsUtil.protect(accessToken);
-      business.shopifyScopes = scopes.length ? scopes : wanted;
+      business.shopifyScopes = scopes.length ? scopes : [...wanted];
       await business.save();
 
       this.logger.log(

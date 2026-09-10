@@ -145,7 +145,80 @@ describe('ShopifyService provisioning', () => {
     const [, data, options] = syncQueue.add.mock.calls[0];
     expect(data).toEqual({ businessId: 'biz-1', shopDomain: SHOP });
     // A reinstall must replace a pending job, not queue a second full walk.
-    expect(options.jobId).toBe(`initial-sync:${SHOP}`);
+    expect(options.jobId).toBe(`initial-sync-${SHOP}`);
+  });
+
+  it('uses a job id BullMQ accepts', async () => {
+    usersService.createBusiness.mockResolvedValue({ _id: 'biz-1', name: 'Demo Store' });
+
+    await service.provisionTenant(SHOP, 'shpat_token', []);
+
+    // BullMQ rejects a custom id containing ':' with "Custom Ids cannot
+    // contain :", which surfaced as an INTERNAL_SERVER_ERROR that aborted an
+    // otherwise complete install.
+    const [, , options] = syncQueue.add.mock.calls[0];
+    expect(options.jobId).not.toContain(':');
+  });
+
+  it('completes the install even when the queue rejects the job', async () => {
+    usersService.createBusiness.mockResolvedValue({ _id: 'biz-1', name: 'Demo Store' });
+    syncQueue.add.mockRejectedValue(new Error('Custom Ids cannot contain :'));
+
+    // The tenant, owner, and webhooks already exist at this point, and the
+    // install branch will not run again because the Business now exists. A
+    // throw here would leave a provisioned merchant who cannot sign in.
+    await expect(
+      service.provisionTenant(SHOP, 'shpat_token', []),
+    ).resolves.toBeDefined();
+  });
+
+  describe('scope comparison', () => {
+    // Shopify collapses read_x into write_x when both are requested, so a real
+    // store granted read+write products reports only `write_products`. A
+    // literal list comparison never matches and re-runs token exchange on every
+    // single page load.
+    const business = (scopes: string[]) =>
+      ({ shopifyScopes: scopes, save: jest.fn() }) as any;
+
+    it('treats write_products as satisfying read_products', async () => {
+      const exchange = jest
+        .spyOn(service, 'exchangeSessionToken')
+        .mockResolvedValue({ accessToken: 't', scopes: [] });
+
+      await (service as any).refreshScopesIfChanged(
+        business(['write_products', 'read_inventory', 'read_orders']),
+        SHOP,
+        'session-token',
+      );
+
+      expect(exchange).not.toHaveBeenCalled();
+    });
+
+    it('re-exchanges when a requested scope is genuinely absent', async () => {
+      const exchange = jest
+        .spyOn(service, 'exchangeSessionToken')
+        .mockResolvedValue({ accessToken: 't', scopes: ['write_products'] });
+
+      await (service as any).refreshScopesIfChanged(
+        business(['read_orders']),
+        SHOP,
+        'session-token',
+      );
+
+      expect(exchange).toHaveBeenCalled();
+    });
+
+    it('ignores extra scopes the store granted', async () => {
+      const exchange = jest.spyOn(service, 'exchangeSessionToken');
+
+      await (service as any).refreshScopesIfChanged(
+        business(['write_products', 'read_customers', 'write_orders']),
+        SHOP,
+        'session-token',
+      );
+
+      expect(exchange).not.toHaveBeenCalled();
+    });
   });
 
   describe('account linking', () => {

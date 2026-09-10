@@ -22,6 +22,31 @@ const nextConfig: NextConfig = {
   // The app is framed cross-site by Shopify Admin, where a Next.js dev
   // indicator overlay cannot be interacted with anyway.
   devIndicators: false,
+  // `shopify app dev` serves this app through a Cloudflare tunnel, so every dev
+  // request arrives cross-origin. Without this, Next refuses the HMR websocket
+  // and Fast Refresh dies silently — the browser then keeps running whatever
+  // bundle it loaded first, which makes code changes look like they had no
+  // effect. Dev-only; ignored in a production build.
+  allowedDevOrigins: ["*.trycloudflare.com", "*.tryora.live"],
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/shopify",
+        basePath: false,
+        permanent: false,
+      },
+    ]
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.NESTJS_BACKEND_URL || "http://127.0.0.1:5000"}/api/:path*`,
+        basePath: false,
+      },
+    ]
+  },
 }
 
 export default nextConfig
