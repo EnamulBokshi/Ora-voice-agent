@@ -10,6 +10,7 @@ import { Business, BusinessDocument } from '../../users/schemas/business.schema'
 import { VectorStoreService } from '../../vector/vector-store.service';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 import { BusinessCredentialsUtil } from '../../common/utils/business-credentials.util';
+import { SHOPIFY_API_VERSION } from '../../shopify/shopify.constants';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -89,11 +90,42 @@ export class ShopifyConnectorService {
       case 'inventory_levels/update':
         await this.handleInventoryUpdate(businessId, payload);
         break;
+      case 'app/uninstalled':
+        await this.handleAppUninstalled(businessId);
+        break;
       default:
         this.logger.warn(`[ShopifyConnector] Unhandled topic: ${topic}`);
     }
 
     return { status: 'processed', topic };
+  }
+
+  /**
+   * Shopify sends `app/uninstalled` once, after the merchant removes the app.
+   * The stored access token is dead at that point, so it is cleared rather than
+   * left encrypted at rest, and the tenant is suspended so its API keys stop
+   * authenticating. Catalog and conversation data are deliberately kept — a
+   * reinstall restores the store, and `shop/redact` is the topic that deletes.
+   */
+  private async handleAppUninstalled(businessId: string) {
+    await this.businessModel
+      .updateOne(
+        { _id: businessId as any },
+        {
+          $set: {
+            status: 'suspended',
+            keyStatus: 'suspended',
+            connectedPlatform: 'none',
+            shopifyUninstalledAt: new Date(),
+          },
+          $unset: { shopifyAccessToken: '' },
+        },
+      )
+      .exec();
+
+    this.logger.log(
+      `[ShopifyConnector] App uninstalled for business ${businessId}; access token cleared and tenant suspended.`,
+    );
   }
 
   private async handleProductUpsert(businessId: string, payload: any) {
@@ -194,11 +226,11 @@ export class ShopifyConnectorService {
     }
 
     const storeUrl = business.shopifyStoreUrl.replace(/\/$/, '');
-    const url = `${storeUrl}/admin/api/2024-01/products.json?title=${encodeURIComponent(query)}&limit=5&status=active`;
+    const url = `${storeUrl}/admin/api/${SHOPIFY_API_VERSION}/products.json?title=${encodeURIComponent(query)}&limit=5&status=active`;
 
     try {
       this.logger.log(
-        `[ShopifyConnector] Gap B live search: GET ${storeUrl}/admin/api/2024-01/products.json?title=${query}`,
+        `[ShopifyConnector] Gap B live search: GET ${storeUrl}/admin/api/${SHOPIFY_API_VERSION}/products.json?title=${query}`,
       );
 
       const response = await fetch(url, {

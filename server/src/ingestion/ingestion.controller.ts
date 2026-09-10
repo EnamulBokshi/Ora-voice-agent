@@ -114,14 +114,25 @@ export class IngestionController {
       let businessId: string | undefined;
 
       if (shopifyDomain) {
-        const domainClean = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const business = await this.businessModel.findOne({
-          $or: [
-            { shopifyStoreUrl: shopifyDomain },
-            { shopifyStoreUrl: `https://${domainClean}` },
-            { shopifyStoreUrl: domainClean },
-          ],
-        }).exec();
+        const domainClean = shopifyDomain
+          .replace(/^https?:\/\//, '')
+          .replace(/\/$/, '')
+          .toLowerCase();
+
+        // `shopifyShopDomain` is unique and indexed, so this is a single index
+        // hit. The `shopifyStoreUrl` shapes below are the unindexed legacy
+        // fallback, kept only for tenants provisioned before the embedded app
+        // existed; they can go once those are backfilled.
+        const business = await this.businessModel
+          .findOne({
+            $or: [
+              { shopifyShopDomain: domainClean },
+              { shopifyStoreUrl: shopifyDomain },
+              { shopifyStoreUrl: `https://${domainClean}` },
+              { shopifyStoreUrl: domainClean },
+            ],
+          })
+          .exec();
 
         if (business) {
           businessId = business._id.toString();

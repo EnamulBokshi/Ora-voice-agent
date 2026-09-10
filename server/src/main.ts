@@ -24,12 +24,22 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
 
+  // Origins stay open because the storefront widget is loaded from arbitrary
+  // merchant domains and calls this API cross-origin (voice session bootstrap,
+  // ingestion telemetry) using the `x-publishable-key` header.
+  //
+  // `credentials` is deliberately false. Nothing in the system needs
+  // credentialed cross-origin requests: the widget never sets `credentials`,
+  // and the ORA dashboard and the Shopify embedded app are both served from
+  // this API's own origin through nginx (`/api/` and `/`, `/shopify`), so their
+  // calls are same-origin and carry cookies without CORS being involved.
+  //
+  // Reflecting an arbitrary origin *with* credentials, which this used to do,
+  // let any website make cookie-bearing calls to this API on a signed-in
+  // user's behalf. Never set both to permissive values at once.
   app.enableCors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (curl, mobile, etc.) and all merchant/subscriber storefront domains
-      callback(null, true);
-    },
-    credentials: true,
+    origin: true,
+    credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-publishable-key', 'X-Publishable-Key', 'x-api-key', 'X-API-Key'],
   });

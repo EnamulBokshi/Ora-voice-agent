@@ -68,7 +68,19 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  async createBusiness(name: string, domain?: string): Promise<BusinessDocument> {
+  /**
+   * `status` defaults to `'pending'` because a web signup is not usable until
+   * its owner verifies the email OTP. A provisioning flow that has already
+   * established the owner's identity out of band — the Shopify embedded app
+   * install, for one — passes `overrides` to create an immediately usable
+   * tenant. Keep this the only place a Business is created, so a second
+   * creation path cannot drift from the publishable-key convention.
+   */
+  async createBusiness(
+    name: string,
+    domain?: string,
+    overrides?: Partial<Business>,
+  ): Promise<BusinessDocument> {
     const randomHex = crypto.randomBytes(12).toString('hex');
     // No secret key here: it can only be handed over once, so the merchant
     // asks for it explicitly via POST /business/secret-key.
@@ -77,17 +89,25 @@ export class UsersService implements OnModuleInit {
       domain,
       publishableKey: `biz_live_${randomHex}`,
       status: 'pending',
+      ...(overrides || {}),
     });
 
     return business.save();
   }
 
+  /**
+   * `emailVerified` defaults to false because a web signup must complete the
+   * OTP flow. A caller that has already had the address verified by an external
+   * identity provider passes `emailVerified: true` — otherwise billing emails
+   * and invoices stay queued for that account (see server/AGENTS.md 2.1).
+   */
   async createAdminUser(params: {
     businessId: Types.ObjectId | string;
     email: string;
     passwordHash: string;
     name: string;
     role?: AdminRole;
+    emailVerified?: boolean;
   }): Promise<AdminUserDocument> {
     const adminUser = new this.adminUserModel({
       businessId: new Types.ObjectId(params.businessId),
@@ -95,7 +115,7 @@ export class UsersService implements OnModuleInit {
       passwordHash: params.passwordHash,
       name: params.name,
       role: params.role || AdminRole.USER,
-      emailVerified: false,
+      emailVerified: params.emailVerified ?? false,
     });
 
     return adminUser.save();

@@ -1,0 +1,28 @@
+{
+  "name": "shopify-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "dev:standalone": "next dev -p 3001",
+    "shopify:dev": "npx --yes @shopify/cli@4 app dev",
+    "shopify:deploy": "npx --yes @shopify/cli@4 app deploy",
+    "shopify:link": "npx --yes @shopify/cli@4 app config link",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.2.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

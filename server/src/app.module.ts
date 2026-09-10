@@ -29,6 +29,7 @@ import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UsageModule } from './usage/usage.module';
 import { ApiAccessModule } from './api-access/api-access.module';
+import { ShopifyModule } from './shopify/shopify.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { ApiAccessModule } from './api-access/api-access.module';
     NotificationsModule,
     UsageModule,
     ApiAccessModule,
+    ShopifyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

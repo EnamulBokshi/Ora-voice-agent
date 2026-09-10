@@ -85,7 +85,18 @@ services:
       RAG_PRODUCT_CONFIDENCE_THRESHOLD: ${RAG_PRODUCT_CONFIDENCE_THRESHOLD:-0.65}
       RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD: ${RAG_KNOWLEDGE_CONFIDENCE_THRESHOLD:-0.60}
       LOW_STOCK_THRESHOLD: ${LOW_STOCK_THRESHOLD:-5}
+      # Shopify embedded app. SHOPIFY_API_KEY is the Partner app Client ID and
+      # the expected `aud` of every App Bridge session token, so session
+      # verification fails outright without it.
+      SHOPIFY_API_KEY: ${SHOPIFY_API_KEY:-}
       SHOPIFY_API_SECRET: ${SHOPIFY_API_SECRET:-}
+      SHOPIFY_SCOPES: ${SHOPIFY_SCOPES:-read_products,write_products,read_inventory,read_orders}
+      # ORA_API_URL is this API's public origin: it builds the webhook endpoint,
+      # the OAuth callback, and the billing return URL. SHOPIFY_APP_URL is the
+      # embedded frontend's public URL, which nginx serves at /shopify on the
+      # same origin. They are different values and are not interchangeable.
+      ORA_API_URL: ${ORA_API_URL:-https://tryora.live}
+      SHOPIFY_APP_URL: ${SHOPIFY_APP_URL:-https://tryora.live/shopify}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
@@ -134,6 +145,44 @@ services:
         condition: service_healthy
     healthcheck:
       test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - ora-production-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "5"
+
+  # ==========================================
+  # 5. ORA Shopify Embedded App (Next.js 16+)
+  # ==========================================
+  # Served by nginx at https://<host>/shopify, on the same origin as the API.
+  # That makes the embedded app's /api/v1 calls same-origin, exactly like the
+  # dashboard's, so no CORS or preflight is involved.
+  ora-shopify:
+    build:
+      context: ./packages/shopify-app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_ORA_API_URL: ${NEXT_PUBLIC_ORA_API_URL:-/api/v1}
+    container_name: ora-shopify
+    restart: always
+    ports:
+      - "127.0.0.1:${ORA_SHOPIFY_PORT:-4090}:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      NEXT_PUBLIC_ORA_API_URL: ${NEXT_PUBLIC_ORA_API_URL:-/api/v1}
+    depends_on:
+      ora-server:
+        condition: service_healthy
+    healthcheck:
+      # basePath is /shopify, so the app does not answer on /.
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/shopify || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5

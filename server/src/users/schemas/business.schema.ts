@@ -114,6 +114,40 @@ export class Business {
   @Prop({ trim: true, select: false })
   shopifyAccessToken?: string;
 
+  /**
+   * Normalized Shopify shop domain (`store.myshopify.com`), the unique key an
+   * embedded-app install upserts on. `shopifyStoreUrl` above is the legacy,
+   * unindexed field and is kept for tenants provisioned before the embedded
+   * app existed.
+   */
+  @Prop({
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+    trim: true,
+    lowercase: true,
+    required: false,
+  })
+  shopifyShopDomain?: string | null;
+
+  /** Shop owner address from Shopify, used for billing and invoice delivery. */
+  @Prop({ trim: true })
+  shopifyOwnerEmail?: string;
+
+  @Prop()
+  shopifyInstalledAt?: Date;
+
+  @Prop()
+  shopifyUninstalledAt?: Date;
+
+  /**
+   * Access scopes Shopify granted at the last token exchange. Compared on each
+   * session exchange so a scope change triggers a fresh exchange.
+   */
+  @Prop({ type: [String], default: [] })
+  shopifyScopes?: string[];
+
   // --- Tier 1: WooCommerce Connector ---
   @Prop({ trim: true })
   woocommerceStoreUrl?: string;

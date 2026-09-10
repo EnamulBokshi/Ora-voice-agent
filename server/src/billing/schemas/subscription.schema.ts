@@ -7,6 +7,13 @@ export type SubscriptionDocument = Subscription & Document;
 export enum BillingProvider {
   STRIPE = 'stripe',
   BKASH = 'bkash',
+  /**
+   * Shopify App Billing. Shopify requires app subscriptions sold to its
+   * merchants to be charged through `appSubscriptionCreate`, so a Shopify
+   * tenant never reaches Stripe or bKash. Renewal is Shopify's job, which is
+   * why the bKash renewal scheduler must skip this provider.
+   */
+  SHOPIFY = 'shopify',
 }
 
 export enum SubscriptionStatus {
