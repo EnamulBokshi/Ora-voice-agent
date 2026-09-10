@@ -20,7 +20,7 @@
 
 name = "ORA Voice AI"
 handle = "ora-voice-ai"
-client_id = "REPLACE_WITH_SHOPIFY_API_KEY"
+client_id = "737871ce3c359802b6363609149bc67b"
 application_url = "https://tryora.live/shopify"
 embedded = true
 

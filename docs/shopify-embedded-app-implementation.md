@@ -14,6 +14,9 @@ Read this for what the code actually does. Read the plan for why each decision w
 | `npx tsc --noEmit -p tsconfig.json` (server) | clean |
 | `pnpm --filter server build` | clean |
 | `pnpm --filter client typecheck` | clean |
+| `pnpm --filter shopify-app typecheck` | clean |
+| `pnpm --filter shopify-app build` | clean |
+| standalone server boots and serves `/shopify` | verified locally |
 
 63 new tests across 6 new spec files. A passing run still prints red `ERROR` lines from `AuthService`, `ShopifyConnectorService`, and `WooCommerceConnectorService` — those are negative-path assertions that predate this work.
 
@@ -215,6 +218,110 @@ unaffected; they do not use cookies either.
 If the embedded app is ever moved to its own host, this is the decision that has
 to be revisited — the comment in `main.ts` says so.
 
+## Embedded app build verification (2026-09-10)
+
+`pnpm install`, `typecheck`, and `build` all pass. The standalone output was
+booted on a spare port and probed:
+
+| Probe | Result |
+|---|---|
+| `GET /` | `404` — correct, `basePath` is `/shopify` |
+| `GET /shopify` | `200` |
+| response headers on `/shopify` | no `Content-Security-Policy`, no `X-Frame-Options` |
+
+That last row is the design holding: the app emits no framing header of its own,
+so the proxy is the sole owner of `frame-ancestors` and there is no second
+policy for the browser to intersect with.
+
+Also confirmed: the relative `"/api/v1"` base is what got baked into the client
+bundle, and no absolute fallback origin survived the build.
+
+### One bug the build exposed
+
+Next writes the standalone entrypoint under the path from its file-tracing root
+to the package. With the pnpm workspace root above, that is
+`.next/standalone/packages/shopify-app/server.js`, **not**
+`.next/standalone/server.js`. The Dockerfile's `CMD ["node", "server.js"]` would
+have failed to start.
+
+The Docker build context is the package directory, so the output there should be
+flat — but the Dockerfile no longer depends on that. It populates both static
+locations and probes for either entrypoint, which is the same defence
+`client/Dockerfile` already carries for the same reason.
+
+### Expected local diff after a build
+
+`next build` rewrites `packages/shopify-app/tsconfig.json`: `jsx` becomes
+`react-jsx` (mandatory for Next's automatic runtime), `.next/dev/types/**/*.ts`
+is added to `include`, and the file is reformatted. That change is Next's, and
+it is correct to keep.
+
+## Stage 1 verification — run and passed (2026-09-10)
+
+The session bridge was exercised end to end against local Mongo and Redis, with
+no Shopify account involved. Shopify signs App Bridge session tokens with the
+app's Client Secret, so anything holding that secret can mint a valid one —
+which makes the whole bridge testable offline. Procedure and expected output:
+`docs/shopify-verification-runbook.md`.
+
+### The feature's central claim, verified
+
+A seeded already-installed shop, a minted session token, then the returned ORA
+`accessToken` used against untouched existing endpoints:
+
+| Request | Result |
+|---|---|
+| `POST /api/v1/shopify/session` with a valid token | `200`, full ORA session |
+| `GET /api/v1/dashboard/stats` with that `accessToken` | `200` |
+| `GET /api/v1/agent-config` | `200` |
+| `GET /api/v1/products` | `200` |
+| `GET /api/v1/conversations` | `200` |
+| the same endpoints with no header | `401` |
+
+So "100% of existing ORA APIs work out-of-the-box" holds, and no guard needed
+changing.
+
+### Rejection cases
+
+| Token | Result |
+|---|---|
+| valid signature, wrong `aud` | `401` |
+| expired | `401` |
+| bad signature | `401` |
+| `dest` and `iss` disagreeing | `401` |
+| `alg: none` | `401` |
+| absent, or not a JWT | `401` |
+
+`wrong-aud` is the one that matters: that token is correctly signed under the
+shared secret and is refused only because `aud` does not match this app.
+
+### CORS
+
+Preflight from an arbitrary origin returns `Access-Control-Allow-Origin` echoing
+that origin and **no `Access-Control-Allow-Credentials`** — the widget keeps
+working, the credentialed-reflection hole is closed.
+
+### Compliance webhooks
+
+Valid HMAC `200`, wrong HMAC `401`, absent HMAC `401`, unknown topic `400`.
+
+### The install path
+
+A token for a shop absent from the database reached Shopify's real
+token-exchange endpoint, which answered `HTTP 404` for the nonexistent shop, and
+the API surfaced `SHOPIFY_TOKEN_EXCHANGE_FAILED`. Verification, tenant lookup,
+locking, and the outbound call are all wired; only a real shop is missing.
+
+### A doc error this exposed
+
+The plan and this record both claimed `GET /api/v1/dashboard`. That route does
+not exist — `DashboardController` is `@Controller('dashboard')` with
+`@Get('stats')`, `@Get('revenue-analytics')`, and `@Get('funnel-analytics')`. It
+returns `404` authenticated or not, so it would have read as an auth failure.
+Corrected to `/api/v1/dashboard/stats` in both documents.
+
+All seeded rows were removed and the test server stopped.
+
 ## Where the implementation diverged from the plan
 
 1. **`BusinessCredentialsUtil` method names.** The plan named a `shopifyAccessToken()` helper. The util's actual methods are `protect()` to write and `reveal()` to read. The code uses the real ones; the plan has been corrected.
@@ -232,7 +339,7 @@ to be revisited — the comment in `main.ts` says so.
 - **`SHOPIFY_API_VERSION = '2026-07'`** is a guess. Confirm against Shopify's release notes and change the one constant in `shopify.constants.ts`. Everything reads it, including the previously hardcoded `2024-01` in the connector.
 - **No live Shopify call has been made.** Token exchange, `shop.json`, `webhooks.json`, `products.json` pagination, and every GraphQL billing mutation are unit-tested against a mocked `fetch` and nothing more. The request shapes are from Shopify's documented API and have not been executed.
 - **The framing header is untested in a real iframe.** The only real test is loading the app in Shopify Admin, which needs Partner credentials.
-- **`packages/shopify-app/` has no installed dependencies.** `pnpm install` has not been run for it, so it has not been type-checked or built. Its `client_id` is a placeholder.
+- **`packages/shopify-app/`'s `client_id` is still a placeholder** in `shopify.app.toml`. The package itself now installs, type-checks, builds, and boots — see below.
 - **The compliance payload shapes** follow Shopify's documentation. `customers/data_request` returns counts and logs; a production deployment likely wants it to produce an actual export for the merchant to forward.
 - **`externalCustomerId` is assumed** to hold the Shopify customer id, which is how the compliance service finds a shopper. If another connector writes a different value there, `customers/redact` will not match.
 

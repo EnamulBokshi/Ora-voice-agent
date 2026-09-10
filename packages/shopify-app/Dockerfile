@@ -51,8 +51,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
+# Next places the standalone entrypoint under the path from its file-tracing
+# root to the package. With this build context that root is the package itself,
+# so the output is flat — but building from the repo root instead yields
+# `packages/shopify-app/server.js`. Both static locations are populated and the
+# CMD probes for either, the same defence client/Dockerfile uses.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./packages/shopify-app/.next/static
 
 USER nextjs
 
@@ -63,4 +69,4 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/shopify || exit 1
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "if [ -f ./packages/shopify-app/server.js ]; then node packages/shopify-app/server.js; else node server.js; fi"]

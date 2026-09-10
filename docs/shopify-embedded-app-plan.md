@@ -21,7 +21,7 @@ One Revision 3 decision is demoted, in section 2.1: the Shopify API version is a
 
 1. Merchants install the ORA app from the Shopify App Store in one click.
 2. The server handles installation, token acquisition, webhook registration, tenant auto-provisioning, and initial catalog ingestion.
-3. The embedded frontend inside Shopify Admin exchanges a Shopify App Bridge session token for a standard ORA JWT via `POST /api/v1/shopify/session`, so existing ORA APIs (`/products`, `/agent-config`, `/dashboard`, `/conversations`) work unchanged.
+3. The embedded frontend inside Shopify Admin exchanges a Shopify App Bridge session token for a standard ORA JWT via `POST /api/v1/shopify/session`, so existing ORA APIs (`/products`, `/agent-config`, `/dashboard/stats`, `/conversations`) work unchanged.
 4. Merchants never copy-paste a secret API key or edit theme code by hand.
 
 Goal 3 is confirmed achievable without touching the existing guards. `JwtStrategy.validate` (`server/src/auth/strategies/jwt.strategy.ts:32`) requires only a live Redis session keyed by `sessionId`. Any code path that creates that session produces tokens every existing guard accepts.
@@ -99,7 +99,7 @@ sequenceDiagram
     OraServer-->>ShopifyAdmin: Return ORA tokens
 
     Note over Merchant,OraServer: Phase 3: Standard ORA API usage
-    ShopifyAdmin->>OraServer: GET /api/v1/dashboard (Authorization: Bearer <ORA_JWT>)
+    ShopifyAdmin->>OraServer: GET /api/v1/dashboard/stats (Authorization: Bearer <ORA_JWT>)
     OraServer->>DB: JwtAuthGuard + TenantScopeGuard, no changes required
 
     Note over Merchant,OraServer: Phase 4: Catalog updates
@@ -326,7 +326,7 @@ Note there is no root `package.json`; a bare `pnpm test` fails with `ERR_PNPM_NO
 ### 7.2 Integration verification
 
 1. Exchange a simulated App Bridge JWT at `POST /api/v1/shopify/session`; confirm ORA tokens come back.
-2. Confirm the returned `accessToken` authenticates against `GET /api/v1/dashboard`, `GET /api/v1/agent-config`, and `GET /api/v1/products`.
+2. Confirm the returned `accessToken` authenticates against `GET /api/v1/dashboard/stats`, `GET /api/v1/agent-config`, and `GET /api/v1/products`.
 3. Confirm repeated session exchanges for one user do not accumulate Redis sessions.
 4. Confirm the app loads inside Shopify Admin — this is the only real test of the section 5.1 header, and it must be checked from the embedded frontend's own response, not the API's.
 5. Confirm `client/`'s dashboard routes refuse to be framed.
