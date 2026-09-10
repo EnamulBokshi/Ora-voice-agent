@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import {
   ShoppingCart,
   DollarSign,
@@ -14,6 +15,7 @@ import {
   ArrowRight,
   X,
   Compass,
+  Loader2,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
@@ -67,18 +69,37 @@ export function OverviewClient() {
   const [stats, setStats] = useState<DashboardStatsResponse>(
     DEMO_MODE_ENABLED ? demoDashboardStats : EMPTY_STATS,
   );
-  const [, setLoading] = useState(false);
-  const [, setError] = useState<string | null>(null);
+  // These were declared as `const [, setLoading]` / `const [, setError]`, discarding
+  // both values. load() set them correctly all along, but nothing could render them —
+  // so a failed getDashboardStatsApi() call showed $0 revenue, 0 orders and 0
+  // conversations, which a merchant reads as a catastrophic sales day rather than a
+  // fetch error.
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>(
     DEMO_MODE_ENABLED ? demoProfile.user.name : '',
   );
+  // Seeded from demo data only when demo mode is on. Every other initial value on this
+  // page already respects DEMO_MODE_ENABLED; this one read demoProfile unconditionally.
   const [isWidgetActive, setIsWidgetActive] = useState<boolean>(
-    demoProfile.business?.isWidgetActive !== false,
+    DEMO_MODE_ENABLED ? demoProfile.business?.isWidgetActive !== false : true,
   );
   const [isTogglingWidget, setIsTogglingWidget] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ora_setup_banner_dismissed') === 'true';
+    }
+    return false;
+  });
   const { completedCount, totalSteps, isAllCompleted } = useSetupProgress();
+
+  const handleDismissBanner = () => {
+    setBannerDismissed(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ora_setup_banner_dismissed', 'true');
+    }
+  };
 
   const handleToggleWidget = async () => {
     const next = !isWidgetActive;
@@ -94,9 +115,15 @@ export function OverviewClient() {
     }
   };
 
+  // Read through a ref so `load` keeps a stable identity. It previously depended on
+  // stats.productTotal while `useEffect(() => load(), [load])` ran it, so every stats
+  // update rebuilt the callback and triggered another fetch.
+  const productTotalRef = useRef(stats.productTotal);
+  productTotalRef.current = stats.productTotal;
+
   const load = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true);
-    else if (!DEMO_MODE_ENABLED && stats.productTotal === 0) setLoading(true);
+    else if (!DEMO_MODE_ENABLED && productTotalRef.current === 0) setLoading(true);
     setError(null);
 
     try {
@@ -107,11 +134,14 @@ export function OverviewClient() {
 
       if (me.status === 'fulfilled' && me.value?.user?.name) {
         setUserName(me.value.user.name);
-        if (me.value?.business) {
-          setIsWidgetActive(me.value.business.isWidgetActive !== false);
-        }
       } else if (DEMO_MODE_ENABLED) {
         setUserName(demoProfile.user.name);
+      }
+
+      // Read outside the display-name guard: the storefront pause state must load even
+      // for an account with no name set, or the header falls back to "Online".
+      if (me.status === 'fulfilled' && me.value?.business) {
+        setIsWidgetActive(me.value.business.isWidgetActive !== false);
       }
 
       if (data.status === 'fulfilled' && data.value) {
@@ -151,7 +181,15 @@ export function OverviewClient() {
       } else if (DEMO_MODE_ENABLED) {
         setStats(demoDashboardStats);
       } else {
+        // The real silent-failure path: Promise.allSettled never throws, so a rejected
+        // stats call landed here and zeroed every figure without reaching the catch
+        // below. The merchant saw $0 with no explanation.
         setStats(EMPTY_STATS);
+        setError(
+          data.status === 'rejected' && data.reason instanceof Error
+            ? data.reason.message
+            : 'Could not load overview stats',
+        );
       }
     } catch (err) {
       if (DEMO_MODE_ENABLED) {
@@ -167,7 +205,7 @@ export function OverviewClient() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [stats.productTotal]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -175,17 +213,18 @@ export function OverviewClient() {
 
   const firstName = userName.split(' ')[0] || userName;
 
-  // ── KPI metric definitions ─────────────────────────────────────────────────
+  // ── KPI metric definitions with clear business attribution ─────────────────
 
   const kpiCards: KpiCardDef[] = [
     {
       id: 'revenue',
-      label: 'Revenue Influenced',
+      label: 'Attributed Revenue',
       value: formatCurrency(stats.totalRevenue),
       icon: <DollarSign size={13} />,
       trend: stats.revenueTrend,
-      meta: 'Direct checkout sales',
-      href: '/billing',
+      tooltip:
+        'Total value of orders completed by shoppers who interacted with ORA within 24 hours prior to checkout.',
+      href: '/orders',
     },
     {
       id: 'orders',
@@ -193,8 +232,9 @@ export function OverviewClient() {
       value: stats.orderTotal.toLocaleString(),
       icon: <ShoppingCart size={13} />,
       trend: stats.ordersTrend,
-      meta: 'Customer orders closed',
-      href: '/live-desk',
+      tooltip:
+        'Total orders completed after customer received product recommendations, sizing guidance, or support from ORA.',
+      href: '/orders',
     },
     {
       id: 'conversations',
@@ -202,7 +242,8 @@ export function OverviewClient() {
       value: stats.conversationTotal.toLocaleString(),
       icon: <MessageSquareText size={13} />,
       trend: stats.conversationsTrend,
-      meta: 'Voice & chat sessions',
+      tooltip:
+        'All customer interactions handled by ORA across your storefront voice widget and live text chat.',
       href: '/conversations',
     },
     {
@@ -210,15 +251,17 @@ export function OverviewClient() {
       label: 'Conversion Rate',
       value: `${stats.overallConversion}%`,
       icon: <Percent size={13} />,
-      meta: 'Sales funnel completion',
-      href: '/live-desk',
+      tooltip:
+        'Percentage of shoppers who placed an order after starting a conversation with ORA.',
+      href: '/orders',
     },
     {
       id: 'catalog',
       label: 'Catalog Items',
       value: stats.productTotal.toLocaleString(),
       icon: <Package size={13} />,
-      meta: 'Active products in sync',
+      tooltip:
+        'Active store products synced and ready for ORA to recommend to customers during live shopping.',
       href: '/agent?role=products',
     },
   ];
@@ -229,22 +272,22 @@ export function OverviewClient() {
     {
       id: 'qa-live',
       icon: <Radio size={16} />,
-      label: 'Live Desk Telemetry',
-      description: 'Monitor active voice calls, shopper waveforms, and live interventions.',
+      label: 'Live Store Desk',
+      description: 'Listen to active customer calls, view live cart additions, and intervene in real time.',
       href: '/live-desk',
     },
     {
       id: 'qa-train',
       icon: <BookOpen size={16} />,
-      label: 'ORA Agent & Catalog',
-      description: 'Manage store policies, upload knowledge documents, and sync products.',
+      label: 'Agent Knowledge & Catalog',
+      description: 'Teach ORA store return policies, shipping FAQs, and sync live inventory.',
       href: '/agent',
     },
     {
       id: 'qa-history',
       icon: <TrendingUp size={16} />,
-      label: 'Conversation Intelligence',
-      description: 'Search customer transcripts, review buying signals, and export logs.',
+      label: 'Conversation History',
+      description: 'Search customer transcripts, review shopper buying intent, and analyze queries.',
       href: '/conversations',
     },
   ];
@@ -255,27 +298,35 @@ export function OverviewClient() {
       <TopHeader
         title={`${getGreeting()}${firstName ? `, ${firstName}` : ''}`}
         badge={
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none">
-            <span className="w-1.5 h-1.5 rounded-none bg-[color:var(--status-online)]" />
-            Overview
+          // Bound to the real state. This was hardcoded to a green dot and
+          // "Storefront Active", so it contradicted the "Voice Agent Paused" label in
+          // the status strip directly beneath it.
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-sm text-[11px] font-medium tracking-normal bg-surface-high text-foreground border border-border/60 select-none">
+            <span
+              className={cn(
+                'w-1.5 h-1.5 rounded-full',
+                isWidgetActive ? 'bg-[color:var(--status-online)]' : 'bg-muted-foreground',
+              )}
+            />
+            {isWidgetActive ? 'Storefront Active' : 'Storefront Paused'}
           </span>
         }
         onRefresh={() => load(true)}
         isRefreshing={refreshing}
       />
 
-      {/* Setup Guide Banner — minimal & crisp non-rounded */}
+      {/* Setup Guide Banner — clear actionable guidance */}
       {!isAllCompleted && !bannerDismissed && (
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-5 h-5 rounded-none bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
-              <Compass size={12} className="text-foreground dark:text-[#C8F031]" />
+            <div className="w-5 h-5 rounded-sm bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
+              <Compass size={12} className="text-foreground dark:text-primary" />
             </div>
             <span className="text-[12.5px] text-foreground font-medium truncate">
-              Store setup in progress ({completedCount}/{totalSteps} steps completed) —{' '}
+              Store setup in progress ({completedCount} of {totalSteps} steps completed) —{' '}
               <Link
                 href="/setup"
-                className="font-semibold text-foreground dark:text-[#C8F031] underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
+                className="font-semibold text-foreground dark:text-primary underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
               >
                 Complete Setup Guide
                 <ArrowRight size={11} />
@@ -283,8 +334,9 @@ export function OverviewClient() {
             </span>
           </div>
           <button
-            onClick={() => setBannerDismissed(true)}
-            aria-label="Dismiss banner"
+            onClick={handleDismissBanner}
+            aria-label="Dismiss setup reminder"
+            title="Dismiss setup reminder"
             className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 cursor-pointer"
           >
             <X size={13} />
@@ -295,6 +347,39 @@ export function OverviewClient() {
       {/* Main Canvas — Minimized side margins (px-4 sm:px-6) and non-rounded flat layout */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <div className="w-full px-4 sm:px-6 py-5 space-y-6">
+
+          {/* Zeros must never be ambiguous: say so when the numbers below are unknown
+              rather than failed-and-silent. */}
+          {error && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-start justify-between gap-4 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
+            >
+              <p className="text-[12.5px] text-foreground">
+                {error} — the figures below are not current.
+              </p>
+              <button
+                type="button"
+                onClick={() => load(true)}
+                disabled={refreshing}
+                className="shrink-0 inline-flex items-center h-7 px-3 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {refreshing ? 'Retrying…' : 'Retry'}
+              </button>
+            </div>
+          )}
+
+          {loading && !error && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 rounded-md border border-border/50 px-4 py-3 text-[12.5px] text-muted-foreground"
+            >
+              <Loader2 size={13} className="animate-spin" />
+              <span>Loading your store performance…</span>
+            </div>
+          )}
 
           {/* ── Status Bar ── */}
           <StatusStrip

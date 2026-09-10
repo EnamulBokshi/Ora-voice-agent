@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check, AlertCircle } from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
 import { cancelSubscriptionApi } from '@/services/billing-service';
 import { formatCurrency, formatDateTime } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 interface CurrentPlanCardProps {
   subscription: SubscriptionDetailsResponse;
@@ -13,15 +14,35 @@ interface CurrentPlanCardProps {
 
 export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps) {
   const [cancelling, setCancelling] = useState(false);
+  const [cancelResult, setCancelResult] = useState<
+    { ok: true } | { ok: false; message: string } | null
+  >(null);
 
   const handleCancel = async () => {
-    if (!confirm('Cancel your subscription? You will lose paid features at the end of the current billing cycle.')) return;
+    // Names the consequence for a voice product: the agent stops answering shoppers.
+    if (
+      !confirm(
+        'Cancel your subscription?\n\nORA will keep serving your storefront until the end of the current billing cycle, then stop answering shoppers. Your catalog and conversation history are kept.',
+      )
+    ) {
+      return;
+    }
     setCancelling(true);
+    setCancelResult(null);
     try {
       await cancelSubscriptionApi();
+      setCancelResult({ ok: true });
       onReload();
-    } catch {
-      // silent
+    } catch (err) {
+      // Previously `catch { // silent }`: the spinner stopped and the merchant had no
+      // idea whether their storefront agent was still paid for.
+      setCancelResult({
+        ok: false,
+        message:
+          err instanceof Error
+            ? err.message
+            : 'We could not cancel your subscription. It is still active — please retry.',
+      });
     } finally {
       setCancelling(false);
     }
@@ -59,6 +80,35 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
           </button>
         )}
       </div>
+
+      {/* The outcome of the highest-stakes action on this surface, stated plainly. */}
+      {cancelResult && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            'flex items-start gap-2 rounded-md border px-3 py-2.5 text-[12.5px]',
+            cancelResult.ok
+              ? 'border-border/60 bg-surface-high/40 text-foreground'
+              : 'border-destructive/40 bg-destructive/5 text-foreground',
+          )}
+        >
+          {cancelResult.ok ? (
+            <>
+              <Check size={13} className="mt-0.5 shrink-0 text-foreground" />
+              <span>
+                Subscription cancelled. ORA keeps answering shoppers until the end of this
+                billing cycle.
+              </span>
+            </>
+          ) : (
+            <>
+              <AlertCircle size={13} className="mt-0.5 shrink-0 text-foreground" />
+              <span>{cancelResult.message}</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Main Details Row — flat 3-column split with hairline borders */}
       <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/40 pt-1">

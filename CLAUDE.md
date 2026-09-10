@@ -49,7 +49,7 @@ Load-bearing pieces worth knowing before editing:
 
 Next.js 16, React 19, Tailwind 4, shadcn, `@base-ui/react`. Route groups: `app/(marketing)`, `app/(dashboard)`, `app/admin`, plus `app/auth`, `app/verify-otp`, `app/reset-password`.
 
-`proxy.ts` at the package root replaces `middleware.ts` (deprecated in Next 16) — see `client/AGENTS.md`. `lib/api-client.ts` unwraps the backend response envelope; components must not `fetch` the API directly. Widget bundle ships from `client/public/widget/v2/widget.v4_5_lumina.js`.
+`proxy.ts` at the package root replaces `middleware.ts` (deprecated in Next 16) — see `client/AGENTS.md`. `lib/api-client.ts` unwraps the backend response envelope; components must not `fetch` the API directly. Widget source lives at `client/widget-src/widget.js`; `pnpm --filter client widget:build` (run automatically by the `predev`/`prebuild` hooks) emits the content-hashed bundle into `client/public/widget/v2/` and rewrites `client/public/widget/latest.json`. Edit the source, never the generated bundle.
 
 ## Commands
 

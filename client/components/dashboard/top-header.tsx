@@ -29,7 +29,9 @@ export function TopHeader({
   onRefresh,
   isRefreshing,
 }: TopHeaderProps) {
-  const today = new Date().toLocaleDateString('en-US', {
+  // `undefined` uses the viewer's own locale. This was hardcoded to 'en-US' on a
+  // product that explicitly serves Bangladesh with Bengali voice and BDT pricing.
+  const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',

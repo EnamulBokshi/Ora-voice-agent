@@ -15,6 +15,7 @@ import { VoiceTestPreview } from './previews/voice-test-preview';
 import { VoiceTestModal } from '@/components/agent/modals/voice-test-modal';
 import { getMeApi } from '@/services/auth-service';
 import { demoProfile } from '@/lib/demo-data';
+import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ const STEP_CONFIGS: Record<SetupStepId, StepConfig> = {
   knowledge: {
     id: 'knowledge', stepNumber: 3, stepLabel: 'Knowledge',
     title: 'Sync your catalog & store documents',
-    description: "Upload policies, FAQs, and product data. ORA's RAG engine vectorises your content for accurate, sub-85ms answers — no hallucinations.",
+    description: "Upload policies, FAQs, and product data. ORA's RAG engine indexes your content so answers quote what you uploaded.",
     ctaText: 'Upload Documents', ctaHref: '/agent?role=documents&view=feed',
     learnMoreHref: '/agent?role=products', learnMoreText: 'Product catalog',
   },
@@ -133,8 +134,17 @@ function SetupHub() {
             return (
               <div
                 key={arch.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Set up ORA for ${arch.label}`}
                 onClick={() => router.push(`/setup?archetype=${arch.id}`)}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/60 bg-surface-lowest/70 hover:border-border transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md min-h-[300px]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push(`/setup?archetype=${arch.id}`);
+                  }
+                }}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/60 bg-surface-lowest/70 hover:border-border transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md min-h-[300px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 {/* Top Image Preview Frame */}
                 <div className="relative w-full h-44 bg-surface-container/50 overflow-hidden border-b border-border/40">
@@ -260,47 +270,67 @@ function SetupGuideClientInner() {
   } = useSetupProgress();
 
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [publishableKey, setPublishableKey]     = useState<string>('biz_live_demo');
+  // Null until the merchant's real key arrives. This used to initialise to the literal
+  // 'biz_live_demo' and fall back to demoProfile's key on failure, so a merchant whose
+  // /me call failed copied an embed snippet with a dead key — and the flow then marked
+  // the integration step complete.
+  const [publishableKey, setPublishableKey]     = useState<string | null>(null);
   const [isWidgetActive, setIsWidgetActive]     = useState<boolean>(true);
+  const [keyError, setKeyError]                 = useState<boolean>(false);
 
   useEffect(() => {
     getMeApi()
       .then((res) => {
-        if (res?.business?.publishableKey) setPublishableKey(res.business.publishableKey);
-        else if (demoProfile?.business?.publishableKey) setPublishableKey(demoProfile.business.publishableKey);
+        if (res?.business?.publishableKey) {
+          setPublishableKey(res.business.publishableKey);
+        } else if (DEMO_MODE_ENABLED && demoProfile?.business?.publishableKey) {
+          setPublishableKey(demoProfile.business.publishableKey);
+        } else {
+          setKeyError(true);
+        }
         if (typeof res?.business?.isWidgetActive === 'boolean') {
           setIsWidgetActive(res.business.isWidgetActive);
-        } else if (typeof demoProfile?.business?.isWidgetActive === 'boolean') {
+        } else if (DEMO_MODE_ENABLED && typeof demoProfile?.business?.isWidgetActive === 'boolean') {
           setIsWidgetActive(demoProfile.business.isWidgetActive);
         }
       })
       .catch(() => {
-        if (demoProfile?.business?.publishableKey) setPublishableKey(demoProfile.business.publishableKey);
-        if (typeof demoProfile?.business?.isWidgetActive === 'boolean') {
-          setIsWidgetActive(demoProfile.business.isWidgetActive);
+        if (DEMO_MODE_ENABLED && demoProfile?.business?.publishableKey) {
+          setPublishableKey(demoProfile.business.publishableKey);
+          if (typeof demoProfile?.business?.isWidgetActive === 'boolean') {
+            setIsWidgetActive(demoProfile.business.isWidgetActive);
+          }
+        } else {
+          setKeyError(true);
         }
       });
   }, []);
 
+  // Opening the test modal is not passing the test, so this no longer marks the step
+  // complete. Completion is derived from a real conversation in useSetupProgress.
   const handleLaunchVoice = useCallback(() => {
     setIsVoiceModalOpen(true);
-    markStepComplete('voice_test');
-  }, [markStepComplete]);
+  }, []);
 
   const handleCta = useCallback((config: StepConfig) => {
     if (config.ctaAction === 'markComplete') markStepComplete(config.id);
     if (config.ctaAction === 'copySnippet') {
+      // Refuse to hand over a snippet we cannot fill in with a real key.
+      if (!publishableKey) return;
       navigator.clipboard.writeText(
         `<script src="${typeof window !== 'undefined' ? window.location.origin : ''}/widget/ora-widget.js" data-ora-key="${publishableKey}" defer></script>`
       );
-      markStepComplete('integration');
+      // Copying a snippet is not embedding it. The integration step is derived from
+      // evidence that the widget actually opened a session (see useSetupProgress).
     }
     if (config.ctaAction === 'launchVoice') handleLaunchVoice();
   }, [markStepComplete, publishableKey, handleLaunchVoice]);
 
   const getPreview = (id: SetupStepId) => {
     if (id === 'persona')     return <PersonaPreview archetype={activeArchetype} onSaved={() => markStepComplete('persona')} />;
-    if (id === 'integration') return <IntegrationPreview publishableKey={publishableKey} isWidgetActive={isWidgetActive} onCopied={() => markStepComplete('integration')} />;
+    // No onCopied handler: copying the snippet is not proof it was pasted into a theme.
+    // The integration step is derived from a real widget session in useSetupProgress.
+    if (id === 'integration') return <IntegrationPreview publishableKey={publishableKey} isWidgetActive={isWidgetActive} />;
     if (id === 'knowledge')   return <KnowledgePreview onCompleted={() => markStepComplete('knowledge')} />;
     if (id === 'voice_test')  return <VoiceTestPreview onOpenTestModal={handleLaunchVoice} />;
   };
@@ -402,7 +432,9 @@ function SetupGuideClientInner() {
               <button
                 type="button"
                 onClick={() => {
-                  markStepComplete(activeStep!);
+                  // Navigation is not completion. This used to call
+                  // markStepComplete(activeStep) here, so a merchant clicking through
+                  // the wizard without doing the work still got a full checklist.
                   router.push(`/setup?archetype=${activeArchetype}&step=${nextStep}`);
                 }}
                 className="inline-flex items-center gap-2 h-8 px-4 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
@@ -414,7 +446,6 @@ function SetupGuideClientInner() {
               <button
                 type="button"
                 onClick={() => {
-                  markStepComplete(activeStep!);
                   router.push('/dashboard');
                 }}
                 className="inline-flex items-center gap-2 h-8 px-4 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"

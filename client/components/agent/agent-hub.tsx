@@ -71,7 +71,7 @@ const AGENT_ROLES: AgentRoleCard[] = [
 const FAQS = [
   {
     q: 'How does ORA combine Voice, Documents, and Products?',
-    a: 'ORA operates as a unified multimodal AI sales agent. When a shopper asks a question, ORA searches both your product catalog and your indexed knowledge documents in parallel, replying via voice or text in under 85ms.',
+    a: 'ORA operates as a unified multimodal AI sales agent. When a shopper asks a question, ORA searches both your product catalog and your indexed knowledge documents in parallel, replying via voice or text in real time.',
   },
   {
     q: 'How do I train ORA on my specific store policies?',
@@ -128,8 +128,17 @@ export function AgentHub() {
             return (
               <div
                 key={role.id}
+                role="button"
+                tabIndex={0}
+                aria-label={role.label}
                 onClick={() => router.push(role.href)}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-md border border-border/60 bg-transparent hover:border-border transition-all duration-200 cursor-pointer shadow-xs min-h-[300px]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push(role.href);
+                  }
+                }}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-md border border-border/60 bg-transparent hover:border-border transition-all duration-200 cursor-pointer shadow-xs min-h-[300px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 {/* Top Image Preview Frame */}
                 <div className="relative w-full h-44 bg-surface-container/50 overflow-hidden border-b border-border/40">

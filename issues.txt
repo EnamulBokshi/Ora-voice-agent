@@ -1,0 +1,4 @@
+1. ora's session is automatically off after 1-2 minutes
+2. when ora replying lets say it 15 sec. it ask me middle of the conversation while it responding another query that " are u still there"
+3. then after asking i'm constantly talking but it cannot catching anything it then sayed good bye and terminate the session
+4. session overlapping. during one session initially it did not have it uses tools but constantly talking then finds it automatically turns to new findings.

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, Settings2 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { TopHeader } from '@/components/dashboard/top-header';
 import { ActivityFeed } from './activity-feed';
 import { OraStatusPanel } from './ora-status-panel';
@@ -127,21 +128,31 @@ export function LiveDeskClient() {
       <TopHeader
         title="Live Desk"
         badge={
+          // Reflects the polling state. This was hardcoded to "Live" with a green dot
+          // and stayed that way after the merchant hit Pause.
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none font-mono">
-            <span className="w-1.5 h-1.5 rounded-none bg-[color:var(--status-online)]" />
-            Live
+            <span
+              className={cn(
+                'w-1.5 h-1.5 rounded-none',
+                paused ? 'bg-muted-foreground' : 'bg-[color:var(--status-online)]',
+              )}
+            />
+            {paused ? 'Paused' : 'Live'}
           </span>
         }
         actions={
           <div className="flex items-center gap-4 text-[12px]">
             {/* Inline live metrics — voice agent only */}
             <div className="hidden md:flex items-center gap-3 text-muted-foreground font-mono text-[11.5px]">
+              {/* An em dash when telemetry is unavailable. These used to default to 2 and 5,
+                  so a failed stats call asserted "2 live voice calls · 5 orders assisted"
+                  on a real-time monitoring surface. */}
               <span>
-                <strong className="font-semibold text-foreground">{stats?.activeVoiceCalls ?? 2}</strong> live voice calls
+                <strong className="font-semibold text-foreground">{stats?.activeVoiceCalls ?? '—'}</strong> live voice calls
               </span>
               <span className="text-border">·</span>
               <span>
-                <strong className="font-semibold text-foreground">{stats?.ordersInfluenced ?? 5}</strong> orders assisted
+                <strong className="font-semibold text-foreground">{stats?.ordersInfluenced ?? '—'}</strong> orders assisted
               </span>
             </div>
 
@@ -168,11 +179,16 @@ export function LiveDeskClient() {
         }
       />
 
-      {/* ── 3-Column Full-Height Workspace (Clean Flat Dividers) ── */}
-      <div className="flex-1 flex min-h-0 overflow-hidden divide-x divide-border/40 bg-transparent">
+      {/*
+        3-column workspace from lg up; a single scrolling column below that.
+        This was three fixed widths (280 / flex-1 / 250) with no responsive class, so
+        530px of the row was committed before content and the centre transcript column
+        collapsed to nothing on a phone.
+      */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border/40 bg-transparent">
 
-        {/* ── Col 1: Active Shoppers Feed (280px fixed) ── */}
-        <div className="w-[280px] flex-shrink-0 flex flex-col overflow-hidden bg-transparent">
+        {/* ── Col 1: Active Shoppers Feed ── */}
+        <div className="w-full lg:w-[280px] lg:flex-shrink-0 flex flex-col lg:overflow-hidden bg-transparent">
           <ActivityFeed
             paused={paused}
             sessions={feed}
@@ -191,13 +207,13 @@ export function LiveDeskClient() {
           </div>
         </div>
 
-        {/* ── Col 2: Chat Transcript & Actions (flex-1) ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-transparent">
+        {/* ── Col 2: Chat Transcript & Actions ── */}
+        <div className="w-full lg:flex-1 flex flex-col min-w-0 lg:overflow-hidden bg-transparent">
           <SessionDetailPanel session={activeSession} />
         </div>
 
-        {/* ── Col 3: Right Sidebar — Conversions & Services (250px fixed) ── */}
-        <div className="w-[250px] flex-shrink-0 flex flex-col overflow-y-auto no-scrollbar bg-transparent divide-y divide-border/40">
+        {/* ── Col 3: Right Sidebar — Conversions & Services ── */}
+        <div className="w-full lg:w-[250px] lg:flex-shrink-0 flex flex-col lg:overflow-y-auto no-scrollbar bg-transparent divide-y divide-border/40">
           {/* Live Conversions */}
           <SalesActionsPanel actions={salesActions} />
 

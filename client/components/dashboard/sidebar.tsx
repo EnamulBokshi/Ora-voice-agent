@@ -29,6 +29,7 @@ import {
   Circle,
   LayoutGrid,
   GitBranch,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -49,9 +50,17 @@ const CONFIG_STEPS: { step: SetupStepId; label: string }[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** Whether the mobile drawer is open. Ignored from `md` up, where the rail is docked. */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  onToggle,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -158,11 +167,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
+      // Off-canvas below `md` and slid in as a drawer; docked from `md` up. Previously
+      // this was a fixed 240px rail with no breakpoint, so it covered most of a phone
+      // screen with no way to dismiss it.
+      aria-label="Dashboard navigation"
       className={cn(
-        'fixed left-0 top-0 h-full flex flex-col z-50 border-r border-border bg-surface-lowest transition-[width] duration-200 ease-out',
+        'fixed left-0 top-0 h-full flex flex-col z-50 border-r border-border bg-surface-lowest',
+        'transition-[width,transform] duration-200 ease-out',
         collapsed ? 'w-16' : 'w-[240px]',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        'md:translate-x-0',
       )}
     >
+      {/* Drawer dismiss — mobile only; the docked rail uses the collapse control. */}
+      {onMobileClose && (
+        <button
+          type="button"
+          onClick={onMobileClose}
+          aria-label="Close navigation"
+          className="md:hidden absolute top-3 right-3 w-7 h-7 inline-flex items-center justify-center rounded-md border border-border/60 bg-surface-high/40 text-foreground hover:bg-surface-high transition-colors cursor-pointer z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <X size={13} />
+        </button>
+      )}
       {/* ── Header: Logo ─────────────────────────────────────────────────── */}
       <div
         className={cn(
@@ -653,6 +680,34 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             >
               <MessageSquareText size={15} className={pathname.startsWith('/conversations') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
               <span className="truncate flex-1">Conversations</span>
+            </Link>
+
+            {/* Customers and Orders are both fully built pages that had no nav entry —
+                reachable only by typing the URL. */}
+            <Link
+              href="/customers"
+              className={cn(
+                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
+                pathname.startsWith('/customers')
+                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+              )}
+            >
+              <UserCheck size={15} className={pathname.startsWith('/customers') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <span className="truncate flex-1">Customers</span>
+            </Link>
+
+            <Link
+              href="/orders"
+              className={cn(
+                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
+                pathname.startsWith('/orders')
+                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+              )}
+            >
+              <Package size={15} className={pathname.startsWith('/orders') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <span className="truncate flex-1">Orders</span>
             </Link>
 
             {/* ── Section Divider ── */}

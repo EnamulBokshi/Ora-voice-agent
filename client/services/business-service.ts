@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { clearProfileCache } from '@/services/auth-service';
 import { Business } from '@/types/auth';
 
 export interface UpdateBusinessInput {
@@ -33,11 +34,18 @@ export async function updateBusinessApi(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  return apiClient<{ message: string; business: Business }>('/business/current', {
+  const res = await apiClient<{ message: string; business: Business }>('/business/current', {
     method: 'PATCH',
     headers,
     body: JSON.stringify(data),
   });
+
+  // /auth/me embeds the business (name, domain, publishableKey, isWidgetActive) and is
+  // cached for 5s. Without this, pausing the widget and navigating immediately re-read
+  // the stale profile and the storefront showed as active again.
+  clearProfileCache();
+
+  return res;
 }
 
 export async function toggleWidgetStatusApi(

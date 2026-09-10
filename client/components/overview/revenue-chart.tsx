@@ -78,8 +78,8 @@ export function RevenueChart({
       {/* Metric & Period Toggle Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-3">
         <div className="flex items-baseline gap-3">
-          <span className="text-[11.5px] font-mono uppercase tracking-wider text-muted-foreground">
-            Total Revenue Influenced
+          <span className="text-[12px] font-medium text-muted-foreground">
+            Total Attributed Revenue
           </span>
           <div className="flex items-baseline gap-2.5">
             <span className="text-[26px] font-semibold font-serif tabular-nums text-foreground">
@@ -89,7 +89,7 @@ export function RevenueChart({
               className={cn(
                 'text-[12px] font-semibold font-mono flex items-center gap-0.5',
                 isPos
-                  ? 'text-foreground dark:text-[#C8F031]'
+                  ? 'text-foreground dark:text-primary'
                   : 'text-red-500 dark:text-red-400',
               )}
             >
@@ -138,8 +138,9 @@ export function RevenueChart({
               ))}
               <line x1="0" y1={H - 1} x2={W} y2={H - 1} stroke="var(--border)" strokeWidth="1" />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-[13px] text-muted-foreground/60">No revenue records for this period</p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center p-4">
+              <p className="text-[13px] font-medium text-foreground/80">No attributed revenue recorded yet</p>
+              <p className="text-[11.5px] text-muted-foreground">Orders placed after shopper interactions with ORA will appear here.</p>
             </div>
           </>
         ) : (

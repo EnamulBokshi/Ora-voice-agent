@@ -5,7 +5,8 @@ import { Copy, Check, Terminal, ExternalLink, ShieldCheck, Zap } from 'lucide-re
 import { cn } from '@/lib/utils';
 
 interface IntegrationPreviewProps {
-  publishableKey?: string;
+  /** Null while the merchant's real key is still loading, or if it failed to load. */
+  publishableKey?: string | null;
   isWidgetActive?: boolean;
   onCopied?: () => void;
 }
@@ -40,7 +41,7 @@ const PLATFORMS: { id: PlatformTab; label: string; fileTarget: string; instructi
 ];
 
 export function IntegrationPreview({
-  publishableKey = 'biz_live_demo_key',
+  publishableKey = null,
   isWidgetActive = true,
   onCopied,
 }: IntegrationPreviewProps) {
@@ -57,17 +58,24 @@ export function IntegrationPreview({
     }
   }, []);
 
+  // Without a real key the snippet is worse than useless: it installs a widget that
+  // logs "data-ora-key is required" and disables itself. The default used to be the
+  // literal 'biz_live_demo_key', which shipped exactly that outcome to any merchant
+  // whose profile call failed.
+  const keyForSnippet = publishableKey ?? 'YOUR_PUBLISHABLE_KEY';
+
   const snippets: Record<PlatformTab, string> = {
-    html: `<!-- ORA Voice & Sales Assistant Widget -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`,
-    shopify: `<!-- Paste before </body> in layout/theme.liquid -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`,
-    woocommerce: `<!-- Paste in footer.php or header/footer scripts -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${publishableKey}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`,
-    react: `import Script from 'next/script';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        {children}\n        <Script\n          src="${origin}/widget/ora-widget.js"\n          data-ora-key="${publishableKey}"\n          data-ora-api="${apiOrigin}"\n          strategy="lazyOnload"\n        />\n      </body>\n    </html>\n  );\n}`,
+    html: `<!-- ORA Voice & Sales Assistant Widget -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${keyForSnippet}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`,
+    shopify: `<!-- Paste before </body> in layout/theme.liquid -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${keyForSnippet}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`,
+    woocommerce: `<!-- Paste in footer.php or header/footer scripts -->\n<script \n  src="${origin}/widget/ora-widget.js" \n  data-ora-key="${keyForSnippet}" \n  data-ora-api="${apiOrigin}" \n  defer>\n</script>`,
+    react: `import Script from 'next/script';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        {children}\n        <Script\n          src="${origin}/widget/ora-widget.js"\n          data-ora-key="${keyForSnippet}"\n          data-ora-api="${apiOrigin}"\n          strategy="lazyOnload"\n        />\n      </body>\n    </html>\n  );\n}`,
   };
 
   const currentPlatform = PLATFORMS.find((p) => p.id === platform) || PLATFORMS[0];
   const currentSnippet = snippets[platform];
 
   const handleCopy = () => {
+    if (!publishableKey) return;
     navigator.clipboard.writeText(currentSnippet);
     setCopied(true);
     if (onCopied) onCopied();
@@ -145,7 +153,7 @@ export function IntegrationPreview({
               <span className="w-2 h-2 rounded-[2px] bg-border/80" />
               <span className="text-[11px] font-mono text-muted-foreground ml-1">ora-widget-snippet.html</span>
             </div>
-            <span className="text-[10.5px] font-mono text-foreground uppercase font-semibold">Async · Sub-85ms</span>
+            <span className="text-[10.5px] font-mono text-foreground uppercase font-semibold">Deferred load</span>
           </div>
           <pre className="p-4 text-[12px] font-mono text-foreground/90 whitespace-pre overflow-x-auto no-scrollbar leading-relaxed select-text">
             <code>{currentSnippet}</code>
@@ -160,7 +168,13 @@ export function IntegrationPreview({
             <ShieldCheck size={14} className="text-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Publishable Widget Key</p>
-              <p className="text-[12px] font-mono font-medium text-foreground truncate">{publishableKey}</p>
+              {publishableKey ? (
+                <p className="text-[12px] font-mono font-medium text-foreground truncate">{publishableKey}</p>
+              ) : (
+                <p className="text-[12px] font-mono text-muted-foreground truncate">
+                  Not loaded — reload to fetch your key
+                </p>
+              )}
             </div>
           </div>
         </div>

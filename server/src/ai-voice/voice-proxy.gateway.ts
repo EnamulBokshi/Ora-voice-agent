@@ -17,7 +17,12 @@ import { MessageRole } from '../conversations/schemas/message.schema';
 import { CustomersService } from '../customers/customers.service';
 import { UsageTrackingService } from '../usage/usage-tracking.service';
 import { UsageChannelType } from '../usage/schemas/token-usage-record.schema';
-import { SessionTimerService, DEFAULT_SESSION_DURATION_SECONDS } from '../gateway/session-timer.service';
+import {
+  SessionTimerService,
+  DEFAULT_SESSION_DURATION_SECONDS,
+  IDLE_WARNING_SECONDS,
+  IDLE_TERMINATE_SECONDS,
+} from '../gateway/session-timer.service';
 
 interface ProxySession {
   clientWs: WebSocket;
@@ -516,6 +521,9 @@ export class VoiceProxyGateway {
           if (base64AudioPcm) {
             session.audioOutputBytes += Math.round(base64AudioPcm.length * 0.75);
           }
+          // ORA is talking — suppress the idle warning until this turn completes,
+          // so a long answer can never be interrupted by "are you still there?".
+          this.sessionTimerService.markAgentSpeaking(sessionId);
           sendToClient({ type: 'audio', data: base64AudioPcm });
         },
 
@@ -535,6 +543,9 @@ export class VoiceProxyGateway {
             return;
           }
           sendToClient({ type: 'interrupted' });
+          // A barge-in is undeniable proof of a live user, and it also ends ORA's turn.
+          this.sessionTimerService.markAgentTurnComplete(sessionId);
+          this.sessionTimerService.markActivity(sessionId);
           flushBufferedUserText(); // user spoke again; save whatever they said before the barge-in
           flushBufferedAiText();
         },
@@ -569,10 +580,14 @@ export class VoiceProxyGateway {
         // Buffers fragments (“hello” + “ I want” + “ shoes”) into one complete message before saving.
         onInputTranscript: (text, isFinal) => {
           if (!text.trim()) return;
+          // Any transcribed chunk is real recognised speech, not mic noise — mark activity
+          // immediately. Waiting for isFinal meant a voice-only user never marked activity
+          // at all, because Gemini Live does not reliably send `finished` on
+          // inputTranscription frames, so sessions closed while the user was talking.
+          this.sessionTimerService.markActivity(sessionId);
           session.bufferedUserText = (session.bufferedUserText ? session.bufferedUserText + ' ' : '') + text.trim();
           if (isFinal) {
             flushBufferedUserText();
-            this.sessionTimerService.markActivity(sessionId);
           }
         },
 
@@ -667,7 +682,7 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}, Duration: ${sessionDurationSeconds}s). Active sessions: ${this.sessions.size}`,
     );
 
-    // ── Start Session Timers (Max Duration + Idle 15s warning / 10s terminate) ──
+    // ── Start Session Timers (Max Duration + idle warning / terminate) ─────────
     this.sessionTimerService.startTimer(
       sessionId,
       sessionId,
@@ -697,12 +712,12 @@ export class VoiceProxyGateway {
       () => {
         sendToClient({
           type: 'idle_warning',
-          message: 'Are you still there? Your session will close in 20 seconds due to inactivity.',
-          secondsUntilClose: 20,
+          message: `Are you still there? Your session will close in ${IDLE_TERMINATE_SECONDS} seconds due to inactivity.`,
+          secondsUntilClose: IDLE_TERMINATE_SECONDS,
         });
         try {
           sessionControls.sendTextMessage(
-            '[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for 15 seconds. Ask them warmly and briefly if they are still there in ONE short sentence. Speak aloud now.',
+            `[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for ${IDLE_WARNING_SECONDS} seconds. Ask them warmly and briefly if they are still there in ONE short sentence. Speak aloud now.`,
           );
         } catch { }
       },
@@ -917,6 +932,10 @@ export class VoiceProxyGateway {
 
         if (msg.type === 'user_transcript' && msg.text) {
           const userSpeechText = (msg.text as string).trim();
+          // Browser-side speech recognition result — a second independent proof of a live user.
+          if (userSpeechText) {
+            this.sessionTimerService.markActivity(sessionId);
+          }
           if (userSpeechText && session.conversationId) {
             this.conversationsService
               .appendMessage(session.conversationId, MessageRole.USER, userSpeechText)
@@ -932,7 +951,10 @@ export class VoiceProxyGateway {
             return;
           }
           sessionControls.sendAudioChunk(msg.data as string);
-          // Note: markActivity() is intentionally NOT called on raw audio chunks to prevent noise false-resets
+          // Note: markActivity() is intentionally NOT called on raw audio chunks — they carry
+          // background noise and would keep dead sessions alive forever. Activity is marked from
+          // recognised speech instead: Gemini's input transcription, the browser's own
+          // `user_transcript`, and barge-in interruptions.
         } else if (msg.type === 'text' && msg.text) {
           const userText = (msg.text as string).trim();
           session.promptTokens += Math.ceil(userText.length / 4);

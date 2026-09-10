@@ -241,11 +241,11 @@ export function DocsPageClient() {
                 filename: 'index.html',
                 code: `<!-- Paste right before the closing </body> tag -->
 <script
-  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-  data-publishable-key="biz_live_your_merchant_key"
-  data-position="bottom-right"
-  data-language="en-US"
-  async>
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_merchant_key"
+  data-ora-api="https://api.tryora.live"
+  data-ora-position="bottom-right"
+  defer>
 </script>`
               }
             ]}
@@ -271,10 +271,11 @@ export function DocsPageClient() {
                 filename: 'index.html',
                 code: `<!-- Universal 1-line script for any website -->
 <script
-  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-  data-publishable-key="biz_live_your_merchant_key"
-  data-position="bottom-right"
-  async>
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_merchant_key"
+  data-ora-api="https://api.tryora.live"
+  data-ora-position="bottom-right"
+  defer>
 </script>`
               },
               {
@@ -282,11 +283,11 @@ export function DocsPageClient() {
                 filename: 'layout/theme.liquid',
                 code: `{% comment %} Insert before </body> in layout/theme.liquid {% endcomment %}
 <script
-  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-  data-publishable-key="biz_live_your_merchant_key"
-  data-position="bottom-right"
-  data-theme="auto"
-  async>
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_merchant_key"
+  data-ora-api="https://api.tryora.live"
+  data-ora-position="bottom-right"
+  defer>
 </script>`
               },
               {
@@ -300,9 +301,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <Script
-          src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-          data-publishable-key="biz_live_your_merchant_key"
-          data-position="bottom-right"
+          src="https://tryora.live/widget/ora-widget.js"
+          data-ora-key="biz_live_your_merchant_key"
+          data-ora-api="https://api.tryora.live"
+          data-ora-position="bottom-right"
           strategy="afterInteractive"
         />
       </body>
@@ -317,10 +319,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 useHead({
   script: [
     {
-      src: 'https://cdn.ora.ai/widget/v2/widget.v4_5.js',
-      'data-publishable-key': 'biz_live_your_merchant_key',
-      'data-position': 'bottom-right',
-      async: true
+      src: 'https://tryora.live/widget/ora-widget.js',
+      'data-ora-key': 'biz_live_your_merchant_key',
+      'data-ora-api': 'https://api.tryora.live',
+      'data-ora-position': 'bottom-right',
+      defer: true
     }
   ]
 });
@@ -332,10 +335,11 @@ useHead({
                 code: `<!-- Webflow: Project Settings > Custom Code > Footer Code -->
 <!-- Wix: Settings > Custom Code > Body - End -->
 <script
-  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-  data-publishable-key="biz_live_your_merchant_key"
-  data-position="bottom-right"
-  async>
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_merchant_key"
+  data-ora-api="https://api.tryora.live"
+  data-ora-position="bottom-right"
+  defer>
 </script>`
               }
             ]}
@@ -442,34 +446,22 @@ useHead({
               </thead>
               <tbody>
                 <tr>
-                  <td><code>data-publishable-key</code></td>
+                  <td><code>data-ora-key</code></td>
                   <td><code>biz_live_xxxx</code></td>
                   <td><em>Required</em></td>
                   <td>Your store&apos;s unique live widget key from your dashboard.</td>
                 </tr>
                 <tr>
-                  <td><code>data-position</code></td>
-                  <td><code>bottom-right</code>, <code>bottom-left</code></td>
-                  <td><code>bottom-right</code></td>
+                  <td><code>data-ora-api</code></td>
+                  <td>Your ORA API origin (e.g. <code>https://api.tryora.live</code>)</td>
+                  <td><em>Auto-detected</em></td>
+                  <td>Where the widget opens its voice session. Derived from the script origin when omitted.</td>
+                </tr>
+                <tr>
+                  <td><code>data-ora-position</code></td>
+                  <td><code>bottom-center</code>, <code>bottom-right</code>, <code>bottom-left</code></td>
+                  <td><code>bottom-center</code></td>
                   <td>Corner of the screen where the floating orb sits.</td>
-                </tr>
-                <tr>
-                  <td><code>data-primary-color</code></td>
-                  <td>Any hex color (e.g. <code>#C8F031</code>, <code>#3B82F6</code>)</td>
-                  <td><code>#C8F031</code></td>
-                  <td>Accent color for the waveform and active voice pulses.</td>
-                </tr>
-                <tr>
-                  <td><code>data-theme</code></td>
-                  <td><code>auto</code>, <code>light</code>, <code>dark</code></td>
-                  <td><code>auto</code></td>
-                  <td>Color scheme for the floating widget and dialog.</td>
-                </tr>
-                <tr>
-                  <td><code>data-auto-open</code></td>
-                  <td><code>true</code>, <code>false</code></td>
-                  <td><code>false</code></td>
-                  <td>Whether to open voice assistance automatically after page load.</td>
                 </tr>
               </tbody>
             </table>
@@ -482,12 +474,11 @@ useHead({
                 language: 'HTML',
                 filename: 'custom-embed.html',
                 code: `<script
-  src="https://cdn.ora.ai/widget/v2/widget.v4_5.js"
-  data-publishable-key="biz_live_your_merchant_key"
-  data-position="bottom-right"
-  data-primary-color="#3B82F6"
-  data-theme="auto"
-  async>
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_merchant_key"
+  data-ora-api="https://api.tryora.live"
+  data-ora-position="bottom-right"
+  defer>
 </script>`
               }
             ]}

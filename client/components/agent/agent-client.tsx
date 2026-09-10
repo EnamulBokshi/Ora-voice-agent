@@ -167,7 +167,7 @@ function AgentClientContent() {
           <AgentSectionLayout
             iconNode={<FileText size={16} className="text-foreground" />}
             title="Upload Files"
-            description="Upload store policies, shipping guides, FAQs, and reference files. ORA's RAG engine vectorises your content for accurate, sub-85ms answers."
+            description="Upload store policies, shipping guides, FAQs, and reference files. ORA's RAG engine indexes your content so answers cite what you uploaded."
             previewSrc="/previews/docs-step1-upload.jpg"
             previewAlt="ORA knowledge base"
             howLabel="Upload your store knowledge"

@@ -9,14 +9,24 @@ export const SESSION_WARNING_LEAD_SECONDS = 60;
 /**
  * Seconds of user silence before an idle warning is emitted.
  * After this, the user has IDLE_TERMINATE_SECONDS to respond before the session auto-closes.
+ *
+ * Kept generous on purpose: a shopper reading a product page mid-conversation is not idle,
+ * and a single ORA answer can itself run 15s+. Silence is only meaningful over a longer window.
  */
-export const IDLE_WARNING_SECONDS = 15;
+export const IDLE_WARNING_SECONDS = 30;
 
 /**
  * Seconds after the idle warning before the session is auto-terminated.
- * Total idle before termination = IDLE_WARNING_SECONDS + IDLE_TERMINATE_SECONDS = 35s.
+ * Total idle before termination = IDLE_WARNING_SECONDS + IDLE_TERMINATE_SECONDS = 50s.
  */
 export const IDLE_TERMINATE_SECONDS = 20;
+
+/**
+ * Upper bound on how long the agent-speaking flag may suppress idle detection.
+ * A real ORA turn is a few seconds; anything past this means the turnComplete signal
+ * was lost, so idle detection resumes rather than being disabled for the session.
+ */
+export const AGENT_SPEAKING_MAX_MS = 120_000;
 
 /** Idle phase state machine values. */
 type IdlePhase = 'watching' | 'warned' | 'terminated';
@@ -36,6 +46,23 @@ interface SessionTimerEntry {
   lastActivityAt: Date;
   /** Current phase of idle detection. */
   idlePhase: IdlePhase;
+  /**
+   * True while the AGENT is mid-turn (audio is streaming out to the client).
+   * Set on the first audio chunk of a turn, cleared on turn completion.
+   *
+   * While set, the 'watching' idle check reschedules instead of warning — the user cannot
+   * be considered silent while ORA is still talking over them, and on the widget the mic
+   * uplink is gated shut during agent speech so no user signal can arrive anyway.
+   *
+   * Deliberately NOT consulted by the termination timer: once we are in the 'warned' phase,
+   * ORA speaking the warning itself must never postpone termination.
+   */
+  isAgentSpeaking: boolean;
+  /**
+   * When the current agent turn started streaming. Used only as a staleness guard:
+   * if Gemini never sends turnComplete, the flag must not disable idle detection forever.
+   */
+  agentSpeakingSince: Date | null;
   /**
    * Self-scheduling one-shot timer. When it fires it reads lastActivityAt to decide
    * whether to emit a warning or reschedule for the remaining idle time.
@@ -66,11 +93,12 @@ export class SessionTimerService {
    *    - onMaxExpiry   → fires at maxDurationSeconds
    *
    * 2. IDLE INACTIVITY (user silence detection):
-   *    - onIdleWarning  → fires after IDLE_WARNING_SECONDS (15s) of silence
+   *    - onIdleWarning  → fires after IDLE_WARNING_SECONDS (30s) of silence
    *    - onIdleExpiry   → fires IDLE_TERMINATE_SECONDS (20s) after the warning if still silent
    *
    * Call markActivity(socketId) when the USER speaks or sends a message.
-   * Call markAgentTurnComplete(socketId) when the AGENT finishes speaking.
+   * Call markAgentSpeaking(socketId) when the AGENT starts streaming audio.
+   * Call markAgentTurnComplete(socketId) when the AGENT finishes speaking or is barged in on.
    */
   startTimer(
     socketId: string,
@@ -108,7 +136,7 @@ export class SessionTimerService {
       this.logger.log(
         `[SessionTimer] Max-duration reached — session: ${sessionId}, socketId: ${socketId}`,
       );
-      this.timers.delete(socketId);
+      this.disposeEntry(socketId);
       try { onMaxExpiry(); } catch (err: any) {
         this.logger.warn(`[SessionTimer] onMaxExpiry error: ${err?.message}`);
       }
@@ -128,6 +156,33 @@ export class SessionTimerService {
       entry.idleCheckTimer = setTimeout(() => {
         const e = this.timers.get(socketId);
         if (!e || e.idlePhase !== 'watching') return;
+
+        // ORA is still speaking — the user is not idle, they are listening.
+        // Reschedule a full window rather than warning mid-answer (which made ORA
+        // interrupt its own reply to ask "are you still there?").
+        if (e.isAgentSpeaking) {
+          const speakingFor = e.agentSpeakingSince
+            ? Date.now() - e.agentSpeakingSince.getTime()
+            : 0;
+
+          if (speakingFor < AGENT_SPEAKING_MAX_MS) {
+            this.logger.debug(
+              `[SessionTimer] Idle check deferred (agent speaking ${Math.round(speakingFor / 1000)}s) — session: ${sessionId}`,
+            );
+            scheduleIdleCheck(idleWarningMs);
+            return;
+          }
+
+          // Staleness guard: no turnComplete arrived within AGENT_SPEAKING_MAX_MS.
+          // Assume the turn ended and fall through to normal idle evaluation, otherwise
+          // a dropped turnComplete would disable idle detection for the whole session.
+          this.logger.warn(
+            `[SessionTimer] Agent-speaking flag stale after ${Math.round(speakingFor / 1000)}s ` +
+            `(no turnComplete) — session: ${sessionId}. Resuming idle detection.`,
+          );
+          e.isAgentSpeaking = false;
+          e.agentSpeakingSince = null;
+        }
 
         const elapsed = Date.now() - e.lastActivityAt.getTime();
 
@@ -151,7 +206,7 @@ export class SessionTimerService {
             this.logger.log(
               `[SessionTimer] Idle termination — session: ${sessionId}, no response after ${IDLE_TERMINATE_SECONDS}s`,
             );
-            this.timers.delete(socketId);
+            this.disposeEntry(socketId);
             try { onIdleExpiry(); } catch (err: any) {
               this.logger.warn(`[SessionTimer] onIdleExpiry error: ${err?.message}`);
             }
@@ -176,6 +231,8 @@ export class SessionTimerService {
       maxExpiryTimer,
       lastActivityAt: now,  // session start counts as activity
       idlePhase: 'watching',
+      isAgentSpeaking: false,
+      agentSpeakingSince: null,
       idleCheckTimer: null,
       idleTerminationTimer: null,
       scheduleIdleCheck,
@@ -222,19 +279,70 @@ export class SessionTimerService {
   }
 
   /**
-   * Called when the AGENT finishes speaking its turn (e.g. answering a question or greeting).
+   * Called when the AGENT starts streaming audio for a turn (first audio chunk).
    *
-   * Updates lastActivityAt ONLY if we are in 'watching' mode so the 15s idle countdown
-   * starts AFTER ORA finishes talking.
+   * Suppresses the idle warning for as long as ORA is talking. Safe to call on every
+   * audio chunk — it is an idempotent flag write.
    *
-   * CRITICAL: If the agent just spoke the idle warning (phase === 'warned'), this is a NO-OP.
-   * It must NEVER cancel the warning or reset the termination timer!
+   * NOTE: this does NOT touch lastActivityAt and does NOT affect the termination timer,
+   * so it cannot rescue a session that is already in the 'warned' phase.
+   */
+  markAgentSpeaking(socketId: string): void {
+    const entry = this.timers.get(socketId);
+    if (!entry || entry.idlePhase === 'terminated') return;
+
+    if (!entry.isAgentSpeaking) {
+      entry.isAgentSpeaking = true;
+      entry.agentSpeakingSince = new Date();
+    }
+  }
+
+  /**
+   * Called when the AGENT finishes speaking its turn (e.g. answering a question or greeting),
+   * or when its turn is cut short by a barge-in.
+   *
+   * Always clears the agent-speaking flag, then updates lastActivityAt ONLY if we are in
+   * 'watching' mode so the idle countdown starts AFTER ORA finishes talking.
+   *
+   * CRITICAL: If the agent just spoke the idle warning (phase === 'warned'), the
+   * lastActivityAt refresh is a NO-OP. It must NEVER cancel the warning or reset the
+   * termination timer — only real user activity may do that.
    */
   markAgentTurnComplete(socketId: string): void {
     const entry = this.timers.get(socketId);
-    if (!entry || entry.idlePhase !== 'watching') return;
+    if (!entry) return;
+
+    entry.isAgentSpeaking = false;
+    entry.agentSpeakingSince = null;
+
+    if (entry.idlePhase !== 'watching') return;
 
     entry.lastActivityAt = new Date();
+  }
+
+  /**
+   * Clears every timer handle on an entry, marks it terminated so any in-flight timer
+   * callback becomes a no-op, and removes it from the map.
+   *
+   * Both expiry paths must go through this. Previously they called timers.delete() directly
+   * and left the OTHER track's timers armed — and because clearTimer() early-returns on a
+   * missing entry, the gateway's cleanup() could never clear them afterwards. An idle close
+   * therefore left the max-duration timers running, firing onMaxExpiry on a dead session.
+   */
+  private disposeEntry(socketId: string): void {
+    const entry = this.timers.get(socketId);
+    if (!entry) return;
+
+    if (entry.maxWarningTimer) clearTimeout(entry.maxWarningTimer);
+    clearTimeout(entry.maxExpiryTimer);
+    if (entry.idleCheckTimer) clearTimeout(entry.idleCheckTimer);
+    if (entry.idleTerminationTimer) clearTimeout(entry.idleTerminationTimer);
+
+    entry.idlePhase = 'terminated';
+    entry.isAgentSpeaking = false;
+    entry.agentSpeakingSince = null;
+
+    this.timers.delete(socketId);
   }
 
   /**
@@ -245,15 +353,7 @@ export class SessionTimerService {
     const entry = this.timers.get(socketId);
     if (!entry) return;
 
-    if (entry.maxWarningTimer) clearTimeout(entry.maxWarningTimer);
-    clearTimeout(entry.maxExpiryTimer);
-    if (entry.idleCheckTimer) clearTimeout(entry.idleCheckTimer);
-    if (entry.idleTerminationTimer) clearTimeout(entry.idleTerminationTimer);
-
-    // Mark as terminated so any in-flight timer callbacks are no-ops
-    entry.idlePhase = 'terminated';
-
-    this.timers.delete(socketId);
+    this.disposeEntry(socketId);
 
     this.logger.debug(
       `[SessionTimer] Cleared — session: ${entry.sessionId}, socketId: ${socketId}`,

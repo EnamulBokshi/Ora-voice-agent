@@ -26,12 +26,12 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
     <div className="flex flex-col flex-1 min-h-[270px]">
       {/* Conversion Rate Sub-header */}
       <div className="flex items-center justify-between pb-4 mb-3 border-b border-border/30">
-        <span className="text-[11.5px] font-mono uppercase tracking-wider text-muted-foreground">
-          Sales Funnel Flow
+        <span className="text-[12px] font-medium text-muted-foreground">
+          Voice & Chat Conversion Funnel
         </span>
         <div className="flex items-center gap-2 text-[12.5px]">
           <span className="text-muted-foreground">Overall conversion rate:</span>
-          <span className="font-semibold text-foreground dark:text-[#C8F031] font-mono tabular-nums text-[14px]">
+          <span className="font-semibold text-foreground dark:text-primary font-mono tabular-nums text-[14px]">
             {overallConversion}%
           </span>
         </div>
@@ -44,7 +44,7 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
             <div className="flex justify-between items-center text-[13px]">
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] font-mono font-bold text-muted-foreground px-2 py-0.5 rounded-none bg-surface-high border border-border/40">
-                  0{idx + 1}
+                  {String(idx + 1).padStart(2, '0')}
                 </span>
                 <span className="text-foreground font-medium">{step.label}</span>
               </div>
@@ -55,7 +55,7 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
                 <span
                   className={
                     step.isLast
-                      ? 'text-foreground dark:text-[#C8F031] font-semibold'
+                      ? 'text-foreground dark:text-primary font-semibold'
                       : 'text-muted-foreground'
                   }
                 >

@@ -81,6 +81,13 @@
     d.head.appendChild(bundleScript);
   }
 
+  /**
+   * Fallback used ONLY when the manifest itself cannot be fetched (offline, blocked).
+   * Deliberately unhashed and served with max-age=0, so it can never pin a visitor to
+   * a stale bundle the way the old hardcoded widget.v4_5_lumina.js URL did.
+   */
+  var FALLBACK_BUNDLE_URL = '/widget/widget.latest.js';
+
   // Discover latest version pointer
   var manifestUrl = '/widget/latest.json';
   if (scriptEl && scriptEl.src) {
@@ -89,7 +96,11 @@
     } catch (e) {}
   }
 
-  fetch(manifestUrl, { cache: 'default' })
+  // Always revalidate: the manifest is the only thing that says which content-hashed
+  // bundle is current, and 'default' let the browser serve it from cache for hours —
+  // which is how shipped fixes failed to reach returning visitors. It is served with
+  // max-age=0 (see next.config.ts), so this is a cheap 304 in the common case.
+  fetch(manifestUrl, { cache: 'no-cache' })
     .then(function (res) {
       if (!res.ok) throw new Error('Manifest fetch failed');
       return res.json();
@@ -98,11 +109,11 @@
       if (manifest && manifest.bundleUrl) {
         injectBundle(manifest.bundleUrl);
       } else {
-        injectBundle('/widget/v2/widget.v4_5_lumina.js');
+        injectBundle(FALLBACK_BUNDLE_URL);
       }
     })
     .catch(function () {
-      // Fallback to default versioned bundle
-      injectBundle('/widget/v2/widget.v4_5_lumina.js');
+      // Manifest unreachable — fall back to the unhashed, always-revalidated copy.
+      injectBundle(FALLBACK_BUNDLE_URL);
     });
 })(window, document);

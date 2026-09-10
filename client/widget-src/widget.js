@@ -70,6 +70,16 @@
   let activeResumptionToken = null;
   let isWaitingForAi = false;
 
+  // Server-driven session notices (idle_warning / session_warning / session_ended).
+  // Without these the server's warnings were sent and silently discarded, so a session
+  // could simply vanish with nothing shown to the customer.
+  let sessionNotice = null;
+  let noticeClearTimer = null;
+
+  // Mic noise gate state (see VAD_HANGOVER_MS / VAD_PREROLL_FRAMES).
+  let lastSpeechAt = 0;
+  let prerollFrames = [];
+
   // Customer Details Confirmation Card State
   let customerDetails = { name: '', email: '', phone: '', address: '' };
   let isEditingDetails = false;
@@ -1293,10 +1303,60 @@
   let inputAddress = null;
 
   // ─── Idle Inactivity Timer (Conversational Standby Protocol) ───────────────
+
+  /**
+   * Mic RMS above which we treat the frame as real speech and cancel the standby timer.
+   * Tuned for normal conversational volume on a built-in laptop mic.
+   */
+  const VAD_SPEECH_THRESHOLD = 0.018;
+
+  /** Client-side conversational dormancy before the session is suspended to standby. */
+  const CLIENT_STANDBY_MS = 90000; // 90 seconds (1.5 minutes)
+
+  /**
+   * How long the mic uplink keeps streaming after speech drops below the threshold.
+   *
+   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (700ms): Gemini decides the
+   * customer's turn has ended by hearing silence, so we have to keep feeding it real
+   * (quiet) audio for a moment after they stop. Cut the stream too early and Gemini waits
+   * for silence it never receives, delaying ORA's reply instead of speeding it up.
+   */
+  const VAD_HANGOVER_MS = 1200;
+
+  /**
+   * Frames retained while the gate is shut, replayed when it opens, so the attack of the
+   * first word survives. At 1024 samples / 16 kHz each frame is ~64ms.
+   */
+  const VAD_PREROLL_FRAMES = 3;
+
   function cancelIdleTimer() {
     if (idleTimer) {
       clearTimeout(idleTimer);
       idleTimer = null;
+    }
+  }
+
+  /** Shows a transient server notice in the status chip. */
+  function setSessionNotice(text, autoClearMs) {
+    sessionNotice = text || null;
+    if (noticeClearTimer) {
+      clearTimeout(noticeClearTimer);
+      noticeClearTimer = null;
+    }
+    if (sessionNotice && autoClearMs) {
+      noticeClearTimer = setTimeout(function () {
+        sessionNotice = null;
+        noticeClearTimer = null;
+        try { render(); } catch (e) {}
+      }, autoClearMs);
+    }
+    try { render(); } catch (e) {}
+  }
+
+  /** Clears any visible notice — called as soon as the customer is detected speaking again. */
+  function clearSessionNotice() {
+    if (sessionNotice || noticeClearTimer) {
+      setSessionNotice(null);
     }
   }
 
@@ -1306,13 +1366,13 @@
     if (voiceState === 'active' && !isWaitingForAi) {
       idleTimer = setTimeout(function () {
         if (voiceState === 'active' && !isWaitingForAi && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
-          console.log('[ORA Widget] Conversational idle timeout — suspending session after 90s.');
+          console.log('[ORA Widget] Conversational idle timeout — suspending session after ' + (CLIENT_STANDBY_MS / 1000) + 's.');
           try {
             geminiWs.send(JSON.stringify({ type: 'client_idle_suspend', sessionId: sessionId }));
           } catch (e) {}
           disconnectVoice('standby');
         }
-      }, 90000); // 90 seconds (1.5 minutes) of conversational dormancy
+      }, CLIENT_STANDBY_MS);
     }
   }
 
@@ -1897,6 +1957,11 @@
     if (voiceState === 'connecting') {
       statusDot.className = 'ora-w-status-dot connecting';
       statusLabel.innerText = 'Connecting to ORA…';
+    } else if (sessionNotice && isActive) {
+      // Server-driven notice (idle / time-limit warning) takes priority while active,
+      // so the customer sees why the session is about to close.
+      statusDot.className = 'ora-w-status-dot standby';
+      statusLabel.innerText = sessionNotice.slice(0, 40);
     } else if (isSpeaking) {
       statusDot.className = 'ora-w-status-dot speaking';
       statusLabel.innerText = 'ORA is speaking…';
@@ -1916,6 +1981,10 @@
     } else if (voiceState === 'error') {
       statusDot.className = 'ora-w-status-dot error';
       statusLabel.innerText = errorMsg ? errorMsg.slice(0, 26) : 'Retry conversation';
+    } else if (sessionNotice) {
+      // Session was closed by the server — keep the reason visible in the idle state.
+      statusDot.className = 'ora-w-status-dot standby';
+      statusLabel.innerText = sessionNotice.slice(0, 40);
     } else {
       statusDot.className = 'ora-w-status-dot idle';
       statusLabel.innerText = 'Talk with ORA';
@@ -2021,6 +2090,12 @@
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
     cancelIdleTimer();
+    // Drop any pending notice + its auto-clear timer. Callers that need to show a
+    // reason (e.g. session_ended) set the notice AFTER calling teardown().
+    if (noticeClearTimer) { clearTimeout(noticeClearTimer); noticeClearTimer = null; }
+    sessionNotice = null;
+    lastSpeechAt = 0;
+    prerollFrames.length = 0;
     isWaitingForAi = false;
     flushPlaybackQueue();
     voiceState = 'idle';
@@ -2127,7 +2202,10 @@
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        // autoGainControl works against us here: with nobody talking it amplifies
+        // quiet room noise up toward speech level, which is exactly what we are
+        // trying to keep out of the uplink.
+        autoGainControl: false,
       },
     });
     mediaStream = stream;
@@ -2164,8 +2242,16 @@
       userMicLevel = Math.min(100, Math.floor(rms * 400));
 
       // Voice Activity Detection (VAD)
-      if (rms > 0.06) {
+      // 0.018 ≈ normal conversational speech on a laptop mic. The previous 0.06 needed
+      // near-shouting, so ordinary speakers never cancelled the standby timer and got
+      // suspended mid-conversation.
+      const nowMs = Date.now();
+      const isSpeech = rms > VAD_SPEECH_THRESHOLD;
+
+      if (isSpeech) {
+        lastSpeechAt = nowMs;
         cancelIdleTimer();
+        clearSessionNotice(); // the customer is speaking — drop any "are you still there?"
         if (userSpeechSilenceTimeout) {
           clearTimeout(userSpeechSilenceTimeout);
           userSpeechSilenceTimeout = null;
@@ -2174,6 +2260,25 @@
 
       const pcm16 = floatTo16BitPCM(inputData);
       const b64 = arrayBufferToBase64(pcm16.buffer);
+
+      // ── Noise gate ────────────────────────────────────────────────────────────
+      // Previously EVERY frame went upstream regardless of level, so room noise
+      // reached Gemini, whose own VAD read it as the customer speaking and barged in
+      // on ORA mid-answer. Only speech (plus a hangover tail) is streamed now.
+      if (!isSpeech && nowMs - lastSpeechAt >= VAD_HANGOVER_MS) {
+        prerollFrames.push(b64);
+        if (prerollFrames.length > VAD_PREROLL_FRAMES) prerollFrames.shift();
+        return;
+      }
+
+      // Gate just opened — replay the buffered pre-roll so the first word is intact.
+      if (prerollFrames.length > 0) {
+        for (let pi = 0; pi < prerollFrames.length; pi++) {
+          geminiWs.send(JSON.stringify({ type: 'audio', data: prerollFrames[pi] }));
+        }
+        prerollFrames.length = 0;
+      }
+
       geminiWs.send(JSON.stringify({ type: 'audio', data: b64 }));
     };
 
@@ -2193,6 +2298,7 @@
 
     voiceState = 'connecting';
     errorMsg = '';
+    setSessionNotice(null); // clear any prior session-ended reason
     liveUtterance = '';
     liveSpeaker = null;
     lastSpeaker = null;
@@ -2326,7 +2432,38 @@
             liveUtterance = '';
             isWaitingForAi = true;
             cancelIdleTimer();
+            clearSessionNotice(); // user barged in — they are clearly still here
             if (recognition) { try { recognition.abort(); } catch (e) {} }
+            return;
+          }
+
+          // ── Server session notices ──────────────────────────────────────────
+          // idle_warning  : server thinks the customer went silent; ORA also asks aloud.
+          // session_warning: approaching the hard max-duration ceiling.
+          // session_ended : server has closed (or is closing) the session — always explain why.
+          if (msg.type === 'idle_warning') {
+            const secs = msg.secondsUntilClose || 20;
+            console.log('[ORA Widget] Idle warning from server — closing in ' + secs + 's.');
+            setSessionNotice(msg.message || 'Are you still there?', secs * 1000);
+            return;
+          }
+
+          if (msg.type === 'session_warning') {
+            const remaining = msg.remainingSeconds || 60;
+            console.log('[ORA Widget] Session time-limit warning — ' + remaining + 's remaining.');
+            setSessionNotice(
+              msg.message || ('Session ends in ' + remaining + 's'),
+              remaining * 1000,
+            );
+            return;
+          }
+
+          if (msg.type === 'session_ended') {
+            console.log('[ORA Widget] Session ended by server — reason: ' + (msg.reason || 'unknown'));
+            if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
+            // Set the notice AFTER teardown so it survives into the idle state — the
+            // customer is never left staring at a silently dead widget.
+            setSessionNotice(msg.message || 'Session ended. Tap to start a new one.');
             return;
           }
 

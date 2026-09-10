@@ -27,7 +27,8 @@ import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 interface VoiceTestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  publishableKey?: string;
+  /** Null while the merchant's real key is still loading, or if it failed to load. */
+  publishableKey?: string | null;
 }
 
 interface TranscriptEntry {
@@ -165,7 +166,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
 
       setStatus('connecting');
       setErrorMessage(null);
-      addTranscript('system', 'Connecting to ORA Neural Voice Gateway...');
+      addTranscript('system', 'Connecting to the ORA voice service…');
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
       const keyToUse = publishableKey;
@@ -363,7 +364,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               }`}
             >
               <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
-              <span>ORA Neural Engine (Direct)</span>
+              <span>Gemini Live (direct)</span>
             </button>
             <button
               onClick={() => {
@@ -414,7 +415,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               />
               <span className="text-foreground/90 font-medium truncate">
                 {status === 'idle' && 'Click Test ORA Live to speak with ORA'}
-                {status === 'connecting' && 'Connecting neural audio stream...'}
+                {status === 'connecting' && 'Connecting audio stream…'}
                 {status === 'listening' && 'ORA is listening... Speak clearly into your mic'}
                 {status === 'speaking' && 'ORA is speaking in real-time...'}
                 {status === 'thinking' && 'Searching store catalog & policies...'}

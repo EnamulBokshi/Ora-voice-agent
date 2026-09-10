@@ -4,7 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "widget:build": "node scripts/build-widget.mjs",
+    "predev": "node scripts/build-widget.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/build-widget.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

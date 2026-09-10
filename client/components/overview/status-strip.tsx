@@ -46,9 +46,9 @@ export function StatusStrip({
               className={`ml-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer ${
                 isWidgetActive
                   ? 'border-border/60 text-muted-foreground hover:text-foreground hover:bg-surface-high'
-                  : 'border-emerald-500/40 text-emerald-400 dark:text-[#C8F031] bg-emerald-500/10 hover:bg-emerald-500/20'
+                  : 'border-emerald-500/40 text-emerald-400 dark:text-primary bg-emerald-500/10 hover:bg-emerald-500/20'
               }`}
-              title={isWidgetActive ? 'Pause ORA on your storefront' : 'Resume ORA on your storefront'}
+              title={isWidgetActive ? 'Temporarily pause voice agent on your storefront' : 'Activate voice agent on your storefront'}
             >
               {isTogglingWidget ? 'Updating...' : isWidgetActive ? 'Pause' : 'Resume'}
             </button>
@@ -59,24 +59,25 @@ export function StatusStrip({
 
         <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[12px]">
           <span className="font-semibold text-foreground">{voiceSessions}</span>
-          <span>live voice calls</span>
+          <span>live customer calls</span>
         </div>
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
         <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[12px]">
           <span className="font-semibold text-foreground">{productsCount.toLocaleString()}</span>
-          <span>catalog products synced</span>
+          <span>products indexed</span>
         </div>
       </div>
 
       {/* Jump to Live Operations */}
       <Link
         href="/live-desk"
+        title="Monitor ongoing voice conversations and shopper interactions in real time"
         className="inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors ml-auto sm:ml-0"
       >
-        <Radio size={12} className="text-foreground dark:text-[#C8F031]" />
-        <span>Live Desk Telemetry</span>
+        <Radio size={12} className="text-foreground dark:text-primary" />
+        <span>Live Store Desk</span>
         <ArrowRight size={11} className="text-muted-foreground" />
       </Link>
     </div>

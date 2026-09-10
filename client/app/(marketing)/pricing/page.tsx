@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Pricing & Subscription Plans | ORA AI Sales Assistant',
-    description: 'Explore Starter, Growth, and Pro tiers in USD & BDT. Start your free trial today.',
+    description: 'Explore the Free, Growth, and Scale tiers in USD & BDT. Start free today.',
     url: 'https://tryora.live/pricing',
     type: 'website',
   },

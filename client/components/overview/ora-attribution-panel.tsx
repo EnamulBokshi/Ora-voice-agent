@@ -75,7 +75,7 @@ export function OraAttributionPanel({
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-border/40 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-primary flex-shrink-0" />
           <h3 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
             ORA Revenue Attribution
           </h3>
@@ -115,7 +115,7 @@ export function OraAttributionPanel({
                 <span
                   className={`font-mono text-[11px] font-medium ${
                     row.positive
-                      ? 'text-foreground dark:text-[#C8F031]'
+                      ? 'text-foreground dark:text-primary'
                       : 'text-[color:var(--status-error)]'
                   }`}
                 >

@@ -38,9 +38,6 @@ export function AgentSectionLayout({
               <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
                 {iconNode}
               </div>
-              <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground">
-                ORA Active Intelligence
-              </span>
             </div>
 
             {/* Editorial Serif Title */}

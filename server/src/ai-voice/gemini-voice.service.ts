@@ -20,6 +20,26 @@ import { EncryptionUtil } from '../common/utils/encryption.util';
 // Map of supported Gemini Live voices & fallback mapper for legacy OpenAI voice names
 const VALID_GEMINI_VOICES = new Set(['Aoede', 'Fenrir', 'Kore', 'Puck', 'Charon']);
 
+// ── Gemini Live input activity detection (noise robustness) ──────────────────
+// Tuned for a real storefront visitor: a laptop mic in a room with a TV, traffic or
+// other people talking. LOW start sensitivity demands a clearer speech onset before
+// Gemini opens a turn, which is what stops background noise barging in on ORA.
+const START_OF_SPEECH_SENSITIVITY = 'START_SENSITIVITY_LOW';
+const END_OF_SPEECH_SENSITIVITY = 'END_SENSITIVITY_LOW';
+
+/** Audio kept before the detected speech onset, so the first syllable is not clipped. */
+const SPEECH_PREFIX_PADDING_MS = 300;
+
+/**
+ * Silence required after speech before Gemini closes the customer's turn.
+ *
+ * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS), because
+ * the widget's noise gate stops sending audio once that hangover elapses. If this were
+ * the longer of the two, Gemini would still be waiting for silence it can no longer
+ * hear and the turn would hang instead of ORA replying.
+ */
+const SPEECH_SILENCE_DURATION_MS = 700;
+
 const LEGACY_VOICE_MAP: Record<string, string> = {
   alloy: 'Aoede',
   echo: 'Fenrir',
@@ -275,6 +295,22 @@ export class GeminiVoiceService {
             //   Chunks arrive as serverContent.outputTranscription.text (solves the AUDIO-only modality gap).
             inputAudioTranscription: {},
             outputAudioTranscription: {},
+            // ── Input activity detection (noise robustness) ──────────────────────
+            // Left unset, Gemini's automatic VAD runs on defaults tuned for a quiet
+            // room: a TV, traffic or a nearby conversation reads as the customer
+            // speaking and barges in on ORA mid-answer.
+            //
+            // LOW start sensitivity requires a clearer speech onset before opening a
+            // turn; LOW end sensitivity plus a longer silence window stops ORA cutting
+            // in during a natural pause. prefixPaddingMs keeps the first syllable.
+            realtimeInputConfig: {
+              automaticActivityDetection: {
+                startOfSpeechSensitivity: START_OF_SPEECH_SENSITIVITY,
+                endOfSpeechSensitivity: END_OF_SPEECH_SENSITIVITY,
+                prefixPaddingMs: SPEECH_PREFIX_PADDING_MS,
+                silenceDurationMs: SPEECH_SILENCE_DURATION_MS,
+              },
+            },
           },
         };
 

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getCustomersApi } from '@/services/customers-service';
 import { Customer } from '@/types/customer';
-import { demoCustomers } from '@/lib/demo-data';
 import { CustomersHeader } from '@/components/customers/customers-header';
 import { CustomersTable } from '@/components/customers/customers-table';
 
@@ -17,8 +16,12 @@ export function CustomersClient() {
     setLoading(true);
     setError(null);
     try {
+      // An empty result is a real answer, not a reason to show sample data. Falling back
+      // to demoCustomers here put fabricated shoppers (names, emails, phone numbers, order
+      // counts) into live merchant accounts and made the real empty state unreachable,
+      // because customers.length was never 0.
       const res = await getCustomersApi();
-      setCustomers(res && res.length > 0 ? res : demoCustomers);
+      setCustomers(res ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load customers');
     } finally {

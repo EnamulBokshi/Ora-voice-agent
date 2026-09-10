@@ -12,7 +12,13 @@ interface CustomersTableProps {
 
 export function CustomersTable({ customers, onReload }: CustomersTableProps) {
   const [search, setSearch] = useState<string>('');
-  const [selectedId, setSelectedId] = useState<string>(customers[0]?._id ?? '');
+  const [selectedId, setSelectedId] = useState<string>('');
+
+  // useState only reads its initial value once, so seeding this from customers[0]
+  // meant the selection stayed empty (or stale) after onReload brought new rows in.
+  // Default to the first customer whenever the current selection is no longer present.
+  const selectionPresent = selectedId && customers.some((c) => c._id === selectedId);
+  const effectiveSelectedId = selectionPresent ? selectedId : (customers[0]?._id ?? '');
 
   const filteredCustomers = customers.filter((c) => {
     if (search.trim()) {
@@ -27,7 +33,7 @@ export function CustomersTable({ customers, onReload }: CustomersTableProps) {
   });
 
   const selectedCustomer =
-    customers.find((c) => c._id === selectedId) || customers[0] || null;
+    customers.find((c) => c._id === effectiveSelectedId) || null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
@@ -65,12 +71,20 @@ export function CustomersTable({ customers, onReload }: CustomersTableProps) {
               </thead>
               <tbody className="divide-y divide-border text-foreground">
                 {filteredCustomers.map((c) => {
-                  const isSelected = c._id === selectedId;
+                  const isSelected = c._id === effectiveSelectedId;
                   return (
                     <tr
                       key={c._id}
+                      tabIndex={0}
+                      aria-selected={isSelected}
                       onClick={() => setSelectedId(c._id)}
-                      className={`cursor-pointer transition-colors ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedId(c._id);
+                        }
+                      }}
+                      className={`cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                         isSelected ? 'bg-primary/10' : 'hover:bg-surface-high'
                       }`}
                     >

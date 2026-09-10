@@ -750,6 +750,12 @@ export class AuthService {
             domain: business.domain,
             publishableKey: business.publishableKey,
             status: business.status,
+            // Required by the dashboard to render the storefront pause state.
+            // While this was omitted, every client read `undefined` here and fell back
+            // to its `true` default, so pausing the widget appeared to revert to
+            // "Voice Agent Online" on the next navigation even though the pause had
+            // been persisted correctly.
+            isWidgetActive: business.isWidgetActive !== false,
           }
         : null,
     };

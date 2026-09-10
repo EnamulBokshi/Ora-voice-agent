@@ -414,39 +414,47 @@ export class ProductsService {
 
     const product = await this.findOne(businessId, id);
 
+    // A read-only verification (no liveData) must NOT write to Mongo.
+    //
+    // This previously stamped lastVerifiedAt/confidenceScore and called save() on every
+    // call, so a single voice question about price or stock cost one database write per
+    // product on the hot path — while Gemini sat silent waiting for the tool result.
+    // Writes now happen only when the caller actually supplies new live values.
+    let resolved = product;
+
     if (liveData) {
       if (liveData.price !== undefined) product.price = liveData.price;
       if (liveData.stockQuantity !== undefined)
         product.stockQuantity = liveData.stockQuantity;
       if (liveData.availability !== undefined)
         product.availability = liveData.availability;
+
+      product.lastVerifiedAt = new Date();
+      product.confidenceScore = 1.0;
+
+      resolved = await product.save();
     }
-
-    product.lastVerifiedAt = new Date();
-    product.confidenceScore = 1.0;
-
-    const saved = await product.save();
 
     const lowStockThreshold = parseInt(
       this.configService.get<string>('LOW_STOCK_THRESHOLD') ?? '5',
       10,
     );
     const isLowStock =
-      saved.availability === ProductAvailability.IN_STOCK &&
-      saved.stockQuantity <= lowStockThreshold;
+      resolved.availability === ProductAvailability.IN_STOCK &&
+      resolved.stockQuantity <= lowStockThreshold;
 
     // Cache updated stock and price in Redis with 15-minute TTL (EX 900)
     if (this.redisService) {
       const cacheValue = JSON.stringify({
-        price: saved.price,
-        stockQuantity: saved.stockQuantity,
-        availability: saved.availability,
+        price: resolved.price,
+        stockQuantity: resolved.stockQuantity,
+        availability: resolved.availability,
         isLowStock,
       });
       this.redisService.getClient().set(cacheKey, cacheValue, 'EX', 900).catch(() => { });
     }
 
-    return Object.assign(saved, { isLowStock });
+    return Object.assign(resolved, { isLowStock });
   }
 
   async verifyLiveBatch(businessId: string, ids: string[]): Promise<any[]> {

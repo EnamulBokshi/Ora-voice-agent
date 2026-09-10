@@ -84,6 +84,62 @@ describe('ProductsService', () => {
     expect(result[0].isLowStock).toBe(true); // 3 <= lowStockThreshold (5)
   });
 
+  describe('verifyLive', () => {
+    const businessId = '64b1f2a3c9e77b001f2a3b4e';
+    const objectId = '64b1f2a3c9e77b001f2a3b4c';
+
+    /** Builds a mock product document whose save() can be asserted on. */
+    const mockProductDoc = (overrides: Record<string, any> = {}) => ({
+      _id: objectId,
+      name: 'Product A',
+      price: 100,
+      stockQuantity: 3,
+      availability: 'in_stock',
+      lastVerifiedAt: null,
+      confidenceScore: 0.5,
+      save: jest.fn().mockImplementation(function (this: any) {
+        return Promise.resolve(this);
+      }),
+      toObject: jest.fn().mockReturnValue({ _id: objectId, name: 'Product A' }),
+      ...overrides,
+    });
+
+    it('does not write to the database for a read-only verification', async () => {
+      const doc = mockProductDoc();
+      const productModel = moduleRef.get(getModelToken(Product.name));
+      productModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(doc),
+      });
+
+      const result = await service.verifyLive(businessId, objectId);
+
+      // A price/stock question on the voice hot path must cost zero Mongo writes.
+      expect(doc.save).not.toHaveBeenCalled();
+      expect(result.isLowStock).toBe(true); // 3 <= threshold (5)
+      expect(result.price).toBe(100);
+    });
+
+    it('still persists when the caller supplies new live values', async () => {
+      const doc = mockProductDoc();
+      const productModel = moduleRef.get(getModelToken(Product.name));
+      productModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(doc),
+      });
+
+      const result = await service.verifyLive(businessId, objectId, {
+        price: 250,
+        stockQuantity: 9,
+      });
+
+      expect(doc.save).toHaveBeenCalledTimes(1);
+      expect(result.price).toBe(250);
+      expect(result.stockQuantity).toBe(9);
+      expect(result.isLowStock).toBe(false); // 9 > threshold (5)
+      expect(doc.lastVerifiedAt).toBeInstanceOf(Date);
+      expect(doc.confidenceScore).toBe(1.0);
+    });
+  });
+
   describe('remove', () => {
     const businessId = '64b1f2a3c9e77b001f2a3b4e';
     const objectId = '64b1f2a3c9e77b001f2a3b4c';

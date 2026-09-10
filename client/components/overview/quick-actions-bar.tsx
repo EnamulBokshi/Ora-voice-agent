@@ -18,12 +18,11 @@ interface QuickActionsBarProps {
 export function QuickActionsBar({ actions }: QuickActionsBarProps) {
   return (
     <div className="pt-2">
-      {/* Section Eyebrow Header */}
+      {/* Section Header */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-        <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground">
-          Store Capabilities & Quick Actions
-        </p>
+        <h2 className="text-[14px] font-semibold text-foreground tracking-tight">
+          Quick Actions
+        </h2>
       </div>
 
       {/* Subtle rounded-md Row Container (Same as Page Background) */}

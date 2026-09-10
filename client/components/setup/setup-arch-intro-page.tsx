@@ -287,7 +287,7 @@ const ARCH_CONTENT: Record<SetupArchetype, ArchPageContent> = {
     iconTextClass: 'text-foreground',
     heroTitle: 'ORA for Enterprise delivers verified answers at scale',
     heroDesc:
-      'ORA handles high-volume corporate questions using your verified company knowledge base — policies, FAQs, standard operating procedures — with sub-85ms accuracy.',
+      'ORA handles high-volume corporate questions using your verified company knowledge base — policies, FAQs, standard operating procedures — quoting your own wording.',
     cta1Label: 'Set up ORA for Enterprise',
     cta1Href: '/setup?archetype=general&step=persona',
     heroImageSrc: '/previews/enterprise-hero.jpg',
@@ -297,7 +297,7 @@ const ARCH_CONTENT: Record<SetupArchetype, ArchPageContent> = {
         stepLabel: '1. INDEX',
         title: 'ORA indexes company knowledge',
         description:
-          "Upload policies, procedures, compliance guidelines, and FAQs. ORA's enterprise RAG engine vectorises and indexes them with sub-85ms latency.",
+          "Upload policies, procedures, compliance guidelines, and FAQs. ORA vectorises and indexes them so the right passage is retrieved at query time.",
         imageSrc: '/previews/enterprise-hero.jpg',
       },
       {

@@ -74,7 +74,7 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
     },
     {
       title: 'Semantic RAG Knowledge Base',
-      countLabel: 'Sub-85ms Retrieval',
+      countLabel: 'Vector retrieval',
       description: 'High-dimensional embeddings for grounded responses with zero hallucinations.',
       status: 'Ready',
       icon: Database,

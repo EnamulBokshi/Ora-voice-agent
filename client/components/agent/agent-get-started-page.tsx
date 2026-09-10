@@ -172,7 +172,7 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
     roleName: 'ORA for Knowledge',
     heroTitle: 'ORA for Knowledge makes your store smarter',
     heroDesc:
-      "ORA's knowledge base connects seamlessly with your store documents to provide accurate, instant answers — eliminating hallucinations.",
+      "ORA answers from your own store documents, so replies stay grounded in what you have published.",
     heroImageSrc: '/previews/role-docs-v2.jpg',
     cta1Label: 'Set up Knowledge Base',
     cta1Href: '/agent?role=documents&view=feed',
@@ -190,7 +190,7 @@ const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
         stepLabel: '2. INDEX',
         title: 'ORA indexes and vectorises content',
         description:
-          "ORA's vector engine chunks and embeds your documents into high-dimensional space for sub-85ms semantic similarity retrieval.",
+          "ORA chunks and embeds your documents so it can retrieve the most relevant passage for a shopper's question.",
         imageSrc: '/previews/docs-step2-index.jpg',
       },
       {

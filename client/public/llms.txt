@@ -4,7 +4,7 @@
 
 ## Core Capabilities & Performance Benchmarks
 
-- **Real-Time Voice Consultation**: Sub-350ms ultra-low audio latency streaming over bidirectional WebSockets and WebRTC audio processors.
+- **Real-Time Voice Consultation**: Low-latency 16 kHz PCM audio streamed over a bidirectional WebSocket to the Gemini Live API.
 - **Product Catalog Intelligence**: Instant synchronization of product catalogs, variable SKUs, live stock levels, and store FAQs.
 - **Abandoned Cart Recovery**: Proactive conversational engagement when shoppers pause at checkout, yielding an average +34% conversion rate (CVR) lift.
 - **Dual Payment & Regional Checkout**:
@@ -15,19 +15,31 @@
 ## Key URLs & Resources
 
 - [Official Website](https://tryora.live): Main platform overview, live interactive demo, and feature breakdown.
-- [Pricing & Subscription Plans](https://tryora.live/pricing): Tier breakdown (Starter at $39/mo, Growth at $99/mo, Pro at $249/mo, Enterprise, with local BDT equivalents).
+- [Pricing & Subscription Plans](https://tryora.live/pricing): Three tiers — Free at $0/mo, Growth at $49/mo (৳5,500), Scale at $199/mo (৳22,000).
 - [Storefront Solutions](https://tryora.live/solutions): Platform-specific architectures for Shopify, WooCommerce, Headless APIs, and Regional bKash payments.
 - [Integration Documentation](https://tryora.live/docs): Step-by-step setup guides for Shopify Theme App Embed, WooCommerce WordPress plugin, and API keys.
+- [Full Technical Reference](https://tryora.live/llms-full.txt): Complete platform, pricing, architecture and security reference for AI agents.
+- [Merchant Owner Manual](https://tryora.live/docs/ORA-Merchant-Owner-Manual.md): End-to-end onboarding and troubleshooting guide for store owners.
+
+## Plans & Limits
+
+- **Free — $0/month**: 100 live voice minutes/month, 20 Tier-1 orders, 1 connected storefront, 1 seat, basic RAG search.
+- **Growth — $49/month (৳5,500)**: 2,000 live voice minutes/month, 500 Tier-1 orders, 3 connected stores, 5 staff seats, full RAG vector search and webhook sync.
+- **Scale — $199/month (৳22,000)**: Unlimited live voice minutes and orders, 99 connected stores, 99 staff seats, dedicated account manager and priority support.
 
 ## Technical Architecture & Developer Integration
 
-- **Widget Embed**:
+- **Widget Embed** (the attribute names below are what the loader actually reads — `data-ora-key`, not `data-publishable-key`):
   ```html
-  <script 
-    src="https://tryora.live/widget/loader.js" 
-    data-publishable-key="biz_live_your_key" 
-    async>
+  <script
+    src="https://tryora.live/widget/ora-widget.js"
+    data-ora-key="biz_live_your_publishable_key"
+    data-ora-api="https://api.tryora.live"
+    defer>
   </script>
   ```
+  Optional: `data-ora-position` accepts `bottom-center` (default), `bottom-right` or `bottom-left`.
+  The embed is a ~1KB loader that reads `/widget/latest.json` and injects the current
+  content-hashed bundle, so merchants never need to update the script tag.
 - **Security & Scoping**: Strict multi-tenant isolation by `businessId`, AES-256 field encryption for customer PII, rotating session JWTs, and cryptographically hashed API keys.
 - **AI Stack**: Low-latency voice pipelines with speech-to-text (STT), high-speed LLM reasoning, and natural speech synthesis (TTS) tuned for conversational commerce.

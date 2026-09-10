@@ -100,9 +100,6 @@ export function NotificationsClient() {
                 <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
                   <Bell size={14} className="text-foreground" />
                 </div>
-                <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground">
-                  ORA Telemetry Feed
-                </span>
               </div>
 
               <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">

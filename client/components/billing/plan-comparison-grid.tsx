@@ -118,7 +118,7 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
                   </li>
                   <li className="flex items-start gap-2">
                     <Check size={13} className="shrink-0 mt-0.5 text-foreground dark:text-[#C8F031]" />
-                    <span>Sub-85ms Ora Live speech latency</span>
+                    <span>Real-time Ora Live speech</span>
                   </li>
                 </ul>
               </div>

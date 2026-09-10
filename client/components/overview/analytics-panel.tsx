@@ -16,8 +16,8 @@ interface AnalyticsPanelProps {
 }
 
 const TABS: { id: AnalyticsTab; label: string; icon: React.ElementType }[] = [
-  { id: 'revenue', label: 'Revenue Performance', icon: TrendingUp },
-  { id: 'funnel', label: 'Conversion Funnel', icon: Filter },
+  { id: 'revenue', label: 'Revenue Analytics', icon: TrendingUp },
+  { id: 'funnel', label: 'Sales Funnel', icon: Filter },
 ];
 
 export function AnalyticsPanel({
@@ -32,18 +32,17 @@ export function AnalyticsPanel({
       {/* ── 1. KPI Metric Strip ── */}
       <KpiStrip cards={kpiCards} />
 
-      {/* ── 2. Performance Analytics Section (Same as Page Background) ── */}
+      {/* ── 2. Performance Analytics Section ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-5">
-        {/* Section Header with Distinct, Visible Tab Switcher */}
+        {/* Section Header with Clean Tab Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40 mb-4">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground">
-              Store Performance & Funnel Telemetry
-            </p>
+            <h2 className="text-[14px] font-semibold text-foreground tracking-tight">
+              Performance Analytics
+            </h2>
           </div>
 
-          {/* Highly Visible Tab Buttons (Subtle Rounded-sm) */}
+          {/* Highly Visible Tab Buttons */}
           <div className="flex items-center gap-1 p-0.5 rounded-md bg-surface-high border border-border/60">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -55,11 +54,11 @@ export function AnalyticsPanel({
                   className={cn(
                     'flex items-center gap-2 px-3.5 py-1.5 rounded-[4px] text-[12.5px] font-medium transition-all cursor-pointer',
                     isActive
-                      ? 'bg-surface-lowest text-foreground font-semibold shadow-xs border border-border/60 dark:text-[#C8F031]'
+                      ? 'bg-surface-lowest text-foreground font-semibold shadow-xs border border-border/60 dark:text-primary'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <Icon size={13} className={isActive ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground'} />
+                  <Icon size={13} className={isActive ? 'text-foreground dark:text-primary' : 'text-muted-foreground'} />
                   <span>{tab.label}</span>
                 </button>
               );

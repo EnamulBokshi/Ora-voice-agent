@@ -29,7 +29,7 @@ export function VoiceTestPreview({ onOpenTestModal }: VoiceTestPreviewProps) {
             </h2>
           </div>
           <span className="text-[11px] font-mono text-foreground dark:text-[#C8F031] tabular-nums font-medium">
-            RTT &lt; 85ms · Gemini Live
+            Gemini Live
           </span>
         </div>
 

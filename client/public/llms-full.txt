@@ -4,7 +4,8 @@
 ORA (https://tryora.live) is a multimodal AI sales agent platform designed for online e-commerce stores. It turns passive storefront visitors into paying customers by actively conducting voice-driven sales consultations, answering product sizing/stock queries, generating custom promotional discounts, and recovering abandoned shopping carts.
 
 ## Technical Specifications
-- **Latency**: Sub-350ms end-to-end voice latency over streaming WebSockets.
+- **Transport**: 16 kHz PCM microphone audio streamed over a bidirectional WebSocket
+  (`/ws/voice`) to the Gemini Live API, with 24 kHz PCM audio streamed back.
 - **Languages**: English and Bengali (multilingual speech recognition and synthesis).
 - **Supported E-Commerce Platforms**:
   - Shopify (Theme App Embed, Admin GraphQL, Storefront Webhooks)
@@ -16,37 +17,61 @@ ORA (https://tryora.live) is a multimodal AI sales agent platform designed for o
   - Cash on Delivery (COD): Conversational address and phone verification flows.
 
 ## Pricing Tiers (USD & BDT)
-1. **Starter ($39 / month or 4,500 BDT / month)**:
-   - Up to 500 monthly conversation minutes
-   - Up to 1,000 product SKUs synced
-   - Standard voice models & live chat widget
-   - Community and email support
-2. **Growth ($99 / month or 11,500 BDT / month)**:
-   - Up to 2,000 monthly conversation minutes
-   - Up to 5,000 product SKUs synced
-   - Advanced cart recovery sequences and intent triggers
-   - Full Shopify & WooCommerce 1-click sync
-   - Priority support
-3. **Pro ($249 / month or 29,000 BDT / month)**:
-   - Up to 6,000 monthly conversation minutes
-   - Unlimited catalog SKUs synced
-   - Custom voice fine-tuning & brand tone configuration
-   - Full analytics, conversion funnels, and CRM webhooks
-   - 24/7 dedicated support
-4. **Enterprise (Custom Pricing)**:
-   - Dedicated infrastructure and private fine-tuned LLM
-   - 99.9% uptime SLA
-   - Custom ERP / custom inventory integrations
+ORA has exactly three plan tiers: `free`, `growth` and `scale`.
+
+1. **Free ($0 / month)**:
+   - 100 live voice minutes / month
+   - 20 Tier-1 orders / month
+   - 1 connected storefront or connector
+   - 1 seat
+   - Basic RAG search
+2. **Growth ($49 / month or 5,500 BDT / month)**:
+   - 2,000 live voice minutes / month
+   - 500 Tier-1 orders / month
+   - 3 connected stores
+   - 5 staff seats
+   - Full RAG vector search and webhook sync
+3. **Scale ($199 / month or 22,000 BDT / month)**:
+   - Unlimited live voice minutes / month
+   - Unlimited orders
+   - 99 connected stores
+   - 99 staff seats
+   - Dedicated account manager and priority support
 
 ## Security and Compliance
 - Multi-tenant architecture with strict database scoping by `businessId`.
 - No sensitive keys or tokens logged.
 - Customer PII encrypted at rest using AES-256.
-- Role-Based Access Control (RBAC): SuperAdmin, Owner, Admin, Staff.
+- Role-Based Access Control (RBAC): SuperAdmin, Owner, Admin, Staff, User.
+- Three distinct credential types: a public publishable key (`biz_live_...`) that only
+  authorises the widget voice session, a secret API key (`ora_sk_live_...`) stored as a
+  SHA-256 hash for catalog CRUD, and short-lived OAuth machine tokens for partners.
+
+## Widget Embed
+The storefront embed is a ~1KB loader that resolves `/widget/latest.json` and injects the
+current content-hashed bundle, so the script tag never has to change:
+
+```html
+<script
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_publishable_key"
+  data-ora-api="https://api.tryora.live"
+  defer>
+</script>
+```
+
+Recognised script attributes — these exact names, no others:
+- `data-ora-key` (required): the store's publishable key, `biz_live_...`.
+- `data-ora-api`: API origin; auto-detected from the script origin when omitted.
+- `data-ora-position`: `bottom-center` (default), `bottom-right`, `bottom-left`.
+
+Equivalent configuration via `window.ORA_CONFIG = { key, api, position }` is also supported.
 
 ## Contact & Links
 - Website: https://tryora.live
 - Documentation: https://tryora.live/docs
 - Solutions: https://tryora.live/solutions
 - Pricing: https://tryora.live/pricing
+- Concise agent summary: https://tryora.live/llms.txt
+- Merchant owner manual: https://tryora.live/docs/ORA-Merchant-Owner-Manual.md
 - App & Dashboard: https://tryora.live/auth

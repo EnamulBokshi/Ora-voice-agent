@@ -14,7 +14,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { GeminiVoiceService } from '../ai-voice/gemini-voice.service';
-import { SessionTimerService, DEFAULT_SESSION_DURATION_SECONDS } from './session-timer.service';
+import {
+  SessionTimerService,
+  DEFAULT_SESSION_DURATION_SECONDS,
+  IDLE_WARNING_SECONDS,
+  IDLE_TERMINATE_SECONDS,
+} from './session-timer.service';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -169,6 +174,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         businessId,
         sessionId,
         onAudioData: (base64AudioPcm: string) => {
+          // ORA is talking — suppress the idle warning until this turn completes.
+          this.sessionTimerService.markAgentSpeaking(client.id);
           client.emit('audio-stream', {
             sessionId,
             audio: base64AudioPcm,
@@ -190,12 +197,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
          * onInputTranscript — fires when Gemini transcribes what the user ACTUALLY SAID.
          * This is the correct idle-reset signal: real speech, not background noise.
          * Raw audio-chunk events are NOT used for idle detection (noise would reset the clock).
+         *
+         * Every chunk counts, not just isFinal — Gemini Live does not reliably send
+         * `finished` on inputTranscription frames, so gating on it meant a voice-only
+         * user never reset the idle clock and got closed out mid-sentence.
          */
-        onInputTranscript: (_text: string, isFinal: boolean) => {
-          if (isFinal) {
-            // User finished a spoken turn — reset idle clock
-            this.sessionTimerService.markActivity(client.id);
-          }
+        onInputTranscript: () => {
+          this.sessionTimerService.markActivity(client.id);
+        },
+        /**
+         * onInterrupted — barge-in. Undeniable proof of a live user, and it ends ORA's turn.
+         */
+        onInterrupted: () => {
+          this.sessionTimerService.markAgentTurnComplete(client.id);
+          this.sessionTimerService.markActivity(client.id);
         },
         /**
          * onTurnComplete — fires when ORA finishes speaking its response.
@@ -275,19 +290,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             message: 'Session ended: maximum session duration reached.',
           });
         },
-        // onIdleWarning — fires after 15s of user silence
+        // onIdleWarning — fires after IDLE_WARNING_SECONDS of user silence
         () => {
           client.emit('voice-idle-warning', {
             sessionId,
-            message: 'Are you still there? Your session will close in 20 seconds due to inactivity.',
-            secondsUntilClose: 20,
+            message: `Are you still there? Your session will close in ${IDLE_TERMINATE_SECONDS} seconds due to inactivity.`,
+            secondsUntilClose: IDLE_TERMINATE_SECONDS,
           });
           // Also prompt ORA to speak the warning aloud so the user hears it
           const activeSession = this.activeVoiceSessions.get(client.id);
           if (activeSession) {
             try {
               activeSession.sendTextMessage(
-                '[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for 15 seconds. ' +
+                `[SYSTEM_TRIGGER: IDLE_WARNING] The user has been silent for ${IDLE_WARNING_SECONDS} seconds. ` +
                 'Ask them warmly and briefly if they are still there in ONE short sentence. Speak aloud now.',
               );
             } catch { /* non-critical */ }
@@ -358,9 +373,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       session.sendAudioChunk(payload.audio);
       // NOTE: markActivity() is intentionally NOT called here.
       // Raw audio chunks carry background noise and would reset the idle clock
-      // even when the user is silent. Activity is only marked via Gemini's
-      // onInputTranscript (user finished speaking) and onTurnComplete (ORA
-      // finished responding) — both are semantic speech events, not raw audio.
+      // even when the user is silent. Activity is marked from recognised speech
+      // instead — onInputTranscript (any chunk) and onInterrupted (barge-in) —
+      // while onAudioData/onTurnComplete bracket ORA's own speaking turn.
     }
   }
 

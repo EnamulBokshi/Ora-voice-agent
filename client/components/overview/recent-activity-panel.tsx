@@ -21,7 +21,7 @@ export function RecentActivityPanel({
         <div>
           <div className="flex items-center justify-between pb-3.5 border-b border-border/40 mb-2">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-primary flex-shrink-0" />
               <h3 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
                 Recent Conversations
               </h3>
@@ -47,7 +47,7 @@ export function RecentActivityPanel({
         <div>
           <div className="flex items-center justify-between pb-3.5 border-b border-border/40 mb-2">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-primary flex-shrink-0" />
               <h3 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
                 Recent Converted Orders
               </h3>
@@ -56,7 +56,7 @@ export function RecentActivityPanel({
               </span>
             </div>
             <Link
-              href="/live-desk"
+              href="/orders"
               className="text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors inline-flex items-center gap-1"
             >
               <span>View all</span>

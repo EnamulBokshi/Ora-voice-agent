@@ -154,7 +154,7 @@
     <h3>What to Test:</h3>
     <ol>
       <li><strong>Shadow DOM Isolation:</strong> Look at the floating 3D Orb at the bottom. It should have pristine glass styling and zero yellow/red borders.</li>
-      <li><strong>Two-Stage Loader:</strong> Open DevTools Network Tab: Notice <code>ora-widget.js</code> loads first (~1KB), fetches <code>latest.json</code>, then injects <code>widget.v4_5_lumina.js</code>.</li>
+      <li><strong>Two-Stage Loader:</strong> Open DevTools Network Tab: Notice <code>ora-widget.js</code> loads first (~1KB), fetches <code>latest.json</code>, then injects the content-hashed <code>widget.&lt;hash&gt;.js</code>.</li>
       <li><strong>Live Voice:</strong> Click the Orb, allow microphone access, and ask: <em>"What product is on this page?"</em> ORA will read the $189 Lumina Sunglasses from Schema.org JSON-LD.</li>
       <li><strong>10s Idle Suspend:</strong> Stay silent for 10s. The widget will emit an idle suspend and switch to <em>"Paused • Tap to resume"</em>.</li>
     </ol>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAgentConfigApi } from '@/services/agent-config-service';
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { getProductsApi } from '@/services/products-service';
-import { getMeApi } from '@/services/auth-service';
+import { getDashboardStatsApi } from '@/services/dashboard-service';
 
 export type SetupStepId = 'persona' | 'integration' | 'knowledge' | 'voice_test';
 
@@ -82,9 +82,9 @@ export function useSetupProgress() {
     const stored = getStoredProgress();
 
     try {
-      const [agentConfigRes, meRes, knowledgeRes, productsRes] = await Promise.allSettled([
+      const [agentConfigRes, statsRes, knowledgeRes, productsRes] = await Promise.allSettled([
         getAgentConfigApi(),
-        getMeApi(),
+        getDashboardStatsApi(),
         getKnowledgeDocsApi({ limit: 1 }),
         getProductsApi({ limit: 1 }),
       ]);
@@ -102,8 +102,19 @@ export function useSetupProgress() {
         }
       }
 
-      // 2. Integration step
-      if (meRes.status === 'fulfilled' && meRes.value?.business?.publishableKey) {
+      // 2. Integration step — derived from evidence the widget actually ran.
+      //
+      // This used to be `if (me.business.publishableKey) detected.integration = true`.
+      // Every business is issued a publishable key at signup, so the one step that
+      // proves ORA is live on the merchant's storefront was pre-checked before they
+      // had opened their theme editor. The overview then congratulated them on
+      // shipping the thing they had not done.
+      //
+      // A recorded conversation is the earliest signal we can see from the client that
+      // the embed loaded and a session was opened against this business.
+      const conversationTotal =
+        statsRes.status === 'fulfilled' ? (statsRes.value?.conversationTotal ?? 0) : 0;
+      if (conversationTotal > 0) {
         detected.integration = true;
       }
 

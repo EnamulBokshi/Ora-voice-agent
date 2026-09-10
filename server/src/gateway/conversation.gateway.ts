@@ -18,7 +18,11 @@ import { MessageRole } from '../conversations/schemas/message.schema';
 import { ConversationStatus } from '../conversations/schemas/conversation.schema';
 import { AiToolsExecutor } from '../ai-voice/tools/ai-tools.executor';
 import { RedisService } from '../common/redis/redis.service';
-import { SessionTimerService, DEFAULT_SESSION_DURATION_SECONDS } from './session-timer.service';
+import {
+  SessionTimerService,
+  DEFAULT_SESSION_DURATION_SECONDS,
+  IDLE_TERMINATE_SECONDS,
+} from './session-timer.service';
 
 /**
  * Fix 2 — Verification Parity:
@@ -141,15 +145,15 @@ export class ConversationGateway
           message: 'Session ended: maximum session duration reached.',
         });
       },
-      // onIdleWarning — fires after 15s of user silence
+      // onIdleWarning — fires after IDLE_WARNING_SECONDS of user silence
       () => {
         client.emit('session-idle-warning', {
           sessionId,
-          message: 'Are you still there? Your session will close in 10 seconds due to inactivity.',
-          secondsUntilClose: 10,
+          message: `Are you still there? Your session will close in ${IDLE_TERMINATE_SECONDS} seconds due to inactivity.`,
+          secondsUntilClose: IDLE_TERMINATE_SECONDS,
         });
       },
-      // onIdleExpiry — fires 10s after the idle warning if user is still silent
+      // onIdleExpiry — fires IDLE_TERMINATE_SECONDS after the idle warning if user is still silent
       async () => {
         try {
           await this.conversationsService.updateStatus(
