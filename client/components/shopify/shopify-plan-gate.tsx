@@ -74,7 +74,21 @@ export function ShopifyPlanGate() {
         throw new Error('No confirmation URL returned by Shopify.');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to initiate Shopify subscription.');
+      let msg = err.message || 'Failed to initiate Shopify subscription.';
+      if (typeof msg === 'string' && msg.toLowerCase().includes('public distribution')) {
+        msg =
+          'Shopify requires Public Distribution to enable the Billing API. In your Shopify Partner Dashboard: go to Apps > ORA-VOICE-AI > Distribution > select "Public distribution" > Save. (You do not need to publish to the App Store to test trials).';
+      } else if (
+        typeof msg === 'string' &&
+        (msg.includes('<!DOCTYPE') ||
+          msg.includes('<html') ||
+          msg.includes('502: Bad gateway') ||
+          msg.includes('Bad gateway'))
+      ) {
+        msg =
+          'Connection to the development server timed out or failed (502 Bad Gateway). Please restart your "pnpm shopify:dev" terminal so the Cloudflare tunnel reconnects.';
+      }
+      setError(msg);
       setSubscribingId(null);
     }
   };

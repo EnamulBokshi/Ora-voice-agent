@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
 
 /**
@@ -204,8 +204,42 @@ function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
 export function FloatingOrbWidget() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Detect if running inside any iframe (e.g., Shopify Admin embedded app)
+  const [isIframe, setIsIframe] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return window.top !== window.self;
+      } catch {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        if (window.top !== window.self) {
+          setIsIframe(true);
+        }
+      } catch {
+        setIsIframe(true);
+      }
+    }
+  }, []);
+
+  const isShopifyEmbedded =
+    pathname?.startsWith('/shopify') ||
+    Boolean(searchParams?.get('shop')) ||
+    Boolean(searchParams?.get('embedded')) ||
+    Boolean(searchParams?.get('id_token')) ||
+    Boolean(searchParams?.get('host')) ||
+    isIframe;
 
   const isDashboardOrPortal =
+    isShopifyEmbedded ||
     pathname?.startsWith('/dashboard') ||
     pathname?.startsWith('/setup') ||
     pathname?.startsWith('/admin') ||
@@ -589,6 +623,14 @@ export function FloatingOrbWidget() {
 
   // Dynamic visual reactivity level
   const energyLevel = isSpeaking ? speakingLevel : userMicLevel;
+
+  // Below every hook, deliberately. An early return placed above them made
+  // each one conditional — React then renders a different number of hooks on
+  // the render where the route changes, which throws "rendered fewer hooks
+  // than expected" rather than quietly hiding the orb.
+  if (isDashboardOrPortal) {
+    return null;
+  }
 
   return (
     <div className="lp-orb-root" aria-label="ORA AI Voice Assistant">
