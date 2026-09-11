@@ -157,54 +157,6 @@ services:
         max-size: "30m"
         max-file: "5"
 
-  # ==========================================
-  # 5. ORA Shopify Embedded App (Next.js 16+)
-  # ==========================================
-  # Served by nginx at https://<host>/shopify, on the same origin as the API.
-  # That makes the embedded app's /api/v1 calls same-origin, exactly like the
-  # dashboard's, so no CORS or preflight is involved.
-  ora-shopify:
-    build:
-      context: ./packages/shopify-app
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_ORA_API_URL: ${NEXT_PUBLIC_ORA_API_URL:-/api/v1}
-        # Build-time, not runtime: the page is statically prerendered, so this
-        # is inlined into the shopify-api-key meta tag. It must equal
-        # SHOPIFY_API_KEY, or App Bridge never initializes and the app hangs on
-        # its loading state. Changing it requires an image rebuild.
-        NEXT_PUBLIC_SHOPIFY_API_KEY: ${SHOPIFY_API_KEY:-}
-    container_name: ora-shopify
-    restart: always
-    ports:
-      - "127.0.0.1:${ORA_SHOPIFY_PORT:-4090}:3000"
-    environment:
-      PORT: 3000
-      NODE_ENV: production
-      NEXT_PUBLIC_ORA_API_URL: ${NEXT_PUBLIC_ORA_API_URL:-/api/v1}
-      # Target of the `/api/:path*` rewrite in next.config.ts. In production
-      # nginx routes /api/ straight to ora-server, so that rewrite is normally
-      # never reached — but if it is, this keeps it pointing at the API
-      # container instead of 127.0.0.1 inside this one.
-      NESTJS_BACKEND_URL: http://ora-server:5000
-    depends_on:
-      ora-server:
-        condition: service_healthy
-    healthcheck:
-      # basePath is /shopify, so the app does not answer on /.
-      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/shopify || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-    networks:
-      - ora-production-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "30m"
-        max-file: "5"
-
 volumes:
   ora_mongo_data:
     driver: local

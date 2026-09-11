@@ -1,4 +1,0 @@
-type = "frontend"
-
-[commands]
-dev = "pnpm dev"
