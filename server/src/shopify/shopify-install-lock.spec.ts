@@ -51,9 +51,18 @@ describe('ShopifyService install locking', () => {
   let businessModel: { findOne: jest.Mock; findById: jest.Mock };
   let authService: { issueSessionForUser: jest.Mock };
 
+  /**
+   * One mock answers every read shape in this path: `.exec()`, `.sort().exec()`
+   * for `resolveOwner`, and `.select().exec()` since `establishSession` now
+   * asks for the encrypted access token so it can tell a legacy token from a
+   * current one.
+   */
   const chain = (result: unknown) => {
     const exec = jest.fn().mockResolvedValue(result);
-    return { exec, sort: jest.fn().mockReturnValue({ exec }) };
+    const self: any = { exec };
+    self.sort = jest.fn().mockReturnValue({ exec });
+    self.select = jest.fn().mockReturnValue(self);
+    return self;
   };
 
   beforeEach(async () => {

@@ -30,6 +30,8 @@ export interface ShopifyShopDetails {
 export interface ShopifyTokenExchangeResult {
   accessToken: string;
   scopes: string[];
+  refreshToken?: string;
+  expiresIn?: number;
 }
 
 /** What `POST /api/v1/shopify/session` hands back to the embedded app. */

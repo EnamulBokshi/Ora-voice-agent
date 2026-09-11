@@ -302,25 +302,28 @@ export class ShopifyService {
           subject_token: sessionToken,
           subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
           requested_token_type: SHOPIFY_OFFLINE_TOKEN_TYPE,
+          expiring: 1,
         }),
       },
     );
 
     if (!response.ok) {
-      // The response body can echo the subject token, so it is not logged.
+      const errText = await response.text();
       this.logger.error(
-        `[ShopifyService] Token exchange for ${shopDomain} returned HTTP ${response.status}.`,
+        `[ShopifyService] Token exchange for ${shopDomain} returned HTTP ${response.status}: ${errText}`,
       );
       throw new DomainException(
         SHOPIFY_ERRORS.TOKEN_EXCHANGE_FAILED,
-        'Shopify rejected the token exchange.',
-        HttpStatus.BAD_GATEWAY,
+        `Shopify rejected the token exchange: ${errText}`,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
     const body = (await response.json()) as {
       access_token?: string;
       scope?: string;
+      refresh_token?: string;
+      expires_in?: number;
     };
 
     if (!body.access_token) {
@@ -337,6 +340,8 @@ export class ShopifyService {
         .split(',')
         .map((scope) => scope.trim())
         .filter(Boolean),
+      refreshToken: body.refresh_token,
+      expiresIn: body.expires_in,
     };
   }
 
@@ -355,14 +360,16 @@ export class ShopifyService {
           client_id: this.apiKey,
           client_secret: this.apiSecret,
           code,
+          expiring: 1,
         }),
       },
     );
 
     if (!response.ok) {
+      const errText = await response.text();
       throw new DomainException(
         SHOPIFY_ERRORS.TOKEN_EXCHANGE_FAILED,
-        'Shopify rejected the authorization code.',
+        `Shopify rejected the authorization code: ${errText}`,
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -370,6 +377,8 @@ export class ShopifyService {
     const body = (await response.json()) as {
       access_token?: string;
       scope?: string;
+      refresh_token?: string;
+      expires_in?: number;
     };
 
     if (!body.access_token) {
@@ -386,6 +395,8 @@ export class ShopifyService {
         .split(',')
         .map((scope) => scope.trim())
         .filter(Boolean),
+      refreshToken: body.refresh_token,
+      expiresIn: body.expires_in,
     };
   }
 
@@ -586,6 +597,7 @@ export class ShopifyService {
 
     const found = await this.businessModel
       .findOne({ shopifyShopDomain: shopDomain })
+      .select('+shopifyAccessToken')
       .exec();
 
     let business: BusinessDocument;
@@ -596,7 +608,51 @@ export class ShopifyService {
       installed = true;
     } else {
       business = found;
-      await this.refreshScopesIfChanged(business, shopDomain, sessionToken);
+
+      let currentToken: string | null = null;
+      try {
+        currentToken =
+          BusinessCredentialsUtil.reveal(business.shopifyAccessToken) || null;
+      } catch {
+        currentToken = null;
+      }
+
+      // Non-expiring tokens (shpua_ prefix) or missing tokens must be upgraded
+      // to expiring offline tokens (shppa_ prefix) required by Shopify's 2026 Admin API.
+      const isLegacyToken = !currentToken || currentToken.startsWith('shpua_');
+      if (isLegacyToken) {
+        this.logger.log(
+          `[ShopifyService] Upgrading legacy access token for ${shopDomain} via token exchange.`,
+        );
+        try {
+          const { accessToken, scopes, refreshToken, expiresIn } =
+            await this.exchangeSessionToken(shopDomain, sessionToken);
+          business.shopifyAccessToken =
+            BusinessCredentialsUtil.protect(accessToken);
+          if (scopes.length) {
+            business.shopifyScopes = scopes;
+          }
+          if (refreshToken) {
+            (business as any).shopifyRefreshToken =
+              BusinessCredentialsUtil.protect(refreshToken);
+          }
+          if (expiresIn) {
+            (business as any).shopifyTokenExpiresAt = new Date(
+              Date.now() + expiresIn * 1000,
+            );
+          }
+          await business.save();
+          this.logger.log(
+            `[ShopifyService] Successfully upgraded token for ${shopDomain} (token prefix: ${accessToken.substring(0, 6)}).`,
+          );
+        } catch (err: any) {
+          this.logger.error(
+            `[ShopifyService] Token upgrade for ${shopDomain} failed: ${err.message}`,
+          );
+        }
+      } else {
+        await this.refreshScopesIfChanged(business, shopDomain, sessionToken);
+      }
     }
 
     const owner = await this.resolveOwner(business);
@@ -955,5 +1011,9 @@ export class ShopifyService {
     return this.businessModel
       .findOne({ shopifyShopDomain: this.normalizeShopDomain(shop) })
       .exec();
+  }
+
+  async findBusinessById(id: string): Promise<BusinessDocument | null> {
+    return this.businessModel.findById(id).exec();
   }
 }
