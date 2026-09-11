@@ -134,12 +134,14 @@ export class ShopifyProvider implements PaymentProvider {
         $lineItems: [AppSubscriptionLineItemInput!]!
         $returnUrl: URL!
         $test: Boolean
+        $trialDays: Int
       ) {
         appSubscriptionCreate(
           name: $name
           lineItems: $lineItems
           returnUrl: $returnUrl
           test: $test
+          trialDays: $trialDays
         ) {
           appSubscription { id status }
           confirmationUrl
@@ -151,6 +153,10 @@ export class ShopifyProvider implements PaymentProvider {
     const variables = {
       name: plan.name,
       returnUrl: callbackUrl,
+      // Shopify owns the trial: it starts the subscription ACTIVE and takes the
+      // first payment this many days later. Without it the merchant is charged
+      // on approval, however loudly the plan picker advertises a free trial.
+      trialDays: plan.trialDays ?? 0,
       // A non-production deployment must not create real charges on a live shop.
       test: this.configService.get<string>('NODE_ENV') !== 'production',
       lineItems: [

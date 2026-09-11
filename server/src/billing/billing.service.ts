@@ -522,7 +522,10 @@ export class BillingService implements OnModuleInit {
 
   private async seedDefaultPlans() {
     const count = await this.planModel.countDocuments().exec();
-    if (count > 0) return;
+    if (count > 0) {
+      await this.backfillTrialDays();
+      return;
+    }
 
     this.logger.log('[BillingService] Seeding default plan tiers (Free, Growth, Scale)...');
 
@@ -540,6 +543,7 @@ export class BillingService implements OnModuleInit {
           seats: 1,
         },
         features: ['100 conversation minutes', '20 Tier 1 orders', '1 store connector', 'Basic RAG search'],
+        trialDays: 0,
         isActive: true,
       },
       {
@@ -555,6 +559,7 @@ export class BillingService implements OnModuleInit {
           seats: 5,
         },
         features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', '5 staff seats', 'Full RAG vector search'],
+        trialDays: 14,
         isActive: true,
       },
       {
@@ -570,11 +575,42 @@ export class BillingService implements OnModuleInit {
           seats: 99,
         },
         features: ['Unlimited conversation minutes', 'Unlimited orders', 'Unlimited store connectors', 'Unlimited seats', 'Priority support'],
+        trialDays: 14,
         isActive: true,
       },
     ];
 
     await this.planModel.insertMany(defaultPlans);
+  }
+
+  /**
+   * Gives an already-seeded deployment the trial it was advertising.
+   *
+   * `trialDays` was added after these documents existed, and a Mongoose default
+   * applies only to new ones — so a plan seeded earlier reads back `undefined`
+   * and Shopify charges on approval. The paid tiers get 14 days; nothing that
+   * already carries a value is touched.
+   */
+  private async backfillTrialDays(): Promise<void> {
+    const result = await this.planModel
+      .updateMany(
+        { trialDays: { $exists: false }, planId: { $ne: PlanId.FREE } },
+        { $set: { trialDays: 14 } },
+      )
+      .exec();
+
+    if (result.modifiedCount) {
+      this.logger.log(
+        `[BillingService] Backfilled trialDays on ${result.modifiedCount} plan(s).`,
+      );
+    }
+
+    await this.planModel
+      .updateMany(
+        { trialDays: { $exists: false }, planId: PlanId.FREE },
+        { $set: { trialDays: 0 } },
+      )
+      .exec();
   }
 
   private async sendSubscriberWelcomeEmail(businessId: string, planName = 'Growth Plan') {

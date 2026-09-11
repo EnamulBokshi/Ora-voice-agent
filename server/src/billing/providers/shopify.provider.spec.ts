@@ -38,6 +38,7 @@ describe('ShopifyProvider — billing callback trust boundary', () => {
           name: 'Starter',
           priceUsdCents: 4900,
           billingInterval: 'month',
+          trialDays: 14,
         }),
       }),
     };
@@ -121,6 +122,33 @@ describe('ShopifyProvider — billing callback trust boundary', () => {
         'EX',
         7 * 24 * 60 * 60,
       );
+    });
+
+    it('passes the plan\'s trial length to Shopify', async () => {
+      // Shopify owns the trial. Without trialDays in the mutation the merchant
+      // is charged on approval, however loudly the plan picker advertises a
+      // free trial — which is exactly what shipped before this.
+      await provider.createAppSubscription(BUSINESS_ID, 'starter');
+
+      const sentBody = JSON.parse((fetchSpy.mock.calls[0][1] as any).body);
+      expect(sentBody.variables.trialDays).toBe(14);
+      expect(sentBody.query).toContain('trialDays: $trialDays');
+    });
+
+    it('sends no trial for a plan that has none', async () => {
+      planModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          planId: 'starter',
+          name: 'Starter',
+          priceUsdCents: 4900,
+          billingInterval: 'month',
+        }),
+      });
+
+      await provider.createAppSubscription(BUSINESS_ID, 'starter');
+
+      const sentBody = JSON.parse((fetchSpy.mock.calls[0][1] as any).body);
+      expect(sentBody.variables.trialDays).toBe(0);
     });
 
     it('rejects a return URL that is not on the API origin', async () => {
