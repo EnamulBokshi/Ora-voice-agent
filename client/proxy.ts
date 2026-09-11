@@ -14,6 +14,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // When Shopify Admin frames the app using the root URL (e.g. CLI tunnel in dev),
+  // rewrite root requests carrying Shopify params directly to the embedded UI route.
+  if (
+    pathname === '/' &&
+    (request.nextUrl.searchParams.has('shop') ||
+      request.nextUrl.searchParams.has('embedded') ||
+      request.nextUrl.searchParams.has('id_token'))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/shopify';
+    return NextResponse.rewrite(url);
+  }
+
   const sessionId = request.cookies.get('sessionId')?.value;
   const refreshToken = request.cookies.get('refreshToken')?.value;
   const userRole = request.cookies.get('userRole')?.value;
