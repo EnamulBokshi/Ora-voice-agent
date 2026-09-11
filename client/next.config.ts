@@ -2,6 +2,19 @@ import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  /**
+   * `shopify app dev` serves the embedded app through a Cloudflare tunnel, so
+   * every dev request arrives cross-origin. Without this, Next refuses
+   * cross-origin access to anything under `/_next` — the HMR websocket and the
+   * client chunks alike — and the browser is left with server-rendered HTML
+   * that never hydrates. React never mounts, so the embedded app sits on its
+   * loading state and the only clue is a console warning naming this option.
+   *
+   * Dev-only; ignored in a production build. Carried over from the retired
+   * packages/shopify-app, whose Next config owned this before the embedded app
+   * moved into this client.
+   */
+  allowedDevOrigins: ["*.trycloudflare.com", "*.tryora.live"],
   async headers() {
     return [
       {
@@ -24,6 +37,10 @@ const nextConfig: NextConfig = {
         // the logs. Verify with:
         //   curl -sI http://127.0.0.1:<port>/shopify | grep -i frame
         source: "/:path((?!widget/|audio-processors/|shopify$|shopify/).*)",
+        missing: [
+          { type: "query", key: "shop" },
+          { type: "query", key: "embedded" },
+        ],
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'none';" },
           { key: "X-Frame-Options", value: "DENY" },
@@ -39,7 +56,12 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-}
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["*.trycloudflare.com", "*.tryora.live"],
+    },
+  },
+};
 
-export default nextConfig
+export default nextConfig;
 
