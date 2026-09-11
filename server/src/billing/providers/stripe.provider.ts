@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import Stripe from 'stripe';
 import {
   PaymentProvider,
@@ -7,13 +9,19 @@ import {
   ChargeResult,
   CustomerBillingDetails,
 } from './payment-provider.interface';
+import { Plan, PlanDocument } from '../schemas/plan.schema';
+import { DomainException } from '../../common/exceptions/domain.exception';
 
 @Injectable()
 export class StripeProvider implements PaymentProvider {
   private readonly stripe: Stripe | null = null;
   private readonly logger = new Logger(StripeProvider.name);
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectModel(Plan.name)
+    private readonly planModel: Model<PlanDocument>,
+  ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
 
     if (secretKey && !secretKey.includes('replace_with')) {
@@ -36,6 +44,30 @@ export class StripeProvider implements PaymentProvider {
     this.logger.log(
       `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId}, email: ${customerDetails?.email || 'unspecified'})`,
     );
+
+    // The plan document is the price. This used to be
+    // `planId === 'scale' ? 19900 : 4900` inline, which billed every other
+    // tier $49 whatever the catalogue said and silently ignored any price
+    // change made in the database.
+    const plan = await this.planModel.findOne({ planId } as any).exec();
+    if (!plan) {
+      throw new DomainException(
+        'PLAN_NOT_FOUND',
+        `Plan ${planId} was not found.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!plan.priceUsdCents || plan.priceUsdCents <= 0) {
+      // A zero-price plan is activated directly by BillingService and never
+      // reaches a provider. Arriving here means a caller skipped that branch,
+      // and a Stripe checkout for $0.00 is not the thing to fall back to.
+      throw new DomainException(
+        'PLAN_NOT_PAYABLE',
+        `Plan ${planId} has no price to charge.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     if (this.stripe) {
       try {
@@ -80,10 +112,13 @@ export class StripeProvider implements PaymentProvider {
               price_data: {
                 currency: 'usd',
                 product_data: {
-                  name: `ORA ${planId.toUpperCase()} Plan`,
+                  name: plan.name,
                 },
-                unit_amount: planId === 'scale' ? 19900 : 4900,
-                recurring: { interval: 'month' },
+                unit_amount: plan.priceUsdCents,
+                recurring: {
+                  interval:
+                    plan.billingInterval === 'year' ? 'year' : 'month',
+                },
               },
               quantity: 1,
             },
