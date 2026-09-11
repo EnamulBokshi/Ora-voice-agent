@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   ShoppingCart,
   DollarSign,
@@ -173,6 +174,8 @@ export function OverviewClient() {
     load();
   }, [load]);
 
+  const pathname = usePathname();
+  const prefix = pathname?.startsWith('/shopify') ? '/shopify' : '';
   const firstName = userName.split(' ')[0] || userName;
 
   // ── KPI metric definitions ─────────────────────────────────────────────────
@@ -185,7 +188,7 @@ export function OverviewClient() {
       icon: <DollarSign size={13} />,
       trend: stats.revenueTrend,
       meta: 'Direct checkout sales',
-      href: '/billing',
+      href: `${prefix}/billing`,
     },
     {
       id: 'orders',
@@ -194,7 +197,7 @@ export function OverviewClient() {
       icon: <ShoppingCart size={13} />,
       trend: stats.ordersTrend,
       meta: 'Customer orders closed',
-      href: '/live-desk',
+      href: `${prefix}/live-desk`,
     },
     {
       id: 'conversations',
@@ -203,7 +206,7 @@ export function OverviewClient() {
       icon: <MessageSquareText size={13} />,
       trend: stats.conversationsTrend,
       meta: 'Voice & chat sessions',
-      href: '/conversations',
+      href: `${prefix}/conversations`,
     },
     {
       id: 'conversion',
@@ -211,7 +214,7 @@ export function OverviewClient() {
       value: `${stats.overallConversion}%`,
       icon: <Percent size={13} />,
       meta: 'Sales funnel completion',
-      href: '/live-desk',
+      href: `${prefix}/live-desk`,
     },
     {
       id: 'catalog',
@@ -219,7 +222,7 @@ export function OverviewClient() {
       value: stats.productTotal.toLocaleString(),
       icon: <Package size={13} />,
       meta: 'Active products in sync',
-      href: '/agent?role=products',
+      href: `${prefix}/agent?role=products`,
     },
   ];
 
@@ -231,21 +234,21 @@ export function OverviewClient() {
       icon: <Radio size={16} />,
       label: 'Live Desk Telemetry',
       description: 'Monitor active voice calls, shopper waveforms, and live interventions.',
-      href: '/live-desk',
+      href: `${prefix}/live-desk`,
     },
     {
       id: 'qa-train',
       icon: <BookOpen size={16} />,
       label: 'ORA Agent & Catalog',
       description: 'Manage store policies, upload knowledge documents, and sync products.',
-      href: '/agent',
+      href: `${prefix}/agent`,
     },
     {
       id: 'qa-history',
       icon: <TrendingUp size={16} />,
       label: 'Conversation Intelligence',
       description: 'Search customer transcripts, review buying signals, and export logs.',
-      href: '/conversations',
+      href: `${prefix}/conversations`,
     },
   ];
 

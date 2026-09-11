@@ -59,3 +59,21 @@ export async function executeBkashAgreementApi(payload: {
   });
 }
 
+export async function subscribeShopifyBillingApi(
+  planId: string,
+  returnUrl?: string,
+): Promise<{
+  subscriptionId: string;
+  confirmationUrl: string;
+  message: string;
+}> {
+  return apiClient<{
+    subscriptionId: string;
+    confirmationUrl: string;
+    message: string;
+  }>('/shopify/billing/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ planId, returnUrl }),
+  });
+}
+

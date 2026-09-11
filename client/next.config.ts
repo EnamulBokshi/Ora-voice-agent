@@ -14,13 +14,16 @@ const nextConfig: NextConfig = {
       },
       {
         // The dashboard, admin console, and marketing site must never be
-        // framable. The Shopify embedded app is the only ORA surface that is,
-        // and it is a separate package (packages/shopify-app) with its own
-        // frame-ancestors policy precisely so this rule can stay absolute.
+        // framable. The widget, audio-processor, and /shopify paths are excluded:
+        // /shopify is framed by Shopify Admin and governed by nginx frame-ancestors.
         //
-        // The widget and audio-processor paths are deliberately excluded: they
-        // are loaded cross-origin by merchant storefronts by design.
-        source: "/:path((?!widget/|audio-processors/).*)",
+        // `shopify$` matters as much as `shopify/`. The app URL Shopify Admin
+        // frames is exactly `/shopify`, with no trailing slash, so excluding
+        // only the prefixed form leaves the entry page with
+        // `X-Frame-Options: DENY` and a blank iframe in Admin with nothing in
+        // the logs. Verify with:
+        //   curl -sI http://127.0.0.1:<port>/shopify | grep -i frame
+        source: "/:path((?!widget/|audio-processors/|shopify$|shopify/).*)",
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'none';" },
           { key: "X-Frame-Options", value: "DENY" },

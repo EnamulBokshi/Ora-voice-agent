@@ -7,6 +7,13 @@ import type { NextRequest } from 'next/server';
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Embedded Shopify routes authenticate client-side via App Bridge session tokens;
+  // bypass edge cookie checking to avoid 3rd-party cookie redirect loops in iframes.
+  if (pathname.startsWith('/shopify')) {
+    return NextResponse.next();
+  }
+
   const sessionId = request.cookies.get('sessionId')?.value;
   const refreshToken = request.cookies.get('refreshToken')?.value;
   const userRole = request.cookies.get('userRole')?.value;
