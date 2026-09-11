@@ -32,10 +32,6 @@ export function ShopifySessionProvider({ children }: { children: React.ReactNode
       const sess = await getShopifySession(force);
       setSession(sess);
 
-      // Signal watchdog that React mounted successfully
-      const w = typeof window !== 'undefined' ? (window as unknown as { __ORA__?: { mounted: boolean } }) : null;
-      if (w?.__ORA__) w.__ORA__.mounted = true;
-
       // 2. Fetch subscription status
       try {
         const sub = await getSubscriptionApi();
@@ -50,6 +46,22 @@ export function ShopifySessionProvider({ children }: { children: React.ReactNode
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  /**
+   * Tells the watchdog in app/shopify/layout.tsx that React is running.
+   *
+   * Its own effect, with no dependencies, so it fires on hydration and not on
+   * the session exchange finishing. The signal used to be set after
+   * `await getShopifySession()`, which made it a report on the network rather
+   * than on React: a slow first install left `mounted` false and the watchdog
+   * announced a crash that had not happened. The loading state below is
+   * server-rendered too, so nothing else on screen distinguishes frozen HTML
+   * from a live component.
+   */
+  useEffect(() => {
+    const w = window as unknown as { __ORA__?: { mounted: boolean } };
+    if (w.__ORA__) w.__ORA__.mounted = true;
   }, []);
 
   useEffect(() => {

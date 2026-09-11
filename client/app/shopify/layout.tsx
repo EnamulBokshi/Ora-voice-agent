@@ -25,14 +25,14 @@ const WATCHDOG = `
     }
   });
 
-  function report() {
+  function report(seconds, verdict) {
     if (STATE.mounted) return;
     var el = document.getElementById('ora-watchdog');
     if (!el) return;
 
     var p = new URLSearchParams(location.search);
     var lines = [
-      'React did not mount within 10s, so the app is showing frozen server HTML.',
+      verdict,
       '',
       'first script error : ' + (STATE.firstError || '(none captured)'),
       'App Bridge loaded  : ' + (window.shopify ? 'yes' : 'NO'),
@@ -46,10 +46,22 @@ const WATCHDOG = `
     ];
 
     el.style.display = 'block';
+    el.style.borderColor = seconds >= 20 ? '#DC2626' : '#D97706';
+    el.style.background = seconds >= 20 ? '#FEF2F2' : '#FFFBEB';
     el.textContent = lines.join('\\n');
   }
 
-  setTimeout(report, 10000);
+  // Two stages, because the first one used to lie. React not having mounted
+  // after 10s is worth showing, but it is not yet proof of a crash: the
+  // watchdog fires on a wall clock and cannot see a slow hydration. Only the
+  // 20s verdict claims the bundle is dead.
+  setTimeout(function () {
+    report(10, 'React has not mounted after 10s. This may still resolve — the diagnostics below say what the page can see so far.');
+  }, 10000);
+
+  setTimeout(function () {
+    report(20, 'React did not mount within 20s, so the app is showing frozen server HTML.');
+  }, 20000);
 })();
 `;
 
