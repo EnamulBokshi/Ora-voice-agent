@@ -433,7 +433,13 @@ export class ShopifyService {
       return;
     }
 
-    for (const { topic, path } of SHOPIFY_WEBHOOK_TOPICS) {
+    // In parallel, because this runs inside POST /shopify/session on a first
+    // install, where the merchant is watching a loading state in an iframe.
+    // One registration per topic, run in sequence, made six round trips to
+    // Shopify the merchant had to wait through; together with the token
+    // exchange and the shop lookup that was eight. `allSettled`, so one
+    // failure does not abandon the rest.
+    const registrations = SHOPIFY_WEBHOOK_TOPICS.map(async ({ topic, path }) => {
       const address = `${this.apiUrl}${path}`;
       try {
         await this.adminRequest(shopDomain, accessToken, 'POST', 'webhooks.json', {
@@ -449,7 +455,9 @@ export class ShopifyService {
           `[ShopifyService] Webhook '${topic}' not registered for ${shopDomain}: ${err.message}`,
         );
       }
-    }
+    });
+
+    await Promise.allSettled(registrations);
   }
 
   private async adminRequest(

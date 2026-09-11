@@ -10,7 +10,7 @@ import { RedisService } from '../common/redis/redis.service';
 import { Business } from '../users/schemas/business.schema';
 import { AdminUser } from '../users/schemas/admin-user.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
-import { SHOPIFY_SYNC_QUEUE } from './shopify.constants';
+import { SHOPIFY_SYNC_QUEUE, SHOPIFY_WEBHOOK_TOPICS } from './shopify.constants';
 
 const SHOP = 'demo-store.myshopify.com';
 
@@ -347,6 +347,73 @@ describe('ShopifyService provisioning', () => {
 
       expect(usersService.createAdminUser).toHaveBeenCalled();
       expect(owner.role).toBe(AdminRole.OWNER);
+    });
+  });
+
+  describe('registerWebhooks', () => {
+    /**
+     * This runs inside POST /shopify/session on a first install, with the
+     * merchant watching a loading state in an iframe. One round trip per topic
+     * in sequence made the install wait through six of them, on top of the
+     * token exchange and the shop lookup.
+     */
+    beforeEach(() => {
+      // The real method is under test here, not stubbed as it is above.
+      jest.spyOn(service, 'registerWebhooks').mockRestore();
+    });
+
+    it('issues every registration in parallel', async () => {
+      let inFlight = 0;
+      let peak = 0;
+      const adminRequest = jest
+        .spyOn(service as any, 'adminRequest')
+        .mockImplementation(async () => {
+          inFlight += 1;
+          peak = Math.max(peak, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          inFlight -= 1;
+          return {};
+        });
+
+      await service.registerWebhooks(SHOP, 'shpat_token');
+
+      expect(adminRequest).toHaveBeenCalledTimes(SHOPIFY_WEBHOOK_TOPICS.length);
+      // Sequential registration would never exceed one in flight.
+      expect(peak).toBe(SHOPIFY_WEBHOOK_TOPICS.length);
+    });
+
+    it('registers each topic at its own path', async () => {
+      const adminRequest = jest
+        .spyOn(service as any, 'adminRequest')
+        .mockResolvedValue({});
+
+      await service.registerWebhooks(SHOP, 'shpat_token');
+
+      const sent = adminRequest.mock.calls.map((c: any[]) => c[4].webhook);
+      for (const { topic, path } of SHOPIFY_WEBHOOK_TOPICS) {
+        expect(sent).toContainEqual({
+          topic,
+          address: `https://app.ora.test${path}`,
+          format: 'json',
+        });
+      }
+    });
+
+    it('still registers the rest when one topic fails', async () => {
+      // Shopify answers 422 for a topic already registered at this address,
+      // which is the expected result of a reinstall.
+      const adminRequest = jest
+        .spyOn(service as any, 'adminRequest')
+        .mockImplementation(async (_s: any, _t: any, _m: any, _p: any, body: any) =>
+          body.webhook.topic === 'products/update'
+            ? Promise.reject(new Error('422 already exists'))
+            : {},
+        );
+
+      await expect(
+        service.registerWebhooks(SHOP, 'shpat_token'),
+      ).resolves.toBeUndefined();
+      expect(adminRequest).toHaveBeenCalledTimes(SHOPIFY_WEBHOOK_TOPICS.length);
     });
   });
 });
