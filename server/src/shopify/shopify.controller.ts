@@ -30,6 +30,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 import { SHOPIFY_COMPLIANCE_TOPICS } from './shopify.constants';
 import { ShopifyConnectorService } from '../ingestion/services/shopify-connector.service';
+import { BillingService } from '../billing/billing.service';
+import { NoSubscriptionRequired } from '../common/decorators/no-subscription-required.decorator';
 
 /**
  * A signature covers the exact bytes received, so a re-serialized body cannot
@@ -38,6 +40,12 @@ import { ShopifyConnectorService } from '../ingestion/services/shopify-connector
 const UNVERIFIABLE_BODY_MESSAGE =
   'Raw request body is unavailable, so the webhook signature cannot be verified.';
 
+/**
+ * The session exchange is how an embedded merchant authenticates at all, and
+ * the billing routes are how it buys a plan. Gating either would make a
+ * newly installed store unable to reach anything.
+ */
+@NoSubscriptionRequired()
 @Controller('shopify')
 export class ShopifyController {
   private readonly logger = new Logger(ShopifyController.name);
@@ -47,6 +55,7 @@ export class ShopifyController {
     private readonly complianceService: ShopifyComplianceService,
     private readonly shopifyProvider: ShopifyProvider,
     private readonly connectorService: ShopifyConnectorService,
+    private readonly billingService: BillingService,
   ) {}
 
   /**
@@ -200,6 +209,31 @@ export class ShopifyController {
       `[ShopifyController] Billing callback for ${shop}: charge ${chargeId} is ${status}.`,
     );
 
+    if (status) {
+      // The plan comes from what the server recorded when it created the
+      // charge, never from the query string: this route is unauthenticated and
+      // its query is unsigned, so a `plan_id` parameter here would let a
+      // merchant approve the cheapest charge and return naming the dearest
+      // plan. If the record is gone, Shopify itself is asked; a null from both
+      // leaves the stored plan untouched.
+      const planId =
+        (await this.shopifyProvider.resolvePendingChargePlan(
+          chargeId,
+          business._id.toString(),
+        )) ||
+        (await this.shopifyProvider.resolvePlanFromShopifyCharge(
+          business._id.toString(),
+          `gid://shopify/AppSubscription/${chargeId}`,
+        ));
+
+      await this.billingService.activateShopifySubscription(
+        business._id.toString(),
+        chargeId,
+        status,
+        planId || undefined,
+      );
+    }
+
     const storeHandle = this.shopifyService
       .normalizeShopDomain(shop)
       .replace('.myshopify.com', '');
@@ -208,6 +242,72 @@ export class ShopifyController {
     return res.redirect(
       `https://admin.shopify.com/store/${storeHandle}/apps/${apiKey}?billing=${status || 'unknown'}`,
     );
+  }
+
+  /**
+   * `app_subscriptions/update` — the only path that reports a cancellation, a
+   * decline, an expiry or a frozen charge.
+   *
+   * It gets its own route rather than sharing the ingestion webhook, which
+   * resolves a tenant, dedupes, and then dispatches on catalog topics only: an
+   * unmatched topic there falls through to a warning and changes nothing, so a
+   * cancelled merchant kept full access.
+   */
+  @Post('webhooks/app-subscriptions-update')
+  @HttpCode(HttpStatus.OK)
+  async handleAppSubscriptionUpdate(
+    @Headers('x-shopify-hmac-sha256') hmac: string,
+    @Headers('x-shopify-shop-domain') shopDomain: string,
+    @Req() req: Request,
+    @Body() payload: any,
+  ) {
+    const rawBody: Buffer | undefined = (req as any).rawBody;
+    if (!rawBody) {
+      throw new BadRequestException(UNVERIFIABLE_BODY_MESSAGE);
+    }
+
+    // Same verifier as every other inbound Shopify request: one secret, one
+    // constant-time comparison.
+    if (!this.connectorService.verifyWebhookHmac(rawBody, hmac)) {
+      throw new UnauthorizedException('Invalid Shopify webhook HMAC signature.');
+    }
+
+    // The shop is taken from the header the signature covers, never from the
+    // body, so a verified request cannot name another tenant's store.
+    if (!shopDomain) {
+      throw new BadRequestException(
+        'The webhook is missing an X-Shopify-Shop-Domain header.',
+      );
+    }
+
+    const business = await this.shopifyService.findBusinessByShopDomain(shopDomain);
+    if (!business) {
+      // 200 on purpose: Shopify retries a non-2xx for days, and an unknown
+      // shop is not a transient failure.
+      this.logger.warn(
+        `[ShopifyController] app_subscriptions/update for unknown shop ${shopDomain}; ignored.`,
+      );
+      return { status: 'ignored' };
+    }
+
+    const subscription = payload?.app_subscription;
+    const chargeId: string | undefined =
+      subscription?.admin_graphql_api_id || subscription?.id?.toString();
+    const status: string | undefined = subscription?.status;
+
+    if (!chargeId || !status) {
+      throw new BadRequestException(
+        'The webhook payload is missing app_subscription.admin_graphql_api_id or status.',
+      );
+    }
+
+    await this.billingService.applyShopifySubscriptionState(
+      business._id.toString(),
+      chargeId,
+      status,
+    );
+
+    return { status: 'processed' };
   }
 
   /**

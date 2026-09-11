@@ -51,6 +51,14 @@ api_version = "2026-07"
   ]
   uri = "https://tryora.live/api/v1/ingestion/webhooks/shopify"
 
+  # Billing state, not catalog data. The ingestion route dispatches on catalog
+  # topics and answers anything else with a warning, so this topic must have its
+  # own receiver or a cancelled subscription never reaches ORA. Must stay in
+  # sync with SHOPIFY_WEBHOOK_TOPICS in server/src/shopify/shopify.constants.ts.
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "https://tryora.live/api/v1/shopify/webhooks/app-subscriptions-update"
+
 [webhooks.privacy_compliance]
 customer_deletion_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-redact"
 customer_data_request_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-data_request"

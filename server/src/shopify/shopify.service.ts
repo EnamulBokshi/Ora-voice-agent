@@ -416,9 +416,13 @@ export class ShopifyService {
   }
 
   /**
-   * Registers the catalog webhooks against the ingestion route that already
-   * verifies Shopify HMACs, dedupes on webhook id, and resolves the tenant from
-   * the signed shop domain. A second receiver would duplicate all of that.
+   * Registers the install-time webhooks.
+   *
+   * Catalog topics go to the ingestion route, which already verifies Shopify
+   * HMACs, dedupes on webhook id, and resolves the tenant from the signed shop
+   * domain. `app_subscriptions/update` goes elsewhere, because that route
+   * dispatches on catalog topics only. Each topic carries its own path in
+   * SHOPIFY_WEBHOOK_TOPICS.
    */
   async registerWebhooks(shop: string, accessToken: string): Promise<void> {
     const shopDomain = this.normalizeShopDomain(shop);
@@ -429,9 +433,8 @@ export class ShopifyService {
       return;
     }
 
-    const address = `${this.apiUrl}/api/v1/ingestion/webhooks/shopify`;
-
-    for (const topic of SHOPIFY_WEBHOOK_TOPICS) {
+    for (const { topic, path } of SHOPIFY_WEBHOOK_TOPICS) {
+      const address = `${this.apiUrl}${path}`;
       try {
         await this.adminRequest(shopDomain, accessToken, 'POST', 'webhooks.json', {
           webhook: { topic, address, format: 'json' },

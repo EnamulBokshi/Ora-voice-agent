@@ -26,6 +26,7 @@ import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
 import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -50,6 +51,7 @@ export class BillingService implements OnModuleInit {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => OnboardingEmailService))
     private readonly onboardingEmailService: OnboardingEmailService,
+    private readonly entitlementService: EntitlementService,
   ) {}
 
   async onModuleInit() {
@@ -795,6 +797,163 @@ export class BillingService implements OnModuleInit {
         this.logger.log(`[BillingService] Unhandled Stripe event type: ${eventType}`);
         break;
     }
+  }
+
+  async activateShopifySubscription(
+    businessId: string,
+    chargeId: string,
+    status: string,
+    planId?: string,
+  ) {
+    const isApproved = status === 'ACTIVE';
+    const subStatus = isApproved
+      ? SubscriptionStatus.ACTIVE
+      : SubscriptionStatus.SUSPENDED;
+    const periodStart = new Date();
+    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const updateSet: Record<string, any> = {
+      billingProvider: BillingProvider.SHOPIFY,
+      // Numeric id only. `applyShopifySubscriptionState` looks the document up
+      // by this field from a webhook that carries a gid, so both writers have
+      // to agree on the form.
+      providerRef: (chargeId || '').split('/').pop() || chargeId,
+      status: subStatus,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+    };
+
+    if (planId) {
+      updateSet.planId = planId;
+    } else {
+      // `planId` is required on the schema, so an upsert with no plan fails
+      // validation. The plan is no longer read from the callback's query
+      // string, so "unknown plan" is now reachable — a dropped Redis record
+      // plus an unreachable Shopify. Refuse rather than create an invalid
+      // document or guess a tier.
+      const existing = await this.subscriptionModel
+        .findOne({ businessId: businessId as any })
+        .exec();
+
+      if (!existing) {
+        this.logger.error(
+          `[BillingService] Shopify charge ${chargeId} for business ${businessId} could not be matched to a plan, and the business has no subscription to update. No state applied.`,
+        );
+        return null;
+      }
+    }
+
+    const sub = await this.subscriptionModel
+      .findOneAndUpdate(
+        { businessId: businessId as any },
+        { $set: updateSet },
+        { upsert: true, returnDocument: 'after' },
+      )
+      .exec();
+
+    if (isApproved) {
+      await this.businessModel
+        .findByIdAndUpdate(businessId, {
+          $set: { status: 'active' },
+        })
+        .exec();
+    }
+
+    // The guard caches its decision, so the merchant would otherwise wait out
+    // the TTL after paying.
+    await this.entitlementService.invalidate(businessId);
+
+    this.logger.log(
+      `[BillingService] Updated Shopify subscription for business ${businessId}: charge ${chargeId}, status ${subStatus}`,
+    );
+
+    return sub;
+  }
+
+  /**
+   * Applies a Shopify-reported AppSubscription state to the ORA subscription.
+   *
+   * This is the only path that can ever learn about a cancellation, a decline,
+   * an expiry or a frozen charge: the billing callback runs once, at approval
+   * time, and Shopify never calls it again. Without this, a merchant who
+   * cancels in Shopify Admin keeps an ACTIVE ORA subscription indefinitely.
+   *
+   * Shopify owns the status vocabulary here, so the mapping is explicit rather
+   * than a truthiness check on 'ACTIVE'.
+   */
+  async applyShopifySubscriptionState(
+    businessId: string,
+    chargeId: string,
+    shopifyStatus: string,
+  ) {
+    const normalized = (shopifyStatus || '').toUpperCase();
+
+    // PENDING means the merchant has not answered the approval screen yet.
+    // Nothing has been decided, so nothing is changed.
+    if (normalized === 'PENDING') {
+      this.logger.log(
+        `[BillingService] Shopify subscription ${chargeId} for business ${businessId} is PENDING; no state applied.`,
+      );
+      return null;
+    }
+
+    const SUBSCRIPTION_STATE: Record<
+      string,
+      { status: SubscriptionStatus; businessStatus: 'active' | 'suspended' }
+    > = {
+      ACTIVE: { status: SubscriptionStatus.ACTIVE, businessStatus: 'active' },
+      FROZEN: { status: SubscriptionStatus.SUSPENDED, businessStatus: 'suspended' },
+      CANCELLED: { status: SubscriptionStatus.CANCELED, businessStatus: 'suspended' },
+      EXPIRED: { status: SubscriptionStatus.CANCELED, businessStatus: 'suspended' },
+      DECLINED: { status: SubscriptionStatus.CANCELED, businessStatus: 'suspended' },
+    };
+
+    const mapped = SUBSCRIPTION_STATE[normalized];
+    if (!mapped) {
+      this.logger.warn(
+        `[BillingService] Unrecognized Shopify subscription status '${shopifyStatus}' for business ${businessId}; no state applied.`,
+      );
+      return null;
+    }
+
+    // The billing callback stores the numeric charge id from its query string,
+    // while the webhook carries a GraphQL gid
+    // (`gid://shopify/AppSubscription/123`). Reduce both to the numeric id, or
+    // the two paths never match the same document.
+    const providerRef = (chargeId || '').split('/').pop() || chargeId;
+
+    // Scoped to the business AND the charge so a stale webhook for a replaced
+    // subscription cannot overwrite the current one. No upsert: a state change
+    // for a subscription ORA never recorded is a bug to see, not to create.
+    const sub = await this.subscriptionModel
+      .findOneAndUpdate(
+        { businessId: businessId as any, providerRef },
+        { $set: { status: mapped.status, billingProvider: BillingProvider.SHOPIFY } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!sub) {
+      this.logger.warn(
+        `[BillingService] No Shopify subscription matches charge ${chargeId} for business ${businessId}; state '${normalized}' not applied.`,
+      );
+      return null;
+    }
+
+    await this.businessModel
+      .findByIdAndUpdate(businessId, {
+        $set: { status: mapped.businessStatus },
+      })
+      .exec();
+
+    await this.entitlementService.invalidate(businessId);
+
+    this.logger.log(
+      `[BillingService] Shopify subscription ${chargeId} for business ${businessId} is ${normalized}: subscription ${mapped.status}, business ${mapped.businessStatus}.`,
+    );
+
+    return sub;
   }
 }
 

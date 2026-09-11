@@ -31,13 +31,31 @@ export const SHOPIFY_TOKEN_EXCHANGE_GRANT =
 export const SHOPIFY_OFFLINE_TOKEN_TYPE =
   'urn:shopify:params:oauth:token-type:offline-access-token';
 
-/** Webhook topics registered against the existing ingestion route. */
-export const SHOPIFY_WEBHOOK_TOPICS = [
-  'products/create',
-  'products/update',
-  'products/delete',
-  'inventory_levels/update',
-  'app/uninstalled',
+/**
+ * Webhook topics registered at install, each with the API path that receives
+ * it.
+ *
+ * Not every topic can share one receiver. The ingestion route dispatches on
+ * catalog topics and answers anything else with a warning, so a billing topic
+ * pointed there is silently dropped — which is exactly how a cancelled
+ * subscription used to keep full access. Keep the path next to the topic.
+ */
+export const SHOPIFY_WEBHOOK_TOPICS: ReadonlyArray<{
+  topic: string;
+  path: string;
+}> = [
+  { topic: 'products/create', path: '/api/v1/ingestion/webhooks/shopify' },
+  { topic: 'products/update', path: '/api/v1/ingestion/webhooks/shopify' },
+  { topic: 'products/delete', path: '/api/v1/ingestion/webhooks/shopify' },
+  {
+    topic: 'inventory_levels/update',
+    path: '/api/v1/ingestion/webhooks/shopify',
+  },
+  { topic: 'app/uninstalled', path: '/api/v1/ingestion/webhooks/shopify' },
+  {
+    topic: 'app_subscriptions/update',
+    path: '/api/v1/shopify/webhooks/app-subscriptions-update',
+  },
 ];
 
 /** The three topics Shopify requires before an app may be listed. */
@@ -56,6 +74,28 @@ export const SHOPIFY_INSTALL_LOCK_TTL_SECONDS = 60;
 
 /** Single-use OAuth nonce TTL for the non-embedded fallback flow. */
 export const SHOPIFY_OAUTH_NONCE_TTL_SECONDS = 600;
+
+/**
+ * Records which plan a Shopify charge was created for, keyed by the numeric
+ * charge id.
+ *
+ * The billing callback is unauthenticated and its query string is unsigned, so
+ * the plan it activates can never be read from that query — a merchant could
+ * approve the cheapest charge and come back naming the most expensive plan.
+ * The plan is written here at charge-creation time, where the caller is
+ * authenticated and tenant-scoped, and read back on the callback.
+ */
+export const SHOPIFY_PENDING_CHARGE_PREFIX = 'shopify:pending-charge:';
+
+/**
+ * How long a created-but-unapproved charge keeps its recorded plan.
+ *
+ * Approval normally follows within minutes. Seven days covers a merchant who
+ * leaves the Shopify approval screen open or comes back to the emailed link,
+ * and expiry is safe: a callback with no record leaves the stored plan
+ * untouched rather than guessing.
+ */
+export const SHOPIFY_PENDING_CHARGE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /** Allowed clock skew when validating App Bridge session token claims. */
 export const SHOPIFY_TOKEN_CLOCK_SKEW_SECONDS = 5;
