@@ -251,6 +251,9 @@ describe('BillingService', () => {
 
     it('stores the numeric id when handed a gid', async () => {
       const subModel = module.get(getModelToken(Subscription.name));
+      subModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
       subModel.findOneAndUpdate = jest.fn().mockReturnValue({
         exec: jest.fn().mockResolvedValue({ _id: 'sub_123' }),
       });
@@ -269,6 +272,102 @@ describe('BillingService', () => {
       const [, update] = subModel.findOneAndUpdate.mock.calls[0];
       expect(update.$set.providerRef).toBe('98765');
       expect(update.$set.planId).toBe('starter');
+    });
+  });
+
+  describe('activateShopifySubscription billing period', () => {
+    const mockModels = (existing: any) => {
+      const subModel = module.get(getModelToken(Subscription.name));
+      subModel.findOne = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue(existing) });
+      subModel.findOneAndUpdate = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ _id: 'sub_123' }),
+      });
+      const businessModel = module.get(getModelToken(Business.name));
+      businessModel.findByIdAndUpdate = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      return subModel;
+    };
+
+    it('stores the period end Shopify reported', async () => {
+      // Shopify charges on its own cadence and owns the renewal date.
+      const subModel = mockModels(null);
+      const periodEnd = new Date('2026-10-11T12:00:00Z');
+
+      await service.activateShopifySubscription(
+        'biz_123',
+        '98765',
+        'ACTIVE',
+        'starter',
+        periodEnd,
+      );
+
+      const [, update] = subModel.findOneAndUpdate.mock.calls[0];
+      expect(update.$set.currentPeriodEnd).toBe(periodEnd);
+    });
+
+    it('never writes cancelAtPeriodEnd', async () => {
+      // It used to be forced to false on every callback, silently clearing a
+      // cancellation the merchant had already requested.
+      const subModel = mockModels({ _id: 'sub_123', planId: 'starter' });
+
+      await service.activateShopifySubscription(
+        'biz_123',
+        '98765',
+        'ACTIVE',
+        'starter',
+        new Date('2026-10-11T12:00:00Z'),
+      );
+
+      const [, update] = subModel.findOneAndUpdate.mock.calls[0];
+      expect(update.$set.cancelAtPeriodEnd).toBeUndefined();
+    });
+
+    it('sets the period start only on creation', async () => {
+      const subModel = mockModels({ _id: 'sub_123', planId: 'starter' });
+
+      await service.activateShopifySubscription(
+        'biz_123',
+        '98765',
+        'ACTIVE',
+        'starter',
+        new Date('2026-10-11T12:00:00Z'),
+      );
+
+      const [, update] = subModel.findOneAndUpdate.mock.calls[0];
+      expect(update.$set.currentPeriodStart).toBeUndefined();
+      expect(update.$setOnInsert.currentPeriodStart).toBeInstanceOf(Date);
+    });
+
+    it('leaves an existing period end alone when Shopify reports none', async () => {
+      const subModel = mockModels({ _id: 'sub_123', planId: 'starter' });
+
+      await service.activateShopifySubscription(
+        'biz_123',
+        '98765',
+        'ACTIVE',
+        'starter',
+      );
+
+      const [, update] = subModel.findOneAndUpdate.mock.calls[0];
+      expect(update.$set.currentPeriodEnd).toBeUndefined();
+    });
+
+    it('estimates a period end only when creating with none reported', async () => {
+      // The field is required on the schema, so an insert has to carry one.
+      const subModel = mockModels(null);
+
+      await service.activateShopifySubscription(
+        'biz_123',
+        '98765',
+        'ACTIVE',
+        'starter',
+      );
+
+      const [, update] = subModel.findOneAndUpdate.mock.calls[0];
+      expect(update.$set.currentPeriodEnd).toBeInstanceOf(Date);
     });
   });
 

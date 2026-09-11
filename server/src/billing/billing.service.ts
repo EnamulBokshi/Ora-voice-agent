@@ -804,13 +804,28 @@ export class BillingService implements OnModuleInit {
     chargeId: string,
     status: string,
     planId?: string,
+    currentPeriodEnd?: Date,
   ) {
     const isApproved = status === 'ACTIVE';
     const subStatus = isApproved
       ? SubscriptionStatus.ACTIVE
       : SubscriptionStatus.SUSPENDED;
-    const periodStart = new Date();
-    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const existing = await this.subscriptionModel
+      .findOne({ businessId: businessId as any })
+      .exec();
+
+    // `planId` is required on the schema, so an upsert with no plan fails
+    // validation. The plan is no longer read from the callback's query string,
+    // so "unknown plan" is reachable — a dropped Redis record plus a Shopify
+    // name that matches nothing. Refuse rather than create an invalid document
+    // or guess a tier.
+    if (!planId && !existing) {
+      this.logger.error(
+        `[BillingService] Shopify charge ${chargeId} for business ${businessId} could not be matched to a plan, and the business has no subscription to update. No state applied.`,
+      );
+      return null;
+    }
 
     const updateSet: Record<string, any> = {
       billingProvider: BillingProvider.SHOPIFY,
@@ -819,35 +834,39 @@ export class BillingService implements OnModuleInit {
       // to agree on the form.
       providerRef: (chargeId || '').split('/').pop() || chargeId,
       status: subStatus,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      cancelAtPeriodEnd: false,
     };
 
     if (planId) {
       updateSet.planId = planId;
-    } else {
-      // `planId` is required on the schema, so an upsert with no plan fails
-      // validation. The plan is no longer read from the callback's query
-      // string, so "unknown plan" is now reachable — a dropped Redis record
-      // plus an unreachable Shopify. Refuse rather than create an invalid
-      // document or guess a tier.
-      const existing = await this.subscriptionModel
-        .findOne({ businessId: businessId as any })
-        .exec();
+    }
 
-      if (!existing) {
-        this.logger.error(
-          `[BillingService] Shopify charge ${chargeId} for business ${businessId} could not be matched to a plan, and the business has no subscription to update. No state applied.`,
-        );
-        return null;
-      }
+    // Shopify charges on its own cadence and owns the renewal date, so the
+    // period end is whatever it reports. `cancelAtPeriodEnd` is deliberately
+    // not written here: it used to be forced to false on every callback, which
+    // silently cleared a cancellation the merchant had already requested.
+    if (currentPeriodEnd) {
+      updateSet.currentPeriodEnd = currentPeriodEnd;
+    } else if (!existing) {
+      // The field is required and this is an insert, so something has to go in
+      // it. Thirty days matches Shopify's default EVERY_30_DAYS interval, and
+      // the log says the date is a local guess rather than Shopify's answer.
+      updateSet.currentPeriodEnd = new Date(
+        Date.now() + 30 * 24 * 60 * 60 * 1000,
+      );
+      this.logger.warn(
+        `[BillingService] Shopify reported no currentPeriodEnd for charge ${chargeId}; storing a 30-day estimate for business ${businessId}.`,
+      );
     }
 
     const sub = await this.subscriptionModel
       .findOneAndUpdate(
         { businessId: businessId as any },
-        { $set: updateSet },
+        {
+          $set: updateSet,
+          // Only on creation: an existing subscription's period start belongs
+          // to the period it started, not to the latest callback.
+          $setOnInsert: { currentPeriodStart: new Date() },
+        },
         { upsert: true, returnDocument: 'after' },
       )
       .exec();

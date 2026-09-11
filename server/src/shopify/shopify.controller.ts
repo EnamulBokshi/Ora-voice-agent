@@ -200,37 +200,37 @@ export class ShopifyController {
       throw new BadRequestException('No installed store matches that shop.');
     }
 
-    const status = await this.shopifyProvider.fetchSubscriptionStatus(
+    const subscription = await this.shopifyProvider.fetchSubscription(
       business._id.toString(),
       `gid://shopify/AppSubscription/${chargeId}`,
     );
 
     this.logger.log(
-      `[ShopifyController] Billing callback for ${shop}: charge ${chargeId} is ${status}.`,
+      `[ShopifyController] Billing callback for ${shop}: charge ${chargeId} is ${subscription?.status}.`,
     );
 
-    if (status) {
+    if (subscription) {
       // The plan comes from what the server recorded when it created the
       // charge, never from the query string: this route is unauthenticated and
       // its query is unsigned, so a `plan_id` parameter here would let a
       // merchant approve the cheapest charge and return naming the dearest
-      // plan. If the record is gone, Shopify itself is asked; a null from both
-      // leaves the stored plan untouched.
+      // plan. If the record is gone, the name Shopify reports is used instead;
+      // a null from both leaves the stored plan untouched.
       const planId =
         (await this.shopifyProvider.resolvePendingChargePlan(
           chargeId,
           business._id.toString(),
         )) ||
-        (await this.shopifyProvider.resolvePlanFromShopifyCharge(
-          business._id.toString(),
-          `gid://shopify/AppSubscription/${chargeId}`,
+        (await this.shopifyProvider.resolvePlanFromSubscriptionName(
+          subscription.name,
         ));
 
       await this.billingService.activateShopifySubscription(
         business._id.toString(),
         chargeId,
-        status,
+        subscription.status,
         planId || undefined,
+        subscription.currentPeriodEnd,
       );
     }
 
@@ -240,7 +240,7 @@ export class ShopifyController {
     const apiKey = process.env.SHOPIFY_API_KEY || '';
 
     return res.redirect(
-      `https://admin.shopify.com/store/${storeHandle}/apps/${apiKey}?billing=${status || 'unknown'}`,
+      `https://admin.shopify.com/store/${storeHandle}/apps/${apiKey}?billing=${subscription?.status || 'unknown'}`,
     );
   }
 

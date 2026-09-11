@@ -33,6 +33,14 @@ function normalizeChargeId(chargeId: string): string {
   return (chargeId || '').split('/').pop() || chargeId;
 }
 
+/** What the billing callback needs to know about a charge, in one read. */
+export interface ShopifySubscriptionDetails {
+  status: string;
+  name: string | null;
+  /** Shopify owns the renewal date; absent when it reports none. */
+  currentPeriodEnd?: Date;
+}
+
 interface ShopifySubscriptionResult extends ProviderSubscriptionRef {
   /** Shopify hosts the approval screen; the merchant must be sent to it. */
   confirmationUrl: string;
@@ -382,18 +390,24 @@ export class ShopifyProvider implements PaymentProvider {
     );
   }
 
-  /** Reads a subscription's current status straight from Shopify. */
-  async fetchSubscriptionStatus(
+  /**
+   * Reads a subscription straight from Shopify.
+   *
+   * Status, name and period end come back together because the billing
+   * callback needs all three and they used to cost two round trips. Shopify
+   * owns the renewal date, so `currentPeriodEnd` is read rather than computed.
+   */
+  async fetchSubscription(
     businessId: string,
     chargeId: string,
-  ): Promise<string | null> {
+  ): Promise<ShopifySubscriptionDetails | null> {
     const { shopDomain, accessToken } =
       await this.resolveShopCredentials(businessId);
 
     const query = `
       query AppSubscription($id: ID!) {
         node(id: $id) {
-          ... on AppSubscription { id status }
+          ... on AppSubscription { id status name currentPeriodEnd }
         }
       }
     `;
@@ -402,11 +416,32 @@ export class ShopifyProvider implements PaymentProvider {
       id: chargeId,
     });
 
-    return (payload as any)?.data?.node?.status || null;
+    const node = (payload as any)?.data?.node;
+    if (!node?.status) return null;
+
+    // Shopify returns an ISO 8601 string. An unparseable value is dropped
+    // rather than turned into an Invalid Date the caller would store.
+    let currentPeriodEnd: Date | undefined;
+    if (node.currentPeriodEnd) {
+      const parsed = new Date(node.currentPeriodEnd);
+      if (!Number.isNaN(parsed.getTime())) {
+        currentPeriodEnd = parsed;
+      } else {
+        this.logger.warn(
+          `[ShopifyProvider] Subscription ${chargeId} reported an unreadable currentPeriodEnd: ${node.currentPeriodEnd}`,
+        );
+      }
+    }
+
+    return {
+      status: node.status,
+      name: node.name || null,
+      currentPeriodEnd,
+    };
   }
 
   /**
-   * Fallback plan lookup, asked of Shopify rather than of ORA's own record.
+   * Fallback plan lookup, from what Shopify itself reports.
    *
    * The Redis record is the primary source, but it can be gone — evicted, or
    * lost with the instance — and the callback must not then fall back to the
@@ -414,40 +449,15 @@ export class ShopifyProvider implements PaymentProvider {
    * `createAppSubscription` set, so the name it reports maps back to a plan and
    * cannot be influenced by whoever called the callback.
    */
-  async resolvePlanFromShopifyCharge(
-    businessId: string,
-    chargeGid: string,
+  async resolvePlanFromSubscriptionName(
+    name: string | null | undefined,
   ): Promise<string | null> {
-    let name: string | null = null;
-    try {
-      const { shopDomain, accessToken } =
-        await this.resolveShopCredentials(businessId);
-
-      const query = `
-        query AppSubscriptionName($id: ID!) {
-          node(id: $id) {
-            ... on AppSubscription { id name }
-          }
-        }
-      `;
-
-      const payload = await this.graphql(shopDomain, accessToken, query, {
-        id: chargeGid,
-      });
-      name = (payload as any)?.data?.node?.name || null;
-    } catch (err: any) {
-      this.logger.error(
-        `[ShopifyProvider] Could not read the plan name of charge ${chargeGid} from Shopify: ${err.message}`,
-      );
-      return null;
-    }
-
     if (!name) return null;
 
     const plan = await this.planModel.findOne({ name } as any).exec();
     if (!plan) {
       this.logger.warn(
-        `[ShopifyProvider] Shopify reports charge ${chargeGid} as plan '${name}', which matches no ORA plan.`,
+        `[ShopifyProvider] Shopify reports a subscription named '${name}', which matches no ORA plan.`,
       );
       return null;
     }

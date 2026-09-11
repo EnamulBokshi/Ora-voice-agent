@@ -158,50 +158,100 @@ describe('ShopifyProvider — billing callback trust boundary', () => {
     });
   });
 
-  describe('resolvePlanFromShopifyCharge', () => {
+  describe('fetchSubscription', () => {
+    /**
+     * Status, name and period end come back in one read because the billing
+     * callback needs all three. Shopify owns the renewal date, so it is read
+     * rather than computed.
+     */
+    it('returns the status, name and period end Shopify reports', async () => {
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            node: {
+              id: CHARGE_GID,
+              status: 'ACTIVE',
+              name: 'Starter',
+              currentPeriodEnd: '2026-10-11T12:00:00Z',
+            },
+          },
+        }),
+      } as any);
+
+      const result = await provider.fetchSubscription(BUSINESS_ID, CHARGE_GID);
+
+      expect(result).toEqual({
+        status: 'ACTIVE',
+        name: 'Starter',
+        currentPeriodEnd: new Date('2026-10-11T12:00:00Z'),
+      });
+    });
+
+    it('drops an unreadable period end rather than storing an Invalid Date', async () => {
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            node: {
+              id: CHARGE_GID,
+              status: 'ACTIVE',
+              name: 'Starter',
+              currentPeriodEnd: 'not-a-date',
+            },
+          },
+        }),
+      } as any);
+
+      const result = await provider.fetchSubscription(BUSINESS_ID, CHARGE_GID);
+
+      expect(result?.status).toBe('ACTIVE');
+      expect(result?.currentPeriodEnd).toBeUndefined();
+    });
+
+    it('returns null when Shopify reports no subscription', async () => {
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { node: null } }),
+      } as any);
+
+      await expect(
+        provider.fetchSubscription(BUSINESS_ID, CHARGE_GID),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('resolvePlanFromSubscriptionName', () => {
     /**
      * The fallback for a lost Redis record. Shopify holds the subscription
      * under the plan name `createAppSubscription` gave it, so this answer
      * cannot be influenced by whoever called the callback.
      */
     it('maps the name Shopify reports back to an ORA plan', async () => {
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          data: { node: { id: CHARGE_GID, name: 'Starter' } },
-        }),
-      } as any);
-
       await expect(
-        provider.resolvePlanFromShopifyCharge(BUSINESS_ID, CHARGE_GID),
+        provider.resolvePlanFromSubscriptionName('Starter'),
       ).resolves.toBe('starter');
       expect(planModel.findOne).toHaveBeenCalledWith({ name: 'Starter' });
     });
 
     it('returns null when the reported name matches no ORA plan', async () => {
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          data: { node: { id: CHARGE_GID, name: 'Legacy Tier' } },
-        }),
-      } as any);
       planModel.findOne.mockReturnValue({
         exec: jest.fn().mockResolvedValue(null),
       });
 
       await expect(
-        provider.resolvePlanFromShopifyCharge(BUSINESS_ID, CHARGE_GID),
+        provider.resolvePlanFromSubscriptionName('Legacy Tier'),
       ).resolves.toBeNull();
     });
 
-    it('returns null when Shopify cannot be reached', async () => {
-      fetchSpy.mockRejectedValue(new Error('network down'));
-
+    it('returns null when Shopify reported no name at all', async () => {
       await expect(
-        provider.resolvePlanFromShopifyCharge(BUSINESS_ID, CHARGE_GID),
+        provider.resolvePlanFromSubscriptionName(null),
       ).resolves.toBeNull();
+      expect(planModel.findOne).not.toHaveBeenCalled();
     });
   });
 
