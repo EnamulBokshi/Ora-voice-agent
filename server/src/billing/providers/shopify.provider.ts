@@ -120,13 +120,16 @@ export class ShopifyProvider implements PaymentProvider {
     // string is unsigned, so anything carried here is caller-controlled: a
     // merchant could approve the cheapest charge and return naming the most
     // expensive plan. The plan is recorded in Redis below instead.
-    const callbackUrl = returnUrl || `${apiUrl}/api/v1/shopify/billing/callback`;
-
     // An override has to stay on this API's own origin. Shopify sends the
     // merchant here straight from its approval screen, so an arbitrary host
     // turns that into an open redirect, and it also means the callback never
     // runs — the charge is approved at Shopify while ORA still shows no plan.
-    this.assertCallbackOnApiOrigin(callbackUrl, apiUrl);
+    const baseCallback = returnUrl || `${apiUrl}/api/v1/shopify/billing/callback`;
+    this.assertCallbackOnApiOrigin(baseCallback, apiUrl);
+
+    const callbackObj = new URL(baseCallback);
+    callbackObj.searchParams.set('shop', shopDomain);
+    const callbackUrl = callbackObj.toString();
 
     const mutation = `
       mutation AppSubscriptionCreate(
@@ -188,7 +191,7 @@ export class ShopifyProvider implements PaymentProvider {
       throw new DomainException(
         SHOPIFY_ERRORS.BILLING_ERROR,
         message,
-        HttpStatus.BAD_GATEWAY,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -260,6 +263,18 @@ export class ShopifyProvider implements PaymentProvider {
       this.logger.error(
         `[ShopifyProvider] Could not record the plan for charge ${chargeGid}: ${err.message}. The callback will not be able to set a plan.`,
       );
+    }
+  }
+
+  async resolvePendingChargeRecord(
+    chargeId: string,
+  ): Promise<{ businessId?: string; planId?: string } | null> {
+    const key = `${SHOPIFY_PENDING_CHARGE_PREFIX}${normalizeChargeId(chargeId)}`;
+    try {
+      const raw = await this.redisService.getClient().get(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
     }
   }
 
@@ -514,10 +529,25 @@ export class ShopifyProvider implements PaymentProvider {
     );
 
     if (!response.ok) {
+      let errDetail = `HTTP ${response.status}`;
+      try {
+        const errJson = (await response.json()) as any;
+        if (errJson?.errors) {
+          errDetail =
+            typeof errJson.errors === 'string'
+              ? errJson.errors
+              : JSON.stringify(errJson.errors);
+        }
+      } catch {
+        // Fall back to HTTP status code if body is not JSON
+      }
+      this.logger.error(
+        `[ShopifyProvider] Shopify GraphQL error for ${shopDomain}: ${errDetail}`,
+      );
       throw new DomainException(
         SHOPIFY_ERRORS.BILLING_ERROR,
-        `Shopify GraphQL returned HTTP ${response.status}.`,
-        HttpStatus.BAD_GATEWAY,
+        `Shopify GraphQL failed: ${errDetail}`,
+        HttpStatus.BAD_REQUEST,
       );
     }
 

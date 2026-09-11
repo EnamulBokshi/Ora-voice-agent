@@ -189,16 +189,33 @@ export class ShopifyController {
     @Query('shop') shop: string,
     @Res() res: Response,
   ) {
-    if (!chargeId || !shop) {
+    if (!chargeId) {
       throw new BadRequestException(
-        'The billing callback is missing charge_id or shop.',
+        'The billing callback is missing charge_id.',
       );
     }
 
-    const business = await this.shopifyService.findBusinessByShopDomain(shop);
+    let business = shop
+      ? await this.shopifyService.findBusinessByShopDomain(shop)
+      : null;
+
     if (!business) {
-      throw new BadRequestException('No installed store matches that shop.');
+      const pending =
+        await this.shopifyProvider.resolvePendingChargeRecord(chargeId);
+      if (pending?.businessId) {
+        business = await this.shopifyService.findBusinessById(
+          pending.businessId,
+        );
+      }
     }
+
+    if (!business) {
+      throw new BadRequestException(
+        'No installed store matches this billing callback.',
+      );
+    }
+
+    const shopDomain = business.shopifyShopDomain || shop;
 
     const subscription = await this.shopifyProvider.fetchSubscription(
       business._id.toString(),
@@ -206,7 +223,7 @@ export class ShopifyController {
     );
 
     this.logger.log(
-      `[ShopifyController] Billing callback for ${shop}: charge ${chargeId} is ${subscription?.status}.`,
+      `[ShopifyController] Billing callback for ${shopDomain}: charge ${chargeId} is ${subscription?.status}.`,
     );
 
     if (subscription) {
@@ -235,12 +252,12 @@ export class ShopifyController {
     }
 
     const storeHandle = this.shopifyService
-      .normalizeShopDomain(shop)
+      .normalizeShopDomain(shopDomain)
       .replace('.myshopify.com', '');
-    const apiKey = process.env.SHOPIFY_API_KEY || '';
+    const appHandle = process.env.SHOPIFY_APP_HANDLE || 'ora-voice-ai';
 
     return res.redirect(
-      `https://admin.shopify.com/store/${storeHandle}/apps/${apiKey}?billing=${subscription?.status || 'unknown'}`,
+      `https://admin.shopify.com/store/${storeHandle}/apps/${appHandle}?billing=${subscription?.status || 'active'}`,
     );
   }
 

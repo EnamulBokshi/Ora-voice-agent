@@ -109,8 +109,11 @@ describe('ShopifyProvider — billing callback trust boundary', () => {
       );
 
       const sentBody = JSON.parse((fetchSpy.mock.calls[0][1] as any).body);
+      // `shop` is added so the callback can resolve a tenant when Shopify
+      // returns without one; it is not trusted for anything but the lookup,
+      // and the plan is never read from this URL.
       expect(sentBody.variables.returnUrl).toBe(
-        'https://tryora.live/api/v1/shopify/billing/callback',
+        'https://tryora.live/api/v1/shopify/billing/callback?shop=demo-store.myshopify.com',
       );
       // The old form carried ?plan_id=, which the callback then trusted.
       expect(sentBody.variables.returnUrl).not.toContain('plan_id');
