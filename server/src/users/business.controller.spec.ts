@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BusinessController } from './business.controller';
 import { UsersService } from './users.service';
 import { VoiceProxyGateway } from '../ai-voice/voice-proxy.gateway';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 describe('BusinessController', () => {
   let controller: BusinessController;
@@ -23,6 +24,16 @@ describe('BusinessController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BusinessController],
       providers: [
+        {
+          // The entitlement check is exercised in entitlement.service.spec.ts
+          // and subscription.guard.spec.ts; here it stands aside.
+          provide: EntitlementService,
+          useValue: {
+            assertEntitled: jest.fn().mockResolvedValue(undefined),
+            decide: jest.fn().mockResolvedValue({ entitled: true }),
+            invalidate: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         {
           provide: UsersService,
           useValue: mockUsersService,

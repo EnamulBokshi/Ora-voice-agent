@@ -4,12 +4,13 @@ import { SearchRagDto } from './dto/search-rag.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('rag')
-@UseGuards(JwtAuthGuard, TenantScopeGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, SubscriptionGuard)
 export class RagController {
   constructor(private readonly ragService: RagService) {}
 

@@ -21,7 +21,13 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 import { AdminRole } from '../users/enums/admin-role.enum';
+import { NoSubscriptionRequired } from '../common/decorators/no-subscription-required.decorator';
 
+/**
+ * Plans, checkout and subscription state must stay reachable for a tenant
+ * that has no plan yet — that is how it buys one.
+ */
+@NoSubscriptionRequired()
 @Controller('billing')
 export class BillingController {
   constructor(

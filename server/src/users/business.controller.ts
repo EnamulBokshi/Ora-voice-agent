@@ -15,6 +15,7 @@ import {
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRole } from './enums/admin-role.enum';
@@ -31,14 +32,14 @@ export class BusinessController {
     private readonly voiceProxyGateway?: VoiceProxyGateway,
   ) {}
 
-  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, SubscriptionGuard)
   @Get('current')
   async getCurrentBusiness(@Req() req: any) {
     const business = await this.usersService.findBusinessById(req.businessId);
     return business;
   }
 
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Patch('current')
   @HttpCode(HttpStatus.OK)
@@ -65,7 +66,7 @@ export class BusinessController {
     };
   }
 
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Delete('publishable-key')
   @HttpCode(HttpStatus.OK)
@@ -81,7 +82,7 @@ export class BusinessController {
     };
   }
 
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('publishable-key')
   @HttpCode(HttpStatus.CREATED)
@@ -97,7 +98,7 @@ export class BusinessController {
     };
   }
 
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('secret-key')
   @HttpCode(HttpStatus.CREATED)
@@ -114,7 +115,7 @@ export class BusinessController {
     };
   }
 
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Delete('secret-key')
   @HttpCode(HttpStatus.OK)

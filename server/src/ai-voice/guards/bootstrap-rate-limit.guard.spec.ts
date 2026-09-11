@@ -1,12 +1,14 @@
 import { HttpStatus } from '@nestjs/common';
 import { BootstrapRateLimitGuard } from './bootstrap-rate-limit.guard';
 import { DomainException } from '../../common/exceptions/domain.exception';
+import { EntitlementService } from '../../common/entitlement/entitlement.service';
 
 describe('BootstrapRateLimitGuard', () => {
   let guard: BootstrapRateLimitGuard;
   let mockBusinessModel: any;
   let mockRedisClient: any;
   let mockRedisService: any;
+  let mockEntitlementService: any;
 
   beforeEach(() => {
     mockBusinessModel = {
@@ -29,7 +31,19 @@ describe('BootstrapRateLimitGuard', () => {
       getClient: jest.fn().mockReturnValue(mockRedisClient),
     };
 
-    guard = new BootstrapRateLimitGuard(mockBusinessModel, mockRedisService);
+    // Entitlement is exercised in entitlement.service.spec.ts; the storefront
+    // path only needs it to answer.
+    mockEntitlementService = {
+      decide: jest.fn().mockResolvedValue({ entitled: true }),
+      assertEntitled: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    } as unknown as EntitlementService;
+
+    guard = new BootstrapRateLimitGuard(
+      mockBusinessModel,
+      mockRedisService,
+      mockEntitlementService,
+    );
   });
 
   const createMockContext = (headers: Record<string, string> = {}, body: any = {}, ip: string = '127.0.0.1') => {
@@ -172,5 +186,25 @@ describe('BootstrapRateLimitGuard', () => {
     expect(thrownError).toBeInstanceOf(DomainException);
     expect(thrownError.code).toBe('WIDGET_DISABLED');
     expect(thrownError.getStatus()).toBe(HttpStatus.FORBIDDEN);
+  });
+
+  it('refuses to bootstrap the widget for a tenant with no subscription', async () => {
+    // The storefront agent is the product. Before this, an installed Shopify
+    // store that never approved a charge still served voice to shoppers.
+    mockEntitlementService.decide.mockResolvedValue({
+      entitled: false,
+      code: 'SUBSCRIPTION_REQUIRED',
+    });
+
+    const context = createMockContext({
+      'x-publishable-key': 'biz_live_valid_key',
+    });
+
+    await expect(guard.canActivate(context as any)).rejects.toMatchObject({
+      status: HttpStatus.FORBIDDEN,
+    });
+    await expect(
+      guard.canActivate(context as any),
+    ).rejects.toBeInstanceOf(DomainException);
   });
 });

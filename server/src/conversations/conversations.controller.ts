@@ -3,6 +3,7 @@ import { ConversationsService } from './conversations.service';
 import { ConversationStatus } from './schemas/conversation.schema';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRole } from '../users/enums/admin-role.enum';
@@ -10,7 +11,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('conversations')
-@UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
 @Roles(AdminRole.OWNER, AdminRole.ADMIN, AdminRole.STAFF)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}

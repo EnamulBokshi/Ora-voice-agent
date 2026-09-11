@@ -5,6 +5,7 @@ import { OAuthService } from './oauth.service';
 import { ApiClientService } from './api-client.service';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { ApiScope } from './schemas/api-client.schema';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 describe('OAuthController', () => {
   let controller: OAuthController;
@@ -27,6 +28,16 @@ describe('OAuthController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OAuthController],
       providers: [
+        {
+          // The entitlement check is exercised in entitlement.service.spec.ts
+          // and subscription.guard.spec.ts; here it stands aside.
+          provide: EntitlementService,
+          useValue: {
+            assertEntitled: jest.fn().mockResolvedValue(undefined),
+            decide: jest.fn().mockResolvedValue({ entitled: true }),
+            invalidate: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         { provide: OAuthService, useValue: mockOAuthService },
         { provide: ApiClientService, useValue: mockApiClientService },
       ],

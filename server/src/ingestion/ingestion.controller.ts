@@ -30,6 +30,7 @@ import { PassiveIngestDto } from './dto/passive-ingest.dto';
 import { ManualIngestDto } from './dto/manual-ingest.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRole } from '../users/enums/admin-role.enum';
@@ -65,7 +66,7 @@ export class IngestionController {
    * Uploads merchant product file, normalizes items, batch-syncs to MongoDB,
    * and auto-embeds into the VectorIndex RAG store in a single flow.
    */
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -202,7 +203,7 @@ export class IngestionController {
   }
 
   // Tier 2 Catalog Feed Ingestion
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('feed')
   @HttpCode(HttpStatus.OK)
@@ -242,7 +243,7 @@ export class IngestionController {
    * Sync from Website URL / Deep Storefront Crawler Endpoint.
    * Auto-detects platform, fast-syncs catalog/policies, and crawls public sitemaps.
    */
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('crawl-store')
   @HttpCode(HttpStatus.OK)
@@ -260,7 +261,7 @@ export class IngestionController {
   }
 
   // Tier 4 Custom Endpoint Field Mapping
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles(AdminRole.OWNER, AdminRole.ADMIN)
   @Post('manual')
   @HttpCode(HttpStatus.OK)

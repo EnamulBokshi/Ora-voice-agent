@@ -5,6 +5,7 @@ import { Business } from '../users/schemas/business.schema';
 import { RedisService } from '../common/redis/redis.service';
 
 import { ConfigService } from '@nestjs/config';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 describe('VoiceSessionController', () => {
   let controller: VoiceSessionController;
@@ -40,6 +41,16 @@ describe('VoiceSessionController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [VoiceSessionController],
       providers: [
+        {
+          // Entitlement is exercised in entitlement.service.spec.ts; the
+          // storefront paths only need it to answer.
+          provide: EntitlementService,
+          useValue: {
+            decide: jest.fn().mockResolvedValue({ entitled: true }),
+            assertEntitled: jest.fn().mockResolvedValue(undefined),
+            invalidate: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         {
           provide: ConfigService,
           useValue: mockConfigService,

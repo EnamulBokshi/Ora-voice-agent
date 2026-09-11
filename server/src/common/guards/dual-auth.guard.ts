@@ -20,6 +20,8 @@ import { MACHINE_TOKEN_AUDIENCE } from '../../api-access/oauth.service';
 import { SCOPES_KEY } from '../../api-access/decorators/scopes.decorator';
 import { ApiScope } from '../../api-access/schemas/api-client.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
+import { EntitlementService } from '../entitlement/entitlement.service';
+import { NO_SUBSCRIPTION_REQUIRED_KEY } from '../decorators/no-subscription-required.decorator';
 import { DomainException } from '../exceptions/domain.exception';
 import { ApiKeyUtil } from '../utils/api-key.util';
 
@@ -45,6 +47,7 @@ export class DualAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly moduleRef: ModuleRef,
+    private readonly entitlementService: EntitlementService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -118,6 +121,9 @@ export class DualAuthGuard implements CanActivate {
             role: 'admin',
             isMachineClient: true,
           };
+          // A machine token acts for the merchant, so it is subject to the
+          // merchant's subscription like every other credential here.
+          await this.assertEntitled(context, request);
           return true;
         }
         return false;
@@ -153,14 +159,52 @@ export class DualAuthGuard implements CanActivate {
   }
 
   /**
+   * Requires an active subscription for the tenant the accepted credential
+   * belongs to.
+   *
+   * Every credential this guard accepts reaches the same paid endpoints, so the
+   * check belongs here rather than on the routes: a secret API key in the
+   * merchant's own backend, an OAuth machine token, and a dashboard session all
+   * have to answer for the same plan. Throws; the caller does not branch on it.
+   */
+  private async assertEntitled(
+    context: ExecutionContext,
+    request: any,
+  ): Promise<void> {
+    const exempt = this.reflector.getAllAndOverride<boolean>(
+      NO_SUBSCRIPTION_REQUIRED_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (exempt) return;
+
+    const businessId = request.businessId || request.user?.businessId;
+    if (!businessId) return;
+
+    // ORA staff only. A machine client also carries `role: 'admin'`, and it
+    // acts for the merchant, so it is not exempt.
+    const role = request.user?.role;
+    const isOraStaff =
+      role === AdminRole.SUPER_ADMIN ||
+      (role === AdminRole.ADMIN && !request.user?.isMachineClient);
+    if (isOraStaff) return;
+
+    await this.entitlementService.assertEntitled(businessId);
+  }
+
+  /**
    * Applies the route's @Scopes() and @Roles() metadata after a credential has
    * been accepted. `grantedScopes` is omitted for credentials that carry no
    * scopes of their own (a human dashboard session), where only @Roles() apply.
    */
-  private enforceRouteAuthorization(
+  private async enforceRouteAuthorization(
     context: ExecutionContext,
     grantedScopes?: ApiScope[],
-  ): boolean {
+  ): Promise<boolean> {
+    // The credential is accepted by this point, so the tenant is known. Both
+    // paths that reach here — a secret API key and a dashboard session — are
+    // paid surfaces.
+    await this.assertEntitled(context, context.switchToHttp().getRequest());
+
     if (grantedScopes) {
       const requiredScopes =
         this.reflector.getAllAndOverride<ApiScope[]>(SCOPES_KEY, [
