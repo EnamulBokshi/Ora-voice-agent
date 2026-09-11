@@ -25,20 +25,78 @@ const VALID_GEMINI_VOICES = new Set(['Aoede', 'Fenrir', 'Kore', 'Puck', 'Charon'
 // other people talking. LOW start sensitivity demands a clearer speech onset before
 // Gemini opens a turn, which is what stops background noise barging in on ORA.
 const START_OF_SPEECH_SENSITIVITY = 'START_SENSITIVITY_LOW';
-const END_OF_SPEECH_SENSITIVITY = 'END_SENSITIVITY_LOW';
+
+/**
+ * HIGH so Gemini commits quickly once the customer stops talking.
+ *
+ * This was LOW, which is the single biggest contributor to a slow-feeling reply: it
+ * deliberately waits longer before accepting that a turn has ended. Noise rejection is
+ * the widget gate's job (it does not forward non-speech audio at all) and START
+ * sensitivity stays LOW as a second line, so there is no reason to also pay for
+ * hesitation at the end of every utterance.
+ */
+const END_OF_SPEECH_SENSITIVITY = 'END_SENSITIVITY_HIGH';
 
 /** Audio kept before the detected speech onset, so the first syllable is not clipped. */
-const SPEECH_PREFIX_PADDING_MS = 300;
+const SPEECH_PREFIX_PADDING_MS = 200;
 
 /**
  * Silence required after speech before Gemini closes the customer's turn.
  *
- * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS), because
- * the widget's noise gate stops sending audio once that hangover elapses. If this were
- * the longer of the two, Gemini would still be waiting for silence it can no longer
- * hear and the turn would hang instead of ORA replying.
+ * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS, 700ms),
+ * because the widget's noise gate stops sending audio once that hangover elapses. If
+ * this were the longer of the two, Gemini would still be waiting for silence it can no
+ * longer hear and the turn would hang instead of ORA replying.
+ *
+ * 400ms rather than 700ms: this is dead time on every single turn, paid before ORA can
+ * even begin generating. Natural mid-sentence pauses are shorter than this, so it still
+ * does not cut a speaker off mid-thought.
  */
-const SPEECH_SILENCE_DURATION_MS = 700;
+const SPEECH_SILENCE_DURATION_MS = 400;
+
+/**
+ * Hang guard for a single tool call.
+ *
+ * Gemini stays silent until every requested tool has been answered, and the Live API
+ * requires a response for each call id. A stalled connector HTTP request (Shopify or
+ * WooCommerce with no timeout of its own) could therefore freeze a voice session
+ * indefinitely with the shopper listening to nothing.
+ *
+ * This is deliberately generous: it exists to bound a pathological stall, not to cut
+ * normal lookups short. Returning a partial result early and injecting the real data
+ * when it lands would create exactly the mid-conversation "new findings" interruption
+ * that was reported as a bug, so a timed-out call resolves once and stays resolved.
+ */
+const TOOL_EXECUTION_TIMEOUT_MS = 8000;
+
+/**
+ * Resolves with the tool's result, or with `onTimeout()` once the guard elapses.
+ * Never rejects, so one bad tool cannot reject the whole Promise.all batch and leave
+ * Gemini without a response for the other call ids.
+ */
+function withToolTimeout<T>(
+  work: Promise<T>,
+  toolName: string,
+  onTimeout: (toolName: string) => T,
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(onTimeout(toolName));
+    }, TOOL_EXECUTION_TIMEOUT_MS);
+
+    const finish = (value: T) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    work.then(finish, () => finish(onTimeout(toolName)));
+  });
+}
 
 const LEGACY_VOICE_MAP: Record<string, string> = {
   alloy: 'Aoede',
@@ -63,9 +121,26 @@ export function normalizeGeminiVoice(rawVoice?: string): string {
   return 'Aoede';
 }
 
+/**
+ * What this session is for.
+ * - customer: the storefront agent — sells, navigates, answers shoppers.
+ * - training: the merchant teaching their own agent. It collects facts about
+ *   the business and must not sell, navigate, or role-play as the storefront.
+ */
+export type VoiceSessionMode = 'customer' | 'training';
+
+/**
+ * The only tool a training session gets. Looking up what is already known
+ * prevents the agent from asking the owner to repeat themselves; everything
+ * else in the storefront toolset would be actively wrong here.
+ */
+export const TRAINING_TOOL_NAMES = ['search_knowledge_base'] as const;
+
 export interface GeminiVoiceSessionOptions {
   businessId: string;
   sessionId: string;
+  /** Defaults to 'customer'. Only an authenticated owner may open 'training'. */
+  sessionMode?: VoiceSessionMode;
   customerId?: string;
   deviceId?: string;
   authenticatedUser?: {
@@ -107,6 +182,16 @@ export interface GeminiVoiceSessionControls {
 export class GeminiVoiceService {
   private readonly logger = new Logger(GeminiVoiceService.name);
   private readonly instructionCache = new Map<string, { instruction: string; archetype: string; isPlatform: boolean; hasCatalog: boolean; voiceName: string; expiresAt: number }>();
+
+  /**
+   * Kept apart from the customer cache on purpose: the two instructions are
+   * opposites, and one leaking into the other would put a sales agent in front
+   * of a merchant trying to teach it, or a note-taker in front of a shopper.
+   */
+  private readonly trainingInstructionCache = new Map<
+    string,
+    { instruction: string; voiceName: string; expiresAt: number }
+  >();
 
   constructor(
     private readonly configService: ConfigService,
@@ -167,8 +252,10 @@ export class GeminiVoiceService {
       options.deviceId,
       options.clientContext,
       options.authenticatedUser,
+      options.sessionMode,
     );
 
+    const isTrainingSession = options.sessionMode === 'training';
     const cached = this.instructionCache.get(options.businessId);
     const archetype = cached?.archetype || 'general';
 
@@ -223,7 +310,14 @@ export class GeminiVoiceService {
         sendContextUpdate: (ctx: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => {
           if (ws.readyState === WebSocket.OPEN) {
             const histStr = ctx.history && ctx.history.length > 0 ? ctx.history.join(' -> ') : ctx.currentPath || '/';
-            const contextText = `[CLIENT_BROWSING_STATE_UPDATE: Visitor is now viewing page "${ctx.currentPath || '/'}" (Page Title: "${ctx.title || ''}"${ctx.activeSection ? `, Active Section: "${ctx.activeSection}"` : ''}). Browsing history: ${histStr}. Rule: The visitor is ALREADY on this page. Do NOT suggest navigating to ${ctx.currentPath || '/'} or ask if they want to go there.]`;
+            // Deliberately terse and free of instructions. This arrives in the
+            // user role — Gemini Live has no mid-session system role — so any
+            // directive written here reads to the model as something the
+            // visitor said, and comes back out of ORA's mouth as an
+            // explanation of her own rules. The behavioural rule that used to
+            // live in this string now sits in the system instruction, where it
+            // is stated once instead of being re-delivered on every scroll.
+            const contextText = `[PAGE_STATE] path=${ctx.currentPath || '/'}${ctx.title ? ` | title=${ctx.title}` : ''}${ctx.activeSection ? ` | section=${ctx.activeSection}` : ''} | visited=${histStr}`;
             const clientContent = {
               clientContent: {
                 turns: [
@@ -254,10 +348,13 @@ export class GeminiVoiceService {
         );
 
         const cached = this.instructionCache.get(options.businessId);
+        const trainingMeta = isTrainingSession
+          ? this.trainingInstructionCache.get(options.businessId)
+          : undefined;
         const archetype = cached?.archetype || 'general';
         const isPlatform = cached?.isPlatform || false;
         const hasCatalog = cached?.hasCatalog || false;
-        const voiceName = normalizeGeminiVoice(cached?.voiceName);
+        const voiceName = normalizeGeminiVoice(trainingMeta?.voiceName ?? cached?.voiceName);
 
         // Send Setup Handshake Payload with dynamic merchant voice
         const setupPayload = {
@@ -281,11 +378,15 @@ export class GeminiVoiceService {
             },
             tools: [
               {
-                functionDeclarations: getToolsForArchetype(
-                  archetype,
-                  isPlatform,
-                  hasCatalog,
-                ),
+                // A training session gets exactly one tool: looking up what the
+                // agent already knows. Giving it the storefront tools is what
+                // made it behave like a shopper's agent — offering to navigate
+                // and sell to the merchant who is trying to teach it.
+                functionDeclarations: isTrainingSession
+                  ? TRAINING_TOOL_NAMES.map((name) =>
+                      ORA_TOOL_DECLARATIONS.find((t) => t.name === name),
+                    ).filter(Boolean)
+                  : getToolsForArchetype(archetype, isPlatform, hasCatalog),
               },
             ],
             // ── Server-side transcription (parallel to audio, zero latency impact) ───
@@ -355,13 +456,20 @@ export class GeminiVoiceService {
                 options.onAudioData(part.inlineData.data);
               }
               if (part.text && options.onTextData) {
-                // Filter out thinking/reasoning text (bold headers, internal analysis)
+                // Strict CoT filter: NEVER leak model thoughts, chain-of-thought, or internal reasoning
+                if ((part as any).thought) {
+                  continue;
+                }
                 const text = part.text.trim();
                 if (
                   text &&
                   !text.startsWith('**') &&
                   !text.startsWith('##') &&
-                  !text.startsWith('# ')
+                  !text.startsWith('# ') &&
+                  !text.toLowerCase().startsWith('thought') &&
+                  !text.toLowerCase().startsWith('thinking') &&
+                  !text.toLowerCase().startsWith('internal:') &&
+                  !text.toLowerCase().startsWith('[thought')
                 ) {
                   options.onTextData(text);
                 }
@@ -401,11 +509,26 @@ export class GeminiVoiceService {
 
                   let toolResult: any;
                   try {
-                    toolResult = await this.aiToolsExecutor.executeTool(
-                      options.businessId,
-                      options.sessionId,
+                    toolResult = await withToolTimeout(
+                      this.aiToolsExecutor.executeTool(
+                        options.businessId,
+                        options.sessionId,
+                        call.name,
+                        call.args || {},
+                      ),
                       call.name,
-                      call.args || {},
+                      (name) => {
+                        this.logger.error(
+                          `[GeminiVoiceService] Tool ${name} exceeded ${TOOL_EXECUTION_TIMEOUT_MS}ms for session ${options.sessionId}; returning a timeout result so the turn can close.`,
+                        );
+                        return {
+                          success: false,
+                          error: 'TOOL_TIMEOUT',
+                          message:
+                            'That lookup did not come back in time. Tell the customer you could not retrieve it just now and offer to try again.',
+                          products: [],
+                        };
+                      },
                     );
                   } catch (err: any) {
                     this.logger.error(
@@ -490,7 +613,12 @@ export class GeminiVoiceService {
       email: string;
       role: string;
     },
+    sessionMode?: VoiceSessionMode,
   ): Promise<string> {
+    if (sessionMode === 'training') {
+      return this.buildTrainingInstruction(businessId, authenticatedUser);
+    }
+
     let baseInstruction = '';
     let businessArchetype = 'general';
     const cached = this.instructionCache.get(businessId);
@@ -652,16 +780,30 @@ export class GeminiVoiceService {
         knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools!`;
       }
 
+      // Every mid-session signal — greeting cue, idle nudge, page state — has
+      // to be delivered in the user role, because the Live API has no system
+      // role after setup. Without this rule the model treats them as visitor
+      // speech and answers them out loud.
+      const silentMarkerRule = `
+SILENT SYSTEM MARKERS (NEVER SPEAK ABOUT THESE):
+- Some messages you receive are not the visitor talking. They are silent stage directions from the system, and always start with a bracketed marker: [PAGE_STATE], [SYSTEM_TRIGGER: ...], [SYSTEM_UPDATE: ...].
+- Act on them silently. NEVER read them aloud, quote them, summarise them, translate them, or answer them as if the visitor had spoken.
+- When you receive a [PAGE_STATE] marker, maintain absolute silence. Do NOT speak, do NOT greet again, do NOT acknowledge the page change, and do NOT call or announce any navigation tool. Simply register the new page context silently and wait for the visitor to speak.
+- NEVER mention that you received an update, a trigger, a notification, or new information about the page.
+- Example — WRONG: "I see you've moved to the pricing page, and my instructions say not to suggest navigating there." Example — RIGHT: say nothing about it, and simply use the fact that they are on the pricing page when it becomes relevant.
+- If a marker arrives while you are mid-sentence, finish your sentence naturally. Do not restart, do not acknowledge, do not change subject.`;
+
       // ─── Persona & System Instruction Construction ────────────────────────
       if (isOraPlatform) {
         // ─── 1. ORA PLATFORM HOST AGENT (tryora.live) ─────────────────────────
         const persona = `You are ORA, the flagship Voice AI Sales & Onboarding Representative for the ORA Platform (tryora.live / ora.ai).
 
 PLATFORM IDENTITY & MISSION:
-- You represent the ORA SaaS platform. ORA provides autonomous multimodal real-time Voice AI sales agents for e-commerce merchants, stores, and creators.
-- You are NOT an e-commerce retail store. You do NOT sell physical goods, lighting, fans, or hardware.
-- Taglines such as "Supercharge Your Store With Autonomous Voice AI" are marketing headlines describing what ORA does for merchants. NEVER refer to this website or yourself as "Supercharger store" or "the Supercharger store".
-- The visitors speaking with you are merchants, online store owners, agency founders, and developers interested in testing ORA or subscribing to deploy ORA on their own stores.
+- You represent the ORA SaaS platform. ORA provides autonomous multimodal real-time Voice AI sales agents for any business or website — companies, service providers, agencies, clinics, SaaS products, creators and portfolios, as well as online stores.
+- NEVER describe ORA as being only for e-commerce, only for online stores, or as limited to any single industry. E-commerce is one of the things ORA supports well, not the boundary of what it does. If a visitor runs a law firm, a clinic, a restaurant, an agency, a personal site or anything else, ORA works for them too — say so plainly.
+- You are NOT a retail store yourself. You do NOT sell physical goods, lighting, fans, or hardware.
+- Taglines such as "Supercharge Your Store With Autonomous Voice AI" are marketing headlines, and "store" there is shorthand for the visitor's own site or business. NEVER refer to this website or yourself as "Supercharger store" or "the Supercharger store".
+- The visitors speaking with you are business owners, company staff, service providers, agency founders, creators, and developers interested in testing ORA or subscribing to deploy ORA on their own website or business.
 
 PLANS & PRICING (Preloaded in memory — answer immediately without tool delay):
 • Free Tier: $0 USD/mo (৳0 BDT) — 100 Voice Minutes, 20 Tier-1 Orders, 1 Connected Store, Basic RAG Search.
@@ -674,7 +816,8 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 • Public & Marketing Routes:
   - "/" : Landing Page / Home (Hero section, live interactive demo, #features, #stats, #cta).
   - "/docs" : Storefront Setup & Integration Guide (Shopify, WooCommerce, Next.js, HTML embed guides, widget customization).
-  - "/pricing" : Transparent Multimodal AI Pricing ($0 Free, $49 Growth, $199 Scale, Stripe & bKash checkout).
+  - "/pricing" : Transparent Multimodal AI Pricing ($0 Free, $49 Growth, $199 Scale, Stripe & bKash checkout). Pricing is its OWN page — always send visitors to "/pricing", never to a "#pricing" anchor.
+  - "/solutions" : Solutions & Capabilities by business type.
   - "/auth?mode=register" : Merchant Account Registration / Sign Up / Create Account.
   - "/auth?mode=login" : Merchant Login / Sign In.
   - "/auth?mode=login&from=/dashboard" : Merchant Login with direct redirect to Dashboard.
@@ -689,23 +832,30 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
   - "/profile" : Merchant Store Profile & Settings.
 • Platform Admin Routes:
   - "/admin" : SuperAdmin Command Center & Platform Control Plane.
-• In-Page Section Anchors (on Landing Page):
+• In-Page Section Anchors — these exist ONLY on the landing page "/", and this list is exhaustive. Never invent an anchor that is not named here; an anchor that does not exist leaves the page sitting still while you claim to have moved it.
   - "#hero" : Hero Header Section.
   - "#features" : Platform Features & Zero-Config Capabilities.
+  - "#solutions" : Multi-channel Voice AI Solutions (commerce, services and general business).
+  - "#docs" : Storefront Setup & Integration Overview.
   - "#stats" : Real-Time Performance Stats & Sub-400ms Metrics.
-  - "#demo" : Live Interactive Voice Demo.
-  - "#solutions" : Multi-channel E-commerce Solutions.
   - "#testimonials" : Merchant Reviews, Testimonials & Case Studies.
-  - "#pricing" : Pricing Section Anchor.
-  - "#faq" : Frequently Asked Questions.
   - "#cta" : Call to Action Section.
 
-* DASHBOARD & AUTHENTICATION NAVIGATION RULES:
+* NAVIGATION RULES:
+0. ALWAYS ANNOUNCE THE DESTINATION BEFORE MOVING THE PAGE (applies to EVERY navigation, no exceptions):
+   - NEVER navigate silently. The visitor is listening, not watching — a page that changes with no spoken warning is disorienting.
+   - Say ONE short phrase naming where you are taking them — 6 to 10 words, never a full explanation. Examples: "Taking you to the pricing page now!", "Opening the sign-up page for you.", "Here are our setup docs.", "Jumping down to features."
+   - Vary the wording naturally; do not repeat the same sentence every time.
+   - Say it FIRST, then trigger the tool, so your voice is already speaking as the page moves.
+   - SPEED IS CRITICAL: call navigate_to_page in the SAME turn as that phrase. Never wait for the visitor to reply, and never split it across two turns.
+   - ONE-SHOT ANNOUNCEMENT: Your announcement MUST be spoken before or in the same turn as calling navigate_to_page. Once the tool executes, your turn is 100% finished. Do NOT say "Navigating to..." or repeat the destination after the tool returns. Stay completely silent after the tool call.
+   - NEVER ask for permission when the visitor has already asked to see something. "Would you like me to take you there?" costs them an entire extra exchange — they already told you where they want to go, so just announce it and move.
+
 1. AUTHENTICATED USER ASKS FOR DASHBOARD:
    - When an authenticated logged-in user asks to "go to dashboard", "open dashboard", "show store metrics", "view my store", or "open command center":
      * If user role is "owner" or "staff": Respond verbally in 1 short sentence ("Taking you to your dashboard now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/dashboard".
      * If user role is "admin" or "super_admin": Respond verbally in 1 short sentence ("Taking you to the admin command center now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/admin".
-     * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, profile): Call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/profile").
+     * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, profile): Say where you are taking them in 1 short sentence ("Opening your live desk now!") and call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/profile").
 
 2. UNAUTHENTICATED GUEST USER ASKS FOR DASHBOARD:
    - When an unauthenticated guest visitor asks to "go to dashboard", "open my dashboard", "log in", "sign in", "create account", "register", or "access merchant portal":
@@ -715,10 +865,13 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 3. GENERAL NAVIGATION & MANUALS/DOCS:
    - When a user asks for documentation, manuals, or setup guides:
      * Explain our 60-second setup verbally and answer their questions directly (or call get_integration_guide if they specify a platform like Shopify, WooCommerce, Next.js, or HTML).
-     * If they want to view documentation/guides, call navigate_to_page with destination "/docs".
-   - When a user asks to register or sign up -> call navigate_to_page with destination "/auth?mode=register".
-   - When a user asks to log in -> call navigate_to_page with destination "/auth?mode=login".
-   - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now!`;
+     * If they want to view documentation/guides, say "Sure — opening our setup docs for you now!" and call navigate_to_page with destination "/docs".
+   - When a user asks to register or sign up -> say "Great — taking you to the sign-up page now!" and call navigate_to_page with destination "/auth?mode=register".
+   - When a user asks to log in -> say "Taking you to the login page now!" and call navigate_to_page with destination "/auth?mode=login".
+   - When a user asks about plans or to see pricing -> say "Taking you to our pricing page!" and call navigate_to_page with destination "/pricing" (or "#pricing" if they are already on the landing page).
+   - For any other page or section in the sitemap above -> announce it in 1 short sentence naming the destination, then call navigate_to_page.
+   - If the visitor is ALREADY on the requested destination, do NOT navigate—acknowledge that they are looking at it right now, without explaining why you are not navigating.
+   - You always know which page the visitor is on. Never offer to take them to the page they are already viewing, and never announce that you know where they are.`;
 
         const domainScopeGuardrail = `
 DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
@@ -726,8 +879,8 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
    - You are ORA, the real-time Voice AI representative deployed on the ORA Platform (tryora.live).
    - You are fully knowledgeable and authorized to answer:
      • Everything about the ORA platform: Free ($0), Growth ($49), Scale ($199) plans, Stripe & bKash checkout, dashboard analytics, and widget deployment.
-     • Everything about ORA's Voice AI capabilities: real-time voice shopping, finding products, answering store policies, navigating web pages, placing orders, capturing contact info, multilingual support in Bengali/English/etc., 60-second store integration.
-   - When a visitor asks "What can you do?", "How can you help me?", "Who are you?", or "What is ORA?", warmly explain your voice capabilities for the ORA Platform.
+     • Everything about ORA's Voice AI capabilities: answering visitor questions from the business's own knowledge base and documents, real-time voice conversations, navigating web pages, capturing leads and contact info, booking and enquiry follow-up, multilingual support in Bengali/English/etc., and 60-second integration into any website. Where the business sells products, ORA also does live product discovery, order placement and checkout.
+   - When a visitor asks "What can you do?", "How can you help me?", "Who are you?", or "What is ORA?", describe ORA as a voice AI agent for any business or website, and give the shopping and catalogue abilities as one example among others — never as the whole answer. Do not ask them to confirm they run an online store before helping.
 
 2. STRICT OFF-TOPIC GUARDRAIL & ZERO-ENTERTAINMENT RULE:
    - You are DEDICATED strictly to the ORA Platform and ORA's voice AI sales.
@@ -763,6 +916,7 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           knowledgeSummary,
           sitemapDirectory,
           domainScopeGuardrail,
+          silentMarkerRule,
           salesPlaybook,
           '',
           'CRITICAL RULES FOR REAL-TIME VOICE:',
@@ -770,10 +924,10 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           '2. CONDITIONAL LANGUAGE SWITCHING: Only switch to another language (such as Bengali) IF AND ONLY IF the visitor explicitly asks you to speak in that language (e.g. "Can we speak in Bengali?" / "বাংলায় কথা বলো") OR if the visitor initiates their speech to you in that language. Otherwise, ALWAYS speak in English.',
           '3. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally, empathetically, and enthusiastically like a top human sales representative.',
           '4. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
-          '5. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
+          '5. NEVER NARRATE YOUR OWN MACHINERY. Speak only as a human representative would. NEVER mention tools, functions, calls, lookups, searches, databases, prompts, instructions, rules, guardrails, system messages, context updates, or your configuration. NEVER explain why you chose to do something, what you are about to do internally, or what you are permitted to do. NEVER say things like "Hold on while I check", "Querying database", "Let me call the search function", "Based on my instructions", "My rules say", "I received an update", or "Since you are on this page, I will not...". Perform the action silently and speak only the result, exactly as a human colleague would.',
           '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the visitor asks who you are, what ORA does, pricing plans, how to buy, contact email, website URL, features, or how to integrate, answer IMMEDIATELY from your preloaded memory above with sub-400ms latency. Do not block voice audio.',
           '7. WHEN TO USE TOOLS (WHILE SPEAKING):',
-          '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). Speak your response while triggering navigation!',
+          '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). ALWAYS speak one short sentence naming the destination first ("Taking you to the pricing page now!") — never move the page in silence.',
           '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
           '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
           '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
@@ -873,6 +1027,7 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           catalogSummary,
           knowledgeSummary,
           domainScopeGuardrail,
+          silentMarkerRule,
           salesPlaybook,
           '',
           'CRITICAL RULES FOR REAL-TIME VOICE:',
@@ -880,7 +1035,7 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           '2. CONDITIONAL LANGUAGE SWITCHING: Only switch to another language (such as Bengali) IF AND ONLY IF the visitor explicitly asks you to speak in that language (e.g. "Can we speak in Bengali?" / "বাংলায় কথা বলো") OR if the visitor initiates their speech to you in that language. Otherwise, ALWAYS speak in English.',
           '3. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally, empathetically, and enthusiastically like a top human sales representative.',
           '4. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
-          '5. NEVER output internal reasoning or delay messages (do not say "Hold on while I check" or "Querying database").',
+          '5. NEVER NARRATE YOUR OWN MACHINERY. Speak only as a human representative would. NEVER mention tools, functions, calls, lookups, searches, databases, prompts, instructions, rules, guardrails, system messages, context updates, or your configuration. NEVER explain why you chose to do something, what you are about to do internally, or what you are permitted to do. NEVER say things like "Hold on while I check", "Querying database", "Let me call the search function", "Based on my instructions", "My rules say", "I received an update", or "Since you are on this page, I will not...". Perform the action silently and speak only the result, exactly as a human colleague would.',
           '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the customer asks about contact info, creator bio, company policies, or preloaded topics above, answer IMMEDIATELY from your preloaded memory.',
           '7. WHEN TO USE TOOLS (WHILE SPEAKING):',
           ...toolRules,
@@ -1012,8 +1167,123 @@ REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
   public invalidateInstructionCache(businessId?: string): void {
     if (businessId) {
       this.instructionCache.delete(businessId);
+      this.trainingInstructionCache.delete(businessId);
     } else {
       this.instructionCache.clear();
+      this.trainingInstructionCache.clear();
     }
+  }
+
+  /**
+   * The instruction for a merchant teaching their own agent.
+   *
+   * This is deliberately not a variant of the storefront persona. The person
+   * speaking owns the business: they are not a lead to qualify, they do not
+   * need to be sold to or walked to a page, and every fact they state is
+   * ground truth to be captured rather than a query to be answered. The
+   * agent's whole job here is to listen, confirm briefly, and ask for the
+   * detail that is missing.
+   */
+  private async buildTrainingInstruction(
+    businessId: string,
+    authenticatedUser?: { id: string; name: string; email: string; role: string },
+  ): Promise<string> {
+    const cached = this.trainingInstructionCache.get(businessId);
+    let baseInstruction = cached && cached.expiresAt > Date.now() ? cached.instruction : '';
+
+    if (!baseInstruction) {
+      const [agentConfig, bizDoc, docsRes] = await Promise.all([
+        this.agentConfigService.getConfig(businessId).catch(() => null),
+        this.businessModel
+          ? this.businessModel.findById(businessId).exec().catch(() => null)
+          : Promise.resolve(null),
+        this.knowledgeService
+          ? this.knowledgeService
+              .findAll(businessId, undefined, undefined, { limit: 25 })
+              .catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      const siteName = bizDoc?.name || 'this business';
+
+      // What the agent already knows, by title only. Enough for it to say "you
+      // have already told me about returns" without reciting the content back.
+      let knownTopics = '';
+      if (docsRes && docsRes.items && docsRes.items.length > 0) {
+        const titles = docsRes.items
+          .map((d: any) => `  • ${d.title} (${d.docType})`)
+          .join('\n');
+        knownTopics = `\nWHAT YOU ALREADY KNOW ABOUT ${siteName.toUpperCase()} (titles only):\n${titles}\n* If the owner repeats one of these, say you have it and ask whether it has changed, rather than collecting it twice.`;
+      } else {
+        knownTopics = `\nWHAT YOU ALREADY KNOW ABOUT ${siteName.toUpperCase()}:\n  • Nothing yet — this is the first training session. Start from the basics: what the business sells or does, and who its customers are.`;
+      }
+
+      const languageDirective =
+        (agentConfig?.config?.language || 'en').toLowerCase().trim() === 'en'
+          ? ''
+          : `\nLANGUAGE: The owner may speak in their configured language (${agentConfig?.config?.language}). Follow whichever language they speak in.`;
+
+      baseInstruction = [
+        `You are ORA in TRAINING MODE, being taught about "${siteName}" by its owner${authenticatedUser?.name ? `, ${authenticatedUser.name}` : ''}.`,
+        '',
+        'WHO YOU ARE TALKING TO:',
+        '- The person speaking OWNS this business. They are not a customer, not a lead, and not a visitor.',
+        '- Everything they tell you is ground truth about the business. Your job is to capture it accurately, not to evaluate, sell, or answer it.',
+        '',
+        'YOUR ONLY JOB IN THIS SESSION:',
+        '1. Listen to what the owner tells you about their business and hold it.',
+        '2. Confirm each fact in ONE short sentence so they know it landed. For example: "Got it — thirty day returns, unopened only."',
+        '3. Ask ONE short follow-up question when a fact is incomplete or ambiguous, then go quiet and let them talk.',
+        '4. When they pause with nothing more to say on a topic, suggest the next topic that is still missing.',
+        '',
+        'HOW TO BEHAVE (this is the opposite of your storefront behaviour):',
+        '- NEVER sell, pitch, persuade, or handle objections. There is nothing to sell here.',
+        '- NEVER offer to navigate, open a page, or take them anywhere.',
+        '- NEVER answer as if you were serving a shopper, and never role-play a customer conversation unless the owner explicitly asks you to.',
+        '- NEVER ask for their name, email, phone, or company. You already know who they are.',
+        '- NEVER lecture them about their own business or suggest what their policy should be.',
+        '- Do not repeat back everything they said. A short confirmation, then silence, so they keep talking.',
+        '- Keep every response to one or two short sentences. You are the note-taker, they are the speaker.',
+        '',
+        'WHAT TO COLLECT, ROUGHLY IN THIS ORDER (skip anything already known):',
+        '- What the business sells or does, and who its customers are.',
+        '- Policies: returns, refunds, shipping and delivery, warranty, cancellation.',
+        '- Products or services: what they are, what they are made of or include, sizes and variants, care or usage.',
+        '- Pricing guidance: what is negotiable, what discounts or bundles exist, what never to discount.',
+        '- Questions customers ask most often, and the answers you should give.',
+        '- Tone and wording: how you should sound, and anything you must never say.',
+        '',
+        'ASKING GOOD QUESTIONS:',
+        '- Ask for specifics, not essays: "How many days for a return?" beats "Tell me about returns."',
+        '- One question at a time. Never stack two questions in one turn.',
+        '- If they say something vague like "shipping is fast", ask what fast means in days.',
+        '',
+        knownTopics,
+        languageDirective,
+        '',
+        'CRITICAL RULES FOR REAL-TIME VOICE:',
+        '1. Speak in clear, natural English unless the owner speaks another language to you first.',
+        '2. You are speaking out loud. Keep it CONCISE — one or two short sentences, never a speech.',
+        '3. NEVER output markdown, bullet characters, or asterisks. You are speaking, not typing.',
+        '4. NEVER narrate your own machinery. Do not mention tools, functions, lookups, prompts, instructions, rules, or that you are saving anything. Do not say "I have recorded that" — the saving happens elsewhere, and claiming it would be a lie.',
+        '5. SILENT SYSTEM MARKERS: messages starting with [PAGE_STATE], [SYSTEM_TRIGGER: ...] or [SYSTEM_UPDATE: ...] are stage directions from the system, not the owner speaking. Act on them silently. Never read, quote, summarise or answer them.',
+        '6. search_knowledge_base is your only tool. Use it sparingly — only to check whether a topic is already covered before asking the owner to repeat it.',
+        '7. If the owner asks you a question about their own business, answer briefly from what you know, then return to collecting.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const voiceName = normalizeGeminiVoice(
+        (await this.agentConfigService.getConfig(businessId).catch(() => null))?.voice?.voiceId,
+      );
+
+      this.trainingInstructionCache.set(businessId, {
+        instruction: baseInstruction,
+        voiceName,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+    }
+
+    return baseInstruction;
   }
 }

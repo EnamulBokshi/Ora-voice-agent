@@ -51,3 +51,25 @@ export interface UpdateKnowledgeDocResponseData {
   document: KnowledgeDoc;
   chunksCount?: number;
 }
+
+/** One turn of a merchant's voice-feed session, sent for categorisation. */
+export interface VoiceTranscriptTurn {
+  speaker: 'merchant' | 'ora';
+  text: string;
+}
+
+export interface VoiceTranscriptSavedEntry {
+  id: string;
+  title: string;
+  docType: DocType;
+  confidence: number;
+  action: 'created' | 'updated' | 'unchanged';
+  chunksCount?: number;
+}
+
+export interface IngestVoiceTranscriptResponseData {
+  /** Whether the topics were extracted by the model or by keyword fallback. */
+  method: 'model' | 'heuristic';
+  saved: VoiceTranscriptSavedEntry[];
+  skippedTurns: number;
+}

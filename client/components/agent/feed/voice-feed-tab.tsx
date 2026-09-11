@@ -5,19 +5,26 @@ import {
   Mic,
   MicOff,
   Square,
-  Volume2,
-  RefreshCw,
-  SlidersHorizontal,
-  Zap,
-  Radio,
   Trash2,
-  Save,
   CheckCircle2,
   Loader2,
+  Sparkles,
+  PenLine,
+  AudioLines,
+  AlertTriangle,
+  FileText,
+  HelpCircle,
+  BookOpen,
+  Tag,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  ArrowRight,
+  Layers,
 } from 'lucide-react';
-import { searchRagCombinedApi } from '@/services/rag-service';
-import { createKnowledgeDocApi } from '@/services/knowledge-service';
-import { DocType } from '@/types/knowledge';
+import { ingestVoiceTranscriptApi } from '@/services/knowledge-service';
+import { DocType, IngestVoiceTranscriptResponseData } from '@/types/knowledge';
 import { cn } from '@/lib/utils';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
 import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
@@ -35,34 +42,123 @@ interface TranscriptEntry {
 }
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'thinking' | 'speaking' | 'error';
-type VoiceMode = 'gemini-live' | 'speech-ai';
+
+/**
+ * How the merchant feeds knowledge.
+ * - converse: full duplex with ORA note-taker persona.
+ * - dictate:  silent transcribe mode via Gemini Live ASR. LivingOrb animates with voice energy,
+ *             ORA stays completely silent while merchant reads without interruption.
+ */
+type VoiceMode = 'converse' | 'dictate';
+
+type TargetCategory = 'all' | DocType;
+
+interface CategoryOption {
+  id: TargetCategory;
+  label: string;
+  description: string;
+  hint: string;
+  Icon: React.ElementType;
+  badgeClass: string;
+  dotClass: string;
+}
+
+const CATEGORY_OPTIONS: CategoryOption[] = [
+  {
+    id: 'all',
+    label: 'Auto-Detect (AI)',
+    description: 'Gemini analyzes voice input and files into discrete categories automatically.',
+    hint: 'Speak freely — AI detects policies, product specs, FAQs, and pricing tactics.',
+    Icon: Sparkles,
+    badgeClass: 'border-primary/40 bg-primary/10 text-primary',
+    dotClass: 'bg-primary',
+  },
+  {
+    id: DocType.POLICY,
+    label: 'Store Policy',
+    description: 'Shipping timelines, return & refund windows, warranty, exchange rules.',
+    hint: 'Speak your return window, shipping couriers, replacement policy, or cancellation terms.',
+    Icon: ShieldCheck,
+    badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
+    dotClass: 'bg-emerald-500',
+  },
+  {
+    id: DocType.PRODUCT_MANUAL,
+    label: 'Product Details',
+    description: 'Materials, sizing guides, variations, specifications, care instructions.',
+    hint: 'Describe product dimensions, fabric composition, sizing fit, or washing instructions.',
+    Icon: Tag,
+    badgeClass: 'border-sky-500/30 bg-sky-500/10 text-sky-500',
+    dotClass: 'bg-sky-500',
+  },
+  {
+    id: DocType.FAQ,
+    label: 'Customer FAQ',
+    description: 'Common customer questions and standard authoritative answers.',
+    hint: 'State common shopper questions along with the exact answer ORA should give.',
+    Icon: HelpCircle,
+    badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-500',
+    dotClass: 'bg-amber-500',
+  },
+  {
+    id: DocType.SALES_PLAYBOOK,
+    label: 'Sales Playbook',
+    description: 'Discount thresholds, bundle offers, upselling rules, pricing guidelines.',
+    hint: 'Explain seasonal discount codes, bundle deals, price match terms, or upselling tips.',
+    Icon: BookOpen,
+    badgeClass: 'border-purple-500/30 bg-purple-500/10 text-purple-500',
+    dotClass: 'bg-purple-500',
+  },
+  {
+    id: DocType.BRAND_RULE,
+    label: 'Brand & Persona',
+    description: 'Brand story, tone of voice, prohibited terms, core brand philosophy.',
+    hint: 'Define your store personality, customer greeting style, or words ORA should never say.',
+    Icon: FileText,
+    badgeClass: 'border-rose-500/30 bg-rose-500/10 text-rose-500',
+    dotClass: 'bg-rose-500',
+  },
+];
+
+const DOC_TYPE_META: Record<string, { label: string; badgeClass: string; dotClass: string }> = {
+  [DocType.POLICY]: { label: 'Store Policy', badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500', dotClass: 'bg-emerald-500' },
+  [DocType.PRODUCT_MANUAL]: { label: 'Product Detail', badgeClass: 'border-sky-500/30 bg-sky-500/10 text-sky-500', dotClass: 'bg-sky-500' },
+  [DocType.FAQ]: { label: 'Customer FAQ', badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-500', dotClass: 'bg-amber-500' },
+  [DocType.SALES_PLAYBOOK]: { label: 'Sales Guidance', badgeClass: 'border-purple-500/30 bg-purple-500/10 text-purple-500', dotClass: 'bg-purple-500' },
+  [DocType.BRAND_RULE]: { label: 'Brand Rule', badgeClass: 'border-rose-500/30 bg-rose-500/10 text-rose-500', dotClass: 'bg-rose-500' },
+  [DocType.UPLOADED_DOC]: { label: 'Document', badgeClass: 'border-blue-500/30 bg-blue-500/10 text-blue-500', dotClass: 'bg-blue-500' },
+};
 
 export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   const [status, setStatus] = useState<SessionStatus>('idle');
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>('gemini-live');
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('converse');
+  const [selectedCategory, setSelectedCategory] = useState<TargetCategory>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [sessionId] = useState<string>(() => `ses_${Math.random().toString(36).substring(2, 9)}`);
+  const [sessionId] = useState<string>(() => `feed_${Math.random().toString(36).substring(2, 9)}`);
 
-  // Saving state for note archiving
-  const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
-  const [savedNoteSuccess, setSavedNoteSuccess] = useState<boolean>(false);
+  // Live partial text while dictating
+  const [interimText, setInterimText] = useState<string>('');
+
+  // Manual Note expansion
+  const [showManualNote, setShowManualNote] = useState<boolean>(false);
+  const [manualNoteText, setManualNoteText] = useState<string>('');
+  const [isSubmittingNote, setIsSubmittingNote] = useState<boolean>(false);
+
+  // Organising the session into categorised knowledge
+  const [isOrganising, setIsOrganising] = useState<boolean>(false);
+  const [organiseError, setOrganiseError] = useState<string | null>(null);
+  const [organiseResult, setOrganiseResult] = useState<IngestVoiceTranscriptResponseData | null>(null);
 
   // Direct Client Ref
   const directClientRef = useRef<GeminiLiveClient | null>(null);
+  const transcriptsRef = useRef<TranscriptEntry[]>([]);
 
-  // Fallback WebSockets and Audio Refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const nextPlayTimeRef = useRef<number>(0);
-  const animFrameRef = useRef<number | null>(null);
-  const recognitionRef = useRef<any>(null);
+  useEffect(() => {
+    transcriptsRef.current = transcripts;
+  }, [transcripts]);
 
   // Append log entry helper
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
@@ -70,310 +166,23 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
     setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
   }, []);
 
-  // Intelligently merge streaming text chunks
-  const mergeStreaming = (prevText: string, incomingChunk: string): string => {
-    if (!incomingChunk) return prevText;
-    if (!prevText) return incomingChunk.trimStart();
-    if (incomingChunk.startsWith(prevText)) return incomingChunk;
-    if (prevText.endsWith(incomingChunk.trim()) && incomingChunk.trim().length > 3) return prevText;
-
-    const isPunctuation = /^[,.!?:;'")\]}]/.test(incomingChunk);
-    const isContraction = /^'(s|t|re|ve|m|ll|d)\b/i.test(incomingChunk) || /^n't\b/i.test(incomingChunk);
-    const prevEndsWithSpace = prevText.endsWith(' ') || prevText.endsWith('\n');
-    const chunkStartsWithSpace = incomingChunk.startsWith(' ') || incomingChunk.startsWith('\n');
-
-    let merged = '';
-    if (isPunctuation || isContraction) {
-      merged = `${prevText.trimEnd()}${incomingChunk.trimStart()}`;
-    } else if (prevEndsWithSpace || chunkStartsWithSpace) {
-      merged = `${prevText.trimEnd()} ${incomingChunk.trimStart()}`;
-    } else {
-      const prevEndsWithPunctuation = /[.!?]$/.test(prevText);
-      const chunkStartsCapital = /^[A-Z0-9]/.test(incomingChunk);
-      merged = (prevEndsWithPunctuation || chunkStartsCapital) ? `${prevText} ${incomingChunk}` : `${prevText}${incomingChunk}`;
-    }
-    return merged.replace(/[ \t]+/g, ' ').replace(/ ([.,!?:;])/g, '$1').replace(/ \'/g, "'");
-  };
-
-  // Helper: Convert Float32 audio to Int16 Base64
-  const float32ToInt16Base64 = (float32Array: Float32Array): string => {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-    let binary = '';
-    const bytes = new Uint8Array(int16Array.buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  };
-
-  // Helper: Convert Base64 PCM24k to AudioBuffer & Play
-  const playPcm24kBase64 = useCallback((base64Pcm: string) => {
-    try {
-      if (!audioCtxRef.current) return;
-      const audioCtx = audioCtxRef.current;
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-
-      const binaryString = atob(base64Pcm);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const int16Array = new Int16Array(bytes.buffer);
-      const numSamples = int16Array.length;
-      const float32Array = new Float32Array(numSamples);
-      for (let i = 0; i < numSamples; i++) {
-        float32Array[i] = int16Array[i] / (int16Array[i] < 0 ? 32768 : 32767);
-      }
-
-      const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000);
-      audioBuffer.getChannelData(0).set(float32Array);
-
-      const sourceNode = audioCtx.createBufferSource();
-      sourceNode.buffer = audioBuffer;
-      sourceNode.connect(audioCtx.destination);
-
-      const now = audioCtx.currentTime;
-      const startTime = Math.max(now, nextPlayTimeRef.current);
-      sourceNode.start(startTime);
-      nextPlayTimeRef.current = startTime + audioBuffer.duration;
-
-      setStatus('speaking');
-      sourceNode.onended = () => {
-        if (audioCtxRef.current && audioCtxRef.current.currentTime >= nextPlayTimeRef.current - 0.05) {
-          setStatus('listening');
-        }
-      };
-    } catch (err: any) {
-      console.error('[VoiceAssistant] Playback error:', err);
-    }
-  }, []);
-
-  // Browser Speech Synthesis Assistant Mode (Fallback)
-  const speakWithBrowserTts = useCallback((text: string, onEnd?: () => void) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    setStatus('speaking');
-    utterance.onend = () => {
-      setStatus('listening');
-      if (onEnd) onEnd();
-    };
-    window.speechSynthesis.speak(utterance);
-  }, []);
-
-  // Handle Socket message packet decoding
-  const handleSocketMessage = useCallback((event: MessageEvent) => {
-    const rawData = event.data;
-    if (typeof rawData !== 'string') return;
-
-    if (rawData.startsWith('0')) {
-      wsRef.current?.send('40/voice,');
-      return;
-    }
-
-    if (rawData.startsWith('40/voice,')) {
-      setStatus('connected');
-      addTranscript('system', 'Connected to ORA Voice Stream. Initializing session...');
-      const startPayload = JSON.stringify([
-        'start-voice-session',
-        { publishableKey, sessionId },
-      ]);
-      wsRef.current?.send(`42/voice,${startPayload}`);
-      return;
-    }
-
-    if (rawData.startsWith('42/voice,')) {
-      try {
-        const jsonStr = rawData.substring('42/voice,'.length);
-        const [eventName, payload] = JSON.parse(jsonStr);
-
-        if (eventName === 'voice-session-started') {
-          setStatus('listening');
-          addTranscript('system', 'ORA Voice Assistant active. Speak into your microphone.');
-        } else if (eventName === 'audio-stream') {
-          if (payload?.audio) {
-            playPcm24kBase64(payload.audio);
-          }
-        } else if (eventName === 'text-stream') {
-          if (payload?.text) {
-            setTranscripts((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.sender === 'agent') {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, text: mergeStreaming(last.text, payload.text) },
-                ];
-              }
-              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              return [...prev, { id: Math.random().toString(), sender: 'agent', text: payload.text.trimStart(), timestamp: time }];
-            });
-          }
-        } else if (eventName === 'user-text-stream') {
-          if (payload?.text) {
-            setTranscripts((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.sender === 'user') {
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, text: mergeStreaming(last.text, payload.text) },
-                ];
-              }
-              const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              return [...prev, { id: Math.random().toString(), sender: 'user', text: payload.text.trimStart(), timestamp: time }];
-            });
-          }
-        } else if (eventName === 'voice-error') {
-          const msg = payload?.message || 'Voice connection error';
-          setErrorMessage(msg);
-          setStatus('error');
-          addTranscript('system', `Error: ${msg}`);
-
-          // Automatic fallback if bidi streaming is unsupported on current key
-          if (msg.includes('code: 1008') || msg.includes('not supported for bidiGenerateContent')) {
-            addTranscript('system', 'Switched to interactive voice speech mode. Click microphone to talk!');
-            setVoiceMode('speech-ai');
-          }
-        } else if (eventName === 'voice-session-ended') {
-          setStatus('idle');
-          addTranscript('system', 'Voice session ended.');
-        }
-      } catch (err) {
-        console.error('[VoiceAssistant] Failed to parse socket message:', err);
-      }
-    }
-  }, [publishableKey, sessionId, addTranscript, playPcm24kBase64]);
-
   // Clean up recording and connections
   const stopSession = useCallback(() => {
     if (directClientRef.current) {
       directClientRef.current.stop();
       directClientRef.current = null;
     }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      recognitionRef.current = null;
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (micSourceRef.current) {
-      micSourceRef.current.disconnect();
-      micSourceRef.current = null;
-    }
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach((track) => track.stop());
-      micStreamRef.current = null;
-    }
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-    if (wsRef.current) {
-      try {
-        wsRef.current.send('42/voice,["stop-voice-session",{}]');
-        wsRef.current.close();
-      } catch {}
-      wsRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      try {
-        audioCtxRef.current.close();
-      } catch {}
-      audioCtxRef.current = null;
-    }
+    setInterimText('');
     setStatus('idle');
     setAudioLevel(0);
   }, []);
 
-  // Start Browser Speech Recognition Assistant Mode
-  const startBrowserVoiceAssistant = async () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setErrorMessage('Browser speech recognition not supported. Please use Chrome or Edge.');
-      setStatus('error');
-      return;
-    }
-
-    try {
-      setErrorMessage(null);
-      setStatus('listening');
-      addTranscript('system', 'Interactive Voice Assistant active. Speak your query...');
-
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = async (event: any) => {
-        const lastIdx = event.results.length - 1;
-        const speechText = event.results[lastIdx][0].transcript;
-        if (!speechText.trim()) return;
-
-        addTranscript('user', speechText);
-        setStatus('speaking');
-
-        try {
-          // Perform RAG search for store product & policy info
-          const ragResult = await searchRagCombinedApi({ query: speechText, limit: 3 });
-          let answerText = "I found matching information for you in the store database.";
-
-          if (ragResult.products.length > 0) {
-            const p = ragResult.products[0];
-            const pTitle = p.metadata?.title || p.text;
-            const pPrice = p.metadata?.price ? `$${p.metadata.price}` : '';
-            answerText = `We have ${pTitle} ${pPrice ? `priced at ${pPrice}` : ''}.`;
-          } else if (ragResult.knowledge.length > 0) {
-            answerText = ragResult.knowledge[0].text;
-          } else {
-            answerText = `I heard your query: "${speechText}". ORA is ready to assist shoppers with store catalog, shipping, and returns.`;
-          }
-
-          addTranscript('agent', answerText);
-          speakWithBrowserTts(answerText);
-        } catch (err: any) {
-          console.error('[VoiceAssistant] Search error:', err);
-          addTranscript('agent', `I heard: "${speechText}".`);
-          speakWithBrowserTts(`I heard: "${speechText}".`);
-        }
-      };
-
-      recognition.onerror = (err: any) => {
-        console.error('[VoiceAssistant] Speech recognition error:', err);
-        if (err.error !== 'no-speech') {
-          addTranscript('system', `Notice: ${err.error}`);
-        }
-      };
-
-      recognition.onend = () => {
-        if (status !== 'idle' && recognitionRef.current) {
-          try { recognition.start(); } catch {}
-        }
-      };
-
-      recognition.start();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to start microphone speech recognition.');
-      setStatus('error');
-    }
-  };
-
-  // Start Real-time Direct Gemini Live Voice Stream Session
-  const startGeminiLiveSession = async () => {
+  /**
+   * Start Live Voice Session via GeminiLiveClient
+   * In 'converse' mode: sessionMode='training', silentMode=false
+   * In 'dictate' mode: sessionMode='training', silentMode=true (ASR transcribes, LivingOrb pulses, ORA is silent)
+   */
+  const startVoiceSession = async (mode: VoiceMode = voiceMode) => {
     try {
       if (!publishableKey) {
         setErrorMessage('Store publishable key is loading. Please try again in a second.');
@@ -384,16 +193,25 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
       stopSession();
       setErrorMessage(null);
       setStatus('connecting');
+      setOrganiseResult(null);
+      setOrganiseError(null);
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-      const keyToUse = publishableKey;
+      const isSilent = mode === 'dictate';
 
       const client = new GeminiLiveClient({
-        publishableKey: keyToUse,
+        publishableKey,
         sessionId,
         authToken: token || undefined,
+        sessionMode: 'training',
+        silentMode: isSilent,
         onStatusChange: (newStatus) => setStatus(newStatus),
-        onTranscript: (sender, text) => addTranscript(sender, text),
+        onTranscript: (sender, text) => {
+          if (sender === 'user') {
+            setInterimText('');
+          }
+          addTranscript(sender, text);
+        },
         onAudioLevel: (level) => setAudioLevel(level),
         onError: (err) => {
           setErrorMessage(err);
@@ -403,50 +221,86 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
       directClientRef.current = client;
       await client.start();
+
+      if (isSilent) {
+        addTranscript('system', 'Silent transcribe mode active. Speak naturally — ORA stays silent and streams your words.');
+      } else {
+        addTranscript('system', 'ORA Learning Assistant connected. Tell ORA about your store knowledge.');
+      }
     } catch (err: any) {
-      console.error('[VoiceAssistant] Direct session setup error:', err);
-      setErrorMessage(err.message || 'Direct voice stream failed to initialize.');
+      console.error('[VoiceFeedTab] Session setup error:', err);
+      setErrorMessage(err.message || 'Voice stream failed to initialize. Please check microphone permissions.');
       setStatus('error');
     }
   };
 
+  /**
+   * Hand the session turns to the backend to split by topic and file into categories.
+   */
+  const organiseIntoKnowledge = useCallback(async (customTurns?: { speaker: 'merchant' | 'ora'; text: string }[]) => {
+    const turns = customTurns ?? transcriptsRef.current
+      .filter((t) => t.sender === 'user' || t.sender === 'agent')
+      .map((t) => ({
+        speaker: (t.sender === 'user' ? 'merchant' : 'ora') as 'merchant' | 'ora',
+        text: t.text,
+      }));
+
+    if (!turns.some((t) => t.speaker === 'merchant' && t.text.trim())) return;
+
+    setIsOrganising(true);
+    setOrganiseError(null);
+    try {
+      const result = await ingestVoiceTranscriptApi({
+        turns,
+        sessionId,
+        targetCategory: selectedCategory !== 'all' ? selectedCategory : undefined,
+      });
+      setOrganiseResult(result);
+      if (result.saved.length > 0 && onFed) {
+        onFed();
+      }
+    } catch (err: any) {
+      console.error('Failed to organise voice session into knowledge:', err);
+      setOrganiseError(
+        err?.message || 'Could not file this session into the knowledge base. Please try again.',
+      );
+    } finally {
+      setIsOrganising(false);
+    }
+  }, [sessionId, selectedCategory, onFed]);
+
+  /**
+   * Ending a session files it automatically.
+   */
+  const stopAndOrganise = useCallback(() => {
+    stopSession();
+    void organiseIntoKnowledge();
+  }, [stopSession, organiseIntoKnowledge]);
+
   const handleToggleVoice = () => {
     if (status === 'connecting') return;
     if (status === 'idle' || status === 'error') {
-      if (voiceMode === 'gemini-live') {
-        startGeminiLiveSession();
-      } else {
-        startBrowserVoiceAssistant();
-      }
+      startVoiceSession(voiceMode);
     } else {
-      stopSession();
+      stopAndOrganise();
     }
   };
 
-  // Save the current transcript as a store knowledge note
-  const handleSaveToKnowledge = async () => {
-    const userMessages = transcripts
-      .filter((t) => t.sender === 'user' || t.sender === 'agent')
-      .map((t) => `${t.sender === 'user' ? 'Merchant' : 'ORA'}: ${t.text}`)
-      .join('\n');
+  const handleManualNoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualNoteText.trim() || isSubmittingNote) return;
 
-    if (!userMessages.trim()) return;
-
-    setIsSavingNote(true);
+    setIsSubmittingNote(true);
     try {
-      await createKnowledgeDocApi({
-        title: `Voice Note - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        docType: DocType.BRAND_RULE,
-        content: userMessages,
-        metadata: { source: 'voice_feed' },
-      });
-      setSavedNoteSuccess(true);
-      setTimeout(() => setSavedNoteSuccess(false), 3000);
-      if (onFed) onFed();
-    } catch (err) {
-      console.error('Failed to save voice note to knowledge base:', err);
+      const noteTurn = { speaker: 'merchant' as const, text: manualNoteText.trim() };
+      addTranscript('user', manualNoteText.trim());
+      await organiseIntoKnowledge([noteTurn]);
+      setManualNoteText('');
+      setShowManualNote(false);
+    } catch (err: any) {
+      setOrganiseError(err?.message || 'Failed to file note.');
     } finally {
-      setIsSavingNote(false);
+      setIsSubmittingNote(false);
     }
   };
 
@@ -457,14 +311,74 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   }, [stopSession]);
 
   const isActive = status === 'listening' || status === 'speaking' || status === 'connecting';
+  const activeCategoryMeta = CATEGORY_OPTIONS.find((c) => c.id === selectedCategory) || CATEGORY_OPTIONS[0];
 
   return (
-    <div className="space-y-6">
-      {/* ── Mic orb Card ── */}
+    <div className="space-y-5">
+      {/* ── 1. Target Knowledge Category Selector ── */}
+      <div className="rounded-md border border-border/60 bg-surface-lowest/40 p-4">
+        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <Layers size={14} className="text-foreground dark:text-[#C8F031]" />
+            <span className="text-[12.5px] font-semibold text-foreground">
+              Target Knowledge Category
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-muted-foreground">
+            {selectedCategory === 'all' ? 'Auto-Classification Active' : 'Target Locked'}
+          </span>
+        </div>
+
+        {/* Category Pills */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {CATEGORY_OPTIONS.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            const CatIcon = cat.Icon;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  'flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-all border text-xs cursor-pointer',
+                  isSelected
+                    ? 'bg-surface-high border-foreground/60 dark:border-[#C8F031]/80 text-foreground font-semibold shadow-xs'
+                    : 'bg-surface-low/50 border-border/40 text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors',
+                    isSelected ? 'bg-foreground/10 dark:bg-[#C8F031]/20 text-foreground dark:text-[#C8F031]' : 'bg-surface-container text-muted-foreground',
+                  )}
+                >
+                  <CatIcon size={12} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11.5px] leading-tight truncate">{cat.label}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Category Guidance Tip */}
+        <div className="mt-3 pt-2.5 border-t border-border/30 flex items-start gap-2 text-[11.5px] text-muted-foreground leading-relaxed">
+          <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', activeCategoryMeta.dotClass)} />
+          <p>
+            <strong className="text-foreground">{activeCategoryMeta.label}:</strong> {activeCategoryMeta.hint}
+          </p>
+        </div>
+      </div>
+
+      {/* ── 2. Voice Feed Orb Card ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-6 relative flex flex-col items-center justify-center text-center">
-        {/* Ambient glow — very subtle */}
+        {/* Ambient glow */}
         <div
-          className={`absolute inset-0 pointer-events-none transition-opacity duration-700 rounded-md ${isActive ? 'opacity-10' : 'opacity-0'}`}
+          className={cn(
+            'absolute inset-0 pointer-events-none transition-opacity duration-700 rounded-md',
+            isActive ? 'opacity-10' : 'opacity-0',
+          )}
           style={{
             background:
               status === 'speaking'
@@ -473,71 +387,165 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
           }}
         />
 
-        {/* Central Living Crystal Fluid Wave Orb */}
-        <div className="relative flex flex-col items-center justify-center my-4">
+        {/* Mode Selector: Converse vs Dictate */}
+        <div className="relative z-10 inline-flex items-center gap-1 p-1 rounded-md border border-border/60 bg-surface-lowest/70 shadow-xs mb-2">
+          {([
+            {
+              id: 'converse' as VoiceMode,
+              label: 'Converse (AI Note-Taker)',
+              Icon: AudioLines,
+              hint: 'ORA listens and confirms facts with brief spoken acknowledgments',
+            },
+            {
+              id: 'dictate' as VoiceMode,
+              label: 'Transcribe / Dictate (Silent)',
+              Icon: PenLine,
+              hint: 'Full speech recognition with ORA completely silent — perfect for reading out long policies',
+            },
+          ]).map(({ id, label, Icon, hint }) => (
+            <button
+              key={id}
+              type="button"
+              title={hint}
+              disabled={isActive}
+              onClick={() => {
+                setVoiceMode(id);
+                if (!isActive) {
+                  stopSession();
+                }
+              }}
+              className={cn(
+                'px-3 py-1.5 rounded-[5px] text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
+                voiceMode === id
+                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon size={12} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Central Living Crystal Wave Orb */}
+        <div className="relative flex flex-col items-center justify-center my-3">
           <LivingOrb
-            size={110}
+            size={115}
             voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
             energyLevel={audioLevel}
             onClick={handleToggleVoice}
             ariaLabel={isActive ? 'Stop ORA Voice Assistant' : 'Start ORA Voice Assistant'}
-            title={isActive ? 'Click to stop voice session' : 'Click to talk to ORA'}
+            title={isActive ? 'Click to stop and organize into knowledge' : 'Click to start voice input'}
           />
         </div>
 
-        {/* Status text */}
-        <div className="relative z-10 mt-2">
+        {/* Dynamic Status Display */}
+        <div className="relative z-10 mt-1 max-w-md">
           <p className="text-[12.5px] font-medium text-muted-foreground font-mono">
             {status === 'speaking'
-              ? 'Responding...'
+              ? 'ORA speaking...'
               : status === 'listening'
-              ? 'Listening...'
+              ? voiceMode === 'dictate'
+                ? 'Transcribing your voice — ORA is staying quiet'
+                : 'Listening... speak about your store knowledge'
               : status === 'connecting'
-              ? 'Connecting...'
-              : 'Click the microphone to start training'}
+              ? 'Connecting to live voice stream...'
+              : voiceMode === 'dictate'
+              ? 'Click the orb and read out store policies or product info'
+              : 'Click the orb to start teaching ORA'}
           </p>
+          {interimText && (
+            <p className="mt-1.5 text-[12px] text-muted-foreground/80 italic animate-pulse">
+              "{interimText}"
+            </p>
+          )}
         </div>
 
-        {/* Assistant Controls Bar */}
+        {/* Live Controls */}
         {isActive && (
-          <div className="relative z-10 mt-5 flex items-center gap-3">
-            <button
-              onClick={() => {
-                const nextMuted = !isMuted;
-                setIsMuted(nextMuted);
-                if (directClientRef.current) {
-                  directClientRef.current.setMuted(nextMuted);
-                }
-              }}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer',
-                isMuted
-                  ? 'bg-error/10 border-error/30 text-error'
-                  : 'bg-surface-low border-border text-foreground hover:bg-surface-high',
-              )}
-            >
-              {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
-              {isMuted ? 'Muted' : 'Mute Mic'}
-            </button>
+          <div className="relative z-10 mt-4 flex items-center gap-3">
+            {voiceMode === 'converse' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const nextMuted = !isMuted;
+                  setIsMuted(nextMuted);
+                  if (directClientRef.current) {
+                    directClientRef.current.setMuted(nextMuted);
+                  }
+                }}
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer',
+                  isMuted
+                    ? 'bg-error/10 border-error/30 text-error'
+                    : 'bg-surface-low border-border text-foreground hover:bg-surface-high',
+                )}
+              >
+                {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
+                {isMuted ? 'Muted' : 'Mute Mic'}
+              </button>
+            )}
 
             <button
-              onClick={stopSession}
+              type="button"
+              onClick={stopAndOrganise}
+              title="End the session and file what you taught into the knowledge base"
               className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-error/10 hover:text-error border border-border transition-colors flex items-center gap-1.5 text-muted-foreground cursor-pointer"
             >
               <Square size={12} />
-              Stop Call
+              Stop &amp; File
             </button>
           </div>
         )}
 
         {errorMessage && (
-          <div className="relative z-10 mt-4 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md">
+          <div className="relative z-10 mt-3 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md">
             {errorMessage}
           </div>
         )}
       </div>
 
-      {/* ── Transcript Card ── */}
+      {/* ── 3. Quick Note / Manual Paste (Optional alternative) ── */}
+      <div className="rounded-md border border-border/50 bg-surface-lowest/30 p-3.5">
+        <button
+          type="button"
+          onClick={() => setShowManualNote((prev) => !prev)}
+          className="w-full flex items-center justify-between text-left text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <FileText size={13} className="text-foreground" />
+            <span>Have written notes or copied text? Add or paste directly</span>
+          </div>
+          {showManualNote ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+
+        {showManualNote && (
+          <form onSubmit={handleManualNoteSubmit} className="mt-3 space-y-2 pt-2 border-t border-border/40">
+            <textarea
+              value={manualNoteText}
+              onChange={(e) => setManualNoteText(e.target.value)}
+              placeholder={`Paste or type store info here to index under ${activeCategoryMeta.label}...\ne.g. Orders placed before 2 PM ship same day via Express Delivery. International shipping takes 5-7 business days.`}
+              rows={3}
+              className="w-full p-2.5 text-xs rounded-md bg-surface-low border border-border/60 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:ring-1 focus:ring-primary leading-relaxed resize-y font-mono"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">
+                Will be indexed into: <strong className="text-foreground">{activeCategoryMeta.label}</strong>
+              </span>
+              <button
+                type="submit"
+                disabled={!manualNoteText.trim() || isSubmittingNote}
+                className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSubmittingNote ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                <span>Index Note</span>
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* ── 4. Training Transcript Log ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-5">
         <div className="flex items-center justify-between pb-3 border-b border-border/40">
           <div className="flex items-center gap-2">
@@ -553,23 +561,26 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
           <div className="flex items-center gap-2">
             {transcripts.some((t) => t.sender === 'user' || t.sender === 'agent') && (
               <button
-                onClick={handleSaveToKnowledge}
-                disabled={isSavingNote}
+                type="button"
+                onClick={() => void organiseIntoKnowledge()}
+                disabled={isOrganising}
+                title="Split this session into topics and file each under its own category"
                 className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                {isSavingNote ? (
+                {isOrganising ? (
                   <Loader2 size={11} className="animate-spin" />
-                ) : savedNoteSuccess ? (
+                ) : organiseResult ? (
                   <CheckCircle2 size={11} />
                 ) : (
-                  <Save size={11} />
+                  <Sparkles size={11} />
                 )}
-                <span>{savedNoteSuccess ? 'Saved to Knowledge' : 'Save as Knowledge Note'}</span>
+                <span>{isOrganising ? 'Organising…' : 'Organise into knowledge'}</span>
               </button>
             )}
 
             {transcripts.length > 0 && (
               <button
+                type="button"
                 onClick={() => setTranscripts([])}
                 className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors px-2 py-1 cursor-pointer font-mono"
               >
@@ -581,12 +592,12 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
         </div>
 
         {/* Transcript scroll area */}
-        <div className="space-y-3 min-h-[180px] max-h-[360px] overflow-y-auto pt-3.5 no-scrollbar">
+        <div className="space-y-3 min-h-[160px] max-h-[320px] overflow-y-auto pt-3.5 no-scrollbar">
           {transcripts.length === 0 ? (
-            <div className="py-10 text-center text-xs text-muted-foreground select-none">
-              <p className="font-medium text-foreground">No conversation yet.</p>
+            <div className="py-8 text-center text-xs text-muted-foreground select-none">
+              <p className="font-medium text-foreground">No voice input captured yet.</p>
               <p className="text-[11px] mt-1 text-muted-foreground/70">
-                Click the microphone icon above to speak with ORA and teach it store knowledge.
+                Click the Living Orb above to speak with ORA or transcribe store knowledge.
               </p>
             </div>
           ) : (
@@ -613,7 +624,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 >
                   <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
                     <span className={cn('font-medium', isUser ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
-                      {isUser ? 'You' : 'ORA'}
+                      {isUser ? 'You (Merchant)' : 'ORA (Learning Assistant)'}
                     </span>
                     <span className="text-muted-foreground/60">·</span>
                     <span className="tabular-nums">{entry.timestamp}</span>
@@ -635,6 +646,112 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
           )}
         </div>
       </div>
+
+      {/* ── 5. What was filed into Knowledge Base ── */}
+      {(organiseResult || organiseError) && (
+        <div className="rounded-md border border-border/50 bg-transparent p-5">
+          <div className="flex items-center justify-between pb-3 border-b border-border/40">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <span className="text-[13px] font-semibold text-foreground font-serif">
+                Organised into Knowledge Base
+              </span>
+            </div>
+            {organiseResult?.saved && organiseResult.saved.length > 0 && (
+              <span className="text-[11px] font-mono text-emerald-500 font-semibold flex items-center gap-1">
+                <CheckCircle2 size={12} /> {organiseResult.saved.length} {organiseResult.saved.length === 1 ? 'entry indexed' : 'entries indexed'}
+              </span>
+            )}
+          </div>
+
+          {organiseError ? (
+            <div className="mt-3 flex items-start gap-2 text-[12px] text-error">
+              <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
+              <p>{organiseError}</p>
+            </div>
+          ) : organiseResult && organiseResult.saved.length === 0 ? (
+            <div className="mt-3 p-3 rounded-md bg-surface-low/50 border border-border/40 text-[12px] text-muted-foreground">
+              <p className="font-medium text-foreground">No durable store knowledge detected in this session.</p>
+              <p className="mt-1 text-[11.5px] leading-relaxed">
+                Try stating actionable facts directly: return windows, refund procedures, shipping carriers, sizing charts, or pricing policies.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2.5">
+              {organiseResult?.saved.map((entry) => {
+                const meta = DOC_TYPE_META[entry.docType] || {
+                  label: entry.docType,
+                  badgeClass: 'border-border bg-surface-high text-foreground',
+                  dotClass: 'bg-foreground',
+                };
+
+                return (
+                  <div
+                    key={entry.id}
+                    className="p-3 rounded-md border border-border/50 bg-surface-lowest/40 space-y-1.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-mono font-medium border',
+                              meta.badgeClass,
+                            )}
+                          >
+                            <span className={cn('w-1.5 h-1.5 rounded-full', meta.dotClass)} />
+                            {meta.label}
+                          </span>
+
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            {entry.action === 'created' && (
+                              <span className="text-emerald-500 font-semibold">• New Entry</span>
+                            )}
+                            {entry.action === 'updated' && (
+                              <span className="text-sky-500 font-semibold">• Updated Existing</span>
+                            )}
+                            {entry.action === 'unchanged' && (
+                              <span className="text-muted-foreground font-semibold">• Already Up to Date</span>
+                            )}
+                          </span>
+                        </div>
+
+                        <p className="text-[13px] font-semibold text-foreground">
+                          {entry.title}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span className="text-[10.5px] font-mono text-muted-foreground/80">
+                          {Math.round(entry.confidence * 100)}% confidence
+                        </span>
+                      </div>
+                    </div>
+
+                    {entry.chunksCount && (
+                      <p className="text-[11px] font-mono text-muted-foreground/70">
+                        Generated {entry.chunksCount} vectorized RAG retrieval {entry.chunksCount === 1 ? 'chunk' : 'chunks'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="pt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Method:{' '}
+                  <strong className="text-foreground">
+                    {organiseResult?.method === 'model' ? 'AI Semantic Structuring (Gemini)' : 'Semantic Heuristic'}
+                  </strong>
+                </span>
+                <span className="text-muted-foreground/80">
+                  Synced directly with Knowledge Base
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

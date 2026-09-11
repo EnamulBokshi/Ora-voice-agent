@@ -9,6 +9,11 @@ import { DomainException } from '../common/exceptions/domain.exception';
 import { VectorStoreService } from '../vector/vector-store.service';
 import { EntityType } from '../vector/interfaces/vector-entry.interface';
 import { RedisService } from '../common/redis/redis.service';
+import { IngestVoiceTranscriptDto } from './dto/ingest-voice-transcript.dto';
+import {
+  StructuredKnowledgeEntry,
+  VoiceTranscriptStructurerService,
+} from './voice-transcript-structurer.service';
 
 @Injectable()
 export class KnowledgeService {
@@ -24,6 +29,8 @@ export class KnowledgeService {
     private readonly vectorStoreService?: VectorStoreService,
     @Optional()
     private readonly redisService?: RedisService,
+    @Optional()
+    private readonly voiceStructurer?: VoiceTranscriptStructurerService,
   ) {}
 
   private invalidateRagCache(businessId: string): void {
@@ -523,5 +530,142 @@ export class KnowledgeService {
 
     return chunks;
   }
-}
 
+  /**
+   * Turn a merchant's spoken voice-feed session into categorised knowledge.
+   *
+   * The transcript is segmented by topic and each topic is filed under its own
+   * DocType, rather than the whole session being stored as one note. A note
+   * spanning returns, sizing and pricing produces chunks that match every
+   * query weakly and none of them well, which is the failure mode this avoids.
+   *
+   * Re-teaching the same topic updates the existing document instead of
+   * creating a near-duplicate, so a merchant can correct themselves by simply
+   * saying it again.
+   */
+  async ingestVoiceTranscript(
+    businessId: string,
+    dto: IngestVoiceTranscriptDto,
+  ): Promise<{
+    method: 'model' | 'heuristic';
+    saved: {
+      id: string;
+      title: string;
+      docType: DocType;
+      confidence: number;
+      action: 'created' | 'updated' | 'unchanged';
+    }[];
+    skippedTurns: number;
+  }> {
+    if (!this.voiceStructurer) {
+      throw new DomainException(
+        'VOICE_STRUCTURING_UNAVAILABLE',
+        'Voice transcript structuring is not available on this deployment.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    const { entries, method } = await this.voiceStructurer.structure(
+      dto.turns,
+      dto.targetCategory,
+    );
+
+    if (entries.length === 0) {
+      return { method, saved: [], skippedTurns: dto.turns.length };
+    }
+
+    const saved: {
+      id: string;
+      title: string;
+      docType: DocType;
+      confidence: number;
+      action: 'created' | 'updated' | 'unchanged';
+    }[] = [];
+
+    for (const entry of entries) {
+      try {
+        saved.push(await this.persistVoiceEntry(businessId, entry, dto.sessionId));
+      } catch (err: any) {
+        this.logger.warn(
+          `[KnowledgeService] Could not save voice entry '${entry.title}': ${err.message}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `[KnowledgeService] Voice feed for business ${businessId}: ${saved.length} entries via ${method}.`,
+    );
+
+    return { method, saved, skippedTurns: 0 };
+  }
+
+  /** Create or update the one document that owns this topic for the tenant. */
+  private async persistVoiceEntry(
+    businessId: string,
+    entry: StructuredKnowledgeEntry,
+    sessionId?: string,
+  ): Promise<{
+    id: string;
+    title: string;
+    docType: DocType;
+    confidence: number;
+    action: 'created' | 'updated' | 'unchanged';
+  }> {
+    const existing = await this.knowledgeBaseModel
+      .findOne({
+        businessId: businessId as any,
+        docType: entry.docType,
+        title: entry.title,
+      })
+      .exec();
+
+    const metadata = {
+      source: 'voice_feed',
+      extraction: entry.tags.includes('uncategorised-review') ? 'heuristic' : 'model',
+      confidence: entry.confidence,
+      tags: entry.tags,
+      ...(sessionId ? { sessionId } : {}),
+      lastFedAt: new Date().toISOString(),
+    };
+
+    if (existing) {
+      if (existing.content.trim() === entry.content.trim()) {
+        return {
+          id: existing._id.toString(),
+          title: existing.title,
+          docType: entry.docType,
+          confidence: entry.confidence,
+          action: 'unchanged',
+        };
+      }
+
+      const updated = await this.update(businessId, existing._id.toString(), {
+        content: entry.content,
+        metadata: { ...existing.metadata, ...metadata },
+      });
+
+      return {
+        id: updated.document._id.toString(),
+        title: updated.document.title,
+        docType: entry.docType,
+        confidence: entry.confidence,
+        action: 'updated',
+      };
+    }
+
+    const created = await this.create(businessId, {
+      docType: entry.docType,
+      title: entry.title,
+      content: entry.content,
+      metadata,
+    });
+
+    return {
+      id: created.document._id.toString(),
+      title: created.document.title,
+      docType: entry.docType,
+      confidence: entry.confidence,
+      action: 'created',
+    };
+  }
+}

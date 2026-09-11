@@ -80,7 +80,7 @@ export function Sidebar({
 
   const rawView = searchParams.get('view');
   const activeAgentView: AgentView =
-    rawView && ['get-started', 'feed', 'knowledge', 'catalog', 'prompt'].includes(rawView)
+    rawView && ['get-started', 'feed', 'test', 'knowledge', 'catalog', 'prompt'].includes(rawView)
       ? (rawView as AgentView)
       : 'get-started';
 
@@ -643,6 +643,13 @@ export function Sidebar({
                         className="flex items-center justify-between px-2 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground hover:bg-surface-high/50 transition-colors"
                       >
                         <span>Voice Feed</span>
+                        <ChevronRight size={11} className="opacity-40" />
+                      </Link>
+                      <Link
+                        href="/agent?role=voice&view=test"
+                        className="flex items-center justify-between px-2 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground hover:bg-surface-high/50 transition-colors"
+                      >
+                        <span>Test ORA</span>
                         <ChevronRight size={11} className="opacity-40" />
                       </Link>
                       <Link

@@ -494,7 +494,10 @@ useHead({
       content: (
         <>
           <p className="lp-docs-p">
-            Set the default spoken language using the <code>data-language</code> attribute:
+            Language is configured per store from your dashboard under{' '}
+            <strong>Agent Settings</strong> — there is no script attribute for it. ORA
+            also follows the shopper: if someone speaks to it in Bengali, it replies in
+            Bengali for the rest of that conversation. Supported languages:
           </p>
 
           <div className="lp-docs-table-wrapper">

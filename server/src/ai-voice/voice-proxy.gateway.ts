@@ -41,6 +41,35 @@ interface ProxySession {
   isGreetingPending: boolean;
   greetingDispatchedAt: number;
   isClosingOnIdle?: boolean;
+  /** True from the first audio frame of a turn until Gemini reports turnComplete. */
+  isAgentSpeaking: boolean;
+  /**
+   * True immediately after navigate_to_page executes until turnComplete.
+   * Suppresses redundant post-navigation speech (e.g. "Navigating to...")
+   * because the spoken announcement was already delivered before the tool call.
+   */
+  suppressPostNavSpeech: boolean;
+  /**
+   * A browsing-context update that arrived while ORA was mid-sentence. Sending
+   * it straight through would reach Gemini as a user turn and cancel the
+   * in-flight audio, so it waits here and is flushed on turn completion. Only
+   * the newest one is kept — the visitor's current page is all that matters.
+   */
+  pendingContextUpdate: ClientBrowsingContext | null;
+  /** Safety net so a held update is not lost if turnComplete never arrives. */
+  pendingContextTimer: NodeJS.Timeout | null;
+  userId?: string;
+  authenticatedUser?: { id: string; name: string; email: string; role: string; businessId?: string };
+  sessionMode?: 'customer' | 'training';
+  silentMode?: boolean;
+}
+
+/** Where the visitor is on the host site, as reported by the widget. */
+interface ClientBrowsingContext {
+  currentPath?: string;
+  title?: string;
+  history?: string[];
+  activeSection?: string;
 }
 
 @Injectable()
@@ -79,6 +108,83 @@ export class VoiceProxyGateway {
       this.businessCache.clear();
       this.userCache.clear();
       this.logger.log('[VoiceProxyGateway] All cached business and user keys cleared.');
+    }
+  }
+
+  /**
+   * Invalidate in-memory cached user mapping.
+   * If userId is provided, that user's cache is purged and any active sessions are updated in real-time.
+   * If not, all cached users are cleared.
+   */
+  invalidateUserCache(userId?: string, newName?: string): void {
+    if (userId) {
+      this.userCache.delete(userId);
+      this.logger.log(`[VoiceProxyGateway] In-memory cache invalidated for user: ${userId}`);
+
+      // Push real-time update to any active sessions belonging to this user
+      for (const [sessionId, session] of this.sessions.entries()) {
+        if (session.userId === userId || session.authenticatedUser?.id === userId) {
+          if (newName) {
+            if (session.authenticatedUser) {
+              session.authenticatedUser.name = newName;
+            }
+
+            // 1. Update Redis session customer entry so subsequent turns/tools read the new name
+            try {
+              const redis = this.redisService.getClient();
+              redis
+                .get(`session:${sessionId}:customer`)
+                .then((raw) => {
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    parsed.name = newName;
+                    return redis.set(`session:${sessionId}:customer`, JSON.stringify(parsed), 'EX', 86400);
+                  }
+                })
+                .catch(() => {});
+            } catch {}
+
+            // 2. Notify Gemini Live model without triggering speech
+            try {
+              session.sessionControls?.sendContextUpdate?.({
+                title: `Visitor profile updated: Name is now "${newName}". Call the user "${newName}".`,
+              });
+            } catch {}
+
+            // 3. Notify client WebSocket that profile has been updated
+            try {
+              if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+                session.clientWs.send(
+                  JSON.stringify({
+                    type: 'user_updated',
+                    user: session.authenticatedUser,
+                  }),
+                );
+              }
+            } catch {}
+          }
+        }
+      }
+    } else {
+      this.userCache.clear();
+      this.logger.log('[VoiceProxyGateway] All cached users cleared.');
+    }
+  }
+
+  /**
+   * Invalidate in-memory cached business mapping by businessId.
+   */
+  invalidateBusinessCache(businessId?: string): void {
+    if (businessId) {
+      for (const [key, val] of this.businessCache.entries()) {
+        if (val.businessId === businessId) {
+          this.businessCache.delete(key);
+        }
+      }
+      this.logger.log(`[VoiceProxyGateway] Cache invalidated for business: ${businessId}`);
+    } else {
+      this.businessCache.clear();
+      this.logger.log('[VoiceProxyGateway] All cached business entries cleared.');
     }
   }
 
@@ -337,6 +443,7 @@ export class VoiceProxyGateway {
           email: authenticatedUser?.email,
           role: authenticatedUser?.role,
           businessId,
+          adminUserId: authenticatedUser?.id,
         }),
         'EX',
         86400,
@@ -366,6 +473,9 @@ export class VoiceProxyGateway {
     const pageTitleParam = (parsedUrl.query.pageTitle as string) || '';
     const historyParam = (parsedUrl.query.history as string) || '';
     const activeSectionParam = (parsedUrl.query.activeSection as string) || '';
+    const sessionModeParam = parsedUrl.query.sessionMode as string;
+    const sessionMode: 'customer' | 'training' = sessionModeParam === 'training' ? 'training' : 'customer';
+    const silentMode = parsedUrl.query.silentMode === 'true';
 
     const initialClientContext = {
       currentPath: currentPathParam,
@@ -432,6 +542,14 @@ export class VoiceProxyGateway {
       completionTokens: 0,
       isGreetingPending: false,
       greetingDispatchedAt: 0,
+      isAgentSpeaking: false,
+      suppressPostNavSpeech: false,
+      pendingContextUpdate: null,
+      pendingContextTimer: null,
+      userId: authenticatedUser?.id,
+      authenticatedUser,
+      sessionMode,
+      silentMode,
     };
 
     const flushBufferedAiText = () => {
@@ -458,9 +576,34 @@ export class VoiceProxyGateway {
       }
     };
 
+    /**
+     * Deliver a browsing-context update that was held back during a turn. Safe
+     * to call unconditionally: it is a no-op when nothing is pending.
+     */
+    const flushPendingContextUpdate = () => {
+      if (session.pendingContextTimer) {
+        clearTimeout(session.pendingContextTimer);
+        session.pendingContextTimer = null;
+      }
+      const pending = session.pendingContextUpdate;
+      if (!pending || session.closed) return;
+      session.pendingContextUpdate = null;
+      try {
+        session.sessionControls?.sendContextUpdate(pending);
+      } catch (e: any) {
+        this.logger.warn(
+          `[VoiceProxyGateway] Deferred context update failed for session ${sessionId}: ${e.message}`,
+        );
+      }
+    };
+
     const cleanup = () => {
       if (session.closed) return;
       session.closed = true;
+      if (session.pendingContextTimer) {
+        clearTimeout(session.pendingContextTimer);
+        session.pendingContextTimer = null;
+      }
       flushBufferedUserText(); // save any partial user speech before closing
       flushBufferedAiText();
       if (session.conversationId) {
@@ -514,10 +657,15 @@ export class VoiceProxyGateway {
         deviceId: deviceIdParam,
         clientContext: initialClientContext,
         authenticatedUser,
+        sessionMode,
 
         // Google → client: audio response
         onAudioData: (base64AudioPcm) => {
+          if (session.suppressPostNavSpeech || session.silentMode) {
+            return;
+          }
           session.isGreetingPending = false;
+          session.isAgentSpeaking = true;
           if (base64AudioPcm) {
             session.audioOutputBytes += Math.round(base64AudioPcm.length * 0.75);
           }
@@ -529,7 +677,12 @@ export class VoiceProxyGateway {
 
         // Google → client: text transcript
         onTextData: (text) => {
-          sendToClient({ type: 'text', text });
+          if (session.suppressPostNavSpeech) {
+            return;
+          }
+          if (!session.silentMode) {
+            sendToClient({ type: 'text', text });
+          }
           const clean = (text || '').trim();
           if (clean && !clean.startsWith('**') && !clean.startsWith('#')) {
             session.bufferedAiText = (session.bufferedAiText ? session.bufferedAiText + ' ' : '') + clean;
@@ -538,22 +691,28 @@ export class VoiceProxyGateway {
 
         // Google → client: barge-in / interruption
         onInterrupted: () => {
+          session.suppressPostNavSpeech = false;
           // Prevent early false barge-in during initial greeting startup
           if (session.isGreetingPending && Date.now() - session.greetingDispatchedAt < 1200) {
             return;
           }
           sendToClient({ type: 'interrupted' });
           // A barge-in is undeniable proof of a live user, and it also ends ORA's turn.
+          session.isAgentSpeaking = false;
           this.sessionTimerService.markAgentTurnComplete(sessionId);
           this.sessionTimerService.markActivity(sessionId);
           flushBufferedUserText(); // user spoke again; save whatever they said before the barge-in
           flushBufferedAiText();
+          flushPendingContextUpdate();
         },
 
         // Google → client: agent finished speaking
         onTurnComplete: () => {
+          session.suppressPostNavSpeech = false;
           session.isGreetingPending = false;
+          session.isAgentSpeaking = false;
           sendToClient({ type: 'turn_complete' });
+          flushPendingContextUpdate();
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
           this.sessionTimerService.markAgentTurnComplete(sessionId);
@@ -586,6 +745,7 @@ export class VoiceProxyGateway {
           // inputTranscription frames, so sessions closed while the user was talking.
           this.sessionTimerService.markActivity(sessionId);
           session.bufferedUserText = (session.bufferedUserText ? session.bufferedUserText + ' ' : '') + text.trim();
+          sendToClient({ type: 'user_transcript', text: text.trim(), isFinal });
           if (isFinal) {
             flushBufferedUserText();
           }
@@ -595,7 +755,7 @@ export class VoiceProxyGateway {
         // This is the ONLY source of ORA’s spoken text when responseModalities=[AUDIO].
         // Fragments are buffered into bufferedAiText; isFinal=true or onTurnComplete triggers the DB write.
         onOutputTranscript: (text, isFinal) => {
-          if (!text.trim()) return;
+          if (session.suppressPostNavSpeech || !text.trim()) return;
           session.bufferedAiText = (session.bufferedAiText ? session.bufferedAiText + ' ' : '') + text.trim();
           if (isFinal) {
             flushBufferedAiText();
@@ -604,6 +764,9 @@ export class VoiceProxyGateway {
 
         // Tool executed server-side → notify client for UI and forward action payload if present
         onToolResult: (toolName, result) => {
+          if (toolName === 'navigate_to_page') {
+            session.suppressPostNavSpeech = true;
+          }
           sendToClient({
             type: 'tool_result',
             toolName,
@@ -752,10 +915,12 @@ export class VoiceProxyGateway {
     const skipGreetingParam = parsedUrl.query.skipGreeting === 'true';
 
     // ── Dispatch Proactive Initial Greeting on Voice Connection ─────────────
-    if (!skipGreetingParam) {
+    if (!skipGreetingParam && !silentMode) {
       try {
         let greetingTrigger = '';
-        if (authenticatedUser) {
+        if (sessionMode === 'training') {
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Merchant training mode activated. This is ${authenticatedUser?.name || 'the store owner'}. Greet them in ONE short sentence confirming you are in training mode and ready to learn about the store (e.g. "Hi ${authenticatedUser?.name || ''}, I'm in training mode and ready to learn. What would you like to teach me?"). Speak aloud now.`;
+        } else if (authenticatedUser) {
           greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them by name in ONE warm, concise sentence (maximum 10-12 words, e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you today?"). Speak aloud now.`;
         } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
           greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them in ONE warm, concise sentence (maximum 10-12 words, e.g. "Hi ${resolvedName}! How can I help you today?"). Speak aloud now.`;
@@ -774,7 +939,7 @@ export class VoiceProxyGateway {
         }
 
         this.logger.log(
-          `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger for session ${sessionId}`,
+          `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger (${sessionMode}) for session ${sessionId}`,
         );
         sessionControls.sendTextMessage(greetingTrigger);
       } catch (greetErr: any) {
@@ -921,12 +1086,45 @@ export class VoiceProxyGateway {
 
         if (msg.type === 'client_context_update') {
           this.logger.log(`[VoiceProxyGateway] Context update for session ${sessionId}: page="${msg.currentPath || '/'}" title="${msg.title || ''}"`);
-          sessionControls.sendContextUpdate({
+          // Gemini Live treats any client turn as a barge-in, so an update sent
+          // while ORA is speaking cuts her off mid-sentence. Hold it until the
+          // turn ends; the visitor's page is still current a second later.
+          const context: ClientBrowsingContext = {
             currentPath: msg.currentPath,
             title: msg.title,
             history: msg.history,
             activeSection: msg.activeSection,
-          });
+          };
+          if (session.isAgentSpeaking) {
+            session.pendingContextUpdate = context;
+            // Gemini does not always emit turnComplete (a dropped or truncated
+            // turn), so re-check instead of trusting it alone. After a few
+            // tries the update is dropped rather than forced through: ORA not
+            // knowing the current page is a far smaller fault than ORA being
+            // cut off mid-sentence, which is what forcing it would cause.
+            if (!session.pendingContextTimer) {
+              let attemptsLeft = 5;
+              const recheck = () => {
+                session.pendingContextTimer = null;
+                if (session.closed || !session.pendingContextUpdate) return;
+                if (session.isAgentSpeaking) {
+                  if (--attemptsLeft <= 0) {
+                    this.logger.debug(
+                      `[VoiceProxyGateway] Dropping held context update for session ${sessionId}; turn never completed.`,
+                    );
+                    session.pendingContextUpdate = null;
+                    return;
+                  }
+                  session.pendingContextTimer = setTimeout(recheck, 2000);
+                  return;
+                }
+                flushPendingContextUpdate();
+              };
+              session.pendingContextTimer = setTimeout(recheck, 2000);
+            }
+            return;
+          }
+          sessionControls.sendContextUpdate(context);
           return;
         }
 

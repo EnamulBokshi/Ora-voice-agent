@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Edit3, Loader2, AlertCircle, Database } from 'lucide-react';
 import { updateKnowledgeDocApi } from '@/services/knowledge-service';
 import { KnowledgeDoc, DocType } from '@/types/knowledge';
+import { useModalA11y } from '@/hooks/use-modal-a11y';
 
 interface KnowledgeEditModalProps {
   doc: KnowledgeDoc | null;
@@ -22,6 +23,9 @@ const DOC_TYPE_OPTIONS = [
 ];
 
 export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: KnowledgeEditModalProps) {
+  // Escape, focus trap, focus restore and scroll lock. This dialog previously had
+  // none of them, so Tab walked straight out into the page behind it.
+  const dialogRef = useModalA11y(isOpen, onClose);
   const [title, setTitle] = useState('');
   const [docType, setDocType] = useState<DocType>(DocType.POLICY);
   const [content, setContent] = useState('');
@@ -65,7 +69,14 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit knowledge document"
+        tabIndex={-1}
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
           <div className="flex items-center gap-3">

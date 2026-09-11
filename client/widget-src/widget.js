@@ -50,6 +50,24 @@
     apiBase = apiBase.replace(/\/+$/, '').replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
   }
 
+  /**
+   * Resolves a path against ORA's own origin, never the merchant's page.
+   *
+   * The widget runs on the merchant's storefront, so a relative URL would resolve to
+   * their domain and 404. The script's own `src` is the reliable anchor. ORA serves
+   * /audio-processors/ with `Access-Control-Allow-Origin: *` (see next.config.ts),
+   * which is what lets AudioWorklet.addModule load the processor cross-origin.
+   */
+  function resolveOraAssetUrl(path) {
+    try {
+      if (scriptEl && scriptEl.src) return new URL(path, scriptEl.src).href;
+    } catch (e) {}
+    try {
+      if (apiBase) return new URL(path, apiBase).href;
+    } catch (e) {}
+    return path;
+  }
+
   // Positioning: 'bottom-center' (default)
   var position = _cfg.position || (scriptEl && scriptEl.getAttribute('data-ora-position')) || 'bottom-center';
 
@@ -80,6 +98,33 @@
   let lastSpeechAt = 0;
   let prerollFrames = [];
 
+  /** Running estimate of ambient room level, adapted only while the gate is shut. */
+  let vadNoiseFloor = 0.01;
+  /** Qualifying chunks seen so far toward VAD_OPEN_CHUNKS. */
+  let vadOpenStreak = 0;
+  /** Whether the gate is currently passing audio (drives the hysteresis branch). */
+  let vadGateOpen = false;
+  /**
+   * Chunks remaining in the start-of-session room measurement. Armed by
+   * resetVadState(), which startMicCapture() calls — the constant it is set from is
+   * declared further down this scope, so it cannot be referenced here.
+   */
+  let vadCalibrationLeft = 0;
+
+  /**
+   * Clears the gate's learned state between sessions. Without this, a noise floor
+   * measured in a loud room would carry into the next session and hold the gate shut
+   * against a soft speaker until it decayed.
+   */
+  function resetVadState() {
+    lastSpeechAt = 0;
+    prerollFrames.length = 0;
+    vadNoiseFloor = 0.01;
+    vadOpenStreak = 0;
+    vadGateOpen = false;
+    vadCalibrationLeft = VAD_CALIBRATION_CHUNKS;
+  }
+
   // Customer Details Confirmation Card State
   let customerDetails = { name: '', email: '', phone: '', address: '' };
   let isEditingDetails = false;
@@ -95,6 +140,17 @@
   let muteGainNode = null;
   let audioQueueTime = 0;
   let activeSources = [];
+
+  /**
+   * A navigation ORA has asked for, held until it has finished saying where it is going.
+   *
+   * Navigating immediately assigned window.location.href, which unloaded the page — and
+   * with it the widget and its WebSocket — the instant the tool result arrived. ORA was
+   * cut off mid-sentence, so the visitor got a silent page change, and whether any words
+   * escaped before the unload varied from run to run.
+   */
+  let pendingNavigation = null;
+  let pendingNavTimer = null;
   let geminiWs = null;
   let recognition = null;
   let sessionId = 'ses_w_' + Math.random().toString(36).substring(2, 9);
@@ -1305,10 +1361,79 @@
   // ─── Idle Inactivity Timer (Conversational Standby Protocol) ───────────────
 
   /**
-   * Mic RMS above which we treat the frame as real speech and cancel the standby timer.
-   * Tuned for normal conversational volume on a built-in laptop mic.
+   * Absolute RMS floor. The gate never opens below this, purely so a silent room with
+   * a near-zero noise estimate cannot let electrical hiss through.
+   *
+   * This replaces a single fixed 0.018 threshold, which could not work for everyone:
+   * soft speech measures roughly 0.01-0.03 RMS on a laptop mic, so 0.018 fell in the
+   * middle of it and gated quiet talkers out completely — ORA heard nothing at all.
+   * Meanwhile a noisy room sits at 0.005-0.015, close enough that no single number
+   * separates the two. The gate below keys off signal-to-noise instead of level.
    */
-  const VAD_SPEECH_THRESHOLD = 0.018;
+  const VAD_ABS_FLOOR = 0.005;
+
+  /**
+   * Hard minimum for the open threshold. The adaptive threshold may rise above this in
+   * a noisy room but never falls below it.
+   *
+   * This is the important guard. Without it, a quiet room drove the floor to ~0.002 and
+   * the open threshold to 0.002 * VAD_SNR_OPEN = 0.007 — far *more* sensitive than the
+   * fixed 0.018 it replaced. Intermittent noise (a TV in the next room, passing
+   * traffic) never raises the floor, because it decays during the gaps, so every burst
+   * cleared the low threshold and reached Gemini. The adaptive part still earns its
+   * place in loud rooms; it just must not make a quiet room worse.
+   */
+  const VAD_MIN_OPEN = 0.03;
+
+  /**
+   * How far above the measured noise floor a chunk must sit to OPEN the gate
+   * (~11 dB). Because this is a ratio, a whisper in a silent room passes just as
+   * readily as a shout in a loud one, which is the property a fixed threshold lacked.
+   */
+  const VAD_SNR_OPEN = 3.5;
+
+  /**
+   * Lower ratio required to KEEP the gate open (~6 dB). Classic dual-threshold
+   * hysteresis: it stops the gate chattering shut on the quiet part of a word while
+   * still demanding a clear onset to open in the first place.
+   */
+  const VAD_SNR_CLOSE = 2.0;
+
+  /**
+   * Consecutive qualifying chunks needed before the gate opens (~256ms at 128ms per
+   * chunk). Rejects transients — a door, a keyboard, a cough — that clear the ratio
+   * for one chunk only. The pre-roll buffer is longer than this window, so the
+   * qualifying audio is replayed and no syllable is lost.
+   */
+  const VAD_OPEN_CHUNKS = 2;
+
+  /**
+   * Noise-floor tracking rates.
+   *
+   * The floor follows the *minimum* envelope: it drops quickly toward any quieter
+   * reading and creeps upward slowly. Speech is transient relative to room noise, so
+   * a slow rise means a talking customer barely moves the floor while a sustained
+   * noisy room does raise it.
+   *
+   * Adaptation runs whether the gate is open or shut. An earlier version only learned
+   * while shut, which latched the gate permanently open if a session began in a loud
+   * room: the initial estimate was too low, noise opened the gate, and the floor then
+   * never updated to catch up.
+   */
+  const VAD_FLOOR_DECAY = 0.20;
+  const VAD_FLOOR_ATTACK_CLOSED = 0.05;
+  const VAD_FLOOR_ATTACK_OPEN = 0.01;
+
+  /** Ceiling on the learned floor, so even a very loud room still admits speech. */
+  const VAD_FLOOR_MAX = 0.03;
+
+  /**
+   * Chunks at the start of a session during which the gate is held shut to measure the
+   * room (~1s at 128ms per chunk). Without this the gate has only a guessed floor to
+   * work from on its first decision. Nothing is lost: ORA is delivering its greeting
+   * at this point, and the mic uplink is echo-gated while it speaks anyway.
+   */
+  const VAD_CALIBRATION_CHUNKS = 8;
 
   /** Client-side conversational dormancy before the session is suspended to standby. */
   const CLIENT_STANDBY_MS = 90000; // 90 seconds (1.5 minutes)
@@ -1321,7 +1446,7 @@
    * (quiet) audio for a moment after they stop. Cut the stream too early and Gemini waits
    * for silence it never receives, delaying ORA's reply instead of speeding it up.
    */
-  const VAD_HANGOVER_MS = 1200;
+  const VAD_HANGOVER_MS = 700;
 
   /**
    * Frames retained while the gate is shut, replayed when it opens, so the attack of the
@@ -2033,6 +2158,48 @@
     cancelIdleTimer();
   }
 
+  /** Milliseconds of ORA audio still queued for playback. */
+  function remainingPlaybackMs() {
+    try {
+      if (!playbackContext) return 0;
+      return Math.max(0, (audioQueueTime - playbackContext.currentTime) * 1000);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Queues a navigation to run once ORA stops speaking.
+   *
+   * The safety timeout matters: if the turn never completes (dropped socket, model
+   * error) the visitor is still taken where they asked to go.
+   */
+  function scheduleNavigation(dest) {
+    pendingNavigation = dest;
+    if (pendingNavTimer) clearTimeout(pendingNavTimer);
+    pendingNavTimer = setTimeout(function () { runPendingNavigation(true); }, 8000);
+  }
+
+  function runPendingNavigation(force) {
+    if (!pendingNavigation) return;
+
+    // Let the queued audio drain first, or the unload clips ORA mid-word.
+    var remaining = remainingPlaybackMs();
+    if (!force && remaining > 60) {
+      if (pendingNavTimer) clearTimeout(pendingNavTimer);
+      pendingNavTimer = setTimeout(
+        function () { runPendingNavigation(true); },
+        Math.min(remaining + 150, 8000),
+      );
+      return;
+    }
+
+    var dest = pendingNavigation;
+    pendingNavigation = null;
+    if (pendingNavTimer) { clearTimeout(pendingNavTimer); pendingNavTimer = null; }
+    window.location.href = dest;
+  }
+
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
   function playIncomingPcm(base64Pcm) {
     try {
@@ -2094,8 +2261,7 @@
     // reason (e.g. session_ended) set the notice AFTER calling teardown().
     if (noticeClearTimer) { clearTimeout(noticeClearTimer); noticeClearTimer = null; }
     sessionNotice = null;
-    lastSpeechAt = 0;
-    prerollFrames.length = 0;
+    resetVadState();
     isWaitingForAi = false;
     flushPlaybackQueue();
     voiceState = 'idle';
@@ -2126,6 +2292,46 @@
       try { geminiWs.close(); } catch (e) {}
       geminiWs = null;
     }
+    render();
+  }
+
+  /**
+   * Releases the microphone and audio graph while keeping the session resumable.
+   *
+   * This was called by the 90-second standby timer but never defined, so that path
+   * threw a ReferenceError inside its setTimeout callback. The state transition still
+   * appeared to work because the server's `session_suspended` reply set it, but the
+   * local audio graph was never torn down: the AudioWorkletNode stayed connected to a
+   * still-open AudioContext, and because startMicCapture() reuses an existing context,
+   * every standby/resume cycle added another live worklet node.
+   *
+   * Unlike teardown(), this preserves activeResumptionToken so the session can resume.
+   */
+  function disconnectVoice(nextState) {
+    cancelIdleTimer();
+    isWaitingForAi = false;
+    flushPlaybackQueue();
+    userMicLevel = 0;
+    speakingLevel = 0;
+    audioQueueTime = 0;
+    resetVadState();
+    stopVisualizer();
+
+    if (processorNode) { try { processorNode.disconnect(); } catch (e) {} processorNode = null; }
+    if (muteGainNode) { try { muteGainNode.disconnect(); } catch (e) {} muteGainNode = null; }
+    if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+    if (audioContext) { try { audioContext.close(); } catch (e) {} audioContext = null; }
+    if (playbackContext) { try { playbackContext.close(); } catch (e) {} playbackContext = null; }
+    if (recognition) {
+      try { recognition.onend = null; recognition.abort(); } catch (e) {}
+      recognition = null;
+    }
+    if (geminiWs) {
+      try { geminiWs.close(); } catch (e) {}
+      geminiWs = null;
+    }
+
+    voiceState = nextState || 'idle';
     render();
   }
 
@@ -2206,23 +2412,34 @@
         // quiet room noise up toward speech level, which is exactly what we are
         // trying to keep out of the uplink.
         autoGainControl: false,
+        // Browser-level voice isolation: suppresses everything that is not the
+        // near-field speaker, which is the only mechanism here that can reject
+        // *speech-like* distance noise — a television, or people talking nearby.
+        // An RMS threshold cannot, because that noise sits at speech level by
+        // definition. Unsupported browsers ignore an unknown constraint, so this is
+        // safe to request unconditionally; Chrome and Edge honour it on platforms
+        // where the OS provides it.
+        voiceIsolation: true,
       },
     });
     mediaStream = stream;
 
+    // New capture session: forget the previous room and re-measure it.
+    resetVadState();
+
     const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(1024, 1, 1);
-    processorNode = processor;
 
     const muteNode = audioContext.createGain();
     muteNode.gain.value = 0;
     muteGainNode = muteNode;
 
-    source.connect(processor);
-    processor.connect(muteNode);
-    muteNode.connect(audioContext.destination);
-
-    processor.onaudioprocess = function (e) {
+    /**
+     * Shared uplink path for one captured chunk of 16 kHz PCM16.
+     *
+     * Identical for the AudioWorklet and the ScriptProcessor fallback, so the noise
+     * gate, echo protection and level meter cannot drift between the two.
+     */
+    function handleMicChunk(pcm16Buffer, rms) {
       if (voiceState === 'idle' || !geminiWs || geminiWs.readyState !== WebSocket.OPEN || isMuted) return;
 
       // ── Acoustic Echo Protection:
@@ -2233,20 +2450,43 @@
         return;
       }
 
-      const rawInput = e.inputBuffer.getChannelData(0);
-      const inputData = downsampleTo16k(rawInput, audioContext.sampleRate);
-
-      let sum = 0;
-      for (let i = 0; i < rawInput.length; i++) sum += rawInput[i] * rawInput[i];
-      const rms = Math.sqrt(sum / rawInput.length);
       userMicLevel = Math.min(100, Math.floor(rms * 400));
 
-      // Voice Activity Detection (VAD)
-      // 0.018 ≈ normal conversational speech on a laptop mic. The previous 0.06 needed
-      // near-shouting, so ordinary speakers never cancelled the standby timer and got
-      // suspended mid-conversation.
+      // ── Voice Activity Detection: adaptive, signal-to-noise based ──────────────
+      // Thresholds are derived from the measured room level rather than fixed, so the
+      // same code serves a whisper in a quiet room and a normal voice in a noisy one.
       const nowMs = Date.now();
-      const isSpeech = rms > VAD_SPEECH_THRESHOLD;
+      const openAt = Math.max(VAD_MIN_OPEN, vadNoiseFloor * VAD_SNR_OPEN);
+      const closeAt = Math.max(VAD_MIN_OPEN * 0.55, vadNoiseFloor * VAD_SNR_CLOSE);
+
+      let isSpeech;
+      if (vadCalibrationLeft > 0) {
+        // Measuring the room: stay shut regardless of level.
+        vadCalibrationLeft--;
+        isSpeech = false;
+      } else if (vadGateOpen) {
+        // Already passing audio: hold open on the lower threshold so quiet syllables
+        // mid-sentence do not chop the stream.
+        isSpeech = rms > closeAt;
+      } else {
+        // Shut: require a sustained onset, not a single loud chunk.
+        vadOpenStreak = rms > openAt ? vadOpenStreak + 1 : 0;
+        isSpeech = vadOpenStreak >= VAD_OPEN_CHUNKS;
+      }
+      vadGateOpen = isSpeech;
+      if (isSpeech) vadOpenStreak = 0;
+
+      // Always adapt — see VAD_FLOOR_* above for why this must also run while open.
+      // The rise is slower when open so the speaker's own voice cannot raise the floor
+      // against them, but it is never zero, so the gate cannot latch open on noise.
+      const rate =
+        rms > vadNoiseFloor
+          ? (isSpeech ? VAD_FLOOR_ATTACK_OPEN : VAD_FLOOR_ATTACK_CLOSED)
+          : VAD_FLOOR_DECAY;
+      vadNoiseFloor = Math.min(
+        VAD_FLOOR_MAX,
+        Math.max(0, vadNoiseFloor + rate * (rms - vadNoiseFloor)),
+      );
 
       if (isSpeech) {
         lastSpeechAt = nowMs;
@@ -2258,8 +2498,7 @@
         }
       }
 
-      const pcm16 = floatTo16BitPCM(inputData);
-      const b64 = arrayBufferToBase64(pcm16.buffer);
+      const b64 = arrayBufferToBase64(pcm16Buffer);
 
       // ── Noise gate ────────────────────────────────────────────────────────────
       // Previously EVERY frame went upstream regardless of level, so room noise
@@ -2280,7 +2519,53 @@
       }
 
       geminiWs.send(JSON.stringify({ type: 'audio', data: b64 }));
-    };
+    }
+
+    // ── Capture path ──────────────────────────────────────────────────────────
+    // Prefer the AudioWorklet: it runs on the dedicated audio rendering thread, so
+    // capture no longer competes with the orb animation and DOM work on the main
+    // thread (the old createScriptProcessor path did, causing stutter under load).
+    // It also emits ~128ms chunks instead of ~64ms, halving WebSocket message
+    // overhead for the same audio.
+    let worklet = null;
+    if (audioContext.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+      try {
+        await audioContext.audioWorklet.addModule(resolveOraAssetUrl('/audio-processors/pcm-recorder-worklet.js'));
+        worklet = new AudioWorkletNode(audioContext, 'pcm-recorder-processor');
+        worklet.port.onmessage = function (event) {
+          const d = event.data;
+          if (d && d.pcm16Data) handleMicChunk(d.pcm16Data, d.rms || 0);
+        };
+      } catch (e) {
+        // Falls through to the ScriptProcessor path below.
+        console.warn('[ORA Widget] AudioWorklet unavailable, falling back to ScriptProcessor:', e && e.message);
+        worklet = null;
+      }
+    }
+
+    if (worklet) {
+      processorNode = worklet;
+      source.connect(worklet);
+      worklet.connect(muteNode);
+    } else {
+      const processor = audioContext.createScriptProcessor(1024, 1, 1);
+      processorNode = processor;
+      source.connect(processor);
+      processor.connect(muteNode);
+
+      processor.onaudioprocess = function (e) {
+        const rawInput = e.inputBuffer.getChannelData(0);
+        const inputData = downsampleTo16k(rawInput, audioContext.sampleRate);
+
+        let sum = 0;
+        for (let i = 0; i < rawInput.length; i++) sum += rawInput[i] * rawInput[i];
+        const rms = Math.sqrt(sum / rawInput.length);
+
+        handleMicChunk(floatTo16BitPCM(inputData).buffer, rms);
+      };
+    }
+
+    muteNode.connect(audioContext.destination);
 
     startSpeechRecognition();
   }
@@ -2412,7 +2697,16 @@
             cancelIdleTimer();
             isWaitingForAi = false;
             const cleanText = msg.text.trim();
-            if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
+            if (
+              cleanText &&
+              !cleanText.startsWith('**') &&
+              !cleanText.startsWith('##') &&
+              !cleanText.startsWith('#') &&
+              !cleanText.toLowerCase().startsWith('thought') &&
+              !cleanText.toLowerCase().startsWith('thinking') &&
+              !cleanText.toLowerCase().startsWith('internal:') &&
+              !cleanText.toLowerCase().startsWith('[thought')
+            ) {
               if (lastSpeaker !== 'agent') {
                 lastSpeaker = 'agent';
                 liveSpeaker = 'agent';
@@ -2473,6 +2767,8 @@
               isWaitingForAi = false;
               armIdleTimer();
             }
+            // ORA has said where it is going; leave once the audio has played out.
+            if (pendingNavigation) runPendingNavigation(false);
             return;
           }
 
@@ -2508,10 +2804,12 @@
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
               var dest = msg.action.destination;
               if (dest.startsWith('#')) {
+                // An anchor keeps the page, and the session, alive — scroll right away.
                 var targetEl = document.querySelector(dest);
                 if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
               } else if (dest.startsWith('/') || dest.startsWith('http')) {
-                window.location.href = dest;
+                // A real page load ends this session, so let ORA announce it first.
+                scheduleNavigation(dest);
               }
             }
             return;

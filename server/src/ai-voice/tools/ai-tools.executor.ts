@@ -16,9 +16,23 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 
+/** How long a tenant's platform flag is trusted without re-reading Mongo. */
+const PLATFORM_FLAG_TTL_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class AiToolsExecutor {
   private readonly logger = new Logger(AiToolsExecutor.name);
+
+  /**
+   * Whether a tenant is ORA's own platform tenant. Cached because
+   * navigate_to_page needs it on every call and it is effectively immutable:
+   * a Mongo round trip here sits directly between the visitor asking for a
+   * page and the page actually moving.
+   */
+  private readonly platformFlagCache = new Map<
+    string,
+    { isPlatform: boolean; expiresAt: number }
+  >();
 
   constructor(
     private readonly productsService: ProductsService,
@@ -595,13 +609,7 @@ export class AiToolsExecutor {
   }
 
   private async handleGetPricingPlans(businessId: string, args: Record<string, any>) {
-    let isPlatform = false;
-    if (this.businessModel) {
-      try {
-        const biz = await this.businessModel.findById(businessId).exec();
-        isPlatform = biz?.publishableKey === 'biz_live_ora_platform_system';
-      } catch {}
-    }
+    const isPlatform = await this.isPlatformTenant(businessId);
 
     if (!isPlatform) {
       return {
@@ -701,18 +709,37 @@ export class AiToolsExecutor {
     };
   }
 
+  /** Cached lookup of the platform tenant flag; see platformFlagCache. */
+  private async isPlatformTenant(businessId: string): Promise<boolean> {
+    const cached = this.platformFlagCache.get(businessId);
+    if (cached && cached.expiresAt > Date.now()) return cached.isPlatform;
+    if (!this.businessModel) return false;
+
+    let isPlatform = false;
+    try {
+      const biz = await this.businessModel
+        .findById(businessId)
+        .select('publishableKey')
+        .lean()
+        .exec();
+      isPlatform = biz?.publishableKey === 'biz_live_ora_platform_system';
+    } catch {
+      return false; // Do not cache a failed read.
+    }
+
+    this.platformFlagCache.set(businessId, {
+      isPlatform,
+      expiresAt: Date.now() + PLATFORM_FLAG_TTL_MS,
+    });
+    return isPlatform;
+  }
+
   private async handleNavigateToPage(
     businessId: string,
     sessionId: string,
     args: Record<string, any>,
   ) {
-    let isPlatform = false;
-    if (this.businessModel) {
-      try {
-        const biz = await this.businessModel.findById(businessId).exec();
-        isPlatform = biz?.publishableKey === 'biz_live_ora_platform_system';
-      } catch {}
-    }
+    const isPlatform = await this.isPlatformTenant(businessId);
 
     const rawDest = (args.destination || '').trim();
     let cleanDest = rawDest;
@@ -728,6 +755,14 @@ export class AiToolsExecutor {
         cleanDest = '/auth?mode=login';
       } else if (cleanDest === '/home' || cleanDest === '/landing') {
         cleanDest = '/';
+      } else if (cleanDest === '#pricing' || cleanDest === '#plans' || cleanDest === '/plans') {
+        // Pricing is its own route; there is no pricing section on the landing
+        // page, so scrolling to it would silently do nothing.
+        cleanDest = '/pricing';
+      } else if (cleanDest === '#faq' || cleanDest === '#demo') {
+        // Neither section exists. Send the visitor somewhere real instead of
+        // reporting a successful navigation that never happens.
+        cleanDest = cleanDest === '#faq' ? '/pricing' : '/';
       } else if (
         cleanDest === '/doc' ||
         cleanDest === '/docs' ||
@@ -754,14 +789,13 @@ export class AiToolsExecutor {
         '/billing',
         '/profile',
         '/admin',
+        '/solutions',
         '#hero',
         '#features',
-        '#stats',
-        '#demo',
         '#solutions',
+        '#docs',
+        '#stats',
         '#testimonials',
-        '#pricing',
-        '#faq',
         '#cta',
       ];
 
@@ -778,7 +812,7 @@ export class AiToolsExecutor {
 
       return {
         success: true,
-        message: `Navigating visitor to ${cleanDest}`,
+        message: `Navigation triggered to ${cleanDest}. You already announced this to the visitor. Do NOT speak any follow-up response. Remain silent.`,
         action: {
           type: 'navigate',
           destination: cleanDest,
@@ -798,7 +832,7 @@ export class AiToolsExecutor {
 
       return {
         success: true,
-        message: `Navigating shopper to ${cleanDest}`,
+        message: `Navigation triggered to ${cleanDest}. You already announced this to the shopper. Do NOT speak any follow-up response. Remain silent.`,
         action: {
           type: 'navigate',
           destination: cleanDest,

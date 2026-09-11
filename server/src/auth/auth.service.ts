@@ -756,6 +756,14 @@ export class AuthService {
             // "Voice Agent Online" on the next navigation even though the pause had
             // been persisted correctly.
             isWidgetActive: business.isWidgetActive !== false,
+            // Proof the embed actually ran on a storefront: detectedOrigins is only
+            // written by recordOriginTelemetry when the widget opens a real voice
+            // socket from a page. The setup checklist derives its "widget embedded"
+            // step from this instead of from the existence of a publishable key, which
+            // every business holds from signup and therefore proved nothing.
+            // A boolean, not the origin list, so this stays free of the host/telemetry
+            // detail that only the admin console needs.
+            hasWidgetTraffic: (business.detectedOrigins?.length ?? 0) > 0,
           }
         : null,
     };

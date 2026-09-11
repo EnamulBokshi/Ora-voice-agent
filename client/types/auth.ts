@@ -15,6 +15,12 @@ export interface Business {
   publishableKey?: string | null;
   status?: string;
   isWidgetActive?: boolean;
+  /**
+   * True once the widget has opened at least one real voice session from a storefront
+   * page. Derived server-side from `detectedOrigins`, which the voice gateway writes on
+   * connection — the only client-visible proof the embed is actually installed.
+   */
+  hasWidgetTraffic?: boolean;
 }
 
 export interface AuthResponseData {

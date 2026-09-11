@@ -574,7 +574,7 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
                       value={langSearchQuery}
                       onChange={(e) => setLangSearchQuery(e.target.value)}
                       placeholder="Search languages by name, native script, or region..."
-                      className="w-full bg-transparent border-none text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                      className="w-full bg-transparent border-none text-[12px] text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       autoFocus
                     />
                   </div>

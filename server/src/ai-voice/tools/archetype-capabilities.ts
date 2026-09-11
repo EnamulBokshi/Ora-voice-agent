@@ -141,7 +141,7 @@ export const TOOL_USAGE_HINTS: Record<string, string> = {
   get_customer_profile:
     '   - get_customer_profile: When the visitor asks what details you have saved for them.',
   navigate_to_page:
-    '   - navigate_to_page: When the visitor asks to be taken to a page that exists on this site.',
+    '   - navigate_to_page: When the visitor asks to be taken to a page that exists on this site. Always say one short sentence naming where you are taking them first ("Taking you to our contact page now!") — the visitor is listening, so never move the page in silence.',
   get_pricing_plans:
     '   - get_pricing_plans: When the visitor asks about plans, pricing, or what a tier includes.',
   get_integration_guide:

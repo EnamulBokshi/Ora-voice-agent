@@ -148,7 +148,10 @@ export function RevenueChart({
             viewBox={`0 0 ${W} ${H}`}
             className="w-full h-[260px] overflow-visible"
             preserveAspectRatio="none"
-            aria-label="Revenue performance chart"
+            // Hidden from assistive tech in favour of the data table below. An
+            // aria-label on the SVG only announced that a chart exists; it conveyed
+            // none of the figures, so the numbers were unavailable to a screen reader.
+            aria-hidden="true"
           >
             <defs>
               <linearGradient id="revenue-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -206,6 +209,31 @@ export function RevenueChart({
             <span key={i}>{d.label}</span>
           ))}
         </div>
+
+        {/*
+          Text equivalent of the chart, visually hidden but read in full by screen
+          readers. `sr-only` rather than `hidden`, which would remove it from the
+          accessibility tree too.
+        */}
+        <table className="sr-only">
+          <caption>
+            {`Attributed revenue by ${period === 'daily' ? 'day' : 'week'}. Total ${formatCurrency(activeSum)}.`}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{period === 'daily' ? 'Day' : 'Week'}</th>
+              <th scope="col">Attributed revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activeData.map((d, i) => (
+              <tr key={i}>
+                <th scope="row">{d.label}</th>
+                <td>{formatCurrency(d.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

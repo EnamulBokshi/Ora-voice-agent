@@ -23,6 +23,7 @@ import {
 import { searchRagCombinedApi } from '@/services/rag-service';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
 import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
+import { useModalA11y } from '@/hooks/use-modal-a11y';
 
 interface VoiceTestModalProps {
   isOpen: boolean;
@@ -132,25 +133,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
     };
   }, [isOpen, stopSession]);
 
-  // Handle Escape key and lock background scroll when modal is open
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+  // Escape and scroll lock were handled here by hand; the shared hook adds the focus
+  // trap and focus restore this dialog was missing, and keeps all five dialogs
+  // behaving identically.
+  const dialogRef = useModalA11y(isOpen, onClose);
 
   // Start Direct Live Session
   const startDirectLiveSession = async () => {
@@ -318,9 +304,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="voice-test-modal-title"
+        tabIndex={-1}
         className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] my-auto"
       >
         {/* Header */}

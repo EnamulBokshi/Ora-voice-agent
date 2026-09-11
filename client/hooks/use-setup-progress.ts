@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAgentConfigApi } from '@/services/agent-config-service';
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { getProductsApi } from '@/services/products-service';
+import { getMeApi } from '@/services/auth-service';
 import { getDashboardStatsApi } from '@/services/dashboard-service';
 
 export type SetupStepId = 'persona' | 'integration' | 'knowledge' | 'voice_test';
@@ -82,12 +83,14 @@ export function useSetupProgress() {
     const stored = getStoredProgress();
 
     try {
-      const [agentConfigRes, statsRes, knowledgeRes, productsRes] = await Promise.allSettled([
-        getAgentConfigApi(),
-        getDashboardStatsApi(),
-        getKnowledgeDocsApi({ limit: 1 }),
-        getProductsApi({ limit: 1 }),
-      ]);
+      const [agentConfigRes, statsRes, knowledgeRes, productsRes, meRes] =
+        await Promise.allSettled([
+          getAgentConfigApi(),
+          getDashboardStatsApi(),
+          getKnowledgeDocsApi({ limit: 1 }),
+          getProductsApi({ limit: 1 }),
+          getMeApi(),
+        ]);
 
       const detected: SetupProgressState = { ...DEFAULT_STATE, ...stored };
 
@@ -110,11 +113,20 @@ export function useSetupProgress() {
       // had opened their theme editor. The overview then congratulated them on
       // shipping the thing they had not done.
       //
-      // A recorded conversation is the earliest signal we can see from the client that
-      // the embed loaded and a session was opened against this business.
+      // `hasWidgetTraffic` is the authoritative signal: the server sets it from
+      // `detectedOrigins`, which the voice gateway writes only when the widget opens a
+      // session from an actual storefront page.
+      //
+      // A recorded conversation is kept as a fallback for tenants whose origin
+      // telemetry predates this field, but it is weaker — a voice test run from this
+      // dashboard also produces a conversation, so on its own it can mark the step
+      // complete without the embed ever being installed.
+      const hasWidgetTraffic =
+        meRes.status === 'fulfilled' && meRes.value?.business?.hasWidgetTraffic === true;
       const conversationTotal =
         statsRes.status === 'fulfilled' ? (statsRes.value?.conversationTotal ?? 0) : 0;
-      if (conversationTotal > 0) {
+
+      if (hasWidgetTraffic || conversationTotal > 0) {
         detected.integration = true;
       }
 

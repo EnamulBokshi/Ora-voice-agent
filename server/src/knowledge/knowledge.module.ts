@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { KnowledgeService } from './knowledge.service';
+import { VoiceTranscriptStructurerService } from './voice-transcript-structurer.service';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeBase, KnowledgeBaseSchema } from './schemas/knowledge-base.schema';
 import { KnowledgeChunk, KnowledgeChunkSchema } from './schemas/knowledge-chunk.schema';
@@ -17,7 +18,7 @@ import { RedisModule } from '../common/redis/redis.module';
     ]),
   ],
   controllers: [KnowledgeController],
-  providers: [KnowledgeService],
+  providers: [KnowledgeService, VoiceTranscriptStructurerService],
   exports: [KnowledgeService, MongooseModule],
 })
 export class KnowledgeModule {}

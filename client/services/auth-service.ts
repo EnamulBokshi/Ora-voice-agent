@@ -88,16 +88,19 @@ export async function updateProfileApi(
   data: { name?: string; phone?: string },
   accessToken?: string,
 ): Promise<{ message: string; user: User }> {
+  clearProfileCache();
   const headers: Record<string, string> = {};
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  return apiClient<{ message: string; user: User }>('/users/profile', {
+  const result = await apiClient<{ message: string; user: User }>('/users/profile', {
     method: 'PATCH',
     headers,
     body: JSON.stringify(data),
   });
+  clearProfileCache();
+  return result;
 }
 
 export async function changePasswordApi(

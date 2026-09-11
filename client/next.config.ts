@@ -61,6 +61,11 @@ const nextConfig: NextConfig = {
           { key: "Access-Control-Allow-Origin", value: "*" },
           { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With, Accept" },
+          // The AudioWorklet processor is loaded by URL and its filename is not
+          // content-hashed, so it needs revalidation for the same reason latest.json
+          // does: without this, a browser holding an older copy keeps using it and a
+          // fix to the capture path never reaches that visitor.
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
         ],
       },
     ];

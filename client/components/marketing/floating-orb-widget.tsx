@@ -199,6 +199,63 @@ function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
   );
 }
 
+// ─── Section Tracking Configuration ──────────────────────────────────────────
+
+/** Label used before any section is in view, and after every navigation. */
+const TOP_OF_PAGE = 'Top of Page';
+
+/** Candidate sections. Any `section[id]` counts, plus the landing page anchors. */
+const SECTION_SELECTOR =
+  'section[id], [id="hero"], [id="features"], [id="solutions"], [id="docs"], [id="stats"], [id="testimonials"], [id="pricing"], [id="faq"], [id="cta"]';
+
+/** Spoken-friendly names for the landing page anchors. */
+const SECTION_LABELS: Record<string, string> = {
+  hero: 'Hero / Introduction Section',
+  features: 'Why ORA / Platform Features Section',
+  solutions: 'Solutions & Capabilities Section',
+  docs: 'Storefront Setup & Docs Section',
+  stats: 'Performance Stats & Sub-400ms Metrics Section',
+  testimonials: 'Customer Testimonials Section',
+  pricing: 'Pricing & Plans Section',
+  faq: 'FAQ Section',
+  cta: 'Call To Action / Stop Losing Sales Section',
+};
+
+/**
+ * How long scrolling must be still before the visitor's position is reported.
+ * Scrolling the page end to end should tell ORA where the visitor landed, not
+ * narrate every section crossed on the way.
+ */
+const SCROLL_SETTLE_MS = 400;
+
+/**
+ * Routes ORA can send a visitor to. router.push does not prefetch, so without
+ * warming these the visitor waits on an RSC round trip after ORA has already
+ * said "taking you there".
+ */
+const NAVIGABLE_ROUTES = ['/', '/pricing', '/docs', '/auth'];
+
+/**
+ * Anchors ORA may ask for that are not sections of the landing page. Pricing
+ * and solutions are their own routes, so scrolling for them would find nothing
+ * and the visitor would watch the page sit still.
+ */
+const ANCHOR_ROUTE_FALLBACKS: Record<string, string> = {
+  pricing: '/pricing',
+  plans: '/pricing',
+  solutions: '/solutions',
+  docs: '/docs',
+  documentation: '/docs',
+};
+
+/** An anchor may not be mounted yet; retry before giving up on it. */
+const ANCHOR_RETRY_MS = 250;
+const ANCHOR_MAX_RETRIES = 2;
+
+/** A page may still be streaming in when the route changes; retry briefly. */
+const SECTION_MOUNT_RETRY_MS = 300;
+const SECTION_MOUNT_MAX_RETRIES = 5;
+
 // ─── Main Floating Orb Widget Component ──────────────────────────────────────
 
 export function FloatingOrbWidget() {
@@ -242,9 +299,9 @@ export function FloatingOrbWidget() {
   const [isDetailsConfirmed, setIsDetailsConfirmed] = useState(false);
   const [highlightField, setHighlightField] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<string>('Top of Page');
-  const activeSectionRef = useRef<string>('Top of Page');
-  activeSectionRef.current = activeSection;
+  // Not state: the label is never rendered, only read when a context update is
+  // sent, so a ref keeps it current without re-rendering the orb on scroll.
+  const activeSectionRef = useRef<string>(TOP_OF_PAGE);
 
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -268,6 +325,49 @@ export function FloatingOrbWidget() {
     }, delayMs);
   }, [cancelAutoDismiss]);
 
+  /**
+   * Scroll to an in-page anchor, and fall back rather than doing nothing when
+   * it is absent. ORA is told the page moved either way, so an anchor that
+   * quietly resolves to nothing is the one failure the visitor actually
+   * notices: she says "jumping to pricing" and the page sits still.
+   */
+  const goToAnchor = useCallback(
+    (rawDest: string) => {
+      if (typeof document === 'undefined') return;
+      const id = rawDest.replace(/^#/, '').trim();
+      if (!id) return;
+
+      let attempt = 0;
+
+      function tryScroll() {
+        const el =
+          document.getElementById(id) || document.getElementById(id.toLowerCase());
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+
+        // The section may still be streaming in after a navigation.
+        if (attempt++ < ANCHOR_MAX_RETRIES) {
+          setTimeout(tryScroll, ANCHOR_RETRY_MS);
+          return;
+        }
+
+        // Not on this page at all: it either lives on its own route, or on the
+        // landing page the visitor came from.
+        const route = ANCHOR_ROUTE_FALLBACKS[id.toLowerCase()];
+        if (route) {
+          router.push(route);
+          return;
+        }
+        if (pathname !== '/') router.push(`/#${id}`);
+      }
+
+      tryScroll();
+    },
+    [router, pathname],
+  );
+
   const handleConfirmSuccess = useCallback((details: any) => {
     setIsDetailsConfirmed(true);
     setIsEditingDetails(false);
@@ -280,63 +380,93 @@ export function FloatingOrbWidget() {
     }, 1800);
   }, [cancelAutoDismiss]);
 
-  // Viewport IntersectionObserver to track visible sections on the screen in real time
+  // Viewport section tracking. Whichever section fills most of the reading band
+  // is reported to ORA as browsing context, so it has to survive navigation,
+  // late-mounting pages and fast scrolling without spamming the live session.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const sectionElements = document.querySelectorAll(
-      'section[id], [id="hero"], [id="features"], [id="solutions"], [id="docs"], [id="stats"], [id="testimonials"], [id="pricing"], [id="faq"], [id="cta"]',
-    );
-    if (sectionElements.length === 0) return;
+    // A new route means the previous page's section is no longer where the
+    // visitor is. Without this reset the stale label rides along on the next
+    // context update and tells ORA the visitor is somewhere they already left.
+    activeSectionRef.current = TOP_OF_PAGE;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let bestEntry: IntersectionObserverEntry | null = null;
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) {
-              bestEntry = entry;
-            }
-          }
+    let observer: IntersectionObserver | null = null;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let mountTimer: ReturnType<typeof setTimeout> | null = null;
+    let retriesLeft = SECTION_MOUNT_MAX_RETRIES;
+
+    // How much of the reading band each section currently covers, keyed by id.
+    // Height, not intersectionRatio: a full-height hero covers the whole band
+    // while occupying only a small fraction of itself, and would otherwise
+    // always lose to a short block that fits entirely inside the band.
+    const bandCoverage = new Map<string, number>();
+
+    const publishActiveSection = () => {
+      settleTimer = null;
+      let bestId = '';
+      let bestHeight = 0;
+      bandCoverage.forEach((height, id) => {
+        if (height > bestHeight) {
+          bestHeight = height;
+          bestId = id;
         }
-        if (bestEntry && bestEntry.target && bestEntry.target.id) {
-          const sectionId = bestEntry.target.id;
-          const labelMap: Record<string, string> = {
-            hero: 'Hero / Introduction Section',
-            features: 'Why ORA / Platform Features Section',
-            solutions: 'Solutions & Capabilities Section',
-            docs: 'Storefront Setup & Docs Section',
-            stats: 'Performance Stats & Sub-400ms Metrics Section',
-            testimonials: 'Customer Testimonials (Rania Sultana / FashionBD)',
-            pricing: 'Pricing & Plans Section',
-            faq: 'FAQ Section',
-            cta: 'Call To Action / Stop Losing Sales Section',
-          };
-          const prettyLabel = labelMap[sectionId] || `#${sectionId} Section`;
-          if (activeSectionRef.current !== prettyLabel) {
-            setActiveSection(prettyLabel);
-            activeSectionRef.current = prettyLabel;
-            if (voiceStateRef.current === 'active' || voiceStateRef.current === 'ora-speaking') {
-              liveClientRef.current?.sendContextUpdate({
-                currentPath: pathname || '/',
-                title: typeof document !== 'undefined' ? document.title : '',
-                history: pageHistoryRef.current,
-                activeSection: prettyLabel,
-              });
-            }
-          }
+      });
+      if (!bestId) return;
+
+      const label = SECTION_LABELS[bestId] || `#${bestId} Section`;
+      if (activeSectionRef.current === label) return;
+
+      activeSectionRef.current = label;
+      if (voiceStateRef.current === 'active' || voiceStateRef.current === 'ora-speaking') {
+        liveClientRef.current?.sendContextUpdate({
+          currentPath: pathname || '/',
+          title: typeof document !== 'undefined' ? document.title : '',
+          history: pageHistoryRef.current,
+          activeSection: label,
+        });
+      }
+    };
+
+    const handleEntries = (entries: IntersectionObserverEntry[]) => {
+      for (const entry of entries) {
+        const id = entry.target.id;
+        if (!id) continue;
+        if (entry.isIntersecting && entry.intersectionRect.height > 0) {
+          bandCoverage.set(id, entry.intersectionRect.height);
+        } else {
+          bandCoverage.delete(id);
         }
-      },
-      {
+      }
+      // Report where the visitor settled, not every section crossed on the way.
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(publishActiveSection, SCROLL_SETTLE_MS);
+    };
+
+    const attach = () => {
+      mountTimer = null;
+      const sectionElements = document.querySelectorAll(SECTION_SELECTOR);
+      if (sectionElements.length === 0) {
+        // The route may have changed before the new page finished streaming in.
+        if (retriesLeft-- > 0) {
+          mountTimer = setTimeout(attach, SECTION_MOUNT_RETRY_MS);
+        }
+        return;
+      }
+      const io = new IntersectionObserver(handleEntries, {
         rootMargin: '-20% 0px -40% 0px',
-        threshold: [0.1, 0.3, 0.6],
-      },
-    );
+        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+      });
+      sectionElements.forEach((el) => io.observe(el));
+      observer = io;
+    };
 
-    sectionElements.forEach((el) => observer.observe(el));
+    attach();
 
     return () => {
-      observer.disconnect();
+      if (settleTimer) clearTimeout(settleTimer);
+      if (mountTimer) clearTimeout(mountTimer);
+      observer?.disconnect();
     };
   }, [pathname]);
 
@@ -361,6 +491,29 @@ export function FloatingOrbWidget() {
       }
     }
   }, [pathname, voiceState]);
+
+  // ── Warm the routes ORA can navigate to ───────────────────────────────────
+  useEffect(() => {
+    const warmRoutes = () => {
+      for (const route of NAVIGABLE_ROUTES) {
+        try {
+          router.prefetch(route);
+        } catch {
+          // Prefetch is an optimisation; a failure must never break the orb.
+        }
+      }
+    };
+
+    // Never compete with the first paint or with connecting the voice session.
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number })
+      .requestIdleCallback;
+    if (typeof idle === 'function') {
+      idle(warmRoutes);
+      return;
+    }
+    const timer = setTimeout(warmRoutes, 1500);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   // ── Auto-sync landing page telemetry on mount ─────────────────────────────
   useEffect(() => {
@@ -440,7 +593,7 @@ export function FloatingOrbWidget() {
           currentPath: pathname || '/',
           title: typeof document !== 'undefined' ? document.title : '',
           history: pageHistoryRef.current,
-          activeSection: activeSectionRef.current || 'Top of Page',
+          activeSection: activeSectionRef.current || TOP_OF_PAGE,
         },
         onStatusChange: (status) => {
           if (!isMountedRef.current) return;
@@ -501,25 +654,12 @@ export function FloatingOrbWidget() {
             }
 
             if (dest.startsWith('#')) {
-              const el = document.querySelector(dest);
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              } else if (pathname !== '/') {
-                setTimeout(() => {
-                  if (isMountedRef.current) {
-                    router.push(`/${dest}`);
-                  }
-                }, 0);
-              }
+              goToAnchor(dest);
             } else if (dest.startsWith('/')) {
               if (typeof window !== 'undefined') {
                 const currentFull = window.location.pathname + window.location.search;
                 if (currentFull !== dest) {
-                  setTimeout(() => {
-                    if (isMountedRef.current) {
-                      router.push(dest);
-                    }
-                  }, 0);
+                  router.push(dest);
                 }
               }
             }
@@ -540,7 +680,7 @@ export function FloatingOrbWidget() {
       setErrorMsg(err.message || 'Could not connect to Voice Gateway');
       setVoiceState('error');
     }
-  }, [pathname, router, armAutoDismiss]);
+  }, [pathname, router, armAutoDismiss, goToAnchor]);
 
   // ── Global event trigger support (e.g. from Hero CTA button) ───────────────
   const voiceStateRef = useRef<VoiceState>(voiceState);

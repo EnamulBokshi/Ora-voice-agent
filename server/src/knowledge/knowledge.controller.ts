@@ -15,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { KnowledgeService } from './knowledge.service';
 import { CreateKnowledgeDocDto } from './dto/create-knowledge-doc.dto';
 import { UpdateKnowledgeDocDto } from './dto/update-knowledge-doc.dto';
+import { IngestVoiceTranscriptDto } from './dto/ingest-voice-transcript.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
@@ -48,6 +49,20 @@ export class KnowledgeController {
     @Body() dto: CreateKnowledgeDocDto,
   ) {
     return this.knowledgeService.create(user.businessId, dto);
+  }
+
+  /**
+   * Voice feed: hand over a spoken session and get back categorised knowledge.
+   * The transcript is never stored verbatim — only the topics extracted from it.
+   */
+  @Post('voice-transcript')
+  @UseGuards(RolesGuard)
+  @Roles('owner' as any, 'admin' as any)
+  async ingestVoiceTranscript(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: IngestVoiceTranscriptDto,
+  ) {
+    return this.knowledgeService.ingestVoiceTranscript(user.businessId, dto);
   }
 
   @Get()

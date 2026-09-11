@@ -21,6 +21,7 @@ import {
 import { batchSyncProductsApi } from '@/services/products-service';
 import { IngestionSummary, CrawlStoreResponse } from '@/types/ingestion';
 import { ProductAvailability, SourceTier } from '@/types/product';
+import { useModalA11y } from '@/hooks/use-modal-a11y';
 
 interface ProductUploadModalProps {
   isOpen: boolean;
@@ -46,6 +47,10 @@ export function ProductUploadModal({
   initialTab = 'website',
 }: ProductUploadModalProps) {
   const [activeTab, setActiveTab] = useState<IngestionTab>(initialTab);
+
+  // Escape, focus trap, focus restore and scroll lock. This dialog previously had
+  // none of them, so Tab walked straight out into the page behind it.
+  const dialogRef = useModalA11y(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen && initialTab) {
@@ -205,7 +210,14 @@ export function ProductUploadModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-lg border border-border bg-surface-lowest shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add products to catalog"
+        tabIndex={-1}
+        className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-lg border border-border bg-surface-lowest shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+      >
 
         {/* ── Modal Header ── */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger, HttpStatus } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, HttpStatus, Inject, Optional, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
@@ -11,6 +11,8 @@ import { ApiKeyUtil } from '../common/utils/api-key.util';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { VoiceProxyGateway } from '../ai-voice/voice-proxy.gateway';
+import { GeminiVoiceService } from '../ai-voice/gemini-voice.service';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -21,6 +23,12 @@ export class UsersService implements OnModuleInit {
     private readonly adminUserModel: Model<AdminUserDocument>,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    @Optional()
+    @Inject(forwardRef(() => VoiceProxyGateway))
+    private readonly voiceProxyGateway?: VoiceProxyGateway,
+    @Optional()
+    @Inject(forwardRef(() => GeminiVoiceService))
+    private readonly geminiVoiceService?: GeminiVoiceService,
   ) { }
 
   async onModuleInit() {
@@ -137,6 +145,19 @@ export class UsersService implements OnModuleInit {
 
     if (dto.name !== undefined) user.name = dto.name;
     const saved = await user.save();
+
+    // Immediately invalidate in-memory AI voice user and instruction caches
+    try {
+      if (this.voiceProxyGateway) {
+        this.voiceProxyGateway.invalidateUserCache(userId, saved.name);
+      }
+      if (this.geminiVoiceService && saved.businessId) {
+        this.geminiVoiceService.invalidateInstructionCache(saved.businessId.toString());
+      }
+    } catch (err: any) {
+      this.logger.warn(`[UsersService] Failed to invalidate AI voice cache on profile update: ${err.message}`);
+    }
+
     return saved;
   }
 
@@ -180,6 +201,19 @@ export class UsersService implements OnModuleInit {
     if (dto.isWidgetActive !== undefined) business.isWidgetActive = dto.isWidgetActive;
 
     const saved = await business.save();
+
+    // Invalidate AI voice caches for business configuration
+    try {
+      if (this.geminiVoiceService) {
+        this.geminiVoiceService.invalidateInstructionCache(businessId);
+      }
+      if (this.voiceProxyGateway) {
+        this.voiceProxyGateway.invalidateBusinessCache(businessId);
+      }
+    } catch (err: any) {
+      this.logger.warn(`[UsersService] Failed to invalidate AI voice cache on business update: ${err.message}`);
+    }
+
     return saved;
   }
 

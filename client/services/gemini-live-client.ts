@@ -22,6 +22,8 @@ export interface LiveClientOptions {
   sessionId: string;
   apiBaseUrl?: string;
   authToken?: string;
+  sessionMode?: 'storefront' | 'training';
+  silentMode?: boolean;
   clientContext?: {
     currentPath?: string;
     title?: string;
@@ -203,7 +205,9 @@ export class GeminiLiveClient {
         ? `&currentPath=${encodeURIComponent(ctx.currentPath || '/')}&pageTitle=${encodeURIComponent(ctx.title || '')}&history=${encodeURIComponent((ctx.history || []).join(','))}&activeSection=${encodeURIComponent(ctx.activeSection || '')}`
         : '';
       const authParam = authToken ? `&authToken=${encodeURIComponent(authToken)}` : '';
-      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${authParam}${contextParams}`;
+      const sessionModeParam = this.options.sessionMode ? `&sessionMode=${encodeURIComponent(this.options.sessionMode)}` : '';
+      const silentModeParam = this.options.silentMode ? `&silentMode=true` : '';
+      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${authParam}${contextParams}${sessionModeParam}${silentModeParam}`;
 
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
@@ -228,10 +232,19 @@ export class GeminiLiveClient {
 
             case 'audio':
               this.recordActivity();
-              if (this.outputAudioCtx && this.outputAudioCtx.state !== 'closed') {
-                this.playPcm24kBase64(message.data);
-              } else {
-                this.pendingAudioQueue.push(message.data);
+              if (!this.options.silentMode) {
+                if (this.outputAudioCtx && this.outputAudioCtx.state !== 'closed') {
+                  this.playPcm24kBase64(message.data);
+                } else {
+                  this.pendingAudioQueue.push(message.data);
+                }
+              }
+              break;
+
+            case 'user_transcript':
+              this.recordActivity();
+              if (message.text) {
+                onTranscript?.('user', message.text);
               }
               break;
 
@@ -239,7 +252,16 @@ export class GeminiLiveClient {
               this.recordActivity();
               if (message.text) {
                 const cleanText = message.text.trim();
-                if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
+                if (
+                  cleanText &&
+                  !cleanText.startsWith('**') &&
+                  !cleanText.startsWith('##') &&
+                  !cleanText.startsWith('#') &&
+                  !cleanText.toLowerCase().startsWith('thought') &&
+                  !cleanText.toLowerCase().startsWith('thinking') &&
+                  !cleanText.toLowerCase().startsWith('internal:') &&
+                  !cleanText.toLowerCase().startsWith('[thought')
+                ) {
                   onTranscript?.('agent', cleanText);
                 }
               }

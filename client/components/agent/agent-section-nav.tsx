@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type AgentRole = 'prompt' | 'voice' | 'documents' | 'products';
-export type AgentView = 'get-started' | 'feed' | 'knowledge' | 'catalog' | 'prompt';
+export type AgentView = 'get-started' | 'feed' | 'test' | 'knowledge' | 'catalog' | 'prompt';
 
 // ─── Role definitions ─────────────────────────────────────────────────────────
 
@@ -33,12 +33,12 @@ export const TRAIN_ITEMS: Record<AgentRole, { view: AgentView; label: string }[]
   voice:     [
     { view: 'get-started', label: 'Get started' },
     { view: 'feed',        label: 'Voice feed'  },
-    { view: 'knowledge',   label: 'Knowledge'   },
+    { view: 'test',        label: 'Test ORA'    },
   ],
   documents: [
     { view: 'get-started', label: 'Get started'  },
     { view: 'feed',        label: 'Upload files' },
-    { view: 'knowledge',   label: 'Knowledge base' },
+    { view: 'test',        label: 'Test ORA'     },
   ],
   products:  [
     { view: 'get-started', label: 'Get started'  },
@@ -164,10 +164,10 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
           /* ── All roles: simple top-level nav ── */
           <>
             {[
-              { label: 'Train',   href: '/agent?role=voice' },
-              { label: 'Test',    href: '/agent?role=voice&view=feed' },
-              { label: 'Deploy',  href: '/setup' },
-              { label: 'Analyze', href: '/conversations' },
+              { label: 'Train',    href: '/agent?role=voice' },
+              { label: 'Test ORA', href: '/agent?role=voice&view=test' },
+              { label: 'Deploy',   href: '/setup' },
+              { label: 'Analyze',  href: '/conversations' },
             ].map((item) => (
               <Link
                 key={item.label}

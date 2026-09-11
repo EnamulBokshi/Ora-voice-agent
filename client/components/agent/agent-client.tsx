@@ -17,7 +17,7 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders } from 'lucide-react';
+import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders, PhoneCall, Sparkles, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ function AgentClientContent() {
 
   // Resolve view — defaults to 'get-started' when role is selected (or 'prompt' for prompt role)
   const activeView: AgentView =
-    rawView && ['get-started', 'feed', 'knowledge', 'catalog', 'prompt'].includes(rawView)
+    rawView && ['get-started', 'feed', 'test', 'knowledge', 'catalog', 'prompt'].includes(rawView)
       ? (rawView as AgentView)
       : activeRole === 'prompt'
       ? 'prompt'
@@ -104,7 +104,7 @@ function AgentClientContent() {
       );
     }
 
-    // ── Voice: feed or knowledge views ─────────────────────────────────────
+    // ── Voice: feed, test, or knowledge views ──────────────────────────────
     if (activeRole === 'voice') {
       if (activeView === 'feed') {
         return (
@@ -136,6 +136,85 @@ function AgentClientContent() {
                 </div>
                 <div className="xl:col-span-5">
                   <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
+                </div>
+              </div>
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+      if (activeView === 'test') {
+        return (
+          <AgentSectionLayout
+            iconNode={<PhoneCall size={16} className="text-foreground" />}
+            title="Test ORA"
+            description="Talk to your agent exactly as a customer would. Ask it what you just taught it, and hear the answer it will give on your storefront."
+            previewSrc="/previews/agent-voice-role.jpg"
+            previewAlt="Testing the ORA voice agent"
+            howLabel="Hear what your customers hear"
+            ctaNodes={
+              <button
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+              >
+                Start test call <ArrowRight size={10} />
+              </button>
+            }
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
+              <div className="max-w-2xl space-y-5">
+                <div className="rounded-md border border-border/50 p-6">
+                  <div className="flex items-start gap-3">
+                    <PhoneCall size={16} className="text-foreground mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <h3 className="text-[13px] font-semibold text-foreground font-serif">
+                        Start a live test call
+                      </h3>
+                      <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
+                        This is the same agent, the same voice, and the same knowledge base your
+                        shoppers reach through the widget. Nothing you say here is saved as
+                        training data.
+                      </p>
+                      <button
+                        onClick={() => setIsVoiceModalOpen(true)}
+                        className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-foreground text-background text-[12px] font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                      >
+                        <Mic size={12} /> Start test call
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border/50 p-5">
+                  <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+                    <MessageSquare size={13} className="text-foreground" />
+                    <span className="text-[13px] font-semibold text-foreground font-serif">
+                      What to ask
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground leading-relaxed">
+                    <li>• Something you taught in Voice feed — if the answer is vague, the entry needs rewording.</li>
+                    <li>• A question your customers actually ask, in their words rather than yours.</li>
+                    <li>• A question you have never answered, to hear how ORA behaves when it does not know.</li>
+                    <li>• Ask to be taken to a page, to check navigation works end to end.</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-md border border-border/50 p-5">
+                  <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+                    <Sparkles size={13} className="text-foreground" />
+                    <span className="text-[13px] font-semibold text-foreground font-serif">
+                      If an answer is wrong
+                    </span>
+                  </div>
+                  <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed">
+                    Go back to{' '}
+                    <Link href="/agent?role=voice&view=feed" className="text-foreground underline underline-offset-2">
+                      Voice feed
+                    </Link>{' '}
+                    and say the correct version out loud. Re-teaching a topic updates the existing
+                    entry rather than adding a competing one, so the wrong answer stops being
+                    retrievable.
+                  </p>
                 </div>
               </div>
             </div>
@@ -184,6 +263,67 @@ function AgentClientContent() {
                 </div>
                 <div className="xl:col-span-5">
                   <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
+                </div>
+              </div>
+            </div>
+          </AgentSectionLayout>
+        );
+      }
+      if (activeView === 'test') {
+        return (
+          <AgentSectionLayout
+            iconNode={<PhoneCall size={16} className="text-foreground" />}
+            title="Test ORA"
+            description="Talk to your agent exactly as a customer would. Ask it what you just taught it, and hear the answer it will give on your storefront."
+            previewSrc="/previews/agent-voice-role.jpg"
+            previewAlt="Testing the ORA voice agent"
+            howLabel="Hear what your customers hear"
+            ctaNodes={
+              <button
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+              >
+                Start test call <ArrowRight size={10} />
+              </button>
+            }
+          >
+            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
+              <div className="max-w-2xl space-y-5">
+                <div className="rounded-md border border-border/50 p-6">
+                  <div className="flex items-start gap-3">
+                    <PhoneCall size={16} className="text-foreground mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <h3 className="text-[13px] font-semibold text-foreground font-serif">
+                        Start a live test call
+                      </h3>
+                      <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
+                        This is the same agent, the same voice, and the same knowledge base your
+                        shoppers reach through the widget. Nothing you say here is saved as
+                        training data.
+                      </p>
+                      <button
+                        onClick={() => setIsVoiceModalOpen(true)}
+                        className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-foreground text-background text-[12px] font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                      >
+                        <Mic size={12} /> Start test call
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border/50 p-5">
+                  <div className="flex items-center gap-2 pb-3 border-b border-border/40">
+                    <MessageSquare size={13} className="text-foreground" />
+                    <span className="text-[13px] font-semibold text-foreground font-serif">
+                      What to ask
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground leading-relaxed">
+                    <li>• Something you taught in Voice feed — if the answer is vague, the entry needs rewording.</li>
+                    <li>• A question your customers actually ask, in their words rather than yours.</li>
+                    <li>• A question you have never answered, to hear how ORA behaves when it does not know.</li>
+                    <li>• Ask to be taken to a page, to check navigation works end to end.</li>
+                  </ul>
                 </div>
               </div>
             </div>

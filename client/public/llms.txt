@@ -6,7 +6,7 @@
 
 - **Real-Time Voice Consultation**: Low-latency 16 kHz PCM audio streamed over a bidirectional WebSocket to the Gemini Live API.
 - **Product Catalog Intelligence**: Instant synchronization of product catalogs, variable SKUs, live stock levels, and store FAQs.
-- **Abandoned Cart Recovery**: Proactive conversational engagement when shoppers pause at checkout, yielding an average +34% conversion rate (CVR) lift.
+- **Abandoned Cart Recovery**: Proactive conversational engagement when shoppers pause at checkout, with assisted-order attribution reported per store in the merchant dashboard.
 - **Dual Payment & Regional Checkout**:
   - **Global (USD)**: Auto-renewing subscriptions, Stripe payment gateway, and Shopify native checkout link generation.
   - **Emerging Markets / South Asia (BDT)**: Direct bKash Tokenized Checkout agreements and native Cash on Delivery (COD) verification.

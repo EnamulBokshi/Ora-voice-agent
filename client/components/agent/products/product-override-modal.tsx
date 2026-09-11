@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Edit3, Loader2, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { manualOverrideProductApi } from '@/services/products-service';
 import { ProductDocument, ProductAvailability } from '@/types/product';
+import { useModalA11y } from '@/hooks/use-modal-a11y';
 
 interface ProductOverrideModalProps {
   product: ProductDocument | null;
@@ -43,6 +44,10 @@ export function ProductOverrideModal({
     }
   }, [product]);
 
+  // Escape, focus trap, focus restore and scroll lock. This dialog previously had
+  // none of them, so Tab walked straight out into the page behind it.
+  const dialogRef = useModalA11y(isOpen, onClose);
+
   if (!isOpen || !product) return null;
 
   const handleSave = async (e: React.FormEvent) => {
@@ -80,7 +85,14 @@ export function ProductOverrideModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Override product details"
+        tabIndex={-1}
+        className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
           <div className="flex items-center gap-3">

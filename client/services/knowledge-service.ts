@@ -5,6 +5,8 @@ import {
   CreateKnowledgeDocPayload,
   CreateKnowledgeDocResponseData,
   UpdateKnowledgeDocResponseData,
+  VoiceTranscriptTurn,
+  IngestVoiceTranscriptResponseData,
 } from '@/types/knowledge';
 
 export interface KnowledgeDocsPaginatedResponse {
@@ -97,5 +99,21 @@ export async function deleteKnowledgeDocApi(
 ): Promise<{ message: string }> {
   return apiClient<{ message: string }>(`/knowledge/${id}`, {
     method: 'DELETE',
+  });
+}
+
+/**
+ * Hand a spoken session to the backend, which splits it into topics, files each
+ * under its own category and returns what it saved. The raw transcript is not
+ * stored — only the knowledge extracted from it.
+ */
+export async function ingestVoiceTranscriptApi(payload: {
+  turns: VoiceTranscriptTurn[];
+  sessionId?: string;
+  targetCategory?: string;
+}): Promise<IngestVoiceTranscriptResponseData> {
+  return apiClient<IngestVoiceTranscriptResponseData>('/knowledge/voice-transcript', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }
