@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowRight, Radio } from 'lucide-react';
+import { AppLink } from '@/components/navigation/app-link';
 
 interface StatusStripProps {
   activeConversations?: number;
@@ -71,14 +72,14 @@ export function StatusStrip({
       </div>
 
       {/* Jump to Live Operations */}
-      <Link
+      <AppLink
         href="/live-desk"
         className="inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors ml-auto sm:ml-0"
       >
         <Radio size={12} className="text-foreground dark:text-[#C8F031]" />
         <span>Live Desk Telemetry</span>
         <ArrowRight size={11} className="text-muted-foreground" />
-      </Link>
+      </AppLink>
     </div>
   );
 }

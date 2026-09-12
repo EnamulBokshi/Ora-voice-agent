@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { AppLink } from '@/components/navigation/app-link';
+import { useAppPath } from '@/lib/navigation/app-path';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ interface AgentSectionNavProps {
 
 export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps) {
   const router = useRouter();
+  const resolveAppPath = useAppPath();
   const [dropdownOpen, setDropdownOpen]     = useState(false);
   const [trainExpanded, setTrainExpanded]   = useState(true);
   const dropdownRef                         = useRef<HTMLDivElement>(null);
@@ -74,13 +77,16 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
 
   const handleRoleSelect = (role: AgentRole | null) => {
     setDropdownOpen(false);
-    if (role === null) {
-      router.push('/agent');
-    } else if (role === 'prompt') {
-      router.push('/agent?role=prompt');
-    } else {
-      router.push(`/agent?role=${role}&view=get-started`);
-    }
+    // Resolved so the embedded app pushes /shopify/agent rather than /agent,
+    // which leaves the Shopify namespace and lands on the web sign-in page.
+    const target =
+      role === null
+        ? '/agent'
+        : role === 'prompt'
+          ? '/agent?role=prompt'
+          : `/agent?role=${role}&view=get-started`;
+    const resolved = resolveAppPath(target);
+    if (resolved) router.push(resolved);
   };
 
   const currentRole = ROLES.find((r) => r.id === activeRole) ?? null;
@@ -219,31 +225,31 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
             </div>
 
             {/* Deploy → */}
-            <Link
+            <AppLink
               href="/setup"
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Deploy</span>
               <ChevronRight size={12} className="opacity-40" />
-            </Link>
+            </AppLink>
 
             {/* Analyze → */}
-            <Link
+            <AppLink
               href="/conversations"
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Analyze</span>
               <ChevronRight size={12} className="opacity-40" />
-            </Link>
+            </AppLink>
 
             {/* Settings ↗ */}
-            <Link
+            <AppLink
               href="/profile"
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Settings</span>
               <ArrowUpRight size={12} className="opacity-40" />
-            </Link>
+            </AppLink>
 
             {/* Divider */}
             <div className="h-px bg-border mx-1 my-2" />

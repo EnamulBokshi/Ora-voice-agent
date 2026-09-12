@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { RecentOrdersTable, type RecentOrder } from './recent-orders-table';
 import { RecentConversationsTable, type RecentConversation } from './recent-conversations-table';
+import { AppLink } from '@/components/navigation/app-link';
 
 interface RecentActivityPanelProps {
   orders: RecentOrder[];
@@ -29,13 +30,13 @@ export function RecentActivityPanel({
                 ({conversations.length})
               </span>
             </div>
-            <Link
+            <AppLink
               href="/conversations"
               className="text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors inline-flex items-center gap-1"
             >
               <span>View all</span>
               <ArrowRight size={11} className="text-muted-foreground" />
-            </Link>
+            </AppLink>
           </div>
 
           <RecentConversationsTable conversations={conversations} />
@@ -55,13 +56,13 @@ export function RecentActivityPanel({
                 ({orders.length})
               </span>
             </div>
-            <Link
+            <AppLink
               href="/live-desk"
               className="text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors inline-flex items-center gap-1"
             >
               <span>View all</span>
               <ArrowRight size={11} className="text-muted-foreground" />
-            </Link>
+            </AppLink>
           </div>
 
           <RecentOrdersTable orders={orders} />

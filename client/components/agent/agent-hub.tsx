@@ -14,6 +14,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Role Definitions ─────────────────────────────────────────────────────────
 
@@ -110,12 +111,13 @@ export function AgentHub() {
           </p>
           <p className="text-[13px] text-muted-foreground/80 mt-2">
             Want to learn how ORA indexes data? Read our{' '}
-            <Link
+            <AppLink
               href="/docs"
               className="text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
+              fallback={<span className="font-medium">Agent Training Guide</span>}
             >
               Agent Training Guide
-            </Link>
+            </AppLink>
             .
           </p>
         </div>

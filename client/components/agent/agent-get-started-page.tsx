@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type AgentRole } from './agent-section-nav';
+import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Per-Role Editorial & Image Definitions ───────────────────────────────────
 
@@ -342,19 +343,19 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
 
             {/* CTA Buttons */}
             <div className="flex items-center gap-2.5 pt-1">
-              <Link
+              <AppLink
                 href={cta1Href}
                 className="inline-flex items-center h-8.5 px-4 rounded-md bg-foreground text-background font-semibold text-[12.5px] hover:opacity-90 transition-opacity shadow-xs"
               >
                 {cta1Label}
-              </Link>
-              <Link
+              </AppLink>
+              <AppLink
                 href="/docs"
                 className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-md border border-border/70 bg-surface-container/60 hover:bg-surface-container text-[12.5px] font-medium text-foreground transition-colors"
               >
                 <BookOpen size={12} className="text-muted-foreground" />
                 <span>{cta2Label}</span>
-              </Link>
+              </AppLink>
             </div>
           </div>
 
@@ -427,13 +428,13 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
             <p className="text-[13.5px] text-muted-foreground leading-relaxed">
               Can&apos;t find the answer here?
             </p>
-            <Link
+            <AppLink
               href="/setup?step=persona"
               className="inline-flex items-center gap-1.5 text-[13.5px] text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
             >
               <span>Ask ORA Agent</span>
               <ArrowRight size={13} />
-            </Link>
+            </AppLink>
           </div>
 
           {/* Right: FAQ Accordions */}

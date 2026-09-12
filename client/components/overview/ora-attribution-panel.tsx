@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, TrendingUp, MessageSquare, ShoppingBag, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
+import { AppLink } from '@/components/navigation/app-link';
 
 interface OraAttributionPanelProps {
   totalRevenue: number;
@@ -80,13 +81,13 @@ export function OraAttributionPanel({
             ORA Revenue Attribution
           </h3>
         </div>
-        <Link
+        <AppLink
           href="/conversations"
           className="text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors inline-flex items-center gap-1"
         >
           <span>View conversations</span>
           <ArrowRight size={11} className="text-muted-foreground" />
-        </Link>
+        </AppLink>
       </div>
 
       {/* Attribution rows */}

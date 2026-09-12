@@ -33,6 +33,7 @@ import { StatusStrip } from './status-strip';
 import { AnalyticsPanel } from './analytics-panel';
 import { QuickActionsBar, QuickAction } from './quick-actions-bar';
 import { KpiCardDef } from './kpi-strip';
+import { useIsEmbedded } from '@/lib/navigation/app-path';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ export function OverviewClient() {
   const [isTogglingWidget, setIsTogglingWidget] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const isEmbedded = useIsEmbedded();
   const { completedCount, totalSteps, isAllCompleted } = useSetupProgress();
 
   const handleToggleWidget = async () => {
@@ -268,7 +270,9 @@ export function OverviewClient() {
       />
 
       {/* Setup Guide Banner — minimal & crisp non-rounded */}
-      {!isAllCompleted && !bannerDismissed && (
+      {/* Hidden in the embedded Shopify app: /setup is a dashboard-only route,
+          and following it from the iframe lands on the web sign-up form. */}
+      {!isAllCompleted && !bannerDismissed && !isEmbedded && (
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-5 h-5 rounded-none bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">

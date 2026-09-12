@@ -19,6 +19,7 @@ import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders } from 'lucide-react';
 import Link from 'next/link';
+import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
 
@@ -123,9 +124,9 @@ function AgentClientContent() {
                 >
                   Start talking <ArrowRight size={10} />
                 </button>
-                <Link href="/agent?role=voice" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
+                <AppLink href="/agent?role=voice" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
                   Get started <ExternalLink size={9} />
-                </Link>
+                </AppLink>
               </>
             }
           >
@@ -172,9 +173,9 @@ function AgentClientContent() {
             previewAlt="ORA knowledge base"
             howLabel="Upload your store knowledge"
             ctaNodes={
-              <Link href="/agent?role=documents" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
+              <AppLink href="/agent?role=documents" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
                 Get started <ExternalLink size={9} />
-              </Link>
+              </AppLink>
             }
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
@@ -220,9 +221,9 @@ function AgentClientContent() {
             previewAlt="ORA product catalog"
             howLabel="Sync your product inventory"
             ctaNodes={
-              <Link href="/agent?role=products" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
+              <AppLink href="/agent?role=products" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
                 Get started <ExternalLink size={9} />
-              </Link>
+              </AppLink>
             }
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
