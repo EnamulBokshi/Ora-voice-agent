@@ -10,6 +10,7 @@ import { ApiScope } from '../../api-access/schemas/api-client.schema';
 import { Business } from '../../users/schemas/business.schema';
 import { ApiKeyUtil } from '../utils/api-key.util';
 import { DomainException } from '../exceptions/domain.exception';
+import { EntitlementService } from '../entitlement/entitlement.service';
 
 describe('DualAuthGuard', () => {
   let guard: DualAuthGuard;
@@ -48,6 +49,16 @@ describe('DualAuthGuard', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        {
+          // The entitlement check is exercised in entitlement.service.spec.ts
+          // and subscription.guard.spec.ts; here it stands aside.
+          provide: EntitlementService,
+          useValue: {
+            assertEntitled: jest.fn().mockResolvedValue(undefined),
+            decide: jest.fn().mockResolvedValue({ entitled: true }),
+            invalidate: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         DualAuthGuard,
         { provide: Reflector, useValue: mockReflector },
         { provide: JwtService, useValue: mockJwtService },

@@ -769,6 +769,81 @@ export class AuthService {
     };
   }
 
+  /**
+   * Issues ORA tokens for a user whose identity has already been established by
+   * something other than a password — currently the Shopify embedded app, which
+   * verifies a Shopify-signed App Bridge session token first.
+   *
+   * An existing Redis session for the user is reused rather than replaced. The
+   * embedded client re-exchanges its App Bridge token on every page load, so
+   * minting a new 7-day session each time would grow Redis without bound for
+   * every active shop. The refresh token still rotates on each call, which keeps
+   * the theft-detection contract in `refresh` intact.
+   *
+   * This is the only public way to mint a session, so callers never reimplement
+   * `generateTokens`: the refresh token is opaque and only its bcrypt hash is
+   * stored, and a second copy of that logic would drift from `refresh` and
+   * `logout`.
+   */
+  async issueSessionForUser(
+    adminUserId: string,
+    businessId: string,
+    email: string,
+    role: string,
+    reqInfo: { userAgent?: string; ip?: string } = {},
+  ) {
+    const existingSessionId =
+      await this.redisService.getUserSessionPointer(adminUserId);
+
+    let sessionId: string | null = null;
+
+    if (existingSessionId) {
+      const existingSession =
+        await this.redisService.getSession(existingSessionId);
+      // A pointer can outlive its session, and a session that has since been
+      // reassigned to another tenant must not be handed back.
+      if (existingSession && existingSession.businessId === businessId) {
+        sessionId = existingSessionId;
+      } else {
+        await this.redisService.deleteUserSessionPointer(adminUserId);
+      }
+    }
+
+    const isNewSession = sessionId === null;
+    if (sessionId === null) {
+      sessionId = crypto.randomUUID();
+    }
+
+    const tokens = await this.generateTokens(
+      adminUserId,
+      businessId,
+      email,
+      role,
+      sessionId,
+    );
+
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, 10);
+
+    await this.redisService.setSession(sessionId, {
+      adminUserId,
+      businessId,
+      email,
+      role,
+      refreshTokenHash,
+      userAgent: reqInfo.userAgent,
+      ip: reqInfo.ip,
+      createdAt: new Date().toISOString(),
+    });
+
+    await this.redisService.setUserSessionPointer(adminUserId, sessionId);
+
+    this.logger.log(
+      `[AuthService] ${isNewSession ? 'Created' : 'Reused'} session ${sessionId} for user ${adminUserId} via external identity provider.`,
+    );
+
+    return { tokens, sessionId };
+  }
+
   private async generateTokens(
     adminUserId: string,
     businessId: string,

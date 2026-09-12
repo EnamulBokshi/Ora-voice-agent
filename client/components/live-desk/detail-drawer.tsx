@@ -6,6 +6,7 @@ import type { LiveFeedSession } from '@/services/live-desk-service';
 import { getConversationTranscriptApi } from '@/services/conversations-service';
 import type { Message } from '@/types/conversation';
 import Link from 'next/link';
+import { AppLink } from '@/components/navigation/app-link';
 
 interface DetailDrawerProps {
   open: boolean;
@@ -215,21 +216,21 @@ export function DetailDrawer({ open, session, onClose }: DetailDrawerProps) {
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-border bg-surface-lowest flex items-center gap-3 flex-shrink-0">
-          <Link
+          <AppLink
             href="/conversations"
             className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md text-[12px] font-medium border border-border bg-surface-container hover:bg-surface-high text-foreground transition-colors"
           >
             <UserCheck size={14} />
             Take Over Session
-          </Link>
+          </AppLink>
 
-          <Link
+          <AppLink
             href="/customers"
             className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
             Customer Profile
             <ArrowUpRight size={14} />
-          </Link>
+          </AppLink>
         </div>
       </aside>
     </div>

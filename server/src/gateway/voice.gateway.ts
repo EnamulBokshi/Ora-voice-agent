@@ -20,6 +20,7 @@ import {
   IDLE_WARNING_SECONDS,
   IDLE_TERMINATE_SECONDS,
 } from './session-timer.service';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -46,6 +47,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly sessionTimerService: SessionTimerService,
     private readonly configService: ConfigService,
+    private readonly entitlementService: EntitlementService,
   ) { }
 
   handleConnection(client: Socket) {
@@ -109,6 +111,22 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
       client.emit('voice-error', {
         message: 'This publishable key has been suspended by administration. Access denied.',
+      });
+      return;
+    }
+
+    // The storefront agent is the product, so an unpaid tenant must not serve
+    // it either. The message stays generic: it reaches a shopper on the
+    // merchant's storefront, who is not party to the merchant's billing.
+    const entitlement = await this.entitlementService.decide(
+      business._id.toString(),
+    );
+    if (!entitlement.entitled) {
+      this.logger.warn(
+        `[VoiceGateway] Connection rejected: business ${business._id} (${business.name}) is not entitled (${entitlement.code})`,
+      );
+      client.emit('voice-error', {
+        message: 'The voice agent is not available for this store.',
       });
       return;
     }

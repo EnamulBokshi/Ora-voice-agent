@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { Check, ExternalLink, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // Note: isOpen / onToggleOpen removed — steps are always expanded (Intercom pattern).
@@ -103,12 +103,12 @@ export function SetupStepCard({
         <div className="flex flex-wrap items-center gap-2 ml-[30px]">
           {ctaText && (
             ctaHref ? (
-              <Link
+              <AppLink
                 href={ctaHref}
                 className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors"
               >
                 {ctaText} <ArrowRight size={10} />
-              </Link>
+              </AppLink>
             ) : (
               <button
                 type="button"
@@ -120,12 +120,12 @@ export function SetupStepCard({
             )
           )}
           {learnMoreHref && (
-            <Link
+            <AppLink
               href={learnMoreHref}
               className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground font-medium transition-colors"
             >
               {learnMoreText || 'Open workspace'} <ExternalLink size={9} />
-            </Link>
+            </AppLink>
           )}
         </div>
       </div>

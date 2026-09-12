@@ -16,6 +16,7 @@ import { TokenRequestDto } from './dto/token-request.dto';
 import { CreateApiClientDto } from './dto/create-api-client.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -54,7 +55,7 @@ export class OAuthController {
    * bound to the caller's own business.
    */
   @Post('clients')
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles('owner' as any, 'admin' as any)
   @HttpCode(HttpStatus.CREATED)
   async createClient(
@@ -65,14 +66,14 @@ export class OAuthController {
   }
 
   @Get('clients')
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles('owner' as any, 'admin' as any)
   async listClients(@CurrentUser() user: JwtPayloadUser) {
     return this.apiClientService.listClients(user.businessId);
   }
 
   @Delete('clients/:id')
-  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
   @Roles('owner' as any, 'admin' as any)
   async revokeClient(
     @CurrentUser() user: JwtPayloadUser,

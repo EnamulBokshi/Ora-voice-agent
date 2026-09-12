@@ -51,6 +51,17 @@ export class Plan {
   @Prop({ type: [String], default: [] })
   features: string[];
 
+  /**
+   * Free-trial length in days, passed to Shopify's `appSubscriptionCreate`.
+   *
+   * Shopify owns the trial: it starts the subscription ACTIVE and takes the
+   * first payment `trialDays` later. Nothing in ORA counts it down, so this
+   * value is the only thing that makes an advertised trial real. Zero means
+   * the merchant is charged on approval.
+   */
+  @Prop({ type: Number, default: 0 })
+  trialDays: number;
+
   @Prop({ default: true, index: true })
   isActive: boolean;
 }

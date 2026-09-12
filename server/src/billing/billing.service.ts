@@ -26,6 +26,7 @@ import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
 import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -50,6 +51,7 @@ export class BillingService implements OnModuleInit {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => OnboardingEmailService))
     private readonly onboardingEmailService: OnboardingEmailService,
+    private readonly entitlementService: EntitlementService,
   ) {}
 
   async onModuleInit() {
@@ -520,7 +522,10 @@ export class BillingService implements OnModuleInit {
 
   private async seedDefaultPlans() {
     const count = await this.planModel.countDocuments().exec();
-    if (count > 0) return;
+    if (count > 0) {
+      await this.backfillTrialDays();
+      return;
+    }
 
     this.logger.log('[BillingService] Seeding default plan tiers (Free, Growth, Scale)...');
 
@@ -538,6 +543,7 @@ export class BillingService implements OnModuleInit {
           seats: 1,
         },
         features: ['100 conversation minutes', '20 Tier 1 orders', '1 store connector', 'Basic RAG search'],
+        trialDays: 0,
         isActive: true,
       },
       {
@@ -553,6 +559,7 @@ export class BillingService implements OnModuleInit {
           seats: 5,
         },
         features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', '5 staff seats', 'Full RAG vector search'],
+        trialDays: 14,
         isActive: true,
       },
       {
@@ -568,11 +575,42 @@ export class BillingService implements OnModuleInit {
           seats: 99,
         },
         features: ['Unlimited conversation minutes', 'Unlimited orders', 'Unlimited store connectors', 'Unlimited seats', 'Priority support'],
+        trialDays: 14,
         isActive: true,
       },
     ];
 
     await this.planModel.insertMany(defaultPlans);
+  }
+
+  /**
+   * Gives an already-seeded deployment the trial it was advertising.
+   *
+   * `trialDays` was added after these documents existed, and a Mongoose default
+   * applies only to new ones — so a plan seeded earlier reads back `undefined`
+   * and Shopify charges on approval. The paid tiers get 14 days; nothing that
+   * already carries a value is touched.
+   */
+  private async backfillTrialDays(): Promise<void> {
+    const result = await this.planModel
+      .updateMany(
+        { trialDays: { $exists: false }, planId: { $ne: PlanId.FREE } },
+        { $set: { trialDays: 14 } },
+      )
+      .exec();
+
+    if (result.modifiedCount) {
+      this.logger.log(
+        `[BillingService] Backfilled trialDays on ${result.modifiedCount} plan(s).`,
+      );
+    }
+
+    await this.planModel
+      .updateMany(
+        { trialDays: { $exists: false }, planId: PlanId.FREE },
+        { $set: { trialDays: 0 } },
+      )
+      .exec();
   }
 
   private async sendSubscriberWelcomeEmail(businessId: string, planName = 'Growth Plan') {
@@ -795,6 +833,182 @@ export class BillingService implements OnModuleInit {
         this.logger.log(`[BillingService] Unhandled Stripe event type: ${eventType}`);
         break;
     }
+  }
+
+  async activateShopifySubscription(
+    businessId: string,
+    chargeId: string,
+    status: string,
+    planId?: string,
+    currentPeriodEnd?: Date,
+  ) {
+    const isApproved = status === 'ACTIVE';
+    const subStatus = isApproved
+      ? SubscriptionStatus.ACTIVE
+      : SubscriptionStatus.SUSPENDED;
+
+    const existing = await this.subscriptionModel
+      .findOne({ businessId: businessId as any })
+      .exec();
+
+    // `planId` is required on the schema, so an upsert with no plan fails
+    // validation. The plan is no longer read from the callback's query string,
+    // so "unknown plan" is reachable — a dropped Redis record plus a Shopify
+    // name that matches nothing. Refuse rather than create an invalid document
+    // or guess a tier.
+    if (!planId && !existing) {
+      this.logger.error(
+        `[BillingService] Shopify charge ${chargeId} for business ${businessId} could not be matched to a plan, and the business has no subscription to update. No state applied.`,
+      );
+      return null;
+    }
+
+    const updateSet: Record<string, any> = {
+      billingProvider: BillingProvider.SHOPIFY,
+      // Numeric id only. `applyShopifySubscriptionState` looks the document up
+      // by this field from a webhook that carries a gid, so both writers have
+      // to agree on the form.
+      providerRef: (chargeId || '').split('/').pop() || chargeId,
+      status: subStatus,
+    };
+
+    if (planId) {
+      updateSet.planId = planId;
+    }
+
+    // Shopify charges on its own cadence and owns the renewal date, so the
+    // period end is whatever it reports. `cancelAtPeriodEnd` is deliberately
+    // not written here: it used to be forced to false on every callback, which
+    // silently cleared a cancellation the merchant had already requested.
+    if (currentPeriodEnd) {
+      updateSet.currentPeriodEnd = currentPeriodEnd;
+    } else if (!existing) {
+      // The field is required and this is an insert, so something has to go in
+      // it. Thirty days matches Shopify's default EVERY_30_DAYS interval, and
+      // the log says the date is a local guess rather than Shopify's answer.
+      updateSet.currentPeriodEnd = new Date(
+        Date.now() + 30 * 24 * 60 * 60 * 1000,
+      );
+      this.logger.warn(
+        `[BillingService] Shopify reported no currentPeriodEnd for charge ${chargeId}; storing a 30-day estimate for business ${businessId}.`,
+      );
+    }
+
+    const sub = await this.subscriptionModel
+      .findOneAndUpdate(
+        { businessId: businessId as any },
+        {
+          $set: updateSet,
+          // Only on creation: an existing subscription's period start belongs
+          // to the period it started, not to the latest callback.
+          $setOnInsert: { currentPeriodStart: new Date() },
+        },
+        { upsert: true, returnDocument: 'after' },
+      )
+      .exec();
+
+    if (isApproved) {
+      await this.businessModel
+        .findByIdAndUpdate(businessId, {
+          $set: { status: 'active' },
+        })
+        .exec();
+    }
+
+    // The guard caches its decision, so the merchant would otherwise wait out
+    // the TTL after paying.
+    await this.entitlementService.invalidate(businessId);
+
+    this.logger.log(
+      `[BillingService] Updated Shopify subscription for business ${businessId}: charge ${chargeId}, status ${subStatus}`,
+    );
+
+    return sub;
+  }
+
+  /**
+   * Applies a Shopify-reported AppSubscription state to the ORA subscription.
+   *
+   * This is the only path that can ever learn about a cancellation, a decline,
+   * an expiry or a frozen charge: the billing callback runs once, at approval
+   * time, and Shopify never calls it again. Without this, a merchant who
+   * cancels in Shopify Admin keeps an ACTIVE ORA subscription indefinitely.
+   *
+   * Shopify owns the status vocabulary here, so the mapping is explicit rather
+   * than a truthiness check on 'ACTIVE'.
+   */
+  async applyShopifySubscriptionState(
+    businessId: string,
+    chargeId: string,
+    shopifyStatus: string,
+  ) {
+    const normalized = (shopifyStatus || '').toUpperCase();
+
+    // PENDING means the merchant has not answered the approval screen yet.
+    // Nothing has been decided, so nothing is changed.
+    if (normalized === 'PENDING') {
+      this.logger.log(
+        `[BillingService] Shopify subscription ${chargeId} for business ${businessId} is PENDING; no state applied.`,
+      );
+      return null;
+    }
+
+    const SUBSCRIPTION_STATE: Record<
+      string,
+      { status: SubscriptionStatus; businessStatus: 'active' | 'suspended' }
+    > = {
+      ACTIVE: { status: SubscriptionStatus.ACTIVE, businessStatus: 'active' },
+      FROZEN: { status: SubscriptionStatus.SUSPENDED, businessStatus: 'suspended' },
+      CANCELLED: { status: SubscriptionStatus.CANCELED, businessStatus: 'suspended' },
+      EXPIRED: { status: SubscriptionStatus.CANCELED, businessStatus: 'suspended' },
+      DECLINED: { status: SubscriptionStatus.CANCELED, businessStatus: 'suspended' },
+    };
+
+    const mapped = SUBSCRIPTION_STATE[normalized];
+    if (!mapped) {
+      this.logger.warn(
+        `[BillingService] Unrecognized Shopify subscription status '${shopifyStatus}' for business ${businessId}; no state applied.`,
+      );
+      return null;
+    }
+
+    // The billing callback stores the numeric charge id from its query string,
+    // while the webhook carries a GraphQL gid
+    // (`gid://shopify/AppSubscription/123`). Reduce both to the numeric id, or
+    // the two paths never match the same document.
+    const providerRef = (chargeId || '').split('/').pop() || chargeId;
+
+    // Scoped to the business AND the charge so a stale webhook for a replaced
+    // subscription cannot overwrite the current one. No upsert: a state change
+    // for a subscription ORA never recorded is a bug to see, not to create.
+    const sub = await this.subscriptionModel
+      .findOneAndUpdate(
+        { businessId: businessId as any, providerRef },
+        { $set: { status: mapped.status, billingProvider: BillingProvider.SHOPIFY } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!sub) {
+      this.logger.warn(
+        `[BillingService] No Shopify subscription matches charge ${chargeId} for business ${businessId}; state '${normalized}' not applied.`,
+      );
+      return null;
+    }
+
+    await this.businessModel
+      .findByIdAndUpdate(businessId, {
+        $set: { status: mapped.businessStatus },
+      })
+      .exec();
+
+    await this.entitlementService.invalidate(businessId);
+
+    this.logger.log(
+      `[BillingService] Shopify subscription ${chargeId} for business ${businessId} is ${normalized}: subscription ${mapped.status}, business ${mapped.businessStatus}.`,
+    );
+
+    return sub;
   }
 }
 

@@ -11,6 +11,7 @@ import { FileIngestionService } from './services/file-ingestion.service';
 import { DomSemanticStructurerService } from './services/dom-semantic-structurer.service';
 import { RedisService } from '../common/redis/redis.service';
 import { Business } from '../users/schemas/business.schema';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 describe('IngestionController -- platform webhooks', () => {
   let controller: IngestionController;
@@ -46,6 +47,16 @@ describe('IngestionController -- platform webhooks', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IngestionController],
       providers: [
+        {
+          // The entitlement check is exercised in entitlement.service.spec.ts
+          // and subscription.guard.spec.ts; here it stands aside.
+          provide: EntitlementService,
+          useValue: {
+            assertEntitled: jest.fn().mockResolvedValue(undefined),
+            decide: jest.fn().mockResolvedValue({ entitled: true }),
+            invalidate: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         { provide: ShopifyConnectorService, useValue: mockShopifyService },
         { provide: WooCommerceConnectorService, useValue: mockWooService },
         { provide: FeedParserService, useValue: {} },

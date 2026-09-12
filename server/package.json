@@ -20,7 +20,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:admin": "ts-node scripts/seed-admin.ts",
     "seed:dev-store": "ts-node scripts/seed-dev-store.ts",
-    "migrate:hash-keys": "ts-node scripts/migrate-hash-secret-keys.ts"
+    "migrate:hash-keys": "ts-node scripts/migrate-hash-secret-keys.ts",
+    "shopify:queue-sync": "ts-node scripts/queue-shopify-sync.ts",
+    "shopify:backfill-domain": "ts-node scripts/backfill-shopify-shop-domain.ts"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

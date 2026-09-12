@@ -30,6 +30,7 @@ import {
   demoSystemHealth,
 } from '@/lib/demo-live-desk';
 import { DEMO_MODE_ENABLED } from '@/lib/demo-config';
+import { AppLink } from '@/components/navigation/app-link';
 
 const USE_DEMO_DATA = DEMO_MODE_ENABLED;
 
@@ -168,13 +169,13 @@ export function LiveDeskClient() {
               <span>{paused ? 'Resume' : 'Pause'}</span>
             </button>
 
-            <Link
+            <AppLink
               href="/agent"
               className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
             >
               <Settings2 size={12} />
               <span>Settings</span>
-            </Link>
+            </AppLink>
           </div>
         }
       />
@@ -197,13 +198,13 @@ export function LiveDeskClient() {
           />
           {/* Footer link to Historical Archives */}
           <div className="px-4 py-2.5 border-t border-border/40 flex-shrink-0 bg-transparent">
-            <Link
+            <AppLink
               href="/conversations"
               className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 font-medium"
             >
               <span>View all conversations</span>
               <ArrowRight size={11} />
-            </Link>
+            </AppLink>
           </div>
         </div>
 

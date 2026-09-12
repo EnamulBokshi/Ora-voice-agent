@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Check, ArrowRight, ArrowLeft, ExternalLink, CheckCircle2, ChevronDown, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
@@ -67,6 +66,8 @@ const ALL_STEP_IDS: SetupStepId[] = ['persona', 'integration', 'knowledge', 'voi
 const VALID_ARCHETYPES = ['ecommerce', 'saas', 'agency', 'portfolio', 'general'];
 
 import Image from 'next/image';
+import { useAppRouter } from '@/lib/navigation/app-path';
+import { AppLink } from '@/components/navigation/app-link';
 
 const ARCHETYPE_IMAGES: Record<SetupArchetype, string> = {
   ecommerce: '/previews/ecom-hero.jpg',
@@ -79,7 +80,9 @@ const ARCHETYPE_IMAGES: Record<SetupArchetype, string> = {
 // ─── Setup Hub (Archetype Selection Screen) ──────────────────────────────────
 
 function SetupHub() {
-  const router = useRouter();
+  // Pushes resolve for the tree this renders in, so the embedded app stays
+  // inside /shopify instead of bouncing the iframe to the web sign-in page.
+  const router = useAppRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const faqs = [
@@ -118,9 +121,13 @@ function SetupHub() {
           </p>
           <p className="text-[13px] text-muted-foreground/80 mt-2">
             Need help choosing? Read our{' '}
-            <Link href="/docs" className="text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4">
+            <AppLink
+              href="/docs"
+              className="text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
+              fallback={<span className="font-medium">Archetype Guide</span>}
+            >
               Archetype Guide
-            </Link>
+            </AppLink>
             .
           </p>
         </div>
@@ -253,7 +260,7 @@ function SetupHub() {
 // ─── Setup Guide Client Main ──────────────────────────────────────────────────
 
 function SetupGuideClientInner() {
-  const router = useRouter();
+  const router = useAppRouter();
   const searchParams = useSearchParams();
 
   const rawArch = searchParams.get('archetype');

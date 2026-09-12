@@ -19,12 +19,13 @@ import { IngestVoiceTranscriptDto } from './dto/ingest-voice-transcript.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('knowledge')
-@UseGuards(JwtAuthGuard, TenantScopeGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, SubscriptionGuard)
 export class KnowledgeController {
   constructor(private readonly knowledgeService: KnowledgeService) {}
 

@@ -14,6 +14,8 @@ export interface Plan {
   billingInterval: 'monthly' | 'yearly';
   limits: PlanLimits;
   features: string[];
+  /** Free-trial length Shopify applies before the first charge. */
+  trialDays?: number;
   isActive: boolean;
 }
 

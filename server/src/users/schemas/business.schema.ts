@@ -114,6 +114,65 @@ export class Business {
   @Prop({ trim: true, select: false })
   shopifyAccessToken?: string;
 
+  /**
+   * Normalized Shopify shop domain (`store.myshopify.com`), the unique key an
+   * embedded-app install upserts on. `shopifyStoreUrl` above is the legacy,
+   * unindexed field and is kept for tenants provisioned before the embedded
+   * app existed.
+   */
+  @Prop({
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+    trim: true,
+    lowercase: true,
+    required: false,
+  })
+  shopifyShopDomain?: string | null;
+
+  /** Shop owner address from Shopify, used for billing and invoice delivery. */
+  @Prop({ trim: true })
+  shopifyOwnerEmail?: string;
+
+  @Prop()
+  shopifyInstalledAt?: Date;
+
+  @Prop()
+  shopifyUninstalledAt?: Date;
+
+  /**
+   * Access scopes Shopify granted at the last token exchange. Compared on each
+   * session exchange so a scope change triggers a fresh exchange.
+   */
+  @Prop({ type: [String], default: [] })
+  shopifyScopes?: string[];
+
+  /**
+   * Refresh token for an expiring offline access token, encrypted at rest like
+   * `shopifyAccessToken`. Shopify rotates it on every refresh, so the value
+   * written by the last refresh is the only one worth keeping.
+   */
+  @Prop({ trim: true, select: false })
+  shopifyRefreshToken?: string;
+
+  /**
+   * When `shopifyAccessToken` stops working. Expiring offline tokens last
+   * about 60 minutes, so background jobs must refresh before calling the Admin
+   * API rather than assuming a stored token is live. Absent on legacy
+   * non-expiring (`shpua_`) tokens.
+   */
+  @Prop()
+  shopifyTokenExpiresAt?: Date;
+
+  /**
+   * When `shopifyRefreshToken` stops working — 90 days from issue, and shorter
+   * once used. Past this point only a merchant-initiated install can restore
+   * Admin API access.
+   */
+  @Prop()
+  shopifyRefreshTokenExpiresAt?: Date;
+
   // --- Tier 1: WooCommerce Connector ---
   @Prop({ trim: true })
   woocommerceStoreUrl?: string;

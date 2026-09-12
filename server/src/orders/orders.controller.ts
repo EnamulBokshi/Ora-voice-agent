@@ -16,6 +16,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AdminRole } from '../users/enums/admin-role.enum';
@@ -23,7 +24,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('orders')
-@UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard, SubscriptionGuard)
 @Roles(AdminRole.OWNER, AdminRole.ADMIN, AdminRole.STAFF)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Mic, FileText, Package, Database, Radio } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
+import { AppLink } from '@/components/navigation/app-link';
 
 interface AgentHeaderProps {
   activeSection: 'voice' | 'documents' | 'products';
@@ -56,7 +57,7 @@ export function AgentHeader({ activeSection, totalDocs = 0 }: AgentHeaderProps) 
         </div>
 
         {activeSection !== 'voice' && (
-          <Link
+          <AppLink
             href="/agent?tab=voice"
             className={buttonVariants({
               variant: 'default',
@@ -66,7 +67,7 @@ export function AgentHeader({ activeSection, totalDocs = 0 }: AgentHeaderProps) 
           >
             <Radio size={13} className="animate-pulse" />
             Talk to ORA
-          </Link>
+          </AppLink>
         )}
       </div>
     </div>

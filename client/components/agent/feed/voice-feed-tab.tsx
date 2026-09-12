@@ -28,6 +28,9 @@ import { DocType, IngestVoiceTranscriptResponseData } from '@/types/knowledge';
 import { cn } from '@/lib/utils';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
 import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
+import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
+import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
+import { getSessionStrategy } from '@/lib/session';
 
 interface VoiceFeedTabProps {
   publishableKey?: string;
@@ -134,6 +137,9 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('converse');
   const [selectedCategory, setSelectedCategory] = useState<TargetCategory>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Resolved after mount rather than at module scope: it reads the document's
+  // Permissions Policy, which does not exist during server rendering.
+  const [micBlocked, setMicBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
@@ -184,7 +190,13 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
    */
   const startVoiceSession = async (mode: VoiceMode = voiceMode) => {
     try {
-      if (!publishableKey) {
+      let keyToUse = publishableKey;
+      if (!keyToUse) {
+        const session = await getSessionStrategy().getSession().catch(() => null);
+        keyToUse = session?.business?.publishableKey || undefined;
+      }
+
+      if (!keyToUse) {
         setErrorMessage('Store publishable key is loading. Please try again in a second.');
         setStatus('error');
         return;
@@ -196,11 +208,12 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
       setOrganiseResult(null);
       setOrganiseError(null);
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
       const isSilent = mode === 'dictate';
+      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
+      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
 
       const client = new GeminiLiveClient({
-        publishableKey,
+        publishableKey: keyToUse,
         sessionId,
         authToken: token || undefined,
         sessionMode: 'training',
@@ -279,6 +292,8 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
   const handleToggleVoice = () => {
     if (status === 'connecting') return;
+    // Both modes capture the microphone, so a policy block rules out either.
+    if (micBlocked) return;
     if (status === 'idle' || status === 'error') {
       startVoiceSession(voiceMode);
     } else {
@@ -309,6 +324,10 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
       stopSession();
     };
   }, [stopSession]);
+
+  useEffect(() => {
+    setMicBlocked(isMicrophoneBlockedByPolicy());
+  }, []);
 
   const isActive = status === 'listening' || status === 'speaking' || status === 'connecting';
   const activeCategoryMeta = CATEGORY_OPTIONS.find((c) => c.id === selectedCategory) || CATEGORY_OPTIONS[0];
@@ -386,6 +405,8 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 : 'radial-gradient(circle at center, var(--status-warning) 0%, transparent 70%)',
           }}
         />
+
+        {micBlocked && <MicrophoneBlockedNotice className="relative z-10 mb-2" />}
 
         {/* Mode Selector: Converse vs Dictate */}
         <div className="relative z-10 inline-flex items-center gap-1 p-1 rounded-md border border-border/60 bg-surface-lowest/70 shadow-xs mb-2">

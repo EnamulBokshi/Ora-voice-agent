@@ -4,12 +4,13 @@ import { UpdateAgentConfigDto } from './dto/update-agent-config.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
+import { SubscriptionGuard } from '../common/guards/subscription.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('agent-config')
-@UseGuards(JwtAuthGuard, TenantScopeGuard)
+@UseGuards(JwtAuthGuard, TenantScopeGuard, SubscriptionGuard)
 export class AgentConfigController {
   constructor(private readonly agentConfigService: AgentConfigService) {}
 

@@ -1,7 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ChevronDown, ChevronRight, ArrowUpRight,
   Mic, FileText, Package, Rocket, BarChart2,
@@ -10,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { AppLink } from '@/components/navigation/app-link';
+import { useAppRouter } from '@/lib/navigation/app-path';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,9 @@ interface AgentSectionNavProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps) {
-  const router = useRouter();
+  // Pushes resolve for the tree this renders in, so the embedded app stays
+  // inside /shopify instead of bouncing the iframe to the web sign-in page.
+  const router = useAppRouter();
   const [dropdownOpen, setDropdownOpen]     = useState(false);
   const [trainExpanded, setTrainExpanded]   = useState(true);
   const dropdownRef                         = useRef<HTMLDivElement>(null);
@@ -169,14 +171,14 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
               { label: 'Deploy',   href: '/setup' },
               { label: 'Analyze',  href: '/conversations' },
             ].map((item) => (
-              <Link
+              <AppLink
                 key={item.label}
                 href={item.href}
                 className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
               >
                 {item.label}
                 <ChevronRight size={12} className="opacity-40" />
-              </Link>
+              </AppLink>
             ))}
           </>
         ) : (
@@ -200,7 +202,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
                   {TRAIN_ITEMS[activeRole].map((item) => {
                     const isActive = activeView === item.view;
                     return (
-                      <Link
+                      <AppLink
                         key={item.view}
                         href={`/agent?role=${activeRole}&view=${item.view}`}
                         className={cn(
@@ -211,7 +213,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
                         )}
                       >
                         <span>{item.label}</span>
-                      </Link>
+                      </AppLink>
                     );
                   })}
                 </div>
@@ -219,31 +221,31 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
             </div>
 
             {/* Deploy → */}
-            <Link
+            <AppLink
               href="/setup"
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Deploy</span>
               <ChevronRight size={12} className="opacity-40" />
-            </Link>
+            </AppLink>
 
             {/* Analyze → */}
-            <Link
+            <AppLink
               href="/conversations"
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Analyze</span>
               <ChevronRight size={12} className="opacity-40" />
-            </Link>
+            </AppLink>
 
             {/* Settings ↗ */}
-            <Link
+            <AppLink
               href="/profile"
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Settings</span>
               <ArrowUpRight size={12} className="opacity-40" />
-            </Link>
+            </AppLink>
 
             {/* Divider */}
             <div className="h-px bg-border mx-1 my-2" />

@@ -1,0 +1,61 @@
+/**
+ * Route facts shared by the client components and by `proxy.ts`.
+ *
+ * Kept free of React and of `next/navigation` so the edge proxy can import it.
+ */
+
+/** Where the embedded Shopify app is mounted in the client route tree. */
+export const SHOPIFY_BASE_PATH = '/shopify';
+
+/**
+ * Top-level routes that exist under `app/shopify/`.
+ *
+ * The marketing `/docs` is the one dashboard-reachable route left out: it is
+ * marketing chrome, not app surface, so it resolves to nothing and the
+ * affordance is hidden rather than framed inside Shopify Admin. Add a segment
+ * here only once `app/shopify/<segment>/page.tsx` exists.
+ */
+export const EMBEDDED_SEGMENTS = new Set([
+  'agent',
+  'billing',
+  'conversations',
+  'customers',
+  'live-desk',
+  'notifications',
+  'orders',
+  'profile',
+  'setup',
+  'usage',
+]);
+
+/** The first path segment of an internal href, ignoring query and hash. */
+export function firstSegment(href: string): string {
+  return href.replace(/[?#].*$/, '').split('/').filter(Boolean)[0] || '';
+}
+
+/**
+ * Rewrites a dashboard-absolute href for the tree it is rendered in.
+ *
+ * Returns null when the embedded app has no equivalent route, which is the
+ * caller's signal to hide the link rather than point it somewhere that 404s.
+ *
+ * Components under `components/` are shared by `app/(dashboard)` and
+ * `app/shopify`, so a hardcoded `/setup` renders inside the Shopify iframe
+ * too. There it leaves the `/shopify` namespace, `proxy.ts` finds no session
+ * cookie, and the merchant is bounced to the web sign-up form inside Shopify
+ * Admin.
+ */
+export function resolveAppPath(href: string, basePath: string): string | null {
+  // External, protocol-relative, and anchor links are not ours to rewrite.
+  if (!href.startsWith('/') || href.startsWith('//')) return href;
+  if (!basePath) return href;
+  if (href.startsWith(`${basePath}/`) || href === basePath) return href;
+
+  // `/dashboard` is the embedded app's own home.
+  const segment = firstSegment(href);
+  if (segment === 'dashboard') {
+    return basePath + href.slice('/dashboard'.length);
+  }
+
+  return EMBEDDED_SEGMENTS.has(segment) ? basePath + href : null;
+}

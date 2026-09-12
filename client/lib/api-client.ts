@@ -1,4 +1,5 @@
 import { ApiResponse, ApiError } from '@/types/auth';
+import { getSessionStrategy } from './session';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -34,9 +35,9 @@ export async function apiClient<T>(
     headers['x-client-origin'] = window.location.origin;
   }
 
-  // Automatically attach Bearer access token from localStorage if available and not set
+  // Automatically attach Bearer access token via session strategy if available and not set
   if (typeof window !== 'undefined' && !headers['Authorization']) {
-    const token = localStorage.getItem('accessToken');
+    const token = await getSessionStrategy().getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -77,29 +78,16 @@ export async function apiClient<T>(
       (isUnauthorized || isForbidden) &&
       !isRetry &&
       !endpoint.includes('/auth/refresh') &&
-      !endpoint.includes('/auth/login');
+      !endpoint.includes('/auth/login') &&
+      !endpoint.includes('/shopify/session');
 
-    // Auto-refresh access token if Unauthorized or Forbidden occurs (e.g. role upgrade)
+    // Auto-refresh access token if Unauthorized or Forbidden occurs
     if (shouldAttemptRefresh) {
       try {
-        const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
+        const strategy = getSessionStrategy();
+        const newToken = await strategy.refresh();
 
-        const refreshJson = await refreshRes.json();
-        const newToken =
-          refreshJson.data?.accessToken || refreshJson.accessToken;
-
-        if (refreshRes.ok && newToken) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('accessToken', newToken);
-            if (refreshJson.data?.role) {
-              const isProd = process.env.NODE_ENV === 'production';
-              document.cookie = `userRole=${refreshJson.data.role}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
-            }
-          }
+        if (newToken) {
           headers['Authorization'] = `Bearer ${newToken}`;
           return apiClient<T>(endpoint, { ...options, headers }, true);
         }
@@ -107,22 +95,28 @@ export async function apiClient<T>(
         console.error('Failed to auto-refresh session token:', refreshErr);
       }
 
-      // If token refresh fails, clear stale token and redirect to login if on a protected route
+      // If token refresh fails, clear stale session and redirect to login if on a standalone protected route
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        const currentPath = window.location.pathname;
-        const isProtectedRoute =
-          currentPath.startsWith('/dashboard') ||
-          currentPath.startsWith('/admin') ||
-          currentPath.startsWith('/agent') ||
-          currentPath.startsWith('/live-desk') ||
-          currentPath.startsWith('/customers') ||
-          currentPath.startsWith('/conversations') ||
-          currentPath.startsWith('/billing') ||
-          currentPath.startsWith('/profile');
+        const strategy = getSessionStrategy();
+        strategy.clear();
 
-        if (isProtectedRoute && !currentPath.startsWith('/auth')) {
-          window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
+        const currentPath = window.location.pathname;
+        const isShopify = currentPath.startsWith('/shopify');
+
+        if (!isShopify) {
+          const isProtectedRoute =
+            currentPath.startsWith('/dashboard') ||
+            currentPath.startsWith('/admin') ||
+            currentPath.startsWith('/agent') ||
+            currentPath.startsWith('/live-desk') ||
+            currentPath.startsWith('/customers') ||
+            currentPath.startsWith('/conversations') ||
+            currentPath.startsWith('/billing') ||
+            currentPath.startsWith('/profile');
+
+          if (isProtectedRoute && !currentPath.startsWith('/auth')) {
+            window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
+          }
         }
       }
     }
@@ -133,41 +127,42 @@ export async function apiClient<T>(
         message: 'An unexpected error occurred.',
       };
 
-      // If persistent 401 occurs, clear stale token and handle redirect only for protected routes
+      // If persistent 401 occurs, clear stale token for non-Shopify routes
       if (isUnauthorized && typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        const currentPath = window.location.pathname;
-        const isProtectedRoute =
-          currentPath.startsWith('/dashboard') ||
-          currentPath.startsWith('/admin') ||
-          currentPath.startsWith('/agent') ||
-          currentPath.startsWith('/live-desk') ||
-          currentPath.startsWith('/customers') ||
-          currentPath.startsWith('/conversations') ||
-          currentPath.startsWith('/billing') ||
-          currentPath.startsWith('/profile');
+        const strategy = getSessionStrategy();
+        strategy.clear();
 
-        if (isProtectedRoute && !currentPath.startsWith('/auth')) {
-          window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
+        const currentPath = window.location.pathname;
+        const isShopify = currentPath.startsWith('/shopify');
+
+        if (!isShopify) {
+          const isProtectedRoute =
+            currentPath.startsWith('/dashboard') ||
+            currentPath.startsWith('/admin') ||
+            currentPath.startsWith('/agent') ||
+            currentPath.startsWith('/live-desk') ||
+            currentPath.startsWith('/customers') ||
+            currentPath.startsWith('/conversations') ||
+            currentPath.startsWith('/billing') ||
+            currentPath.startsWith('/profile');
+
+          if (isProtectedRoute && !currentPath.startsWith('/auth')) {
+            window.location.href = `/auth?from=${encodeURIComponent(currentPath)}`;
+          }
         }
       }
 
-      throw new ApiClientError(
-        err.code || 'HTTP_ERROR',
-        err.message || 'Request failed',
-        err.correlationId,
-        res.status,
-      );
+      throw new ApiClientError(err.code, err.message, err.correlationId, res.status);
     }
 
     return json.data as T;
-  } catch (error) {
-    if (error instanceof ApiClientError) {
-      throw error;
+  } catch (err: any) {
+    if (err instanceof ApiClientError) {
+      throw err;
     }
     throw new ApiClientError(
       'NETWORK_ERROR',
-      error instanceof Error ? error.message : 'Network request failed',
+      err.message || 'Unable to connect to the server. Please check your connection.',
     );
   }
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   ChevronDown, ChevronRight, ArrowUpRight, Check,
   ShoppingBag, Layers, Briefcase, Globe, Building2,
@@ -9,6 +8,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
+import { useAppRouter } from '@/lib/navigation/app-path';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ interface SetupSectionNavProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SetupSectionNav({ activeArchetype, activeStep }: SetupSectionNavProps) {
-  const router                                  = useRouter();
+  const router                                  = useAppRouter();
   const { progress, completedCount, totalSteps } = useSetupProgress();
   const [dropdownOpen, setDropdownOpen]         = useState(false);
   const [configExpanded, setConfigExpanded]     = useState(true);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   ShoppingCart,
@@ -34,6 +35,8 @@ import { StatusStrip } from './status-strip';
 import { AnalyticsPanel } from './analytics-panel';
 import { QuickActionsBar, QuickAction } from './quick-actions-bar';
 import { KpiCardDef } from './kpi-strip';
+import { AppLink } from '@/components/navigation/app-link';
+import { useAppBasePath } from '@/lib/navigation/app-path';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -211,6 +214,8 @@ export function OverviewClient() {
     load();
   }, [load]);
 
+  const pathname = usePathname();
+  const prefix = useAppBasePath();
   const firstName = userName.split(' ')[0] || userName;
 
   // ── KPI metric definitions with clear business attribution ─────────────────
@@ -224,7 +229,7 @@ export function OverviewClient() {
       trend: stats.revenueTrend,
       tooltip:
         'Total value of orders completed by shoppers who interacted with ORA within 24 hours prior to checkout.',
-      href: '/orders',
+      href: `${prefix}/orders`,
     },
     {
       id: 'orders',
@@ -234,7 +239,7 @@ export function OverviewClient() {
       trend: stats.ordersTrend,
       tooltip:
         'Total orders completed after customer received product recommendations, sizing guidance, or support from ORA.',
-      href: '/orders',
+      href: `${prefix}/orders`,
     },
     {
       id: 'conversations',
@@ -244,7 +249,7 @@ export function OverviewClient() {
       trend: stats.conversationsTrend,
       tooltip:
         'All customer interactions handled by ORA across your storefront voice widget and live text chat.',
-      href: '/conversations',
+      href: `${prefix}/conversations`,
     },
     {
       id: 'conversion',
@@ -253,7 +258,7 @@ export function OverviewClient() {
       icon: <Percent size={13} />,
       tooltip:
         'Percentage of shoppers who placed an order after starting a conversation with ORA.',
-      href: '/orders',
+      href: `${prefix}/orders`,
     },
     {
       id: 'catalog',
@@ -262,7 +267,7 @@ export function OverviewClient() {
       icon: <Package size={13} />,
       tooltip:
         'Active store products synced and ready for ORA to recommend to customers during live shopping.',
-      href: '/agent?role=products',
+      href: `${prefix}/agent?role=products`,
     },
   ];
 
@@ -274,21 +279,21 @@ export function OverviewClient() {
       icon: <Radio size={16} />,
       label: 'Live Store Desk',
       description: 'Listen to active customer calls, view live cart additions, and intervene in real time.',
-      href: '/live-desk',
+      href: `${prefix}/live-desk`,
     },
     {
       id: 'qa-train',
       icon: <BookOpen size={16} />,
       label: 'Agent Knowledge & Catalog',
       description: 'Teach ORA store return policies, shipping FAQs, and sync live inventory.',
-      href: '/agent',
+      href: `${prefix}/agent`,
     },
     {
       id: 'qa-history',
       icon: <TrendingUp size={16} />,
       label: 'Conversation History',
       description: 'Search customer transcripts, review shopper buying intent, and analyze queries.',
-      href: '/conversations',
+      href: `${prefix}/conversations`,
     },
   ];
 
@@ -324,13 +329,13 @@ export function OverviewClient() {
             </div>
             <span className="text-[12.5px] text-foreground font-medium truncate">
               Store setup in progress ({completedCount} of {totalSteps} steps completed) —{' '}
-              <Link
+              <AppLink
                 href="/setup"
                 className="font-semibold text-foreground dark:text-primary underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
               >
                 Complete Setup Guide
                 <ArrowRight size={11} />
-              </Link>
+              </AppLink>
             </span>
           </div>
           <button

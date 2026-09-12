@@ -1,12 +1,66 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import {
+  EMBEDDED_SEGMENTS,
+  SHOPIFY_BASE_PATH,
+  firstSegment,
+} from '@/lib/navigation/embedded-routes';
+
+/**
+ * Whether this request comes from the app framed inside Shopify Admin.
+ *
+ * Shopify keeps `shop`, `host`, `embedded` or `id_token` on the URL as the
+ * merchant navigates, and a framed document reports `Sec-Fetch-Dest: iframe`.
+ * Either is enough; a missing header must not be read as "not embedded".
+ */
+function isEmbeddedRequest(request: NextRequest): boolean {
+  const params = request.nextUrl.searchParams;
+  if (
+    params.has('shop') ||
+    params.has('host') ||
+    params.has('embedded') ||
+    params.has('id_token')
+  ) {
+    return true;
+  }
+
+  if (request.headers.get('sec-fetch-dest') === 'iframe') return true;
+
+  const referer = request.headers.get('referer') || '';
+  return (
+    referer.includes('admin.shopify.com') ||
+    referer.includes('.myshopify.com') ||
+    referer.includes(SHOPIFY_BASE_PATH)
+  );
+}
+
 /**
  * ORA Next.js 16+ Route & Request Proxy (`proxy.ts`)
  * Protects dashboard routes from unauthenticated users and forwards /api requests to NestJS.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Embedded Shopify routes authenticate client-side via App Bridge session tokens;
+  // bypass edge cookie checking to avoid 3rd-party cookie redirect loops in iframes.
+  if (pathname.startsWith('/shopify')) {
+    return NextResponse.next();
+  }
+
+  // When Shopify Admin frames the app using the root URL (e.g. CLI tunnel in dev),
+  // rewrite root requests carrying Shopify params directly to the embedded UI route.
+  if (
+    pathname === '/' &&
+    (request.nextUrl.searchParams.has('shop') ||
+      request.nextUrl.searchParams.has('embedded') ||
+      request.nextUrl.searchParams.has('id_token'))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/shopify';
+    return NextResponse.rewrite(url);
+  }
+
   const sessionId = request.cookies.get('sessionId')?.value;
   const refreshToken = request.cookies.get('refreshToken')?.value;
   const userRole = request.cookies.get('userRole')?.value;
@@ -33,6 +87,25 @@ export function proxy(request: NextRequest) {
 
   // 1. Unauthenticated user attempting to access protected route -> Redirect to /auth
   if (isProtectedRoute && !isAuthenticated) {
+    // Backstop for the embedded Shopify app. It authenticates with App Bridge
+    // session tokens, not cookies, so this branch is always reached from
+    // inside the iframe — and rendering the web sign-up form there is never
+    // the right answer. Send the merchant to the embedded equivalent, or to
+    // the embedded home when the route is dashboard-only.
+    //
+    // This is a safety net, not the fix: shared components resolve their own
+    // links through `lib/navigation/app-path.ts` so they stay inside
+    // `/shopify` in the first place.
+    if (isEmbeddedRequest(request)) {
+      const segment = firstSegment(pathname);
+      const target = EMBEDDED_SEGMENTS.has(segment)
+        ? `${SHOPIFY_BASE_PATH}${pathname}`
+        : SHOPIFY_BASE_PATH;
+      const embeddedUrl = new URL(target, request.url);
+      embeddedUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(embeddedUrl);
+    }
+
     const authUrl = new URL('/auth', request.url);
     authUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(authUrl);

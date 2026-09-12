@@ -1,0 +1,11 @@
+{
+  "name": "shopify-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "shopify:dev": "npx --yes @shopify/cli@4 app dev",
+    "shopify:deploy": "npx --yes @shopify/cli@4 app deploy",
+    "shopify:link": "npx --yes @shopify/cli@4 app config link"
+  }
+}

@@ -6,6 +6,7 @@ import { ShopifyConnectorService } from './shopify-connector.service';
 import { ProductsService } from '../../products/products.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { Business } from '../../users/schemas/business.schema';
+import { shopifyTokenServiceProvider } from '../../common/shopify-token/shopify-token.testing';
 
 describe('ShopifyConnectorService.verifyWebhookHmac', () => {
   const secret = 'shopify_test_secret';
@@ -18,6 +19,7 @@ describe('ShopifyConnectorService.verifyWebhookHmac', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifyConnectorService,
+        shopifyTokenServiceProvider(),
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue(configured) },

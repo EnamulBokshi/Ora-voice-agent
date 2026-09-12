@@ -10,6 +10,7 @@ import { AdminUser, AdminUserSchema } from '../users/schemas/admin-user.schema';
 import { Business, BusinessSchema } from '../users/schemas/business.schema';
 import { StripeProvider } from './providers/stripe.provider';
 import { BkashProvider } from './providers/bkash.provider';
+import { ShopifyProvider } from './providers/shopify.provider';
 import { BillingSchedulerService } from './services/billing-scheduler.service';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { AuthModule } from '../auth/auth.module';
@@ -28,7 +29,20 @@ import { AuthModule } from '../auth/auth.module';
     ]),
   ],
   controllers: [BillingController],
-  providers: [BillingService, StripeProvider, BkashProvider, BillingSchedulerService],
-  exports: [BillingService, StripeProvider, BkashProvider, BillingSchedulerService, MongooseModule],
+  providers: [
+    BillingService,
+    StripeProvider,
+    BkashProvider,
+    ShopifyProvider,
+    BillingSchedulerService,
+  ],
+  exports: [
+    BillingService,
+    StripeProvider,
+    BkashProvider,
+    ShopifyProvider,
+    BillingSchedulerService,
+    MongooseModule,
+  ],
 })
 export class BillingModule {}

@@ -1,8 +1,13 @@
 # ==============================================================================
 # ORA Caddy Reverse Proxy Configuration (Automatic SSL & WebSockets)
 # Domain: tryora.live
-# Frontend: 127.0.0.1:4080
-# Backend:  127.0.0.1:4000
+# Frontend:     127.0.0.1:4080  (ora-client)
+# Backend:      127.0.0.1:4000  (ora-server)
+# Shopify app:  127.0.0.1:4080  (ora-client, embedded routes under /shopify)
+#
+# Keep this in step with deploy/nginx/ora.conf — whichever proxy is in use,
+# everything must stay on one origin so the dashboard and the Shopify embedded
+# app reach /api/v1 same-origin, with no CORS involved.
 # ==============================================================================
 
 tryora.live, www.tryora.live {
@@ -21,6 +26,36 @@ tryora.live, www.tryora.live {
     handle @backend {
         reverse_proxy 127.0.0.1:4000 {
             # Ensure WebSocket streaming headers are passed
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Shopify embedded app. Matched before the catch-all.
+    #
+    # Unlike nginx, Caddy does not apply site-wide headers that would need
+    # undoing here — there are none set in this file. frame-ancestors is what
+    # lets Shopify Admin frame the app; the Next.js app sets no CSP of its own,
+    # because a browser intersects multiple CSP headers.
+    #
+    # Do NOT add X-Frame-Options: it has no allowlist form, so any value would
+    # defeat frame-ancestors in browsers that still honour it.
+    @shopify {
+        path /shopify /shopify/*
+    }
+    handle @shopify {
+        header {
+            Content-Security-Policy "frame-ancestors https://admin.shopify.com https://*.myshopify.com;"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "no-referrer-when-downgrade"
+            -X-Frame-Options
+        }
+        # Same container as the dashboard: the embedded app is a route tree in
+        # the ORA client, not a separate service. Only the headers differ, so
+        # Shopify Admin may frame these paths and nothing else.
+        reverse_proxy 127.0.0.1:4080 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}

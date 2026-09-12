@@ -1,0 +1,44 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "737871ce3c359802b6363609149bc67b"
+name = "ORA-VOICE-AI"
+handle = "ora-voice-ai"
+application_url = "https://tryora.live/shopify"
+embedded = true
+
+[access_scopes]
+scopes = "read_inventory,read_orders,read_products,write_products"
+
+[auth]
+redirect_urls = [
+  "https://tryora.live/api/v1/shopify/callback"
+]
+
+[webhooks]
+api_version = "2026-07"
+
+  [[webhooks.subscriptions]]
+  topics = [
+    "products/create",
+    "products/update",
+    "products/delete",
+    "inventory_levels/update",
+    "app/uninstalled",
+  ]
+  uri = "https://tryora.live/api/v1/ingestion/webhooks/shopify"
+
+  # Billing state, not catalog data. The ingestion route dispatches on catalog
+  # topics and answers anything else with a warning, so this topic must have its
+  # own receiver or a cancelled subscription never reaches ORA. Must stay in
+  # sync with SHOPIFY_WEBHOOK_TOPICS in server/src/shopify/shopify.constants.ts.
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "https://tryora.live/api/v1/shopify/webhooks/app-subscriptions-update"
+
+[webhooks.privacy_compliance]
+customer_deletion_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-redact"
+customer_data_request_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-data_request"
+shop_deletion_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/shop-redact"
+
+[build]
+automatically_update_urls_on_dev = true

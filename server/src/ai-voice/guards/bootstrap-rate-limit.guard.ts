@@ -10,6 +10,7 @@ import { Model } from 'mongoose';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { RedisService } from '../../common/redis/redis.service';
 import { DomainException } from '../../common/exceptions/domain.exception';
+import { EntitlementService } from '../../common/entitlement/entitlement.service';
 
 @Injectable()
 export class BootstrapRateLimitGuard implements CanActivate {
@@ -23,6 +24,7 @@ export class BootstrapRateLimitGuard implements CanActivate {
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     private readonly redisService: RedisService,
+      private readonly entitlementService: EntitlementService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -111,6 +113,23 @@ export class BootstrapRateLimitGuard implements CanActivate {
       throw new DomainException(
         'WIDGET_DISABLED',
         'Storefront widget has been disabled by the merchant.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // The storefront agent is the product, so an unpaid tenant must not serve
+    // it either. The message stays generic: this response reaches a shopper on
+    // the merchant's storefront, who is not party to the merchant's billing.
+    const entitlement = await this.entitlementService.decide(
+      business._id.toString(),
+    );
+    if (!entitlement.entitled) {
+      this.logger.warn(
+        `[BootstrapRateLimitGuard] Bootstrap refused for business ${business._id} (${business.name}): ${entitlement.code}`,
+      );
+      throw new DomainException(
+        'WIDGET_DISABLED',
+        'Storefront widget is not available for this store.',
         HttpStatus.FORBIDDEN,
       );
     }
