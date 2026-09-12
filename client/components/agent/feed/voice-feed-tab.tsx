@@ -31,6 +31,7 @@ import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { useReadOnly } from '@/components/common/read-only-fence';
 
 interface VoiceFeedTabProps {
   publishableKey?: string;
@@ -133,6 +134,7 @@ const DOC_TYPE_META: Record<string, { label: string; badgeClass: string; dotClas
 };
 
 export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
+  const readOnly = useReadOnly();
   const [status, setStatus] = useState<SessionStatus>('idle');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('converse');
   const [selectedCategory, setSelectedCategory] = useState<TargetCategory>('all');
@@ -251,6 +253,12 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
    * Hand the session turns to the backend to split by topic and file into categories.
    */
   const organiseIntoKnowledge = useCallback(async (customTurns?: { speaker: 'merchant' | 'ora'; text: string }[]) => {
+    // Filing a session into the knowledge base is `POST
+    // /knowledge/voice-transcript`, which is `@Roles(OWNER, ADMIN)`. Guarded
+    // here rather than at each caller, because ending a session files it
+    // automatically.
+    if (readOnly) return;
+
     const turns = customTurns ?? transcriptsRef.current
       .filter((t) => t.sender === 'user' || t.sender === 'agent')
       .map((t) => ({
@@ -280,7 +288,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
     } finally {
       setIsOrganising(false);
     }
-  }, [sessionId, selectedCategory, onFed]);
+  }, [sessionId, selectedCategory, onFed, readOnly]);
 
   /**
    * Ending a session files it automatically.
@@ -555,7 +563,8 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
               </span>
               <button
                 type="submit"
-                disabled={!manualNoteText.trim() || isSubmittingNote}
+                disabled={readOnly || !manualNoteText.trim() || isSubmittingNote}
+                title={readOnly ? 'View-only access' : undefined}
                 className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 {isSubmittingNote ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}

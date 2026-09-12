@@ -30,6 +30,7 @@ import { withDemoFallback } from '@/lib/demo-config';
 import { ProductOverrideModal } from './product-override-modal';
 import { ProductDetailDrawer } from './product-detail-drawer';
 import { ProductUploadModal, IngestionTab } from './product-upload-modal';
+import { useReadOnly } from '@/components/common/read-only-fence';
 
 const AVAILABILITY_STATUS: Record<
   ProductAvailability,
@@ -69,6 +70,7 @@ interface ProductCatalogTableProps {
 }
 
 export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
+  const readOnly = useReadOnly();
   const [products, setProducts] = useState<ProductDocument[]>([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
   const [loading, setLoading] = useState(true);
@@ -124,6 +126,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
   }, [loadProducts]);
 
   const handleVerifyLive = async (product: ProductDocument) => {
+    // `POST /products/:id/verify-live` rewrites the stored product.
+    if (readOnly) return;
+
     setVerifyingId(product._id);
     try {
       const verified = await verifyLiveProductApi(product._id);
@@ -138,6 +143,8 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
   };
 
   const handleDeleteProduct = async (product: ProductDocument) => {
+    if (readOnly) return;
+
     if (!window.confirm(`Remove "${product.name}" from catalog?`)) {
       return;
     }
@@ -204,7 +211,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                 setUploadInitialTab('website');
                 setIsUploadModalOpen(true);
               }}
-              className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
+              disabled={readOnly}
+              title={readOnly ? 'View-only access' : undefined}
+              className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
               <Globe size={12} />
               <span>Sync Website</span>
@@ -215,7 +224,9 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                 setUploadInitialTab('file');
                 setIsUploadModalOpen(true);
               }}
-              className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors cursor-pointer"
+              disabled={readOnly}
+              title={readOnly ? 'View-only access' : undefined}
+              className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               <UploadCloud size={12} className="text-muted-foreground" />
               <span>Upload CSV</span>
@@ -312,14 +323,18 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                       <div className="flex items-center gap-2 pt-2">
                         <button
                           onClick={() => { setUploadInitialTab('website'); setIsUploadModalOpen(true); }}
-                          className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
+                          disabled={readOnly}
+                          title={readOnly ? 'View-only access' : undefined}
+                          className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
                         >
                           <Globe size={12} />
                           <span>Sync Website</span>
                         </button>
                         <button
                           onClick={() => { setUploadInitialTab('file'); setIsUploadModalOpen(true); }}
-                          className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors cursor-pointer"
+                          disabled={readOnly}
+                          title={readOnly ? 'View-only access' : undefined}
+                          className="flex items-center gap-1.5 h-7.5 px-3 rounded-md text-[12px] font-medium border border-border/60 bg-surface-container/60 hover:bg-surface-high text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           <FileSpreadsheet size={12} />
                           <span>Upload CSV</span>
@@ -408,16 +423,17 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
 
                           <button
                             onClick={() => setOverrideProduct(prod)}
-                            title="Edit product"
-                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+                            disabled={readOnly}
+                            title={readOnly ? 'View-only access' : 'Edit product'}
+                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                           >
                             <Edit3 size={13} />
                           </button>
 
                           <button
                             onClick={() => handleDeleteProduct(prod)}
-                            disabled={deletingId === prod._id}
-                            title="Delete product"
+                            disabled={readOnly || deletingId === prod._id}
+                            title={readOnly ? 'View-only access' : 'Delete product'}
                             className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 cursor-pointer"
                           >
                             {deletingId === prod._id ? (

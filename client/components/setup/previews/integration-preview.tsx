@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Terminal, ExternalLink, ShieldCheck, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ShopifyEmbedCard } from '@/components/shopify/shopify-embed-card';
 
 interface IntegrationPreviewProps {
   /** Null while the merchant's real key is still loading, or if it failed to load. */
@@ -49,12 +50,19 @@ export function IntegrationPreview({
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState('https://ora.hype.app');
   const [apiOrigin, setApiOrigin] = useState('https://api.ora.hype.app');
+  /**
+   * False through the server render and the first client render on purpose.
+   * Reading `location` during render would either throw on the server or
+   * produce markup that disagrees with the client's.
+   */
+  const [isShopifyEmbedded, setIsShopifyEmbedded] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setOrigin(window.location.origin);
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       setApiOrigin(isLocal ? `${window.location.protocol}//${window.location.hostname}:5000` : window.location.origin);
+      setIsShopifyEmbedded(window.location.pathname.startsWith('/shopify'));
     }
   }, []);
 
@@ -81,6 +89,14 @@ export function IntegrationPreview({
     if (onCopied) onCopied();
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // A Shopify merchant has the theme app extension already installed, so the
+  // snippet below is the wrong instruction for them: editing theme.liquid by
+  // hand is exactly what the extension exists to remove. Placed after every
+  // hook so the hook order does not change between branches.
+  if (isShopifyEmbedded) {
+    return <ShopifyEmbedCard isWidgetActive={isWidgetActive} />;
+  }
 
   return (
     <div className="w-full space-y-6">

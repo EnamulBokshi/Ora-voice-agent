@@ -26,6 +26,7 @@ import {
   getLanguageById,
   SupportedLanguage,
 } from '@/lib/languages';
+import { useReadOnly } from '@/components/common/read-only-fence';
 
 interface PersonaPreviewProps {
   archetype?: string | null;
@@ -216,6 +217,7 @@ function WaveformAudioControl({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPreviewProps) {
+  const readOnly = useReadOnly();
   const [initialVoiceId, setInitialVoiceId] = useState<string>('Aoede');
   const [initialToneDesc, setInitialToneDesc] = useState<string>('');
   const [initialDirectives, setInitialDirectives] = useState<string>('');
@@ -344,6 +346,9 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
 
   // Save handler
   const handleSave = async () => {
+    // `PATCH /agent-config` is `@Roles(OWNER, ADMIN)`.
+    if (readOnly) return;
+
     setSaving(true);
     setSavedSuccess(false);
 
@@ -468,7 +473,8 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={readOnly || saving}
+            title={readOnly ? 'View-only access' : undefined}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground font-semibold text-[12px] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
           >
             {saving ? (

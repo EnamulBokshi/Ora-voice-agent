@@ -23,6 +23,22 @@ export const SHOPIFY_DEFAULT_SCOPES = [
   'read_orders',
 ];
 
+/**
+ * Where the theme app extension reads the storefront publishable key from.
+ *
+ * The `$app:` prefix makes this an app-owned (app-data) metafield on the app's
+ * own installation, which is why no metafield access scope appears in
+ * `shopify.app.toml`: an app always owns its installation's metafields. Liquid
+ * drops the prefix, so `$app:ora` is read as `app.metafields.ora` — see
+ * `packages/shopify-app/extensions/ora-voice-widget/blocks/ora_widget.liquid`.
+ * Changing either side alone silently blanks the key on every storefront.
+ */
+export const SHOPIFY_STOREFRONT_KEY_METAFIELD = {
+  namespace: '$app:ora',
+  key: 'publishable_key',
+  type: 'single_line_text_field',
+} as const;
+
 /** IETF grant type for exchanging a session token for an access token. */
 export const SHOPIFY_TOKEN_EXCHANGE_GRANT =
   'urn:ietf:params:oauth:grant-type:token-exchange';
@@ -30,6 +46,21 @@ export const SHOPIFY_TOKEN_EXCHANGE_GRANT =
 /** Requested token type: a long-lived token usable outside a user session. */
 export const SHOPIFY_OFFLINE_TOKEN_TYPE =
   'urn:shopify:params:oauth:token-type:offline-access-token';
+
+/**
+ * Requested token type for identifying the staff member at the keyboard.
+ *
+ * The session token's `sub` is an opaque staff id and nothing else — no name,
+ * no address, and no way to tell the shop owner from a junior. Exchanging for
+ * an online token is the only route to `associated_user`, which carries
+ * `account_owner` and `collaborator`. It needs no extra access scope, unlike
+ * the `read_users` alternative, which is Shopify Plus only.
+ *
+ * The token itself is deliberately discarded: ORA acts on the offline token,
+ * and a per-user token it does not use is a credential it should not hold.
+ */
+export const SHOPIFY_ONLINE_TOKEN_TYPE =
+  'urn:shopify:params:oauth:token-type:online-access-token';
 
 /**
  * Webhook topics registered at install, each with the API path that receives

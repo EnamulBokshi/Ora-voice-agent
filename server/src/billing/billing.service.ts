@@ -176,9 +176,15 @@ export class BillingService implements OnModuleInit {
         await business.save();
       }
 
-      // Upgrade subscriber role from 'user' to 'owner'
+      // Upgrade subscriber role from 'user' to 'owner'.
+      //
+      // Scoped to USER on purpose. This used to promote every account in the
+      // tenant that was not a SUPER_ADMIN, so activating a plan handed OWNER
+      // rights — billing, secret key, connector config — to every staff member
+      // the tenant had. Shopify tenants provision non-owner staff as STAFF,
+      // and a promotion here would undo that on the first charge.
       await this.adminUserModel.updateMany(
-        { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+        { businessId: bId, role: AdminRole.USER },
         { $set: { role: AdminRole.OWNER } },
       ).exec();
 
@@ -295,7 +301,7 @@ export class BillingService implements OnModuleInit {
 
     // Upgrade subscriber role from 'user' to 'owner' upon active subscription
     await this.adminUserModel.updateMany(
-      { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+      { businessId: bId, role: AdminRole.USER },
       { $set: { role: AdminRole.OWNER } },
     ).exec();
 
@@ -392,7 +398,7 @@ export class BillingService implements OnModuleInit {
 
     // Upgrade subscriber role from 'user' to 'owner' upon active bKash agreement
     await this.adminUserModel.updateMany(
-      { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+      { businessId: bId, role: AdminRole.USER },
       { $set: { role: AdminRole.OWNER } },
     ).exec();
 
@@ -619,7 +625,10 @@ export class BillingService implements OnModuleInit {
       const [business, owner] = await Promise.all([
         this.businessModel.findById(bId).exec(),
         this.adminUserModel
-          .findOne({ businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } })
+          // The tenant's owner, which is who a welcome email is addressed to.
+          // This used to be "any account that is not a SUPER_ADMIN", which on
+          // a tenant with staff picked whoever was created first.
+          .findOne({ businessId: bId, role: AdminRole.OWNER })
           .exec(),
       ]);
 
@@ -731,7 +740,7 @@ export class BillingService implements OnModuleInit {
 
         // 5. Upgrade AdminUser role to OWNER
         await this.adminUserModel.updateMany(
-          { businessId: bId, role: { $ne: AdminRole.SUPER_ADMIN } },
+          { businessId: bId, role: AdminRole.USER },
           { $set: { role: AdminRole.OWNER } },
         ).exec();
 

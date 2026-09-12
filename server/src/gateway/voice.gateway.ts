@@ -80,27 +80,29 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    let business = await this.businessModel
+    /**
+     * The publishable key is the only thing that says which tenant this
+     * shopper is talking to, so an unknown one ends the connection here.
+     *
+     * This used to fall back to the most recently created active Business, and
+     * then to any Business at all. A wrong, stale, or guessed key therefore
+     * opened a voice session against somebody else's store: their catalog
+     * answered the questions, their conversation history recorded it, and
+     * their quota paid for it. There is no safe default tenant.
+     */
+    const business = await this.businessModel
       .findOne({ publishableKey })
       .exec();
 
-    // Fallback to active store if publishable key is not found or is mock/demo
     if (!business) {
-      business = await this.businessModel
-        .findOne({ status: 'active', publishableKey: { $ne: 'biz_live_mock_key_12345' } })
-        .sort({ createdAt: -1 })
-        .exec();
-    }
-
-    if (!business) {
-      business = await this.businessModel
-        .findOne({})
-        .sort({ createdAt: -1 })
-        .exec();
-    }
-
-    if (!business) {
-      client.emit('voice-error', { message: 'Invalid publishable key. No active store found.' });
+      // Logged by prefix. The key is public by design, but a full key in the
+      // logs is one copy too many, and the prefix is what identifies it.
+      this.logger.warn(
+        `[VoiceGateway] Connection rejected: no store holds publishable key '${publishableKey.slice(0, 12)}...'.`,
+      );
+      client.emit('voice-error', {
+        message: 'Invalid publishable key. Access denied.',
+      });
       return;
     }
 

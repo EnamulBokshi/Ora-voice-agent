@@ -19,7 +19,34 @@ reduced to configuration.
 |---|---|
 | `shopify.app.toml` | App config the CLI deploys: scopes, URLs, webhook topics, API version |
 | `shopify.app.ora-voice-ai.toml` | The named variant for the `ora-voice-ai` app handle |
-| `extensions/` | Where `shopify app generate extension` puts extensions (empty for now) |
+| `extensions/ora-voice-widget/` | Theme app extension: the storefront widget app embed |
+
+## The storefront widget extension
+
+`extensions/ora-voice-widget/` is what removes the copy-paste step. It ships an
+app embed block that injects the same loader
+(`client/public/widget/ora-widget.js`) a standalone merchant pastes into
+`theme.liquid` by hand. The merchant enables it in
+Online Store > Themes > Customize > App embeds; there is nothing to copy.
+
+The block gets the store's publishable key from an app-owned metafield,
+`$app:ora/publishable_key`, which the server writes during install
+(`ShopifyService.syncStorefrontKey`). Liquid drops the `$app:` prefix, so the
+block reads `app.metafields.ora.publishable_key.value`. The namespace and key
+are declared once in `SHOPIFY_STOREFRONT_KEY_METAFIELD`
+(`server/src/shopify/shopify.constants.ts`) and must match the Liquid — a
+mismatch renders no widget and no error, on every storefront at once.
+
+Writing that metafield needs no access scope: an app always owns the metafields
+on its own installation, which is why `scopes` in `shopify.app.toml` is
+unchanged. The write cannot fail an install; when it does fail, the session
+exchange retries it on the merchant's next page load, and the block's
+`publishable_key` setting is a manual override of last resort.
+
+After the first `shopify app deploy`, Shopify assigns the extension a UUID. Put
+it in the client's `NEXT_PUBLIC_SHOPIFY_THEME_EXTENSION_ID` so the setup guide's
+"Open theme editor" button lands on ORA's embed already selected. Without it the
+button still opens the App embeds panel.
 
 ## Commands
 

@@ -15,6 +15,26 @@ export interface ShopifySessionTokenClaims {
   sid: string;
 }
 
+/**
+ * The staff member behind a session token, from an online token exchange.
+ *
+ * `accountOwner` is the only trustworthy signal of who may act on billing:
+ * Shopify exposes no per-staff permission list to an app.
+ */
+export interface ShopifyAssociatedUser {
+  /** Matches the `sub` claim of the session token that was exchanged. */
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  emailVerified?: boolean;
+  /** True for exactly one person per shop. */
+  accountOwner: boolean;
+  /** An outside partner or agency rather than shop staff. */
+  collaborator: boolean;
+  locale?: string;
+}
+
 /** The subset of Shopify's `shop.json` payload used for provisioning. */
 export interface ShopifyShopDetails {
   id: number;

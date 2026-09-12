@@ -173,6 +173,18 @@ export class Business {
   @Prop()
   shopifyRefreshTokenExpiresAt?: Date;
 
+  /**
+   * The publishable key last written into the store's app-owned metafield,
+   * which is where the theme app extension reads it from.
+   *
+   * Stored so the session exchange — which runs on every embedded page load —
+   * can tell in one field comparison whether the metafield is current, instead
+   * of spending an Admin API round trip per page load. A rotated key leaves
+   * this stale, which is the signal to write again.
+   */
+  @Prop({ trim: true })
+  shopifyStorefrontKeySyncedValue?: string;
+
   // --- Tier 1: WooCommerce Connector ---
   @Prop({ trim: true })
   woocommerceStoreUrl?: string;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useReadOnly } from '@/components/common/read-only-fence';
 import {
   FileText,
   Trash2,
@@ -39,6 +40,7 @@ export function KnowledgeFeedList({
   onDeleted,
   onRefresh,
 }: KnowledgeFeedListProps) {
+  const readOnly = useReadOnly();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -182,18 +184,21 @@ export function KnowledgeFeedList({
                   >
                     <Layers size={13} />
                   </button>
+                  {/* Editing and deleting are `@Roles(OWNER, ADMIN)`. Viewing
+                      chunks above is not, so it stays live. */}
                   <button
                     onClick={() => setEditDoc(doc)}
-                    title="Edit"
-                    className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+                    disabled={readOnly}
+                    title={readOnly ? 'View-only access' : 'Edit'}
+                    className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <Edit3 size={13} />
                   </button>
                   <button
                     onClick={() => handleDelete(doc._id, doc.title)}
-                    disabled={deletingId === doc._id}
-                    title="Delete"
-                    className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 cursor-pointer"
+                    disabled={readOnly || deletingId === doc._id}
+                    title={readOnly ? 'View-only access' : 'Delete'}
+                    className="p-1.5 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {deletingId === doc._id ? (
                       <Loader2 size={13} className="animate-spin text-red-400" />

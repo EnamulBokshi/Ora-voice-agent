@@ -5,12 +5,14 @@ import { Loader2, CheckCircle2, PenLine } from 'lucide-react';
 import { createKnowledgeDocApi } from '@/services/knowledge-service';
 import { KNOWLEDGE_CATEGORIES } from './feed-types';
 import { cn } from '@/lib/utils';
+import { useReadOnly } from '@/components/common/read-only-fence';
 
 interface TextFeedTabProps {
   onFed: () => void;
 }
 
 export function TextFeedTab({ onFed }: TextFeedTabProps) {
+  const readOnly = useReadOnly();
   const [categoryId, setCategoryId] = useState(KNOWLEDGE_CATEGORIES[0].id);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -19,6 +21,9 @@ export function TextFeedTab({ onFed }: TextFeedTabProps) {
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
+    // `POST /knowledge` is `@Roles(OWNER, ADMIN)`.
+    if (readOnly) return;
+
     if (!title.trim() || !content.trim()) {
       setError('Add a title and some content first.');
       return;
@@ -108,7 +113,8 @@ export function TextFeedTab({ onFed }: TextFeedTabProps) {
         )}
         <button
           onClick={handleSave}
-          disabled={isSaving}
+          disabled={readOnly || isSaving}
+          title={readOnly ? 'View-only access' : undefined}
           className="px-5 py-2.5 rounded-xl text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? (

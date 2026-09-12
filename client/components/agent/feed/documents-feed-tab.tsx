@@ -14,6 +14,7 @@ import {
 } from '@/services/knowledge-service';
 import { DocType } from '@/types/knowledge';
 import { ProductUploadModal } from '../products/product-upload-modal';
+import { useReadOnly } from '@/components/common/read-only-fence';
 
 interface DocumentsFeedTabProps {
   onFed: () => void;
@@ -29,6 +30,7 @@ const DOCUMENT_CATEGORIES: { id: string; label: string; docType: DocType; placeh
 ];
 
 export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
+  const readOnly = useReadOnly();
   const [inputMode, setInputMode]     = useState<'upload' | 'text'>('upload');
   const [selectedCatId, setSelectedCatId] = useState<string>('policy');
   const [docTitle, setDocTitle]       = useState('');
@@ -58,6 +60,8 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Both branches below post to `@Roles(OWNER, ADMIN)` routes.
+    if (readOnly) return;
     setError(null);
     setSavedMessage(null);
 
@@ -241,7 +245,8 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
 
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={readOnly || isSaving}
+            title={readOnly ? 'View-only access' : undefined}
             className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}

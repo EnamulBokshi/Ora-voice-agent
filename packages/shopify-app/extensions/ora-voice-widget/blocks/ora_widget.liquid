@@ -1,0 +1,75 @@
+{% comment %}
+  ORA Voice AI — storefront widget app embed.
+
+  Injects the same two-stage loader the standalone merchants paste by hand
+  (client/public/widget/ora-widget.js). The loader reads `data-ora-key` and
+  `data-ora-api`, fetches /widget/latest.json, and injects the content-hashed
+  bundle, so this file never names a bundle version and does not go stale.
+
+  The publishable key comes from an app-owned metafield that the server writes
+  during install (ShopifyService.syncStorefrontKey). The merchant therefore
+  turns this embed on and is finished — nothing to copy, nothing to paste.
+
+  `publishable_key` below is an override, not the normal path. It exists
+  because a metafield write can fail (Admin API down at install, a token that
+  expired before the repair ran) and because a silent blank key on a live
+  storefront is indistinguishable from a broken widget. Leave it empty.
+{% endcomment %}
+
+{%- liquid
+  assign ora_key = block.settings.publishable_key | strip
+
+  if ora_key == blank
+    assign ora_key = app.metafields.ora.publishable_key.value | strip
+  endif
+
+  assign ora_origin = block.settings.ora_origin | strip | remove_last: '/'
+-%}
+
+{%- if ora_key != blank and ora_origin != blank -%}
+  <script
+    src="{{ ora_origin }}/widget/ora-widget.js"
+    data-ora-key="{{ ora_key | escape }}"
+    data-ora-api="{{ ora_origin | escape }}"
+    defer
+  ></script>
+{%- else -%}
+  {% comment %}
+    Deliberately a comment and not markup: this renders on a live storefront in
+    front of shoppers, so a misconfigured embed must be silent to them and
+    findable by whoever is debugging it (view-source, or the theme editor
+    preview).
+  {% endcomment %}
+  <!-- ORA Voice AI: not loaded.
+       publishable key : {% if ora_key == blank %}MISSING{% else %}present{% endif %}
+       api origin      : {% if ora_origin == blank %}MISSING{% else %}{{ ora_origin | escape }}{% endif %}
+       The key is written by ORA during install. Open the ORA app in Shopify
+       Admin once to re-run that write, or paste the key into this embed's
+       settings in the theme editor. -->
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "ORA Voice AI",
+  "target": "body",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Turn this on and your voice agent appears on every storefront page. ORA fills in your store's key automatically — the fields below are only for support."
+    },
+    {
+      "type": "text",
+      "id": "ora_origin",
+      "label": "ORA origin",
+      "default": "https://tryora.live",
+      "info": "Where the widget and the voice API are served from. Change this only if ORA support asks you to."
+    },
+    {
+      "type": "text",
+      "id": "publishable_key",
+      "label": "Publishable key override",
+      "info": "Leave empty. ORA sets your key during install; a value here replaces it."
+    }
+  ]
+}
+{% endschema %}

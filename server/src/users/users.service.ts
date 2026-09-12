@@ -116,6 +116,8 @@ export class UsersService implements OnModuleInit {
     name: string;
     role?: AdminRole;
     emailVerified?: boolean;
+    /** Shopify staff member this account represents, for embedded sessions. */
+    shopifyStaffUserId?: string;
   }): Promise<AdminUserDocument> {
     const adminUser = new this.adminUserModel({
       businessId: new Types.ObjectId(params.businessId),
@@ -124,6 +126,9 @@ export class UsersService implements OnModuleInit {
       name: params.name,
       role: params.role || AdminRole.USER,
       emailVerified: params.emailVerified ?? false,
+      ...(params.shopifyStaffUserId
+        ? { shopifyStaffUserId: params.shopifyStaffUserId }
+        : {}),
     });
 
     return adminUser.save();

@@ -68,6 +68,8 @@ const VALID_ARCHETYPES = ['ecommerce', 'saas', 'agency', 'portfolio', 'general']
 import Image from 'next/image';
 import { useAppRouter } from '@/lib/navigation/app-path';
 import { AppLink } from '@/components/navigation/app-link';
+import { ReadOnlyFence } from '@/components/common/read-only-fence';
+import { usePermissions } from '@/hooks/use-permissions';
 
 const ARCHETYPE_IMAGES: Record<SetupArchetype, string> = {
   ecommerce: '/previews/ecom-hero.jpg',
@@ -276,6 +278,14 @@ function SetupGuideClientInner() {
     progress, loading, toggleStep, markStepComplete, isAllCompleted,
   } = useSetupProgress();
 
+  const { canManage, readOnlyReason, loading: permissionsLoading } = usePermissions();
+  // Persona and knowledge both save through `@Roles(OWNER, ADMIN)` routes, so
+  // a `staff` account can read the guide but not act on it. Only the
+  // workspace is fenced: stepping through the guide and ticking a step off are
+  // local state, and taking those away would leave a guide that cannot be read
+  // in order.
+  const workspaceReadOnly = !permissionsLoading && !canManage;
+
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   // Null until the merchant's real key arrives. This used to initialise to the literal
   // 'biz_live_demo' and fall back to demoProfile's key on failure, so a merchant whose
@@ -410,7 +420,9 @@ function SetupGuideClientInner() {
 
           {/* ── Main Configuration Workspace ── */}
           <div className="mb-10">
-            {getPreview(activeStep!)}
+            <ReadOnlyFence active={workspaceReadOnly} message={readOnlyReason}>
+              {getPreview(activeStep!)}
+            </ReadOnlyFence>
           </div>
 
           {/* ── Step Navigation Footer ── */}

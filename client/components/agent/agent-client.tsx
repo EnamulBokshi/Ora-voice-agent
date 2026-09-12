@@ -20,11 +20,14 @@ import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
 import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders, PhoneCall, Sparkles, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { AppLink } from '@/components/navigation/app-link';
+import { ReadOnlyFence } from '@/components/common/read-only-fence';
+import { usePermissions } from '@/hooks/use-permissions';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
 
 function AgentClientContent() {
   const searchParams = useSearchParams();
+  const { canManage, readOnlyReason, loading: permissionsLoading } = usePermissions();
 
   // New param scheme: ?role=voice|prompt|documents|products&view=...
   // Also support legacy ?tab= for backward compatibility
@@ -378,11 +381,22 @@ function AgentClientContent() {
     return <AgentGetStartedPage role={activeRole} />;
   };
 
+  // Every write on this surface — persona, knowledge, catalog, keys — is
+  // `@Roles(OWNER, ADMIN)` on the server, so a `staff` account could open the
+  // panels and have each save answer 403. Fencing once here beats a `disabled`
+  // prop threaded through a dozen panels.
+  //
+  // The fence stays off while the role is still loading, so the page does not
+  // flash a banner at the account that is allowed to be here.
+  const readOnly = !permissionsLoading && !canManage;
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {renderContent()}
-      </div>
+      <ReadOnlyFence active={readOnly} message={readOnlyReason}>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {renderContent()}
+        </div>
+      </ReadOnlyFence>
 
       <VoiceTestModal
         isOpen={isVoiceModalOpen}

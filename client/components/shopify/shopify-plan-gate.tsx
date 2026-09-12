@@ -6,7 +6,8 @@ import {
   subscribeShopifyBillingApi,
 } from '@/services/billing-service';
 import { Plan } from '@/types/billing';
-import { Check, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
+import { Check, Loader2, Sparkles, ShieldCheck, Lock } from 'lucide-react';
+import { useShopifySession } from '@/components/shopify/shopify-session-provider';
 
 /**
  * Plans come from `GET /billing/plans`, never from a list in this file.
@@ -19,6 +20,16 @@ import { Check, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
  * A plan picker is a price list, and a price list that is not the server's is
  * wrong the moment either side moves.
  */
+
+/**
+ * Roles `POST /shopify/billing/subscribe` accepts. Anyone else is shown who to
+ * ask instead of a button that answers 403.
+ *
+ * Shopify staff who are not the account owner are provisioned as STAFF, which
+ * is deliberate: Shopify exposes no per-staff permission list, so the only
+ * safe reading is that a junior may not spend the merchant's money.
+ */
+const BILLING_ROLES = ['owner', 'admin'];
 
 /** The free tier is a web-signup concept and is not sold through Shopify. */
 const HIDDEN_PLAN_IDS = ['free'];
@@ -36,6 +47,7 @@ function formatInterval(interval: string): string {
 }
 
 export function ShopifyPlanGate() {
+  const { session } = useShopifySession();
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [subscribingId, setSubscribingId] = useState<string | null>(null);
@@ -99,6 +111,31 @@ export function ShopifyPlanGate() {
     (longest, plan) => Math.max(longest, plan.trialDays || 0),
     0,
   );
+
+  const canSubscribe = BILLING_ROLES.includes(session?.user?.role || '');
+
+  // Placed after every hook so the hook order does not change between
+  // branches. A staff member seeing a price list they cannot act on is worse
+  // than useless: the buttons would each fail with a role error.
+  if (!canSubscribe) {
+    return (
+      <div className="min-h-screen bg-background text-foreground p-6 sm:p-10 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full rounded-xl border border-border bg-surface-container p-6 text-center space-y-4">
+          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+            <Lock className="w-4 h-4" />
+          </div>
+          <h2 className="text-lg font-serif font-semibold text-foreground">
+            This store has no ORA plan yet
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Only the Shopify account owner can approve a charge for the store.
+            Ask them to open ORA from Shopify Admin and choose a plan; the voice
+            agent starts working for everyone as soon as they do.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6 sm:p-10 flex flex-col items-center">

@@ -32,13 +32,16 @@ import {
   SHOPIFY_OAUTH_NONCE_PREFIX,
   SHOPIFY_OAUTH_NONCE_TTL_SECONDS,
   SHOPIFY_OFFLINE_TOKEN_TYPE,
+  SHOPIFY_ONLINE_TOKEN_TYPE,
   SHOPIFY_SHOP_DOMAIN_PATTERN,
+  SHOPIFY_STOREFRONT_KEY_METAFIELD,
   SHOPIFY_SYNC_QUEUE,
   SHOPIFY_TOKEN_CLOCK_SKEW_SECONDS,
   SHOPIFY_TOKEN_EXCHANGE_GRANT,
   SHOPIFY_WEBHOOK_TOPICS,
 } from './shopify.constants';
 import {
+  ShopifyAssociatedUser,
   ShopifySessionResult,
   ShopifySessionTokenClaims,
   ShopifyShopDetails,
@@ -353,6 +356,85 @@ export class ShopifyService {
     };
   }
 
+  /**
+   * Identifies the staff member a session token was minted for.
+   *
+   * The online access token this returns is thrown away; only
+   * `associated_user` is wanted, and it is the one place Shopify says whether
+   * this person is the account owner. Called once per staff member — after
+   * that the ORA account carries the staff id and this exchange is skipped.
+   */
+  async identifyStaffUser(
+    shop: string,
+    sessionToken: string,
+  ): Promise<ShopifyAssociatedUser> {
+    const shopDomain = this.normalizeShopDomain(shop);
+    const response = await fetch(
+      `https://${shopDomain}/admin/oauth/access_token`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: this.apiKey,
+          client_secret: this.apiSecret,
+          grant_type: SHOPIFY_TOKEN_EXCHANGE_GRANT,
+          subject_token: sessionToken,
+          subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+          requested_token_type: SHOPIFY_ONLINE_TOKEN_TYPE,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      // Same reason as every other exchange here: the error body can echo the
+      // request, which carries `client_secret` and the session token.
+      const summary = ShopifyOAuthError.summarize(await response.text());
+      this.logger.error(
+        `[ShopifyService] Online token exchange for ${shopDomain} returned HTTP ${response.status}: ${summary}`,
+      );
+      throw new DomainException(
+        SHOPIFY_ERRORS.TOKEN_EXCHANGE_FAILED,
+        'Shopify could not confirm which staff member is signed in.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    const body = (await response.json()) as {
+      associated_user?: {
+        id?: number | string;
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+        email_verified?: boolean;
+        account_owner?: boolean;
+        collaborator?: boolean;
+        locale?: string;
+      };
+    };
+
+    const user = body.associated_user;
+    if (!user?.id) {
+      throw new DomainException(
+        SHOPIFY_ERRORS.TOKEN_EXCHANGE_FAILED,
+        'Shopify returned no staff member for this session.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    return {
+      id: String(user.id),
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email?.toLowerCase(),
+      emailVerified: user.email_verified,
+      // Absent is not the same as false for a flag that grants billing rights,
+      // but the safe reading of a missing flag is the one that grants less.
+      accountOwner: user.account_owner === true,
+      collaborator: user.collaborator === true,
+      locale: user.locale,
+    };
+  }
+
   /** Exchanges an authorization code, for the non-embedded fallback install. */
   async exchangeCode(
     shop: string,
@@ -516,6 +598,149 @@ export class ShopifyService {
     return response.json();
   }
 
+  private async adminGraphql<T>(
+    shopDomain: string,
+    accessToken: string,
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<T> {
+    const response = await fetch(
+      `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query, variables }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new DomainException(
+        SHOPIFY_ERRORS.ADMIN_API_ERROR,
+        `Shopify Admin GraphQL returned HTTP ${response.status}.`,
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    const body = (await response.json()) as {
+      data?: T;
+      errors?: Array<{ message: string }>;
+    };
+
+    // GraphQL reports its failures inside a 200, so the HTTP check above is
+    // not enough on its own.
+    if (body.errors?.length) {
+      throw new DomainException(
+        SHOPIFY_ERRORS.ADMIN_API_ERROR,
+        body.errors.map((error) => error.message).join('; '),
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    return body.data as T;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Storefront key delivery
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Publishes the tenant's publishable key into an app-owned metafield, which
+   * is where the theme app extension reads it from.
+   *
+   * This is what makes the storefront widget zero-configuration: the merchant
+   * switches the app embed on in the theme editor and the key is already
+   * there, with nothing to copy from the ORA dashboard.
+   *
+   * Never throws. A store with no key in its metafield still renders — the
+   * embed falls back to its own override setting and writes a diagnostic HTML
+   * comment — whereas a throw here would fail the install or the session
+   * exchange behind it, which is a far worse outcome than a widget that needs
+   * one more page load to appear.
+   */
+  async syncStorefrontKey(
+    business: BusinessDocument,
+    accessToken: string,
+  ): Promise<void> {
+    const publishableKey = business.publishableKey;
+    const shopDomain = business.shopifyShopDomain;
+
+    if (!publishableKey || !shopDomain) return;
+
+    // The metafield already holds this exact key. Skipping here is what keeps
+    // the session exchange — which runs on every embedded page load — from
+    // spending two Admin API round trips per load.
+    if (business.shopifyStorefrontKeySyncedValue === publishableKey) return;
+
+    try {
+      const installation = await this.adminGraphql<{
+        currentAppInstallation?: { id?: string };
+      }>(
+        shopDomain,
+        accessToken,
+        `query OraAppInstallation { currentAppInstallation { id } }`,
+      );
+
+      const ownerId = installation?.currentAppInstallation?.id;
+      if (!ownerId) {
+        this.logger.warn(
+          `[ShopifyService] ${shopDomain} returned no app installation id, so the storefront key was not published.`,
+        );
+        return;
+      }
+
+      const result = await this.adminGraphql<{
+        metafieldsSet?: {
+          userErrors?: Array<{ field?: string[]; message: string }>;
+        };
+      }>(
+        shopDomain,
+        accessToken,
+        `mutation OraSetStorefrontKey($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            userErrors { field message }
+          }
+        }`,
+        {
+          metafields: [
+            {
+              ownerId,
+              namespace: SHOPIFY_STOREFRONT_KEY_METAFIELD.namespace,
+              key: SHOPIFY_STOREFRONT_KEY_METAFIELD.key,
+              type: SHOPIFY_STOREFRONT_KEY_METAFIELD.type,
+              value: publishableKey,
+            },
+          ],
+        },
+      );
+
+      const userErrors = result?.metafieldsSet?.userErrors || [];
+      if (userErrors.length) {
+        // A user error is a 200 with the write rejected, so it has to be read
+        // out rather than inferred from the absence of an exception.
+        this.logger.warn(
+          `[ShopifyService] Publishing the storefront key for ${shopDomain} was rejected: ${userErrors
+            .map((error) => error.message)
+            .join('; ')}`,
+        );
+        return;
+      }
+
+      business.shopifyStorefrontKeySyncedValue = publishableKey;
+      await business.save();
+
+      this.logger.log(
+        `[ShopifyService] Published the storefront key for ${shopDomain}; the theme app extension can now render without merchant input.`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `[ShopifyService] Could not publish the storefront key for ${shopDomain}: ${err.message}. The next embedded page load retries.`,
+      );
+    }
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // OAuth fallback helpers
   // ───────────────────────────────────────────────────────────────────────────
@@ -667,7 +892,18 @@ export class ShopifyService {
       }
     }
 
-    const owner = await this.resolveOwner(business);
+    // Covers the two cases the install-time write cannot: a metafield write
+    // that failed while the rest of the install succeeded, and a publishable
+    // key rotated afterwards. The field comparison is what keeps this free on
+    // the page loads where nothing has changed.
+    if (business.shopifyStorefrontKeySyncedValue !== business.publishableKey) {
+      const adminToken = await this.tokenService.getValidAccessTokenFor(business);
+      if (adminToken) {
+        await this.syncStorefrontKey(business, adminToken);
+      }
+    }
+
+    const owner = await this.resolveStaffUser(business, claims, sessionToken);
 
     const { tokens } = await this.authService.issueSessionForUser(
       owner._id.toString(),
@@ -805,6 +1041,12 @@ export class ShopifyService {
 
     await this.ensureOwner(business, normalized, details);
     await this.registerWebhooks(normalized, accessToken);
+
+    // Publishes the key the theme app extension reads. Deliberately before the
+    // sync enqueue and deliberately unable to throw: the merchant's next stop
+    // is the theme editor, and a key that is not there yet turns a one-click
+    // embed back into a copy-paste.
+    await this.syncStorefrontKey(business, accessToken);
 
     // The enqueue is deliberately not allowed to fail the install. By this
     // point the tenant, its owner, and its webhooks all exist, and throwing
@@ -951,26 +1193,123 @@ export class ShopifyService {
     });
   }
 
-  private async resolveOwner(
+  /**
+   * Resolves the ORA account for the staff member behind a session token.
+   *
+   * This used to return the tenant's oldest AdminUser, which is always the
+   * OWNER created at install. Every staff member Shopify let into the app
+   * therefore received an owner session and could rotate the secret API key,
+   * change the plan, or delete the catalog. The `sub` claim was parsed and
+   * thrown away.
+   *
+   * Identity is resolved once per staff member. After that the account carries
+   * the staff id and this costs a single indexed read.
+   */
+  private async resolveStaffUser(
     business: BusinessDocument,
+    claims: ShopifySessionTokenClaims,
+    sessionToken: string,
   ): Promise<AdminUserDocument> {
-    const owner = await this.adminUserModel
-      .findOne({ businessId: business._id as any })
-      .sort({ createdAt: 1 })
-      .exec();
+    const staffUserId = claims.sub ? String(claims.sub) : '';
 
-    if (!owner) {
-      // A Business with no AdminUser cannot hold a session. Rebuilding the
-      // owner beats handing back a token nothing can be scoped to.
-      return this.ensureOwner(business, business.shopifyShopDomain || '', {
-        id: 0,
-        name: business.name,
-        email: business.shopifyOwnerEmail,
-        myshopifyDomain: business.shopifyShopDomain || '',
-      });
+    // Issuing a session without knowing who asked for it is the bug this
+    // method exists to fix, so a token that cannot say is rejected.
+    if (!staffUserId) {
+      throw this.invalidToken('no sub claim, so the staff member is unknown');
     }
 
-    return owner;
+    const known = await this.adminUserModel
+      .findOne({
+        businessId: business._id as any,
+        shopifyStaffUserId: staffUserId,
+      })
+      .exec();
+    if (known) return known;
+
+    // Deliberately allowed to throw. A failure here means Shopify would not
+    // say who this is, and the alternative — falling back to the owner account
+    // — is exactly the behavior being removed.
+    const staff = await this.identifyStaffUser(
+      business.shopifyShopDomain || '',
+      sessionToken,
+    );
+
+    if (staff.accountOwner) {
+      // The install created an owner from `shop.json` before anyone had
+      // signed in, so it carries no staff id. The account owner's first visit
+      // claims that record rather than creating a second owner beside it.
+      const unlinkedOwner = await this.adminUserModel
+        .findOne({
+          businessId: business._id as any,
+          role: AdminRole.OWNER,
+          shopifyStaffUserId: { $exists: false },
+        })
+        .sort({ createdAt: 1 })
+        .exec();
+
+      if (unlinkedOwner) {
+        unlinkedOwner.shopifyStaffUserId = staffUserId;
+        await unlinkedOwner.save();
+        this.logger.log(
+          `[ShopifyService] Linked the owner account for ${business.shopifyShopDomain} to Shopify staff ${staffUserId}.`,
+        );
+        return unlinkedOwner;
+      }
+    }
+
+    return this.createStaffUser(business, staff, staffUserId);
+  }
+
+  /**
+   * Creates the ORA account for a staff member who has not used ORA before.
+   *
+   * Only the Shopify account owner becomes an ORA OWNER. Everyone else is
+   * STAFF, which reads the dashboard, orders and conversations and is refused
+   * billing, key management and connector configuration. Shopify exposes no
+   * per-staff permission list to an app, so `account_owner` is the only
+   * distinction available, and a wrong guess here spends the merchant's money.
+   * Collaborators — outside partners and agencies — get the same STAFF role.
+   */
+  private async createStaffUser(
+    business: BusinessDocument,
+    staff: ShopifyAssociatedUser,
+    staffUserId: string,
+  ): Promise<AdminUserDocument> {
+    const shopDomain = business.shopifyShopDomain || '';
+    const name =
+      [staff.firstName, staff.lastName].filter(Boolean).join(' ') ||
+      `Shopify staff ${staffUserId}`;
+
+    let email = staff.email;
+    if (!email || (await this.usersService.findByEmail(email))) {
+      // `AdminUser.email` is globally unique, so a staff address that already
+      // belongs to another tenant cannot be reused here. The alias keeps the
+      // account addressable without repointing theirs.
+      email = `shopify+${staffUserId}+${shopDomain}@ora.internal`;
+    }
+
+    // The schema requires a hash. It is unguessable and never handed out;
+    // dashboard access outside Shopify goes through forgot-password.
+    const passwordHash = await bcrypt.hash(
+      crypto.randomBytes(32).toString('hex'),
+      10,
+    );
+
+    const role = staff.accountOwner ? AdminRole.OWNER : AdminRole.STAFF;
+
+    this.logger.log(
+      `[ShopifyService] Creating a ${role} account for Shopify staff ${staffUserId} on ${shopDomain}.`,
+    );
+
+    return this.usersService.createAdminUser({
+      businessId: business._id.toString(),
+      email,
+      passwordHash,
+      name,
+      role,
+      emailVerified: staff.emailVerified ?? true,
+      shopifyStaffUserId: staffUserId,
+    });
   }
 
   /**

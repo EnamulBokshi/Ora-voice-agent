@@ -1,0 +1,15 @@
+# Theme app extension: the storefront widget.
+#
+# This exists so a merchant never edits theme.liquid. `shopify app deploy`
+# publishes it with the app, and the merchant turns it on from
+# Online Store > Themes > Customize > App embeds.
+#
+# `api_version` must match SHOPIFY_API_VERSION in
+# server/src/shopify/shopify.constants.ts and `api_version` in
+# ../../shopify.app.toml. All three are separate literals and drift silently.
+api_version = "2026-07"
+
+[[extensions]]
+type = "theme"
+name = "ORA Voice AI Widget"
+handle = "ora-voice-widget"

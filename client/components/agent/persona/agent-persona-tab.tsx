@@ -41,6 +41,7 @@ import {
   getLanguageById,
   SupportedLanguage,
 } from '@/lib/languages';
+import { useReadOnly } from '@/components/common/read-only-fence';
 
 // ─── Archetypes ───────────────────────────────────────────────────────────────
 
@@ -265,6 +266,7 @@ function WaveformAudioControl({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function AgentPersonaTab() {
+  const readOnly = useReadOnly();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -428,6 +430,12 @@ export function AgentPersonaTab() {
 
   // Save handler
   const handleSave = async (e?: React.FormEvent) => {
+    // Guards the Enter key as well as the button: `PATCH /agent-config` is
+    // `@Roles(OWNER, ADMIN)` and would answer 403.
+    if (readOnly) {
+      e?.preventDefault();
+      return;
+    }
     if (e) e.preventDefault();
     setSaving(true);
     setSuccessMsg(null);
@@ -575,7 +583,8 @@ export function AgentPersonaTab() {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={readOnly || saving}
+            title={readOnly ? 'View-only access' : undefined}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground font-semibold text-[12px] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer shadow-xs"
           >
             {saving ? (

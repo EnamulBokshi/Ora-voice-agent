@@ -55,6 +55,30 @@ export class AdminUser {
 
   @Prop()
   resetPasswordExpiresAt?: Date;
+
+  /**
+   * The Shopify staff member this account belongs to — the `sub` claim of the
+   * App Bridge session token.
+   *
+   * This is what makes an embedded session belong to a person rather than to a
+   * store. Without it every staff member who opened the app was handed the
+   * tenant's oldest account, which is always the OWNER, so a junior staffer
+   * could rotate the secret API key and change the plan.
+   *
+   * Absent on web signups and on the owner record created at install, which is
+   * linked to its staff id the first time the account owner opens the app.
+   */
+  @Prop({ trim: true })
+  shopifyStaffUserId?: string;
 }
 
 export const AdminUserSchema = SchemaFactory.createForClass(AdminUser);
+
+/**
+ * One account per staff member per tenant. Shopify staff ids are unique within
+ * a shop but not across shops, so the tenant has to be part of the key.
+ */
+AdminUserSchema.index(
+  { businessId: 1, shopifyStaffUserId: 1 },
+  { unique: true, sparse: true },
+);

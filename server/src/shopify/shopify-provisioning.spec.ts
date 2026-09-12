@@ -43,8 +43,8 @@ describe('ShopifyService provisioning', () => {
   };
 
   /**
-   * `resolveOwner` sorts and `ensureOwner` does not, so one mock has to answer
-   * both `.exec()` and `.sort().exec()`.
+   * `resolveStaffUser` sorts and `ensureOwner` does not, so one mock has to
+   * answer both `.exec()` and `.sort().exec()`.
    */
   const chain = (result: unknown) => {
     const exec = jest.fn().mockResolvedValue(result);
@@ -364,25 +364,6 @@ describe('ShopifyService provisioning', () => {
     });
   });
 
-  describe('resolveOwner', () => {
-    it('rebuilds an owner for a tenant that somehow has none', async () => {
-      // A Business with no AdminUser cannot hold a session, so handing back a
-      // token would produce one nothing can be scoped to.
-      adminUserModel.findOne.mockReturnValue(chain(null));
-
-      const business = {
-        _id: 'biz-orphan',
-        name: 'Orphan Store',
-        shopifyShopDomain: SHOP,
-        shopifyOwnerEmail: 'owner@demo.test',
-      } as any;
-
-      const owner = await (service as any).resolveOwner(business);
-
-      expect(usersService.createAdminUser).toHaveBeenCalled();
-      expect(owner.role).toBe(AdminRole.OWNER);
-    });
-  });
 
   describe('registerWebhooks', () => {
     /**
