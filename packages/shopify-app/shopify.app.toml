@@ -1,68 +1,42 @@
-# Shopify app configuration.
-#
-# Shopify-managed installation grants the scopes declared here — token exchange
-# has nothing to grant without this file. `scopes` MUST stay in sync with the
-# SHOPIFY_SCOPES value the server reads, or a token will be short a permission
-# the API then refuses to use.
-#
-# One origin, two paths. nginx serves /shopify from the ora-shopify container
-# and /api/ from ora-server, so:
-#   application_url          -> https://tryora.live/shopify  (SHOPIFY_APP_URL)
-#   redirect_urls, webhooks  -> https://tryora.live/api/v1   (ORA_API_URL)
-#
-# Same-origin is deliberate: the embedded app's API calls need no CORS. If the
-# app is ever moved to its own host, the API's CORS config has to change with
-# it — see the comment on enableCors in server/src/main.ts.
-#
-# For a manually created Partner app, run `pnpm shopify:link` before
-# `pnpm shopify:deploy`, or the CLI creates a second app instead of updating
-# yours. `deploy` rewrites this file and may drop these comments.
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "ORA Voice AI"
-handle = "ora-voice-ai"
 client_id = "737871ce3c359802b6363609149bc67b"
+name = "ORA-VOICE-AI"
 application_url = "https://tryora.live/shopify"
 embedded = true
-
-[access_scopes]
-scopes = "read_products,write_products,read_inventory,read_orders"
-
-[auth]
-redirect_urls = [
-  "https://tryora.live/api/v1/shopify/callback"
-]
-
-[webhooks]
-# Duplicated on purpose: Shopify reads this file, the server reads
-# SHOPIFY_API_VERSION in server/src/shopify/shopify.constants.ts. They must be
-# changed together. `shopify app deploy` rewrites this file, so re-check the
-# value after every deploy.
-api_version = "2026-07"
-
-  # Catalog topics point at the ingestion route that already verifies the HMAC,
-  # dedupes on webhook id, and resolves the tenant from the signed shop domain.
-  [[webhooks.subscriptions]]
-  topics = [
-    "products/create",
-    "products/update",
-    "products/delete",
-    "inventory_levels/update",
-    "app/uninstalled",
-  ]
-  uri = "https://tryora.live/api/v1/ingestion/webhooks/shopify"
-
-  # Billing state, not catalog data. The ingestion route dispatches on catalog
-  # topics and answers anything else with a warning, so this topic must have its
-  # own receiver or a cancelled subscription never reaches ORA. Must stay in
-  # sync with SHOPIFY_WEBHOOK_TOPICS in server/src/shopify/shopify.constants.ts.
-  [[webhooks.subscriptions]]
-  topics = [ "app_subscriptions/update" ]
-  uri = "https://tryora.live/api/v1/shopify/webhooks/app-subscriptions-update"
-
-[webhooks.privacy_compliance]
-customer_deletion_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-redact"
-customer_data_request_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-data_request"
-shop_deletion_url = "https://tryora.live/api/v1/shopify/webhooks/compliance/shop-redact"
+handle = "ora-voice-ai"
 
 [build]
 automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-data_request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://tryora.live/api/v1/shopify/webhooks/compliance/customers-redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://tryora.live/api/v1/shopify/webhooks/compliance/shop-redact"
+  compliance_topics = [ "shop/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://tryora.live/api/v1/ingestion/webhooks/shopify"
+  topics = [
+  "products/create",
+  "products/update",
+  "inventory_levels/update",
+  "app/uninstalled",
+  "products/delete"
+]
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_inventory,read_orders,read_products,write_products"
+
+[auth]
+redirect_urls = [ "https://tryora.live/api/v1/shopify/callback" ]
