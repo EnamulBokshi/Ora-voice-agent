@@ -9,7 +9,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { AppLink } from '@/components/navigation/app-link';
-import { useAppRouter } from '@/lib/navigation/app-path';
+import { useAppRouter, useIsEmbedded } from '@/lib/navigation/app-path';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,10 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
   // Pushes resolve for the tree this renders in, so the embedded app stays
   // inside /shopify instead of bouncing the iframe to the web sign-in page.
   const router = useAppRouter();
+  // The embedded app has no /setup guide; its deploy step is the theme app
+  // extension toggle on the configuration hub.
+  const isEmbedded = useIsEmbedded();
+  const deployHref = isEmbedded ? '/agent' : '/setup';
   const [dropdownOpen, setDropdownOpen]     = useState(false);
   const [trainExpanded, setTrainExpanded]   = useState(true);
   const dropdownRef                         = useRef<HTMLDivElement>(null);
@@ -168,7 +172,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
             {[
               { label: 'Train',    href: '/agent?role=voice' },
               { label: 'Test ORA', href: '/agent?role=voice&view=test' },
-              { label: 'Deploy',   href: '/setup' },
+              { label: 'Deploy',   href: deployHref },
               { label: 'Analyze',  href: '/conversations' },
             ].map((item) => (
               <AppLink
@@ -222,7 +226,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
 
             {/* Deploy → */}
             <AppLink
-              href="/setup"
+              href={deployHref}
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <span>Deploy</span>

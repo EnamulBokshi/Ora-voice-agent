@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppLink } from '@/components/navigation/app-link';
-import { useAppRouter } from '@/lib/navigation/app-path';
+import { useAppRouter, useIsEmbedded } from '@/lib/navigation/app-path';
+import { ShopifyEmbedCard } from '@/components/shopify/shopify-embed-card';
 
 // ─── Role Definitions ─────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ const FAQS = [
   },
   {
     q: 'Can I test my agent before deploying to live shoppers?',
-    a: 'Yes. Use the "Test ORA Live" capability from the Voice AI tab or the Setup Guide to have a real bi-directional voice conversation directly in your browser.',
+    a: 'Yes. Use the "Test ORA" capability from the Voice AI section to have a real bi-directional voice conversation directly in your browser.',
   },
 ];
 
@@ -91,6 +92,10 @@ const FAQS = [
 
 export function AgentHub() {
   const router = useAppRouter();
+  // The embedded app has no /setup onboarding guide, so the theme app extension
+  // toggle that used to live in that guide is surfaced here instead. It is the
+  // last install step and nothing else in the Shopify tree renders it.
+  const isEmbedded = useIsEmbedded();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
@@ -100,13 +105,13 @@ export function AgentHub() {
         {/* ── Hub Hero Header (Same as Setup Hub) ── */}
         <div className="mb-10 text-center max-w-2xl mx-auto">
           <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Agent Capabilities · All Roles
+            Configuration · All Sections
           </p>
           <h1 className="text-[32px] sm:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] font-serif mb-3.5">
-            One AI sales agent for your entire store
+            Configure one AI sales agent for your entire store
           </h1>
           <p className="text-[14.5px] text-muted-foreground leading-relaxed">
-            Feed ORA your business knowledge, product inventory, and customer policies across voice, file uploads, and live catalog connectors.
+            Set your store type and store overview, write the system prompt, then feed ORA your policies, documents, and product catalog.
           </p>
           <p className="text-[13px] text-muted-foreground/80 mt-2">
             Want to learn how ORA indexes data? Read our{' '}
@@ -195,6 +200,20 @@ export function AgentHub() {
             </span>
           </div>
         </div>
+
+        {/* ── Deploy: theme app extension toggle (embedded app only) ── */}
+        {isEmbedded && (
+          <div className="mb-16">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+              <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+                Deploy to your storefront
+              </p>
+              <div className="h-px bg-border/40 flex-1 ml-2" />
+            </div>
+            <ShopifyEmbedCard />
+          </div>
+        )}
 
         {/* ── Hub FAQ Section (Intercom Accordion Style) ── */}
         <div className="pt-10 border-t border-border/40 max-w-3xl mx-auto">

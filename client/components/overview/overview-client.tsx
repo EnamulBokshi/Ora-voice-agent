@@ -329,9 +329,23 @@ export function OverviewClient() {
             </div>
             <span className="text-[12.5px] text-foreground font-medium truncate">
               Store setup in progress ({completedCount} of {totalSteps} steps completed) —{' '}
+              {/*
+                The embedded app has no /setup guide, so the outer link resolves
+                to nothing there and the configuration hub is offered instead.
+                In the dashboard the outer link wins and the fallback is unused.
+              */}
               <AppLink
                 href="/setup"
                 className="font-semibold text-foreground dark:text-primary underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
+                fallback={
+                  <AppLink
+                    href="/agent"
+                    className="font-semibold text-foreground dark:text-primary underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
+                  >
+                    Open Configuration
+                    <ArrowRight size={11} />
+                  </AppLink>
+                }
               >
                 Complete Setup Guide
                 <ArrowRight size={11} />

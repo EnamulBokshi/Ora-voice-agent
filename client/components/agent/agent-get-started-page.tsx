@@ -431,6 +431,15 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
             <AppLink
               href="/setup?step=persona"
               className="inline-flex items-center gap-1.5 text-[13.5px] text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
+              fallback={
+                <AppLink
+                  href="/agent?role=voice&view=test"
+                  className="inline-flex items-center gap-1.5 text-[13.5px] text-foreground dark:text-[#C8F031] font-medium underline underline-offset-4"
+                >
+                  <span>Ask ORA Agent</span>
+                  <ArrowRight size={13} />
+                </AppLink>
+              }
             >
               <span>Ask ORA Agent</span>
               <ArrowRight size={13} />

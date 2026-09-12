@@ -10,10 +10,12 @@ export const SHOPIFY_BASE_PATH = '/shopify';
 /**
  * Top-level routes that exist under `app/shopify/`.
  *
- * The marketing `/docs` is the one dashboard-reachable route left out: it is
- * marketing chrome, not app surface, so it resolves to nothing and the
- * affordance is hidden rather than framed inside Shopify Admin. Add a segment
- * here only once `app/shopify/<segment>/page.tsx` exists.
+ * Two dashboard-reachable routes are deliberately left out, so they resolve to
+ * nothing and the affordance is hidden rather than framed inside Shopify
+ * Admin: the marketing `/docs`, which is marketing chrome and not app surface,
+ * and `/setup`, whose onboarding guide the embedded app replaces with the
+ * configuration hub at `/shopify/agent`. Add a segment here only once
+ * `app/shopify/<segment>/page.tsx` exists.
  */
 export const EMBEDDED_SEGMENTS = new Set([
   'agent',
@@ -24,7 +26,6 @@ export const EMBEDDED_SEGMENTS = new Set([
   'notifications',
   'orders',
   'profile',
-  'setup',
   'usage',
 ]);
 

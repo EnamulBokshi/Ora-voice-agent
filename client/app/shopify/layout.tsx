@@ -109,12 +109,11 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
       {/* @ts-ignore custom element */}
       <ui-nav-menu>
         <a href="/shopify" rel="home">Overview</a>
-        <a href="/shopify/agent">Voice Agent</a>
+        <a href="/shopify/agent">Configuration</a>
         <a href="/shopify/live-desk">Live Desk</a>
         <a href="/shopify/conversations">Conversations</a>
         <a href="/shopify/orders">Orders</a>
         <a href="/shopify/customers">Customers</a>
-        <a href="/shopify/setup">Setup Guide</a>
         <a href="/shopify/notifications">Notifications</a>
         <a href="/shopify/billing">Billing</a>
         <a href="/shopify/usage">Usage</a>
