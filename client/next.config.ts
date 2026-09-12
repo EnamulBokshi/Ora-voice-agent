@@ -61,6 +61,19 @@ const nextConfig: NextConfig = {
       allowedOrigins: ["*.trycloudflare.com", "*.tryora.live"],
     },
   },
+  async rewrites() {
+    const backendUrl = process.env.NESTJS_BACKEND_URL || 'http://127.0.0.1:5000';
+    return [
+      {
+        source: '/ws/:path*',
+        destination: `${backendUrl}/ws/:path*`,
+      },
+      {
+        source: '/socket.io/:path*',
+        destination: `${backendUrl}/socket.io/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

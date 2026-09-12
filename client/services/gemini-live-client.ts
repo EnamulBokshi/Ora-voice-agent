@@ -179,6 +179,8 @@ export class GeminiLiveClient {
       let wsBase: string;
       if (process.env.NEXT_PUBLIC_WS_URL) {
         wsBase = process.env.NEXT_PUBLIC_WS_URL.replace(/^http/, 'ws');
+      } else if (apiBaseUrl && apiBaseUrl.startsWith('http')) {
+        wsBase = apiBaseUrl.replace(/^http/, 'ws');
       } else if (typeof window !== 'undefined') {
         const isLocalhost =
           window.location.hostname === 'localhost' ||
@@ -191,8 +193,6 @@ export class GeminiLiveClient {
           const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
           wsBase = `${wsProtocol}//${window.location.host}`;
         }
-      } else if (apiBaseUrl && apiBaseUrl.startsWith('http')) {
-        wsBase = apiBaseUrl.replace(/^http/, 'ws');
       } else {
         wsBase = 'ws://localhost:5000';
       }
@@ -327,7 +327,7 @@ export class GeminiLiveClient {
       };
 
       ws.onerror = (err) => {
-        console.error('[GeminiLiveClient] WebSocket proxy error:', err);
+        console.error(`[GeminiLiveClient] WebSocket proxy error connecting to ${wsBase}${wsPath}:`, err);
         onStatusChange?.('error');
         onError?.('Failed to connect to Voice Proxy.');
       };

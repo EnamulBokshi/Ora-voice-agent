@@ -117,6 +117,7 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
         <a href="/shopify/setup">Setup Guide</a>
         <a href="/shopify/notifications">Notifications</a>
         <a href="/shopify/billing">Billing</a>
+        <a href="/shopify/usage">Usage</a>
         <a href="/shopify/profile">Profile</a>
       {/* @ts-ignore custom element */}
       </ui-nav-menu>

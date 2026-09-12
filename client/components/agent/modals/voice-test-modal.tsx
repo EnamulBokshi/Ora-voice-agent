@@ -23,6 +23,9 @@ import {
 import { searchRagCombinedApi } from '@/services/rag-service';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
 import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
+import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
+import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
+import { getSessionStrategy } from '@/lib/session';
 
 interface VoiceTestModalProps {
   isOpen: boolean;
@@ -46,6 +49,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('direct-live');
   const [activeTab, setActiveTab] = useState<InspectorTab>('transcript');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Resolved on open rather than at module scope: it reads the document's
+  // Permissions Policy, which does not exist during server rendering.
+  const [micBlocked, setMicBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
@@ -154,7 +160,13 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   // Start Direct Live Session
   const startDirectLiveSession = async () => {
     try {
-      if (!publishableKey) {
+      let keyToUse = publishableKey;
+      if (!keyToUse) {
+        const session = await getSessionStrategy().getSession().catch(() => null);
+        keyToUse = session?.business?.publishableKey || undefined;
+      }
+
+      if (!keyToUse) {
         setErrorMessage('Store publishable key is loading. Please try again in a second.');
         setStatus('error');
         return;
@@ -167,8 +179,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
       setErrorMessage(null);
       addTranscript('system', 'Connecting to ORA Neural Voice Gateway...');
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-      const keyToUse = publishableKey;
+      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
+      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
 
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
@@ -290,6 +302,9 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   };
 
   const handleStartSession = () => {
+    // Both modes capture the microphone, so a policy block rules out either.
+    if (micBlocked) return;
+
     if (voiceMode === 'direct-live') {
       startDirectLiveSession();
     } else {
@@ -306,6 +321,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
       return next;
     });
   };
+
+  useEffect(() => {
+    if (isOpen) setMicBlocked(isMicrophoneBlockedByPolicy());
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -432,8 +451,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           </div>
 
           {/* Main Control Buttons */}
+          {micBlocked && <MicrophoneBlockedNotice className="flex-shrink-0" />}
+
           <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
-            {status === 'idle' || status === 'error' ? (
+            {micBlocked ? null : status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
                 className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.98] transition-all shadow-md cursor-pointer"
