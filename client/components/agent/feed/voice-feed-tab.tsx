@@ -208,9 +208,9 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
       setOrganiseResult(null);
       setOrganiseError(null);
 
-      const isSilent = mode === 'dictate';
       const sessionToken = await getSessionStrategy().getToken().catch(() => null);
       const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+      const isSilent = mode === 'dictate';
 
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
@@ -466,14 +466,14 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
             {status === 'speaking'
               ? 'ORA speaking...'
               : status === 'listening'
-              ? voiceMode === 'dictate'
-                ? 'Transcribing your voice — ORA is staying quiet'
-                : 'Listening... speak about your store knowledge'
-              : status === 'connecting'
-              ? 'Connecting to live voice stream...'
-              : voiceMode === 'dictate'
-              ? 'Click the orb and read out store policies or product info'
-              : 'Click the orb to start teaching ORA'}
+                ? voiceMode === 'dictate'
+                  ? 'Transcribing your voice — ORA is staying quiet'
+                  : 'Listening... speak about your store knowledge'
+                : status === 'connecting'
+                  ? 'Connecting to live voice stream...'
+                  : voiceMode === 'dictate'
+                    ? 'Click the orb and read out store policies or product info'
+                    : 'Click the orb to start teaching ORA'}
           </p>
           {interimText && (
             <p className="mt-1.5 text-[12px] text-muted-foreground/80 italic animate-pulse">

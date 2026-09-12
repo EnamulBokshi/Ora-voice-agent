@@ -2697,7 +2697,16 @@
             cancelIdleTimer();
             isWaitingForAi = false;
             const cleanText = msg.text.trim();
-            if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
+            if (
+              cleanText &&
+              !cleanText.startsWith('**') &&
+              !cleanText.startsWith('##') &&
+              !cleanText.startsWith('#') &&
+              !cleanText.toLowerCase().startsWith('thought') &&
+              !cleanText.toLowerCase().startsWith('thinking') &&
+              !cleanText.toLowerCase().startsWith('internal:') &&
+              !cleanText.toLowerCase().startsWith('[thought')
+            ) {
               if (lastSpeaker !== 'agent') {
                 lastSpeaker = 'agent';
                 liveSpeaker = 'agent';
