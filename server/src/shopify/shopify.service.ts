@@ -12,6 +12,8 @@ import { UsersService } from '../users/users.service';
 import { RedisService } from '../common/redis/redis.service';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { BusinessCredentialsUtil } from '../common/utils/business-credentials.util';
+import { ShopifyOAuthError } from '../common/utils/shopify-oauth-error.util';
+import { ShopifyTokenService } from '../common/shopify-token/shopify-token.service';
 import { AdminRole } from '../users/enums/admin-role.enum';
 import {
   Business,
@@ -52,6 +54,7 @@ export class ShopifyService {
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
+    private readonly tokenService: ShopifyTokenService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     @InjectModel(AdminUser.name)
@@ -308,13 +311,16 @@ export class ShopifyService {
     );
 
     if (!response.ok) {
-      const errText = await response.text();
+      // Never log or return this body verbatim. A rejected exchange can echo
+      // the request, and the request carries the App Bridge session token as
+      // `subject_token` plus `client_secret`.
+      const summary = ShopifyOAuthError.summarize(await response.text());
       this.logger.error(
-        `[ShopifyService] Token exchange for ${shopDomain} returned HTTP ${response.status}: ${errText}`,
+        `[ShopifyService] Token exchange for ${shopDomain} returned HTTP ${response.status}: ${summary}`,
       );
       throw new DomainException(
         SHOPIFY_ERRORS.TOKEN_EXCHANGE_FAILED,
-        `Shopify rejected the token exchange: ${errText}`,
+        'Shopify rejected the token exchange.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -324,6 +330,7 @@ export class ShopifyService {
       scope?: string;
       refresh_token?: string;
       expires_in?: number;
+      refresh_token_expires_in?: number;
     };
 
     if (!body.access_token) {
@@ -342,6 +349,7 @@ export class ShopifyService {
         .filter(Boolean),
       refreshToken: body.refresh_token,
       expiresIn: body.expires_in,
+      refreshTokenExpiresIn: body.refresh_token_expires_in,
     };
   }
 
@@ -366,10 +374,15 @@ export class ShopifyService {
     );
 
     if (!response.ok) {
-      const errText = await response.text();
+      // Same reason as in `exchangeSessionToken`: the body can echo the
+      // request, which here carries `client_secret` and the authorization code.
+      const summary = ShopifyOAuthError.summarize(await response.text());
+      this.logger.error(
+        `[ShopifyService] Authorization code exchange for ${shopDomain} returned HTTP ${response.status}: ${summary}`,
+      );
       throw new DomainException(
         SHOPIFY_ERRORS.TOKEN_EXCHANGE_FAILED,
-        `Shopify rejected the authorization code: ${errText}`,
+        'Shopify rejected the authorization code.',
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -379,6 +392,7 @@ export class ShopifyService {
       scope?: string;
       refresh_token?: string;
       expires_in?: number;
+      refresh_token_expires_in?: number;
     };
 
     if (!body.access_token) {
@@ -397,6 +411,7 @@ export class ShopifyService {
         .filter(Boolean),
       refreshToken: body.refresh_token,
       expiresIn: body.expires_in,
+      refreshTokenExpiresIn: body.refresh_token_expires_in,
     };
   }
 
@@ -597,7 +612,7 @@ export class ShopifyService {
 
     const found = await this.businessModel
       .findOne({ shopifyShopDomain: shopDomain })
-      .select('+shopifyAccessToken')
+      .select('+shopifyAccessToken +shopifyRefreshToken')
       .exec();
 
     let business: BusinessDocument;
@@ -620,30 +635,27 @@ export class ShopifyService {
       // Non-expiring tokens (shpua_ prefix) or missing tokens must be upgraded
       // to expiring offline tokens (shppa_ prefix) required by Shopify's 2026 Admin API.
       const isLegacyToken = !currentToken || currentToken.startsWith('shpua_');
-      if (isLegacyToken) {
+
+      // A shop installed before the refresh token was persisted holds an
+      // expiring token with nothing to renew it. The session token in hand can
+      // mint a full set, and this endpoint runs on every page load, so the
+      // repair costs one exchange and needs no migration script.
+      const hasNoRefreshPath = !isLegacyToken && !business.shopifyRefreshToken;
+
+      if (isLegacyToken || hasNoRefreshPath) {
         this.logger.log(
-          `[ShopifyService] Upgrading legacy access token for ${shopDomain} via token exchange.`,
+          hasNoRefreshPath
+            ? `[ShopifyService] ${shopDomain} has an expiring access token but no stored refresh token; re-running token exchange.`
+            : `[ShopifyService] Upgrading legacy access token for ${shopDomain} via token exchange.`,
         );
         try {
-          const { accessToken, scopes, refreshToken, expiresIn } =
-            await this.exchangeSessionToken(shopDomain, sessionToken);
-          business.shopifyAccessToken =
-            BusinessCredentialsUtil.protect(accessToken);
-          if (scopes.length) {
-            business.shopifyScopes = scopes;
-          }
-          if (refreshToken) {
-            (business as any).shopifyRefreshToken =
-              BusinessCredentialsUtil.protect(refreshToken);
-          }
-          if (expiresIn) {
-            (business as any).shopifyTokenExpiresAt = new Date(
-              Date.now() + expiresIn * 1000,
-            );
-          }
-          await business.save();
+          const exchanged = await this.exchangeSessionToken(
+            shopDomain,
+            sessionToken,
+          );
+          await this.tokenService.persist(business, exchanged);
           this.logger.log(
-            `[ShopifyService] Successfully upgraded token for ${shopDomain} (token prefix: ${accessToken.substring(0, 6)}).`,
+            `[ShopifyService] Successfully upgraded token for ${shopDomain} (token prefix: ${exchanged.accessToken.substring(0, 6)}).`,
           );
         } catch (err: any) {
           this.logger.error(
@@ -725,12 +737,17 @@ export class ShopifyService {
         .exec();
       if (raced) return raced;
 
-      const { accessToken, scopes } = await this.exchangeSessionToken(
+      const exchanged = await this.exchangeSessionToken(
         shopDomain,
         sessionToken,
       );
 
-      return this.provisionTenant(shopDomain, accessToken, scopes);
+      return this.provisionTenant(
+        shopDomain,
+        exchanged.accessToken,
+        exchanged.scopes,
+        exchanged,
+      );
     } finally {
       await this.redisService.releaseLock(lockKey);
     }
@@ -758,6 +775,10 @@ export class ShopifyService {
     shopDomain: string,
     accessToken: string,
     scopes: string[],
+    expiry?: Pick<
+      ShopifyTokenExchangeResult,
+      'refreshToken' | 'expiresIn' | 'refreshTokenExpiresIn'
+    >,
   ): Promise<BusinessDocument> {
     const normalized = this.normalizeShopDomain(shopDomain);
     const details = await this.fetchShopDetails(normalized, accessToken);
@@ -768,6 +789,19 @@ export class ShopifyService {
       scopes,
       details,
     );
+
+    // The refresh token and the expiries are written after the document
+    // exists, so the bind branch and the create branch cannot disagree about
+    // them. Without this, an expiring token installs with no way to renew it.
+    if (expiry?.refreshToken || expiry?.expiresIn) {
+      await this.tokenService.persist(business, {
+        accessToken,
+        scopes,
+        refreshToken: expiry.refreshToken,
+        expiresIn: expiry.expiresIn,
+        refreshTokenExpiresIn: expiry.refreshTokenExpiresIn,
+      });
+    }
 
     await this.ensureOwner(business, normalized, details);
     await this.registerWebhooks(normalized, accessToken);
@@ -983,13 +1017,17 @@ export class ShopifyService {
     );
 
     try {
-      const { accessToken, scopes } = await this.exchangeSessionToken(
+      const exchanged = await this.exchangeSessionToken(
         shopDomain,
         sessionToken,
       );
 
-      business.shopifyAccessToken = BusinessCredentialsUtil.protect(accessToken);
-      business.shopifyScopes = scopes.length ? scopes : [...wanted];
+      // Persist through the token service so the refresh token and both
+      // expiries are written here exactly as they are at install.
+      this.tokenService.applyTokens(business, exchanged);
+      if (!exchanged.scopes.length) {
+        business.shopifyScopes = [...wanted];
+      }
       await business.save();
 
       this.logger.log(

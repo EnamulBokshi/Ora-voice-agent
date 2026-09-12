@@ -21,6 +21,7 @@ import { OrdersModule } from './orders/orders.module';
 import { AiVoiceModule } from './ai-voice/ai-voice.module';
 import { RedisModule } from './common/redis/redis.module';
 import { EntitlementModule } from './common/entitlement/entitlement.module';
+import { ShopifyTokenModule } from './common/shopify-token/shopify-token.module';
 import { MailModule } from './mail/mail.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 
@@ -62,6 +63,7 @@ import { ShopifyModule } from './shopify/shopify.module';
     // Global: SubscriptionGuard injects EntitlementService from feature
     // modules that register neither the Business nor the Subscription schema.
     EntitlementModule,
+    ShopifyTokenModule,
     MailModule,
     EventsModule,
     AuthModule,

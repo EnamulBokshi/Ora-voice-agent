@@ -124,3 +124,15 @@ export const SHOPIFY_ERRORS = {
  */
 export const SHOPIFY_SHOP_DOMAIN_PATTERN =
   /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
+
+/** Grant type that trades a rotating refresh token for a fresh access token. */
+export const SHOPIFY_REFRESH_TOKEN_GRANT = 'refresh_token';
+
+/**
+ * How long before expiry an access token is treated as already expired.
+ *
+ * Expiring offline tokens live about 60 minutes. A job that starts with 30
+ * seconds left would fail partway through, so refresh early rather than
+ * retrying a half-finished catalog walk.
+ */
+export const SHOPIFY_TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;

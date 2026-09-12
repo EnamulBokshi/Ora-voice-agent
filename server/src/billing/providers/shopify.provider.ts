@@ -13,7 +13,7 @@ import {
 import { Plan, PlanDocument } from '../schemas/plan.schema';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { DomainException } from '../../common/exceptions/domain.exception';
-import { BusinessCredentialsUtil } from '../../common/utils/business-credentials.util';
+import { ShopifyTokenService } from '../../common/shopify-token/shopify-token.service';
 import {
   SHOPIFY_API_VERSION,
   SHOPIFY_ERRORS,
@@ -65,6 +65,7 @@ export class ShopifyProvider implements PaymentProvider {
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     private readonly redisService: RedisService,
+    private readonly tokenService: ShopifyTokenService,
   ) {}
 
   /**
@@ -491,12 +492,14 @@ export class ShopifyProvider implements PaymentProvider {
   ): Promise<{ shopDomain: string; accessToken: string }> {
     const business = await this.businessModel
       .findById(businessId)
-      .select('+shopifyAccessToken')
+      .select('+shopifyAccessToken +shopifyRefreshToken')
       .exec();
 
-    const accessToken = BusinessCredentialsUtil.reveal(
-      business?.shopifyAccessToken,
-    );
+    // Billing mutations run long after the install, so the stored token has
+    // usually expired. `getValidAccessTokenFor` refreshes it when needed.
+    const accessToken = business
+      ? await this.tokenService.getValidAccessTokenFor(business)
+      : undefined;
     const shopDomain = business?.shopifyShopDomain;
 
     if (!shopDomain || !accessToken) {

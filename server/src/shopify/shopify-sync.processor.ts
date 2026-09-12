@@ -7,7 +7,7 @@ import { Model } from 'mongoose';
 import { ProductsService } from '../products/products.service';
 import { VectorStoreService } from '../vector/vector-store.service';
 import { EntityType } from '../vector/interfaces/vector-entry.interface';
-import { BusinessCredentialsUtil } from '../common/utils/business-credentials.util';
+import { ShopifyTokenService } from '../common/shopify-token/shopify-token.service';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import {
@@ -44,6 +44,7 @@ export class ShopifySyncProcessor extends WorkerHost {
   constructor(
     private readonly productsService: ProductsService,
     private readonly vectorStoreService: VectorStoreService,
+    private readonly tokenService: ShopifyTokenService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     @InjectModel(Product.name)
@@ -61,12 +62,14 @@ export class ShopifySyncProcessor extends WorkerHost {
 
     const business = await this.businessModel
       .findById(businessId)
-      .select('+shopifyAccessToken')
+      .select('+shopifyAccessToken +shopifyRefreshToken')
       .exec();
 
-    const accessToken = BusinessCredentialsUtil.reveal(
-      business?.shopifyAccessToken,
-    );
+    // An initial import can start an hour after the install, by which time an
+    // expiring offline token is dead. Refresh before the first page.
+    const accessToken = business
+      ? await this.tokenService.getValidAccessTokenFor(business)
+      : undefined;
 
     if (!business || !accessToken) {
       this.logger.warn(

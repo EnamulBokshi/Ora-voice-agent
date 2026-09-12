@@ -8,6 +8,7 @@ import { Business } from '../../users/schemas/business.schema';
 import { RedisService } from '../../common/redis/redis.service';
 import { DomainException } from '../../common/exceptions/domain.exception';
 import { SHOPIFY_PENDING_CHARGE_PREFIX } from '../../shopify/shopify.constants';
+import { shopifyTokenServiceProvider } from '../../common/shopify-token/shopify-token.testing';
 
 /**
  * The billing callback is unauthenticated and Shopify does not sign its query
@@ -59,6 +60,7 @@ describe('ShopifyProvider — billing callback trust boundary', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifyProvider,
+        shopifyTokenServiceProvider(),
         {
           provide: ConfigService,
           useValue: {

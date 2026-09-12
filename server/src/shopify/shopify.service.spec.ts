@@ -11,6 +11,7 @@ import { RedisService } from '../common/redis/redis.service';
 import { Business } from '../users/schemas/business.schema';
 import { AdminUser } from '../users/schemas/admin-user.schema';
 import { SHOPIFY_SYNC_QUEUE } from './shopify.constants';
+import { shopifyTokenServiceProvider } from '../common/shopify-token/shopify-token.testing';
 
 const API_KEY = 'test-client-id';
 const API_SECRET = 'test-client-secret';
@@ -65,6 +66,7 @@ describe('ShopifyService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifyService,
+        shopifyTokenServiceProvider(),
         {
           provide: ConfigService,
           useValue: { get: (key: string) => config[key] },
@@ -252,4 +254,60 @@ describe('ShopifyService', () => {
       expect(service.verifyQueryHmac(query)).toBe(false);
     });
   });
+
+  describe('token exchange failures', () => {
+    const SESSION_TOKEN =
+      'eyJhbGciOiJIUzI1NiJ9.eyJkZXN0IjoiaHR0cHM6Ly9kZW1vIn0.c2lnbmF0dXJl';
+
+    afterEach(() => jest.restoreAllMocks());
+
+    // Shopify can echo the request back on a rejected exchange, and the
+    // request carries the session token as `subject_token` plus the app's
+    // client secret. Neither may reach a log line or the client.
+    const rejectWith = (body: string) =>
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: async () => body,
+      } as any);
+
+    it('keeps the raw error body out of the exception message', async () => {
+      rejectWith(
+        JSON.stringify({
+          error: 'invalid_subject_token',
+          subject_token: SESSION_TOKEN,
+          client_secret: API_SECRET,
+        }),
+      );
+
+      await expect(
+        service.exchangeSessionToken(SHOP, SESSION_TOKEN),
+      ).rejects.toThrow('Shopify rejected the token exchange.');
+    });
+
+    it('keeps the session token and the client secret out of the log', async () => {
+      rejectWith(`subject_token=${SESSION_TOKEN}&client_secret=${API_SECRET}`);
+      const logged = jest
+        .spyOn((service as any).logger, 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(
+        service.exchangeSessionToken(SHOP, SESSION_TOKEN),
+      ).rejects.toThrow();
+
+      const line = logged.mock.calls[0][0] as string;
+      expect(line).toContain('HTTP 400');
+      expect(line).not.toContain(SESSION_TOKEN);
+      expect(line).not.toContain(API_SECRET);
+    });
+
+    it('redacts the authorization code path the same way', async () => {
+      rejectWith(JSON.stringify({ error: 'invalid_request', code: 'the-code' }));
+
+      await expect(service.exchangeCode(SHOP, 'the-code')).rejects.toThrow(
+        'Shopify rejected the authorization code.',
+      );
+    });
+  });
+
 });

@@ -9,8 +9,8 @@ import { SourceTier, ProductAvailability } from '../../products/schemas/product.
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { VectorStoreService } from '../../vector/vector-store.service';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
-import { BusinessCredentialsUtil } from '../../common/utils/business-credentials.util';
 import { SHOPIFY_API_VERSION } from '../../shopify/shopify.constants';
+import { ShopifyTokenService } from '../../common/shopify-token/shopify-token.service';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -22,6 +22,7 @@ export class ShopifyConnectorService {
     private readonly redisService: RedisService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    private readonly tokenService: ShopifyTokenService,
     @Optional()
     private readonly vectorStoreService?: VectorStoreService,
   ) {}
@@ -211,12 +212,12 @@ export class ShopifyConnectorService {
   async searchProductsLive(businessId: string, query: string): Promise<any[]> {
     const business = await this.businessModel
       .findById(businessId as any)
-      .select('+shopifyAccessToken')
+      .select('+shopifyAccessToken +shopifyRefreshToken')
       .exec();
 
-    const accessToken = BusinessCredentialsUtil.reveal(
-      business?.shopifyAccessToken,
-    );
+    const accessToken = business
+      ? await this.tokenService.getValidAccessTokenFor(business)
+      : undefined;
 
     if (!business?.shopifyStoreUrl || !accessToken) {
       this.logger.warn(

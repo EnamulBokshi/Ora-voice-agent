@@ -7,6 +7,7 @@ import { VectorStoreService } from '../vector/vector-store.service';
 import { Business } from '../users/schemas/business.schema';
 import { Product } from '../products/schemas/product.schema';
 import { EncryptionUtil } from '../common/utils/encryption.util';
+import { shopifyTokenServiceProvider } from '../common/shopify-token/shopify-token.testing';
 
 const SHOP = 'demo-store.myshopify.com';
 
@@ -85,6 +86,7 @@ describe('ShopifySyncProcessor', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifySyncProcessor,
+        shopifyTokenServiceProvider(),
         { provide: ProductsService, useValue: productsService },
         { provide: VectorStoreService, useValue: vectorStore },
         { provide: getModelToken(Business.name), useValue: businessModel },
@@ -192,6 +194,7 @@ describe('ShopifySyncProcessor', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifySyncProcessor,
+        shopifyTokenServiceProvider(),
         { provide: ProductsService, useValue: productsService },
         { provide: VectorStoreService, useValue: vectorStore },
         {

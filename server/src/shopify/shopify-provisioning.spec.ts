@@ -11,6 +11,8 @@ import { Business } from '../users/schemas/business.schema';
 import { AdminUser } from '../users/schemas/admin-user.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
 import { SHOPIFY_SYNC_QUEUE, SHOPIFY_WEBHOOK_TOPICS } from './shopify.constants';
+import { shopifyTokenServiceProvider } from '../common/shopify-token/shopify-token.testing';
+import { ShopifyTokenService } from '../common/shopify-token/shopify-token.service';
 
 const SHOP = 'demo-store.myshopify.com';
 
@@ -29,6 +31,7 @@ describe('ShopifyService provisioning', () => {
   let businessModel: { findOne: jest.Mock; findById: jest.Mock };
   let adminUserModel: { findOne: jest.Mock };
   let syncQueue: { add: jest.Mock };
+  let tokenService: { persist: jest.Mock };
 
   const shopDetails = {
     id: 1,
@@ -78,6 +81,7 @@ describe('ShopifyService provisioning', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifyService,
+        shopifyTokenServiceProvider(),
         { provide: ConfigService, useValue: { get: (key: string) => config[key] } },
         { provide: AuthService, useValue: { issueSessionForUser: jest.fn() } },
         { provide: UsersService, useValue: usersService },
@@ -92,6 +96,7 @@ describe('ShopifyService provisioning', () => {
     }).compile();
 
     service = module.get<ShopifyService>(ShopifyService);
+    tokenService = module.get<ShopifyTokenService>(ShopifyTokenService) as any;
 
     // Both reach Shopify over the network; the provisioning decisions under
     // test are everything that happens around them.
@@ -122,6 +127,35 @@ describe('ShopifyService provisioning', () => {
     expect(overrides.shopifyAccessToken).toMatch(
       /^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/,
     );
+  });
+
+  it('persists the refresh token and the expiries an expiring install returns', async () => {
+    const created = { _id: 'biz-1', name: 'Demo Store' };
+    usersService.createBusiness.mockResolvedValue(created);
+
+    await service.provisionTenant(SHOP, 'shppa_token', ['read_products'], {
+      refreshToken: 'refresh_1',
+      expiresIn: 3600,
+      refreshTokenExpiresIn: 7776000,
+    });
+
+    // Without this the tenant installs with a token that expires in an hour
+    // and nothing to renew it with.
+    expect(tokenService.persist).toHaveBeenCalledWith(created, {
+      accessToken: 'shppa_token',
+      scopes: ['read_products'],
+      refreshToken: 'refresh_1',
+      expiresIn: 3600,
+      refreshTokenExpiresIn: 7776000,
+    });
+  });
+
+  it('writes nothing extra when Shopify issues a non-expiring token', async () => {
+    usersService.createBusiness.mockResolvedValue({ _id: 'biz-1', name: 'Demo Store' });
+
+    await service.provisionTenant(SHOP, 'shpua_legacy', []);
+
+    expect(tokenService.persist).not.toHaveBeenCalled();
   });
 
   it('makes the owner an OWNER with a verified email', async () => {

@@ -11,6 +11,7 @@ import { RedisService } from '../common/redis/redis.service';
 import { Business } from '../users/schemas/business.schema';
 import { AdminUser } from '../users/schemas/admin-user.schema';
 import { SHOPIFY_SYNC_QUEUE } from './shopify.constants';
+import { shopifyTokenServiceProvider } from '../common/shopify-token/shopify-token.testing';
 
 const API_KEY = 'client-id';
 const API_SECRET = 'client-secret';
@@ -91,6 +92,7 @@ describe('ShopifyService install locking', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifyService,
+        shopifyTokenServiceProvider(),
         { provide: ConfigService, useValue: { get: (k: string) => config[k] } },
         { provide: AuthService, useValue: authService },
         { provide: UsersService, useValue: { findByEmail: jest.fn() } },

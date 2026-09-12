@@ -148,6 +148,31 @@ export class Business {
   @Prop({ type: [String], default: [] })
   shopifyScopes?: string[];
 
+  /**
+   * Refresh token for an expiring offline access token, encrypted at rest like
+   * `shopifyAccessToken`. Shopify rotates it on every refresh, so the value
+   * written by the last refresh is the only one worth keeping.
+   */
+  @Prop({ trim: true, select: false })
+  shopifyRefreshToken?: string;
+
+  /**
+   * When `shopifyAccessToken` stops working. Expiring offline tokens last
+   * about 60 minutes, so background jobs must refresh before calling the Admin
+   * API rather than assuming a stored token is live. Absent on legacy
+   * non-expiring (`shpua_`) tokens.
+   */
+  @Prop()
+  shopifyTokenExpiresAt?: Date;
+
+  /**
+   * When `shopifyRefreshToken` stops working — 90 days from issue, and shorter
+   * once used. Past this point only a merchant-initiated install can restore
+   * Admin API access.
+   */
+  @Prop()
+  shopifyRefreshTokenExpiresAt?: Date;
+
   // --- Tier 1: WooCommerce Connector ---
   @Prop({ trim: true })
   woocommerceStoreUrl?: string;

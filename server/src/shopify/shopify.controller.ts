@@ -131,14 +131,12 @@ export class ShopifyController {
 
     await this.shopifyService.consumeNonce(shop, state || '');
 
-    const { accessToken, scopes } = await this.shopifyService.exchangeCode(
-      shop,
-      code,
-    );
+    const exchanged = await this.shopifyService.exchangeCode(shop, code);
     const business = await this.shopifyService.provisionTenant(
       shop,
-      accessToken,
-      scopes,
+      exchanged.accessToken,
+      exchanged.scopes,
+      exchanged,
     );
 
     this.logger.log(

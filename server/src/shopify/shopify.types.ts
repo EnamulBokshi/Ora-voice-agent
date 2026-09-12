@@ -30,8 +30,12 @@ export interface ShopifyShopDetails {
 export interface ShopifyTokenExchangeResult {
   accessToken: string;
   scopes: string[];
+  /** Present only for expiring offline tokens, which rotate on every refresh. */
   refreshToken?: string;
+  /** Seconds until `accessToken` expires. Absent for a non-expiring token. */
   expiresIn?: number;
+  /** Seconds until `refreshToken` expires — 90 days at issue, then shorter. */
+  refreshTokenExpiresIn?: number;
 }
 
 /** What `POST /api/v1/shopify/session` hands back to the embedded app. */

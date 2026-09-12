@@ -6,6 +6,7 @@ import { ShopifyConnectorService } from './shopify-connector.service';
 import { ProductsService } from '../../products/products.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { Business } from '../../users/schemas/business.schema';
+import { shopifyTokenServiceProvider } from '../../common/shopify-token/shopify-token.testing';
 
 /**
  * `app/uninstalled` used to fall through to the `default` branch and only log
@@ -29,6 +30,7 @@ describe('ShopifyConnectorService app/uninstalled', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopifyConnectorService,
+        shopifyTokenServiceProvider(),
         { provide: ConfigService, useValue: { get: jest.fn() } },
         { provide: ProductsService, useValue: {} },
         { provide: RedisService, useValue: { getClient: () => redisClient } },
