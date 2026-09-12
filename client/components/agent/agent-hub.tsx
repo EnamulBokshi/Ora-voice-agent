@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
 import {
   Mic,
@@ -15,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppLink } from '@/components/navigation/app-link';
+import { useAppRouter } from '@/lib/navigation/app-path';
 
 // ─── Role Definitions ─────────────────────────────────────────────────────────
 
@@ -91,7 +90,7 @@ const FAQS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AgentHub() {
-  const router = useRouter();
+  const router = useAppRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (

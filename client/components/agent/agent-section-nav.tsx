@@ -1,7 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ChevronDown, ChevronRight, ArrowUpRight,
   Mic, FileText, Package, Rocket, BarChart2,
@@ -11,7 +9,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { AppLink } from '@/components/navigation/app-link';
-import { useAppPath } from '@/lib/navigation/app-path';
+import { useAppRouter } from '@/lib/navigation/app-path';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,8 +56,9 @@ interface AgentSectionNavProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps) {
-  const router = useRouter();
-  const resolveAppPath = useAppPath();
+  // Pushes resolve for the tree this renders in, so the embedded app stays
+  // inside /shopify instead of bouncing the iframe to the web sign-in page.
+  const router = useAppRouter();
   const [dropdownOpen, setDropdownOpen]     = useState(false);
   const [trainExpanded, setTrainExpanded]   = useState(true);
   const dropdownRef                         = useRef<HTMLDivElement>(null);
@@ -77,16 +76,13 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
 
   const handleRoleSelect = (role: AgentRole | null) => {
     setDropdownOpen(false);
-    // Resolved so the embedded app pushes /shopify/agent rather than /agent,
-    // which leaves the Shopify namespace and lands on the web sign-in page.
-    const target =
-      role === null
-        ? '/agent'
-        : role === 'prompt'
-          ? '/agent?role=prompt'
-          : `/agent?role=${role}&view=get-started`;
-    const resolved = resolveAppPath(target);
-    if (resolved) router.push(resolved);
+    if (role === null) {
+      router.push('/agent');
+    } else if (role === 'prompt') {
+      router.push('/agent?role=prompt');
+    } else {
+      router.push(`/agent?role=${role}&view=get-started`);
+    }
   };
 
   const currentRole = ROLES.find((r) => r.id === activeRole) ?? null;
@@ -175,14 +171,14 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
               { label: 'Deploy',  href: '/setup' },
               { label: 'Analyze', href: '/conversations' },
             ].map((item) => (
-              <Link
+              <AppLink
                 key={item.label}
                 href={item.href}
                 className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
               >
                 {item.label}
                 <ChevronRight size={12} className="opacity-40" />
-              </Link>
+              </AppLink>
             ))}
           </>
         ) : (
@@ -206,7 +202,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
                   {TRAIN_ITEMS[activeRole].map((item) => {
                     const isActive = activeView === item.view;
                     return (
-                      <Link
+                      <AppLink
                         key={item.view}
                         href={`/agent?role=${activeRole}&view=${item.view}`}
                         className={cn(
@@ -217,7 +213,7 @@ export function AgentSectionNav({ activeRole, activeView }: AgentSectionNavProps
                         )}
                       >
                         <span>{item.label}</span>
-                      </Link>
+                      </AppLink>
                     );
                   })}
                 </div>

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import {
   ChevronDown,
   ArrowRight,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type SetupArchetype, ARCHETYPES } from './setup-section-nav';
+import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Per-Archetype Editorial & Image Definitions ──────────────────────────────
 
@@ -380,19 +380,19 @@ export function SetupArchIntroPage({ archetype }: SetupArchIntroPageProps) {
 
             {/* CTA Buttons */}
             <div className="flex items-center gap-2.5 pt-1">
-              <Link
+              <AppLink
                 href={content.cta1Href}
                 className="inline-flex items-center h-8.5 px-4 rounded-lg bg-white text-neutral-950 font-semibold text-[12.5px] hover:bg-neutral-200 transition-colors shadow-sm"
               >
                 {content.cta1Label}
-              </Link>
-              <Link
+              </AppLink>
+              <AppLink
                 href="/docs"
                 className="inline-flex items-center gap-1.5 h-8.5 px-3.5 rounded-lg border border-border/70 bg-surface-container/60 hover:bg-surface-container text-[12.5px] font-medium text-foreground transition-colors"
               >
                 <BookOpen size={12} className="text-muted-foreground" />
                 <span>Learn more</span>
-              </Link>
+              </AppLink>
             </div>
           </div>
 
@@ -465,13 +465,13 @@ export function SetupArchIntroPage({ archetype }: SetupArchIntroPageProps) {
             <p className="text-[13.5px] text-muted-foreground leading-relaxed">
               Can&apos;t find the answer here?
             </p>
-            <Link
+            <AppLink
               href="/setup?step=persona"
               className="inline-flex items-center gap-1.5 text-[13.5px] text-primary font-medium hover:underline"
             >
               <span>Ask ORA Agent</span>
               <ArrowRight size={13} />
-            </Link>
+            </AppLink>
           </div>
 
           {/* Right: FAQ Accordions */}

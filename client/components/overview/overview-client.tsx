@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ShoppingCart,
@@ -33,7 +32,8 @@ import { StatusStrip } from './status-strip';
 import { AnalyticsPanel } from './analytics-panel';
 import { QuickActionsBar, QuickAction } from './quick-actions-bar';
 import { KpiCardDef } from './kpi-strip';
-import { useIsEmbedded } from '@/lib/navigation/app-path';
+import { AppLink } from '@/components/navigation/app-link';
+import { useAppBasePath } from '@/lib/navigation/app-path';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +80,6 @@ export function OverviewClient() {
   const [isTogglingWidget, setIsTogglingWidget] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const isEmbedded = useIsEmbedded();
   const { completedCount, totalSteps, isAllCompleted } = useSetupProgress();
 
   const handleToggleWidget = async () => {
@@ -177,7 +176,7 @@ export function OverviewClient() {
   }, [load]);
 
   const pathname = usePathname();
-  const prefix = pathname?.startsWith('/shopify') ? '/shopify' : '';
+  const prefix = useAppBasePath();
   const firstName = userName.split(' ')[0] || userName;
 
   // ── KPI metric definitions ─────────────────────────────────────────────────
@@ -270,9 +269,7 @@ export function OverviewClient() {
       />
 
       {/* Setup Guide Banner — minimal & crisp non-rounded */}
-      {/* Hidden in the embedded Shopify app: /setup is a dashboard-only route,
-          and following it from the iframe lands on the web sign-up form. */}
-      {!isAllCompleted && !bannerDismissed && !isEmbedded && (
+      {!isAllCompleted && !bannerDismissed && (
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-5 h-5 rounded-none bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
@@ -280,13 +277,13 @@ export function OverviewClient() {
             </div>
             <span className="text-[12.5px] text-foreground font-medium truncate">
               Store setup in progress ({completedCount}/{totalSteps} steps completed) —{' '}
-              <Link
+              <AppLink
                 href="/setup"
                 className="font-semibold text-foreground dark:text-[#C8F031] underline underline-offset-4 hover:opacity-80 inline-flex items-center gap-1"
               >
                 Complete Setup Guide
                 <ArrowRight size={11} />
-              </Link>
+              </AppLink>
             </span>
           </div>
           <button

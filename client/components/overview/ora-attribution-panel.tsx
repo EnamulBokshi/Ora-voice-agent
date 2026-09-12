@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { ArrowRight, TrendingUp, MessageSquare, ShoppingBag, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { AppLink } from '@/components/navigation/app-link';
@@ -93,7 +92,7 @@ export function OraAttributionPanel({
       {/* Attribution rows */}
       <div className="divide-y divide-border/30">
         {rows.map((row) => (
-          <Link
+          <AppLink
             key={row.label}
             href={row.href}
             className="flex items-center justify-between px-5 py-3.5 hover:bg-surface-high/20 transition-colors group"
@@ -128,7 +127,7 @@ export function OraAttributionPanel({
                 className="text-muted-foreground/40 group-hover:text-foreground/60 transition-colors"
               />
             </div>
-          </Link>
+          </AppLink>
         ))}
       </div>
     </div>

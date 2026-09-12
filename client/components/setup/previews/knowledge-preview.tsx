@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
   FileText,
   Package,
@@ -15,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { getProductsApi } from '@/services/products-service';
+import { AppLink } from '@/components/navigation/app-link';
 
 export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) {
   const [docCount, setDocCount] = useState<number>(3);
@@ -115,13 +115,13 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
               </div>
 
               <div className="pt-3 border-t border-border/40 flex items-center justify-between">
-                <Link
+                <AppLink
                   href={card.href}
                   className="inline-flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline underline-offset-2"
                 >
                   <span>{card.actionLabel}</span>
                   <ArrowRight size={11} className="text-muted-foreground" />
-                </Link>
+                </AppLink>
               </div>
             </div>
           );
@@ -150,12 +150,12 @@ export function KnowledgePreview({ onCompleted }: { onCompleted?: () => void }) 
             <RefreshCw size={11} className={cn(isSyncing && 'animate-spin')} />
             <span>{isSyncing ? 'Re-indexing…' : 'Sync Catalog'}</span>
           </button>
-          <Link
+          <AppLink
             href="/agent?role=documents&view=feed"
             className="inline-flex items-center justify-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background font-semibold text-[12px] hover:opacity-90 transition-opacity shadow-xs flex-1 sm:flex-initial"
           >
             <span>Upload Document</span>
-          </Link>
+          </AppLink>
         </div>
       </div>
     </div>
