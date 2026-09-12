@@ -23,7 +23,14 @@
     assign ora_key = app.metafields.ora.publishable_key.value | strip
   endif
 
-  assign ora_origin = block.settings.ora_origin | strip | remove_last: '/'
+  assign raw_origin = block.settings.ora_origin | strip
+  assign last_char = raw_origin | slice: -1
+  if last_char == '/'
+    assign origin_len = raw_origin | size | minus: 1
+    assign ora_origin = raw_origin | slice: 0, origin_len
+  else
+    assign ora_origin = raw_origin
+  endif
 -%}
 
 {%- if ora_key != blank and ora_origin != blank -%}
