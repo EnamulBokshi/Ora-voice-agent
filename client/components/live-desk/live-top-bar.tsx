@@ -66,7 +66,7 @@ export function LiveTopBar({ paused, onTogglePause }: LiveTopBarProps) {
 
         {/* Notifications */}
         <AppLink
-          href="/profile?tab=notifications"
+          href="/notifications"
           id="live-top-notifications"
           aria-label="Notifications"
           className="relative w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high border border-transparent hover:border-border transition-colors"

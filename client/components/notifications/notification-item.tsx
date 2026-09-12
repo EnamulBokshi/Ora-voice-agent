@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { AppLink } from '@/components/navigation/app-link';
 import {
   ShoppingBag,
   RefreshCw,
@@ -72,13 +72,13 @@ export function NotificationItem({
         {/* Action Link */}
         {item.actionUrl && (
           <div className="mt-2.5">
-            <Link
+            <AppLink
               href={item.actionUrl}
               className="inline-flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline underline-offset-2"
             >
               <span>{item.actionLabel || 'View details'}</span>
               <ArrowRight size={11} />
-            </Link>
+            </AppLink>
           </div>
         )}
       </div>

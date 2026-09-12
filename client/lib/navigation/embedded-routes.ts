@@ -10,10 +10,10 @@ export const SHOPIFY_BASE_PATH = '/shopify';
 /**
  * Top-level routes that exist under `app/shopify/`.
  *
- * The dashboard still has routes the embedded app does not — `/notifications`,
- * `/usage`, and the marketing `/docs`. A link to one of those cannot simply be
- * prefixed, so it resolves to nothing and the affordance is hidden instead.
- * Add a segment here only once `app/shopify/<segment>/page.tsx` exists.
+ * The dashboard still has routes the embedded app does not — `/usage` and the
+ * marketing `/docs`. A link to one of those cannot simply be prefixed, so it
+ * resolves to nothing and the affordance is hidden instead. Add a segment here
+ * only once `app/shopify/<segment>/page.tsx` exists.
  */
 export const EMBEDDED_SEGMENTS = new Set([
   'agent',
@@ -21,6 +21,7 @@ export const EMBEDDED_SEGMENTS = new Set([
   'conversations',
   'customers',
   'live-desk',
+  'notifications',
   'orders',
   'profile',
   'setup',
