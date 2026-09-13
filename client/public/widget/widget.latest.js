@@ -740,10 +740,35 @@
   function getOrCreateDeviceId() {
     var consentAllowed = isTrackingConsented();
 
-    // Fail-Closed: Any state other than strict true uses memory-only ephemeral ID
+    // Fail-Closed: Any state other than strict true uses an ephemeral ID.
+    //
+    // Held in sessionStorage rather than only in memory. A page navigation destroys the
+    // closure, so a memory-only id was reissued on every page load — and the server
+    // binds session adoption to the device id, so a non-consented visitor could never
+    // rebind to their own conversation and got a fresh one on every click.
+    //
+    // sessionStorage does not weaken the consent position: the id still dies with the
+    // tab, still never identifies the visitor across visits, and is still never written
+    // to localStorage. It survives exactly the navigation it needs to survive.
     if (consentAllowed !== true) {
       if (!window.__oraEphemeralDeviceId) {
-        window.__oraEphemeralDeviceId = 'ephem_' + Math.random().toString(36).substring(2, 15);
+        var storedEphemeral = null;
+        try {
+          storedEphemeral = window.sessionStorage
+            ? window.sessionStorage.getItem('ora_ephemeral_device_id')
+            : null;
+        } catch (e) {}
+
+        window.__oraEphemeralDeviceId =
+          storedEphemeral || 'ephem_' + Math.random().toString(36).substring(2, 15);
+
+        if (!storedEphemeral) {
+          try {
+            if (window.sessionStorage) {
+              window.sessionStorage.setItem('ora_ephemeral_device_id', window.__oraEphemeralDeviceId);
+            }
+          } catch (e) {}
+        }
       }
       return window.__oraEphemeralDeviceId;
     }
@@ -781,12 +806,14 @@
   /**
    * How stale a parked session may be and still be resumed.
    *
-   * Sized for a page load, not for a visit: it is the gap between the old page saving
-   * state on pagehide and the new page reading it back. A slow storefront render is
-   * seconds, so 45s is generous. Beyond it the customer has been sitting on a page and
-   * a fresh conversation is the honest interpretation.
+   * Must stay BELOW the server's SESSION_PARK_GRACE_MS (30s), which is how long the
+   * server holds the Gemini session with no browser attached. Claiming a resume the
+   * server can no longer honour is the worst of both outcomes: the reconnect suppresses
+   * the greeting because it believes it is mid-conversation, while the server has
+   * already torn the old session down and started a fresh one with no memory of it — so
+   * ORA comes back silent AND amnesiac. 25s leaves margin for a slow connect.
    */
-  var NAV_RESUME_WINDOW_MS = 45000;
+  var NAV_RESUME_WINDOW_MS = 25000;
 
   function readNavState() {
     try {

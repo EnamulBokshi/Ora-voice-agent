@@ -25,8 +25,32 @@ import {
   AGENT_SPEAKING_MAX_MS,
 } from '../gateway/session-timer.service';
 
+/**
+ * How long a session survives with no browser attached to it.
+ *
+ * A storefront is a multi-page app: clicking a product link unloads the document and
+ * destroys the WebSocket with it. That is not recoverable — no browser API keeps a
+ * socket across a navigation — but the session behind it does not have to die with it.
+ * The expensive half of a voice session is the socket to Gemini, which is server to
+ * Google and entirely unaffected by what the customer's browser is doing, and it holds
+ * the whole conversation's context window.
+ *
+ * So a disconnect parks the session instead of ending it. A reload that returns within
+ * this window rebinds to the SAME Gemini session and the customer carries on mid
+ * conversation; past it, the session is cleaned up for real.
+ *
+ * Sized for a page load, not for a visit. Longer would hold a Gemini socket open for a
+ * customer who has closed the tab, which counts against the concurrency limit.
+ */
+const SESSION_PARK_GRACE_MS = 30_000;
+
 interface ProxySession {
-  clientWs: WebSocket;
+  /**
+   * The browser currently attached, or null while parked between page loads.
+   * Everything that writes to the client must go through sendToClient, which reads
+   * this field, so a rebind reaches the closures created for the previous page.
+   */
+  clientWs: WebSocket | null;
   sessionControls: GeminiVoiceSessionControls;
   businessId: string;
   customerId: string;
@@ -57,6 +81,23 @@ interface ProxySession {
    * to complete on its own.
    */
   playbackAckTimer: NodeJS.Timeout | null;
+  /** True while no browser is attached and the grace window has not yet expired. */
+  isParked: boolean;
+  /** Fires at the end of the grace window and cleans the session up for real. */
+  parkTimer: NodeJS.Timeout | null;
+  /**
+   * Binds a freshly connected browser to this session: re-registers the message,
+   * close and error handlers on the new socket. Held on the session because the
+   * connection that adopts it is a different invocation of handleConnection with no
+   * access to the original closure.
+   */
+  attachClient: ((ws: WebSocket) => void) | null;
+  /**
+   * The device that owns this session. A session id is client-supplied, so adoption is
+   * bound to the device that created it — otherwise a guessed id would hand a stranger
+   * someone else's live conversation.
+   */
+  deviceId: string;
   /**
    * True only between Gemini finishing generation and the turn actually ending.
    *
@@ -221,6 +262,10 @@ export class VoiceProxyGateway {
       if (session.businessId === businessId && !session.closed) {
         session.closed = true;
         count++;
+        if (session.parkTimer) {
+          clearTimeout(session.parkTimer);
+          session.parkTimer = null;
+        }
         try {
           session.sessionControls?.closeSession?.();
         } catch {}
@@ -273,9 +318,20 @@ export class VoiceProxyGateway {
     const publishableKey = parsedUrl.query.publishableKey as string;
     const sessionId = parsedUrl.query.sessionId as string;
 
+    /**
+     * The session this connection ends up owning, once it exists.
+     *
+     * sendToClient reads the socket through it rather than closing over `clientWs`, so
+     * every writer created for this page — the Gemini callbacks in particular — follows
+     * the session when a later page load rebinds it to a new socket. Before the session
+     * exists (parameter validation, auth failures) it falls back to the raw socket.
+     */
+    let boundSession: ProxySession | null = null;
+
     const sendToClient = (data: object) => {
-      if (clientWs.readyState === WebSocket.OPEN) {
-        clientWs.send(JSON.stringify(data));
+      const target = boundSession ? boundSession.clientWs : clientWs;
+      if (target && target.readyState === WebSocket.OPEN) {
+        target.send(JSON.stringify(data));
       }
     };
 
@@ -507,18 +563,61 @@ export class VoiceProxyGateway {
       activeSection: activeSectionParam,
     };
 
-    // ── Terminate any existing session with the same sessionId ───────────────
+    // ── Adopt a parked session, or replace a live one ────────────────────────
     const existingSession = this.sessions.get(sessionId);
+
+    if (
+      existingSession &&
+      existingSession.isParked &&
+      !existingSession.closed &&
+      existingSession.businessId === businessId &&
+      existingSession.deviceId === (deviceIdParam || '') &&
+      existingSession.attachClient
+    ) {
+      // The customer clicked a link and the browser rebuilt itself. The Gemini session
+      // behind this one never closed, so the whole conversation — the model's context
+      // window included — is still here. Rebind and carry on: no new Gemini session, no
+      // new conversation record, and above all no second greeting.
+      if (existingSession.parkTimer) {
+        clearTimeout(existingSession.parkTimer);
+        existingSession.parkTimer = null;
+      }
+      existingSession.isParked = false;
+      existingSession.clientWs = clientWs;
+      existingSession.attachClient(clientWs);
+
+      this.logger.log(
+        `[VoiceProxyGateway] 🔄 Rebound parked session ${sessionId} to a new page (${currentPathParam}).`,
+      );
+
+      sendToClient({ type: 'session_resumed', sessionId });
+
+      // Tell ORA where the customer now is. Routed through the same queue a mid-sentence
+      // context update uses, so it cannot land as a user turn and cancel in-flight audio.
+      try {
+        existingSession.sessionControls?.sendContextUpdate(initialClientContext);
+      } catch (err: any) {
+        this.logger.warn(`[VoiceProxyGateway] Rebind context update notice: ${err.message}`);
+      }
+
+      return;
+    }
+
     if (existingSession) {
       this.logger.log(`[VoiceProxyGateway] Cleaning up previous session with same sessionId: ${sessionId}`);
       try {
         existingSession.closed = true;
+        if (existingSession.parkTimer) {
+          clearTimeout(existingSession.parkTimer);
+          existingSession.parkTimer = null;
+        }
         existingSession.sessionControls?.closeSession();
-        if (existingSession.clientWs.readyState === WebSocket.OPEN) {
+        if (existingSession.clientWs && existingSession.clientWs.readyState === WebSocket.OPEN) {
           existingSession.clientWs.close(1000, 'Replaced by new session');
         }
       } catch { }
       this.sessions.delete(sessionId);
+      this.sessionTimerService.clearTimer(sessionId);
     }
 
     // ── Find or Create Conversation Document in MongoDB ─────────────────────
@@ -551,6 +650,10 @@ export class VoiceProxyGateway {
     // ── Build the proxy session object ────────────────────────────────────────
     const session: ProxySession = {
       clientWs,
+      isParked: false,
+      parkTimer: null,
+      attachClient: null,
+      deviceId: deviceIdParam || '',
       sessionControls: null as any, // filled after createVoiceSession resolves
       businessId,
       customerId: activeCustomer.id,
@@ -576,6 +679,23 @@ export class VoiceProxyGateway {
       authenticatedUser,
       sessionMode,
       silentMode,
+    };
+
+    boundSession = session;
+
+    /**
+     * Closes whichever browser is attached right now.
+     *
+     * Session-ending paths must not close over the socket they were created with: after
+     * a page navigation that socket is a dead object belonging to a page that no longer
+     * exists, and the customer sitting on the new page would never be told the session
+     * had ended.
+     */
+    const closeClient = (code: number, reason: string) => {
+      const target = session.clientWs;
+      if (target && target.readyState === WebSocket.OPEN) {
+        target.close(code, reason);
+      }
     };
 
     const flushBufferedAiText = () => {
@@ -639,6 +759,12 @@ export class VoiceProxyGateway {
         session.playbackAckTimer = null;
       }
       session.awaitingPlaybackAck = false;
+      if (session.parkTimer) {
+        clearTimeout(session.parkTimer);
+        session.parkTimer = null;
+      }
+      session.isParked = false;
+      session.attachClient = null;
       flushBufferedUserText(); // save any partial user speech before closing
       flushBufferedAiText();
       if (session.conversationId) {
@@ -823,9 +949,7 @@ export class VoiceProxyGateway {
             // Allow 4 seconds for the client's browser WebAudio queue to finish speaking all audio packets before closing socket
             setTimeout(() => {
               cleanup();
-              if (clientWs.readyState === WebSocket.OPEN) {
-                clientWs.close(1000, 'Idle timeout completed');
-              }
+              closeClient(1000, 'Idle timeout completed');
             }, 4000);
           }
         },
@@ -886,9 +1010,7 @@ export class VoiceProxyGateway {
           );
           sendToClient({ type: 'error', message: 'Voice session error. Please try again.' });
           cleanup();
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.close(1011, 'Google session error');
-          }
+          closeClient(1011, 'Google session error');
         },
 
         // Google WS closed (post-setup)
@@ -896,9 +1018,7 @@ export class VoiceProxyGateway {
           this.logger.log(`[VoiceProxyGateway] Google WS closed for session ${sessionId}`);
           sendToClient({ type: 'session_closed' });
           cleanup();
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.close(1000, 'Session ended');
-          }
+          closeClient(1000, 'Session ended');
         },
       });
     } catch (err: any) {
@@ -960,9 +1080,7 @@ export class VoiceProxyGateway {
           message: 'Session ended: maximum session duration reached.',
         });
         cleanup();
-        if (clientWs.readyState === WebSocket.OPEN) {
-          clientWs.close(1000, 'Session time limit reached');
-        }
+        closeClient(1000, 'Session time limit reached');
       },
       // onIdleWarning: 15s of silence
       () => {
@@ -997,9 +1115,7 @@ export class VoiceProxyGateway {
               message: 'Session closed due to inactivity. Start a new session anytime!',
             });
             cleanup();
-            if (clientWs.readyState === WebSocket.OPEN) {
-              clientWs.close(1000, 'Idle timeout fallback');
-            }
+            closeClient(1000, 'Idle timeout fallback');
           }
         }, 15000);
       },
@@ -1076,8 +1192,45 @@ export class VoiceProxyGateway {
       }
     }
 
+    /**
+     * Parks the session when the browser goes away, rather than ending it.
+     *
+     * See SESSION_PARK_GRACE_MS. A close here is far more often a page navigation than
+     * a customer leaving, and the two are indistinguishable at this layer — so assume
+     * the recoverable one and let the grace timer settle the argument.
+     */
+    const parkClient = () => {
+      if (session.closed || session.isParked) return;
+
+      session.isParked = true;
+      session.clientWs = null;
+
+      // Any audio still being generated has nowhere to play. End the turn so idle
+      // detection is not left waiting on a playback acknowledgement that cannot come.
+      // markAgentTurnComplete is called directly as well as through completeAgentTurn:
+      // the latter no-ops when the turn was still generating rather than awaiting an
+      // acknowledgement, which would leave the timer's agent-speaking flag stuck set.
+      session.isAgentSpeaking = false;
+      completeAgentTurn('fallback');
+      this.sessionTimerService.markAgentTurnComplete(sessionId);
+
+      session.parkTimer = setTimeout(() => {
+        session.parkTimer = null;
+        if (session.closed || !session.isParked) return;
+        this.logger.log(
+          `[VoiceProxyGateway] Parked session ${sessionId} not reclaimed within ${SESSION_PARK_GRACE_MS / 1000}s — closing.`,
+        );
+        cleanup();
+      }, SESSION_PARK_GRACE_MS);
+
+      this.logger.log(
+        `[VoiceProxyGateway] Session ${sessionId} parked; holding its Gemini session for ${SESSION_PARK_GRACE_MS / 1000}s.`,
+      );
+    };
+
     // ── Route incoming messages from client → Google ──────────────────────────
-    clientWs.on('message', async (data: WebSocket.Data) => {
+    const attachClient = (ws: WebSocket) => {
+    ws.on('message', async (data: WebSocket.Data) => {
       if (session.closed) return;
       try {
         const msg = JSON.parse(data.toString());
@@ -1205,8 +1358,8 @@ export class VoiceProxyGateway {
           } catch (e) { }
           sendToClient({ type: 'session_suspended', resumptionToken: rToken });
           cleanup();
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.close(1000, 'Session suspended on idle');
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.close(1000, 'Session suspended on idle');
           }
           return;
         }
@@ -1319,17 +1472,26 @@ export class VoiceProxyGateway {
     });
 
     // ── Handle client disconnect ──────────────────────────────────────────────
-    clientWs.on('close', () => {
+    ws.on('close', () => {
+      // Only the socket that is currently bound may park the session. A stale handler
+      // from a previous page fires its close event AFTER the new page has already been
+      // adopted, and must not park the live conversation out from under it.
+      if (session.clientWs !== ws) return;
       this.logger.log(`[VoiceProxyGateway] Client disconnected for session ${sessionId}`);
-      cleanup();
+      parkClient();
     });
 
-    clientWs.on('error', (err) => {
+    ws.on('error', (err) => {
       this.logger.error(
         `[VoiceProxyGateway] Client WS error for session ${sessionId}: ${err.message}`,
       );
-      cleanup();
+      if (session.clientWs !== ws) return;
+      parkClient();
     });
+    };
+
+    session.attachClient = attachClient;
+    attachClient(clientWs);
   }
 
   /** For health checks / monitoring */
