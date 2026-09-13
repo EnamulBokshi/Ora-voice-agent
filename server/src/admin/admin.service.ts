@@ -129,6 +129,20 @@ export class AdminService implements OnModuleInit {
           superAdmin.role = AdminRole.SUPER_ADMIN;
           modified = true;
         }
+        if (superAdmin.email !== adminEmail) {
+          superAdmin.email = adminEmail;
+          modified = true;
+        }
+        if (adminName && superAdmin.name !== adminName) {
+          superAdmin.name = adminName;
+          modified = true;
+        }
+        const passwordMatches = await bcrypt.compare(adminPassword, superAdmin.passwordHash);
+        if (!passwordMatches) {
+          superAdmin.passwordHash = passwordHash;
+          modified = true;
+          this.logger.log(`[AdminService] SuperAdmin credentials synchronized with environment config.`);
+        }
         if (modified) {
           await superAdmin.save();
         }

@@ -53,6 +53,8 @@ USER node
 COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 # Copy compiled application
 COPY --chown=node:node --from=builder /app/dist ./dist
+# Copy scripts directory
+COPY --chown=node:node --from=builder /app/scripts ./scripts
 # Copy package manifest
 COPY --chown=node:node --from=builder /app/package.json ./package.json
 # Copy email templates explicitly to ensure availability in production runner

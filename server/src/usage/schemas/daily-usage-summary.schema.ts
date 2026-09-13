@@ -14,7 +14,7 @@ export class DailyUsageSummary {
   })
   businessId: Types.ObjectId;
 
-  @Prop({ type: String, required: true, index: true }) // YYYY-MM-DD
+  @Prop({ type: String, required: true }) // YYYY-MM-DD
   date: string;
 
   @Prop({ type: Number, default: 0 })

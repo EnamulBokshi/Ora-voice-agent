@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../dist/scripts",
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "seed-admin.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../dist"
+  ]
+}

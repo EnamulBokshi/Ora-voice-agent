@@ -101,6 +101,9 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-ORA <onboarding@noreply.magicfunnel.io>}
+      ADMIN_NAME: ${ADMIN_NAME:-Platform SuperAdmin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-ora.admin@tryora.live}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     depends_on:
       ora-mongodb:
         condition: service_healthy
