@@ -8,12 +8,10 @@ import {
   Play,
   X,
   Activity,
-  Bot,
   User,
   Zap,
   SlidersHorizontal,
   Radio,
-  Brain,
   Compass,
   Layers,
   Database,
@@ -500,7 +498,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <Brain size={12} className={activeTab === 'memory' ? 'text-primary' : ''} />
+                  <Database size={12} className={activeTab === 'memory' ? 'text-primary' : ''} />
                   <span>Memory & State</span>
                 </button>
               </div>
@@ -528,7 +526,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                         </span>
                       ) : item.sender === 'agent' ? (
                         <span className="text-emerald-600 dark:text-[#C8F031] font-semibold flex items-center gap-1 flex-shrink-0">
-                          <Bot size={11} /> ORA:
+                          <Radio size={11} className="text-primary" /> ORA:
                         </span>
                       ) : (
                         <span className="text-muted-foreground font-mono text-[11px] flex-shrink-0">⚡</span>

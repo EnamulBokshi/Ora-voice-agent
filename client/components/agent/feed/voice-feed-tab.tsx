@@ -8,7 +8,6 @@ import {
   Trash2,
   CheckCircle2,
   Loader2,
-  Sparkles,
   PenLine,
   AudioLines,
   AlertTriangle,
@@ -70,10 +69,10 @@ interface CategoryOption {
 const CATEGORY_OPTIONS: CategoryOption[] = [
   {
     id: 'all',
-    label: 'Auto-Detect (AI)',
-    description: 'Gemini analyzes voice input and files into discrete categories automatically.',
-    hint: 'Speak freely — AI detects policies, product specs, FAQs, and pricing tactics.',
-    Icon: Sparkles,
+    label: 'Smart Classification',
+    description: 'Analyzes voice input and structures into discrete categories automatically.',
+    hint: 'Speak freely — automatically sorts policies, product specs, FAQs, and pricing tactics.',
+    Icon: Layers,
     badgeClass: 'border-primary/40 bg-primary/10 text-primary',
     dotClass: 'bg-primary',
   },
@@ -602,7 +601,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 ) : organiseResult ? (
                   <CheckCircle2 size={11} />
                 ) : (
-                  <Sparkles size={11} />
+                  <Layers size={11} />
                 )}
                 <span>{isOrganising ? 'Organising…' : 'Organise into knowledge'}</span>
               </button>

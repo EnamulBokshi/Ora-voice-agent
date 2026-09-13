@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { OrdersClient } from '@/components/orders/orders-client';
 
 export const metadata: Metadata = {
   title: 'Orders | Shopify',
+  description: 'Orders placed by shoppers, including real-time voice-attributed sales.',
 };
 
 export default function ShopifyOrdersPage() {
-  redirect('/shopify/live-desk');
+  return <OrdersClient />;
 }
+

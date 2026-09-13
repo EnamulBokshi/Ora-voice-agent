@@ -11,7 +11,7 @@ import {
   BarChart2,
   Bell,
   Settings,
-  Bot,
+  SlidersHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   Compass,
@@ -291,7 +291,7 @@ export function Sidebar({
                 isAgentPage ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
               )}
             >
-              <Bot size={16} />
+              <SlidersHorizontal size={16} />
             </Link>
 
             <div className="h-px bg-border/40 w-6 my-1.5" />
@@ -536,8 +536,8 @@ export function Sidebar({
                 )}
               >
                 <Link href="/agent" className="flex items-center gap-3 py-2 flex-1 min-w-0">
-                  <Bot size={15} className={isAgentPage ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-                  <span className="truncate flex-1">ORA Agent</span>
+                  <SlidersHorizontal size={15} className={isAgentPage ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+                  <span className="truncate flex-1">System Configuration</span>
                 </Link>
 
                 <button

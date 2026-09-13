@@ -6,28 +6,12 @@ import {
   subscribeShopifyBillingApi,
 } from '@/services/billing-service';
 import { Plan } from '@/types/billing';
-import { Check, Loader2, Sparkles, ShieldCheck, Lock } from 'lucide-react';
+import { Check, Loader2, BadgeCheck, ShieldCheck, Lock, ArrowRight } from 'lucide-react';
 import { useShopifySession } from '@/components/shopify/shopify-session-provider';
 
 /**
- * Plans come from `GET /billing/plans`, never from a list in this file.
- *
- * They used to be hardcoded here, and had drifted from the seeded plans in
- * every field that matters: a "Starter Agent" tier that does not exist in the
- * PlanId enum, so subscribing to it failed with PLAN_NOT_FOUND; prices of $99
- * and $249 against seeded values of $49 and $199; and "14-Day Free Trial
- * included" on all three when nothing was sending trialDays to Shopify at all.
- * A plan picker is a price list, and a price list that is not the server's is
- * wrong the moment either side moves.
- */
-
-/**
- * Roles `POST /shopify/billing/subscribe` accepts. Anyone else is shown who to
+ * Roles POST /shopify/billing/subscribe accepts. Anyone else is shown who to
  * ask instead of a button that answers 403.
- *
- * Shopify staff who are not the account owner are provisioned as STAFF, which
- * is deliberate: Shopify exposes no per-staff permission list, so the only
- * safe reading is that a junior may not spend the merchant's money.
  */
 const BILLING_ROLES = ['owner', 'admin'];
 
@@ -105,8 +89,6 @@ export function ShopifyPlanGate() {
     }
   };
 
-  // The longest trial on offer, so the header promises only what a plan below
-  // actually carries.
   const maxTrialDays = (plans || []).reduce(
     (longest, plan) => Math.max(longest, plan.trialDays || 0),
     0,
@@ -114,23 +96,19 @@ export function ShopifyPlanGate() {
 
   const canSubscribe = BILLING_ROLES.includes(session?.user?.role || '');
 
-  // Placed after every hook so the hook order does not change between
-  // branches. A staff member seeing a price list they cannot act on is worse
-  // than useless: the buttons would each fail with a role error.
   if (!canSubscribe) {
     return (
       <div className="min-h-screen bg-background text-foreground p-6 sm:p-10 flex flex-col items-center justify-center">
-        <div className="max-w-md w-full rounded-xl border border-border bg-surface-container p-6 text-center space-y-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
-            <Lock className="w-4 h-4" />
+        <div className="max-w-md w-full rounded-2xl border border-border/80 bg-surface-container p-8 text-center flex flex-col items-center gap-4 shadow-xl">
+          <div className="size-11 rounded-full bg-surface-high border border-border/70 text-foreground flex items-center justify-center">
+            <Lock className="size-4 text-muted-foreground" />
           </div>
-          <h2 className="text-lg font-serif font-semibold text-foreground">
-            This store has no ORA plan yet
+          <h2 className="text-xl font-serif font-semibold text-foreground tracking-tight">
+            Account Approval Required
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Only the Shopify account owner can approve a charge for the store.
-            Ask them to open ORA from Shopify Admin and choose a plan; the voice
-            agent starts working for everyone as soon as they do.
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Only the primary Shopify store owner can approve recurring application charges.
+            Please ask your store administrator to launch ORA from Shopify Admin to activate your plan.
           </p>
         </div>
       </div>
@@ -138,60 +116,61 @@ export function ShopifyPlanGate() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 sm:p-10 flex flex-col items-center">
+    <div className="min-h-screen bg-background text-foreground px-4 sm:px-8 py-10 flex flex-col items-center">
       {/* Header Banner */}
-      <div className="max-w-3xl text-center space-y-3 mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-medium">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Shopify App Store Launch Offer</span>
+      <div className="max-w-3xl text-center flex flex-col items-center gap-3.5 mb-12">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-high border border-border/70 text-foreground text-xs font-mono font-medium tracking-tight">
+          <BadgeCheck className="size-3.5 text-primary" />
+          <span>Shopify App Store Release</span>
+          <span className="size-1 rounded-full bg-primary" />
+          <span className="text-muted-foreground">Official Edition</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-foreground">
+
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight text-foreground">
           Activate Your ORA Voice AI Sales Agent
         </h1>
-        <p className="text-muted-foreground text-sm sm:text-base max-w-xl mx-auto">
-          Turn store visitors into buyers with real-time voice guidance.
-          {maxTrialDays > 0
-            ? ` Start with a ${maxTrialDays}-day free trial.`
-            : ''}{' '}
-          Cancel anytime from your Shopify Admin.
+
+        <p className="text-muted-foreground text-sm sm:text-base max-w-xl leading-relaxed">
+          Automate customer sales, answer product inquiries, and recover abandoned carts 24/7.
+          {maxTrialDays > 0 ? ` Includes a ${maxTrialDays}-day risk-free trial.` : ''}{' '}
+          Manage or cancel anytime directly in Shopify Admin.
         </p>
       </div>
 
       {error && (
-        <div className="max-w-md w-full mb-6 p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center">
+        <div className="max-w-xl w-full mb-8 p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center font-medium leading-relaxed">
           {error}
         </div>
       )}
 
       {loadError && (
-        <div className="max-w-md w-full p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center">
+        <div className="max-w-md w-full p-6 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center flex flex-col items-center gap-3">
           <p>{loadError}</p>
           <button
             onClick={() => void loadPlans()}
-            className="mt-3 py-2 px-4 rounded-lg bg-surface-high hover:bg-surface-bright text-foreground border border-border text-xs font-semibold"
+            className="py-2 px-4 rounded-lg bg-surface-high hover:bg-surface-bright text-foreground border border-border text-xs font-semibold cursor-pointer transition-colors"
           >
-            Try again
+            Retry Loading
           </button>
         </div>
       )}
 
       {!plans && !loadError && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading plans…</span>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground py-16">
+          <Loader2 className="size-4 animate-spin text-primary" />
+          <span className="font-mono text-xs">Fetching current subscription tiers…</span>
         </div>
       )}
 
       {plans && plans.length === 0 && (
-        <div className="max-w-md w-full p-4 rounded-lg border border-border bg-surface-lowest text-sm text-center text-muted-foreground">
-          No plans are available for purchase right now. Contact support and we
-          will get your store activated.
+        <div className="max-w-md w-full p-6 rounded-xl border border-border bg-surface-lowest text-sm text-center text-muted-foreground">
+          No subscription tiers are currently available. Please contact ORA support to activate your store.
         </div>
       )}
 
       {/* Plan Cards Grid */}
       {plans && plans.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full items-stretch">
           {plans.map((plan) => {
             const isPending = subscribingId === plan.planId;
             const highlighted = plan.planId === HIGHLIGHTED_PLAN_ID;
@@ -200,33 +179,36 @@ export function ShopifyPlanGate() {
             return (
               <div
                 key={plan.planId}
-                className={`relative rounded-2xl border p-6 flex flex-col justify-between transition-all ${
+                className={`relative rounded-2xl border p-7 flex flex-col justify-between transition-all duration-200 ${
                   highlighted
-                    ? 'border-primary/60 bg-surface-container shadow-2xl ring-1 ring-primary/40'
-                    : 'border-border bg-surface-lowest hover:border-border/80'
+                    ? 'border-primary/80 bg-surface-container ring-1 ring-primary/30 shadow-[0_0_30px_rgba(200,240,49,0.06)]'
+                    : 'border-border/70 bg-surface-lowest hover:border-border/90 hover:bg-surface-container/40'
                 }`}
               >
                 {highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-mono font-semibold">
-                    Most Popular
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-[11px] font-mono font-semibold tracking-wider uppercase shadow-md">
+                    Recommended
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-serif font-bold text-foreground">
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-xl font-serif font-bold text-foreground tracking-tight">
                       {plan.name}
                     </h3>
-                    {trialDays > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {trialDays}-day free trial, then billed monthly through
-                        Shopify.
-                      </p>
+                    {trialDays > 0 ? (
+                      <span className="inline-flex items-center text-[12px] font-mono text-primary font-medium">
+                        {trialDays}-day free trial included
+                      </span>
+                    ) : (
+                      <span className="text-[12px] font-mono text-muted-foreground">
+                        Billed through Shopify Billing
+                      </span>
                     )}
                   </div>
 
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold font-mono text-foreground">
+                  <div className="flex items-baseline gap-1 py-1">
+                    <span className="text-4xl font-bold font-mono text-foreground tracking-tight">
                       {formatPrice(plan.priceUsdCents)}
                     </span>
                     <span className="text-xs text-muted-foreground font-mono">
@@ -234,17 +216,17 @@ export function ShopifyPlanGate() {
                     </span>
                   </div>
 
-                  <div className="border-t border-border/50 pt-4 space-y-2.5">
-                    <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                      What&apos;s included
+                  <div className="border-t border-border/50 pt-5 flex flex-col gap-3">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80 font-medium">
+                      Capabilities & Features
                     </p>
-                    <ul className="space-y-2">
+                    <ul className="flex flex-col gap-2.5">
                       {plan.features.map((feat, idx) => (
                         <li
                           key={idx}
-                          className="flex items-start gap-2 text-xs text-foreground/90"
+                          className="flex items-start gap-2.5 text-xs text-foreground/90 leading-relaxed"
                         >
-                          <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                          <Check className="size-3.5 text-primary shrink-0 mt-0.5" />
                           <span>{feat}</span>
                         </li>
                       ))}
@@ -256,23 +238,26 @@ export function ShopifyPlanGate() {
                   <button
                     disabled={Boolean(subscribingId)}
                     onClick={() => handleSubscribe(plan.planId)}
-                    className={`w-full py-2.5 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer flex items-center justify-center gap-2 ${
                       highlighted
-                        ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-md'
-                        : 'bg-surface-high hover:bg-surface-bright text-foreground border border-border'
+                        ? 'bg-primary text-primary-foreground hover:opacity-95 shadow-md active:scale-[0.99]'
+                        : 'bg-surface-high hover:bg-surface-bright text-foreground border border-border/80 active:scale-[0.99]'
                     }`}
                   >
                     {isPending ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Opening Shopify Approval...</span>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>Connecting to Shopify…</span>
                       </>
                     ) : (
-                      <span>
-                        {trialDays > 0
-                          ? `Start ${trialDays}-Day Free Trial`
-                          : `Choose ${plan.name}`}
-                      </span>
+                      <>
+                        <span>
+                          {trialDays > 0
+                            ? `Start ${trialDays}-Day Free Trial`
+                            : `Choose ${plan.name}`}
+                        </span>
+                        <ArrowRight className="size-3 text-current opacity-70" />
+                      </>
                     )}
                   </button>
                 </div>
@@ -283,9 +268,9 @@ export function ShopifyPlanGate() {
       )}
 
       {/* Security & Billing Assurance */}
-      <div className="mt-12 flex items-center gap-2 text-xs text-muted-foreground font-mono">
-        <ShieldCheck className="w-4 h-4 text-primary" />
-        <span>Billed securely through your Shopify Account. 0% credit card fees.</span>
+      <div className="mt-14 flex items-center gap-2 text-xs text-muted-foreground font-mono">
+        <ShieldCheck className="size-4 text-primary" />
+        <span>Billed through Shopify Application Charges • Zero extra processing fees • Instant activation</span>
       </div>
     </div>
   );

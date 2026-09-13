@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { ProfileClient } from '@/components/profile/profile-client';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
-  title: 'Profile | Shopify',
-  description: 'Your merchant account and store details.',
+  title: 'Settings | Shopify',
 };
 
 export default function ShopifyProfilePage() {
-  return <ProfileClient />;
+  redirect('/shopify/settings');
 }
+

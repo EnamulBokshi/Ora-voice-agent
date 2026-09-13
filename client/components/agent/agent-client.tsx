@@ -17,7 +17,7 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders, PhoneCall, Sparkles, MessageSquare } from 'lucide-react';
+import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders, PhoneCall, SlidersHorizontal, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { AppLink } from '@/components/navigation/app-link';
 import { ReadOnlyFence } from '@/components/common/read-only-fence';
@@ -205,7 +205,7 @@ function AgentClientContent() {
 
                 <div className="rounded-md border border-border/50 p-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-border/40">
-                    <Sparkles size={13} className="text-foreground" />
+                    <SlidersHorizontal size={13} className="text-foreground" />
                     <span className="text-[13px] font-semibold text-foreground font-serif">
                       If an answer is wrong
                     </span>

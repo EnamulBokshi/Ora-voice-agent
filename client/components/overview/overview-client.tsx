@@ -17,6 +17,7 @@ import {
   X,
   Compass,
   Loader2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   getDashboardStatsApi,
@@ -283,9 +284,9 @@ export function OverviewClient() {
     },
     {
       id: 'qa-train',
-      icon: <BookOpen size={16} />,
-      label: 'Agent Knowledge & Catalog',
-      description: 'Teach ORA store return policies, shipping FAQs, and sync live inventory.',
+      icon: <SlidersHorizontal size={16} />,
+      label: 'System Configuration & Catalog',
+      description: 'Tune voice persona, store return policies, shipping rules, and sync inventory.',
       href: `${prefix}/agent`,
     },
     {

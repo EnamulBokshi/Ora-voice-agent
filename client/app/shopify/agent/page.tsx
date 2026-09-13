@@ -3,8 +3,8 @@ import { Suspense } from 'react';
 import { AgentClient } from '@/components/agent/agent-client';
 
 export const metadata: Metadata = {
-  title: 'ORA Agent | Shopify',
-  description: 'Configure and tune your ORA voice sales persona for your Shopify store.',
+  title: 'System Configuration | Shopify',
+  description: 'Configure voice persona, sales playbooks, knowledge, and store settings.',
 };
 
 export default function ShopifyAgentPage() {

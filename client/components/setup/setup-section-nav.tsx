@@ -3,7 +3,7 @@
 import {
   ChevronDown, ChevronRight, ArrowUpRight, Check,
   ShoppingBag, Layers, Briefcase, Globe, Building2,
-  LayoutGrid, Bot, CheckCircle2, Circle, BarChart2,
+  LayoutGrid, SlidersHorizontal, CheckCircle2, Circle, BarChart2,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -109,7 +109,7 @@ export function SetupSectionNav({ activeArchetype, activeStep }: SetupSectionNav
       {/* ── Section title ── */}
       <div className="h-14 flex items-center gap-2.5 px-4 border-b border-border flex-shrink-0">
         <div className="w-6 h-6 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0 shadow-sm">
-          <Bot size={13} className="text-foreground" />
+          <SlidersHorizontal size={13} className="text-foreground" />
         </div>
         <p className="text-[14.5px] font-bold text-foreground tracking-tight select-none">Get Set Up</p>
       </div>
@@ -270,7 +270,7 @@ export function SetupSectionNav({ activeArchetype, activeStep }: SetupSectionNav
               className="flex items-center justify-between px-2.5 py-2 rounded-md text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-surface-container transition-colors"
             >
               <div className="flex items-center gap-2">
-                <Bot size={13} className="text-muted-foreground/40" />
+                <SlidersHorizontal size={13} className="text-muted-foreground/40" />
                 <span>Agent</span>
               </div>
               <ArrowUpRight size={12} className="opacity-40" />
