@@ -36,7 +36,7 @@ export function AdminMerchantsView() {
         page,
         limit: 15,
         search: searchQuery || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
+        status: (statusFilter === 'active' || statusFilter === 'suspended') ? statusFilter : undefined,
       });
 
       setBusinesses(res.businesses);
