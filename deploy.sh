@@ -51,6 +51,9 @@ fi
 if grep -q "AIzaSy_your_gemini_api_key_here" "$REMOTE_DIR/.env" 2>/dev/null; then
   echo "⚠️  WARNING: Default GEMINI_API_KEY placeholder detected in $REMOTE_DIR/.env. AI Voice & RAG features require a valid key."
 fi
+if grep -q "replace_with_a_super_strong_admin_password" "$REMOTE_DIR/.env" 2>/dev/null; then
+  echo "⚠️  WARNING: Default ADMIN_PASSWORD detected in $REMOTE_DIR/.env. Consider setting a secure password in .env."
+fi
 
 # Update Host Nginx Configuration if Nginx is installed
 if [ -d "/etc/nginx/sites-available" ]; then
@@ -74,7 +77,19 @@ echo "📊 Production Container Status:"
 docker compose -f docker-compose.prod.yml ps
 
 echo ""
+echo "🌱 Verifying & provisioning SuperAdmin inside container..."
+# Wait for container node runtime
+sleep 3
+docker compose -f docker-compose.prod.yml exec -T ora-server node dist/scripts/seed-admin.js || {
+  echo "ℹ️  AdminService auto-seed on module init maintains SuperAdmin state."
+}
+
+ADMIN_EMAIL_VAL=$(grep "^ADMIN_EMAIL=" "$REMOTE_DIR/.env" 2>/dev/null | cut -d '=' -f2 | tr -d '"\r\n' || echo "")
+
+echo ""
 echo "🎉 ORA production stack deployed successfully!"
-echo "🌐 URL: https://tryora.live"
+echo "🌐 Frontend URL:  https://tryora.live"
+echo "👑 Admin Portal:  https://tryora.live/admin"
+echo "🔑 SuperAdmin:    ${ADMIN_EMAIL_VAL:-ora.admin@tryora.live}"
 EOF
 

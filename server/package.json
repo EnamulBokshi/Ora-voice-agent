@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && tsc -p tsconfig.scripts.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:admin": "ts-node scripts/seed-admin.ts",
+    "seed:admin:prod": "node dist/scripts/seed-admin.js",
     "seed:dev-store": "ts-node scripts/seed-dev-store.ts",
     "migrate:hash-keys": "ts-node scripts/migrate-hash-secret-keys.ts",
     "shopify:queue-sync": "ts-node scripts/queue-shopify-sync.ts",
