@@ -12,14 +12,25 @@ export const SESSION_WARNING_LEAD_SECONDS = 60;
  *
  * Kept generous on purpose: a shopper reading a product page mid-conversation is not idle,
  * and a single ORA answer can itself run 15s+. Silence is only meaningful over a longer window.
+ *
+ * Raised from 30s: silence is only ever *inferred* here, from recognised speech
+ * (transcripts and barge-ins). Raw mic audio deliberately does not count, so every gap
+ * in recognition reads as silence even when the customer is talking. A window shorter
+ * than a shopper's natural pause to look at a product turns that inference into a
+ * wrong answer.
  */
-export const IDLE_WARNING_SECONDS = 30;
+export const IDLE_WARNING_SECONDS = 60;
 
 /**
  * Seconds after the idle warning before the session is auto-terminated.
- * Total idle before termination = IDLE_WARNING_SECONDS + IDLE_TERMINATE_SECONDS = 50s.
+ * Total idle before termination = IDLE_WARNING_SECONDS + IDLE_TERMINATE_SECONDS = 95s,
+ * which is just past the widget's own CLIENT_STANDBY_MS (90s) so the client suspends
+ * to standby rather than the server closing the socket out from under it.
+ *
+ * The window is measured from when the customer has actually *heard* the warning —
+ * see the re-arm in markAgentTurnComplete().
  */
-export const IDLE_TERMINATE_SECONDS = 20;
+export const IDLE_TERMINATE_SECONDS = 35;
 
 /**
  * Upper bound on how long the agent-speaking flag may suppress idle detection.
@@ -72,10 +83,18 @@ interface SessionTimerEntry {
   /** Fires IDLE_TERMINATE_SECONDS after the idle warning, if no activity in between. */
   idleTerminationTimer: NodeJS.Timeout | null;
   /**
+   * True once the termination window has been restarted from the end of the warning's
+   * own playback. One restart only: ORA must not be able to postpone termination
+   * repeatedly by continuing to talk.
+   */
+  terminationRearmed: boolean;
+  /**
    * Stored reference to the idle-check scheduling closure.
    * Allows markActivity() to reschedule after the user responds to a warning.
    */
   scheduleIdleCheck: (delayMs: number) => void;
+  /** Stored so the termination deadline can be re-armed from outside startTimer(). */
+  onIdleExpiry: () => void;
 }
 
 @Injectable()
@@ -196,21 +215,13 @@ export class SessionTimerService {
             this.logger.warn(`[SessionTimer] onIdleWarning error: ${err?.message}`);
           }
 
-          // Schedule termination after 20 more seconds of silence
-          e.idleTerminationTimer = setTimeout(() => {
-            const t = this.timers.get(socketId);
-            // Only terminate if still in 'warned' phase (no markActivity reset it)
-            if (!t || t.idlePhase !== 'warned') return;
-
-            t.idlePhase = 'terminated';
-            this.logger.log(
-              `[SessionTimer] Idle termination — session: ${sessionId}, no response after ${IDLE_TERMINATE_SECONDS}s`,
-            );
-            this.disposeEntry(socketId);
-            try { onIdleExpiry(); } catch (err: any) {
-              this.logger.warn(`[SessionTimer] onIdleExpiry error: ${err?.message}`);
-            }
-          }, idleTerminateMs);
+          // Schedule termination after IDLE_TERMINATE_SECONDS more of silence.
+          // markAgentTurnComplete() restarts this once, so the window is measured from
+          // the moment the customer finished hearing the warning.
+          e.idleTerminationTimer = setTimeout(
+            () => this.terminateIfStillWarned(socketId),
+            idleTerminateMs,
+          );
 
         } else {
           // User was active recently — reschedule check for the remaining idle time
@@ -235,7 +246,9 @@ export class SessionTimerService {
       agentSpeakingSince: null,
       idleCheckTimer: null,
       idleTerminationTimer: null,
+      terminationRearmed: false,
       scheduleIdleCheck,
+      onIdleExpiry,
     };
 
     this.timers.set(socketId, entry);
@@ -247,6 +260,25 @@ export class SessionTimerService {
       `[SessionTimer] Started — session: ${sessionId}, maxDuration: ${maxDurationSeconds}s, ` +
       `idle warning: ${IDLE_WARNING_SECONDS}s, idle terminate: ${IDLE_TERMINATE_SECONDS}s after warning`,
     );
+  }
+
+  /**
+   * Fires the idle expiry for a socket, but only if it is still in the 'warned' phase —
+   * markActivity() moves it back to 'watching', which must cancel the termination.
+   */
+  private terminateIfStillWarned(socketId: string): void {
+    const entry = this.timers.get(socketId);
+    if (!entry || entry.idlePhase !== 'warned') return;
+
+    entry.idlePhase = 'terminated';
+    this.logger.log(
+      `[SessionTimer] Idle termination — session: ${entry.sessionId}, no response after ${IDLE_TERMINATE_SECONDS}s`,
+    );
+    const onIdleExpiry = entry.onIdleExpiry;
+    this.disposeEntry(socketId);
+    try { onIdleExpiry(); } catch (err: any) {
+      this.logger.warn(`[SessionTimer] onIdleExpiry error: ${err?.message}`);
+    }
   }
 
   /**
@@ -268,6 +300,7 @@ export class SessionTimerService {
         entry.idleTerminationTimer = null;
       }
       entry.idlePhase = 'watching';
+      entry.terminationRearmed = false;
 
       // Reschedule the idle check (user is active again)
       entry.scheduleIdleCheck(IDLE_WARNING_SECONDS * 1000);
@@ -314,6 +347,29 @@ export class SessionTimerService {
 
     entry.isAgentSpeaking = false;
     entry.agentSpeakingSince = null;
+
+    if (entry.idlePhase === 'warned') {
+      // The turn that just ended is ORA speaking "are you still there?". The customer
+      // could not answer while it played — the widget gates the mic uplink shut for the
+      // whole of an agent turn — so the window they are being judged on has to start
+      // here, not at the moment the warning was decided on.
+      //
+      // This does NOT cancel the warning or clear the phase: only real user activity
+      // does that. It only moves the deadline, and only once per warning, so ORA
+      // talking on cannot defer termination indefinitely.
+      if (!entry.terminationRearmed && entry.idleTerminationTimer) {
+        entry.terminationRearmed = true;
+        clearTimeout(entry.idleTerminationTimer);
+        entry.idleTerminationTimer = setTimeout(
+          () => this.terminateIfStillWarned(socketId),
+          IDLE_TERMINATE_SECONDS * 1000,
+        );
+        this.logger.debug(
+          `[SessionTimer] Termination window restarted from end of warning playback — session: ${entry.sessionId}`,
+        );
+      }
+      return;
+    }
 
     if (entry.idlePhase !== 'watching') return;
 

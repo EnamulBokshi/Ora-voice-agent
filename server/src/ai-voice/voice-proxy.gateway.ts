@@ -22,6 +22,7 @@ import {
   DEFAULT_SESSION_DURATION_SECONDS,
   IDLE_WARNING_SECONDS,
   IDLE_TERMINATE_SECONDS,
+  AGENT_SPEAKING_MAX_MS,
 } from '../gateway/session-timer.service';
 
 interface ProxySession {
@@ -43,6 +44,19 @@ interface ProxySession {
   isClosingOnIdle?: boolean;
   /** True from the first audio frame of a turn until Gemini reports turnComplete. */
   isAgentSpeaking: boolean;
+  /**
+   * Bytes of Gemini output audio streamed during the current agent turn. Used only to
+   * size the playback-acknowledgement fallback below: Gemini generates far faster than
+   * real time, so the byte count is the only estimate available of how long the client
+   * will still be speaking after the generation itself has finished.
+   */
+  turnAudioBytes: number;
+  /**
+   * Fallback for the client's `audio_playback_complete` acknowledgement. A widget
+   * bundle older than that message will never send one, so the turn must still be able
+   * to complete on its own.
+   */
+  playbackAckTimer: NodeJS.Timeout | null;
   /**
    * True immediately after navigate_to_page executes until turnComplete.
    * Suppresses redundant post-navigation speech (e.g. "Navigating to...")
@@ -543,6 +557,8 @@ export class VoiceProxyGateway {
       isGreetingPending: false,
       greetingDispatchedAt: 0,
       isAgentSpeaking: false,
+      turnAudioBytes: 0,
+      playbackAckTimer: null,
       suppressPostNavSpeech: false,
       pendingContextUpdate: null,
       pendingContextTimer: null,
@@ -585,6 +601,10 @@ export class VoiceProxyGateway {
         clearTimeout(session.pendingContextTimer);
         session.pendingContextTimer = null;
       }
+      if (session.playbackAckTimer) {
+        clearTimeout(session.playbackAckTimer);
+        session.playbackAckTimer = null;
+      }
       const pending = session.pendingContextUpdate;
       if (!pending || session.closed) return;
       session.pendingContextUpdate = null;
@@ -603,6 +623,10 @@ export class VoiceProxyGateway {
       if (session.pendingContextTimer) {
         clearTimeout(session.pendingContextTimer);
         session.pendingContextTimer = null;
+      }
+      if (session.playbackAckTimer) {
+        clearTimeout(session.playbackAckTimer);
+        session.playbackAckTimer = null;
       }
       flushBufferedUserText(); // save any partial user speech before closing
       flushBufferedAiText();
@@ -646,6 +670,54 @@ export class VoiceProxyGateway {
       this.logger.log(`[VoiceProxyGateway] Session ${sessionId} cleaned up.`);
     };
 
+    /**
+     * Ends the agent's turn as far as idle detection is concerned.
+     *
+     * Deliberately NOT called from Gemini's `turnComplete`. Gemini finishes generating a
+     * 15-second answer in two or three seconds, but the customer is still listening to
+     * it for the full fifteen — and the widget holds the mic uplink shut for every one
+     * of those seconds, so they cannot produce activity even if they speak. Starting the
+     * idle countdown at generation time therefore spent most of the customer's silence
+     * budget before they had a chance to say anything, which is what made ORA interrupt
+     * its own long answers to ask whether they were still there.
+     *
+     * The turn now ends when the client reports its WebAudio queue has drained.
+     */
+    const completeAgentTurn = (reason: 'playback_ack' | 'fallback' | 'interrupted') => {
+      if (session.playbackAckTimer) {
+        clearTimeout(session.playbackAckTimer);
+        session.playbackAckTimer = null;
+      }
+      session.turnAudioBytes = 0;
+      this.sessionTimerService.markAgentTurnComplete(sessionId);
+      if (reason === 'fallback') {
+        this.logger.debug(
+          `[VoiceProxyGateway] Playback acknowledgement never arrived for session ${sessionId}; ending turn on fallback.`,
+        );
+      }
+    };
+
+    /**
+     * Arms the fallback that ends the turn if no `audio_playback_complete` arrives.
+     *
+     * Sized from the audio actually streamed this turn (Gemini Live output is 24 kHz
+     * mono PCM16, so 48000 bytes per second of speech) plus a margin for network and
+     * jitter buffering, rather than a flat constant that would be far too short for a
+     * long answer and far too long for a one-word one.
+     */
+    const armPlaybackAckFallback = () => {
+      if (session.playbackAckTimer) clearTimeout(session.playbackAckTimer);
+      const estimatedPlaybackMs = (session.turnAudioBytes / 48000) * 1000;
+      const fallbackMs = Math.min(
+        AGENT_SPEAKING_MAX_MS,
+        Math.max(5_000, estimatedPlaybackMs + 8_000),
+      );
+      session.playbackAckTimer = setTimeout(
+        () => completeAgentTurn('fallback'),
+        fallbackMs,
+      );
+    };
+
     // ── Open outbound session to Google Gemini Live ───────────────────────────
     let sessionControls: ProxySession['sessionControls'];
 
@@ -667,7 +739,9 @@ export class VoiceProxyGateway {
           session.isGreetingPending = false;
           session.isAgentSpeaking = true;
           if (base64AudioPcm) {
-            session.audioOutputBytes += Math.round(base64AudioPcm.length * 0.75);
+            const decodedBytes = Math.round(base64AudioPcm.length * 0.75);
+            session.audioOutputBytes += decodedBytes;
+            session.turnAudioBytes += decodedBytes;
           }
           // ORA is talking — suppress the idle warning until this turn completes,
           // so a long answer can never be interrupted by "are you still there?".
@@ -699,7 +773,10 @@ export class VoiceProxyGateway {
           sendToClient({ type: 'interrupted' });
           // A barge-in is undeniable proof of a live user, and it also ends ORA's turn.
           session.isAgentSpeaking = false;
-          this.sessionTimerService.markAgentTurnComplete(sessionId);
+          // A barge-in stops playback on the client too, so there is no queue left to
+          // wait on — end the turn now rather than on an acknowledgement that the
+          // client will never send for this turn.
+          completeAgentTurn('interrupted');
           this.sessionTimerService.markActivity(sessionId);
           flushBufferedUserText(); // user spoke again; save whatever they said before the barge-in
           flushBufferedAiText();
@@ -715,7 +792,9 @@ export class VoiceProxyGateway {
           flushPendingContextUpdate();
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
-          this.sessionTimerService.markAgentTurnComplete(sessionId);
+          // Generation is done; the customer is still listening. The idle countdown
+          // starts when the widget acknowledges that playback has drained.
+          armPlaybackAckFallback();
 
           if (session.isClosingOnIdle) {
             this.logger.log(`[VoiceProxyGateway] Goodbye speech turn complete for session ${sessionId}. Scheduling clean termination.`);
@@ -1122,6 +1201,26 @@ export class VoiceProxyGateway {
             return;
           }
           sessionControls.sendContextUpdate(context);
+          return;
+        }
+
+        if (msg.type === 'audio_playback_complete') {
+          // The widget's WebAudio queue has drained — ORA has now finished speaking in
+          // the customer's ear, which is the only moment from which their silence can
+          // fairly be measured. See completeAgentTurn().
+          completeAgentTurn('playback_ack');
+          return;
+        }
+
+        if (msg.type === 'user_speaking') {
+          // The widget's own noise gate has opened on sustained speech. Raw audio frames
+          // still do not count as activity (they carry room noise, and would keep an
+          // abandoned session alive forever), but a gate that has held open past its
+          // onset requirement is a different signal: it is the widget asserting that it
+          // is looking at speech, not noise. It is the only activity source that survives
+          // when Gemini's transcription is slow and the browser has no SpeechRecognition,
+          // which is the combination that let sessions close on a talking customer.
+          this.sessionTimerService.markActivity(sessionId);
           return;
         }
 

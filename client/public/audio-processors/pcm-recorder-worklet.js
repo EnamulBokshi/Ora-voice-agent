@@ -5,7 +5,7 @@
  * page's main thread (animations, DOM work), which the previous ScriptProcessor
  * implementation did.
  *
- * Emits 2048-sample chunks of 16 kHz signed 16-bit little-endian PCM — ~128ms per
+ * Emits 1024-sample chunks of 16 kHz signed 16-bit little-endian PCM — ~64ms per
  * message — plus the RMS of that chunk so the main thread can run its noise gate and
  * level meter without re-scanning the samples.
  */

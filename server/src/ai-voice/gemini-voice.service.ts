@@ -21,10 +21,24 @@ import { EncryptionUtil } from '../common/utils/encryption.util';
 const VALID_GEMINI_VOICES = new Set(['Aoede', 'Fenrir', 'Kore', 'Puck', 'Charon']);
 
 // ── Gemini Live input activity detection (noise robustness) ──────────────────
-// Tuned for a real storefront visitor: a laptop mic in a room with a TV, traffic or
-// other people talking. LOW start sensitivity demands a clearer speech onset before
-// Gemini opens a turn, which is what stops background noise barging in on ORA.
-const START_OF_SPEECH_SENSITIVITY = 'START_SENSITIVITY_LOW';
+/**
+ * HIGH so Gemini opens a turn on a normal speech onset rather than demanding a
+ * pronounced one.
+ *
+ * This was LOW, stacked on top of the widget's own noise gate. Two independent
+ * conservative detectors in series multiply: audio that already cleared the widget
+ * gate was then discarded again here, so a softly-spoken customer produced no input
+ * transcript at all — and because `markActivity()` is driven by transcripts, the
+ * session then idled out while they were talking.
+ *
+ * Noise rejection belongs to the widget gate, which is the only one of the two that
+ * can see the room's noise floor. This detector's job is only to segment turns in
+ * audio the gate already judged to be speech.
+ *
+ * The Live API accepts START_SENSITIVITY_HIGH, START_SENSITIVITY_LOW and
+ * START_SENSITIVITY_UNSPECIFIED — there is no DEFAULT member.
+ */
+const START_OF_SPEECH_SENSITIVITY = 'START_SENSITIVITY_HIGH';
 
 /**
  * HIGH so Gemini commits quickly once the customer stops talking.
@@ -401,9 +415,10 @@ export class GeminiVoiceService {
             // room: a TV, traffic or a nearby conversation reads as the customer
             // speaking and barges in on ORA mid-answer.
             //
-            // LOW start sensitivity requires a clearer speech onset before opening a
-            // turn; LOW end sensitivity plus a longer silence window stops ORA cutting
-            // in during a natural pause. prefixPaddingMs keeps the first syllable.
+            // HIGH start sensitivity opens a turn on a normal speech onset; the
+            // widget's own noise gate upstream is what keeps non-speech out, so this
+            // detector only has to segment turns. prefixPaddingMs keeps the first
+            // syllable, and HIGH end sensitivity commits quickly once they stop.
             realtimeInputConfig: {
               automaticActivityDetection: {
                 startOfSpeechSensitivity: START_OF_SPEECH_SENSITIVITY,
