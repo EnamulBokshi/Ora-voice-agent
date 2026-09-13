@@ -58,6 +58,15 @@ interface ProxySession {
    */
   playbackAckTimer: NodeJS.Timeout | null;
   /**
+   * True only between Gemini finishing generation and the turn actually ending.
+   *
+   * The acknowledgement it gates arrives from the browser, so it is untrusted input:
+   * without this, a client that sent it repeatedly would refresh `lastActivityAt` on
+   * every message and disable idle detection for the whole session. One turn, one
+   * acknowledgement.
+   */
+  awaitingPlaybackAck: boolean;
+  /**
    * True immediately after navigate_to_page executes until turnComplete.
    * Suppresses redundant post-navigation speech (e.g. "Navigating to...")
    * because the spoken announcement was already delivered before the tool call.
@@ -559,6 +568,7 @@ export class VoiceProxyGateway {
       isAgentSpeaking: false,
       turnAudioBytes: 0,
       playbackAckTimer: null,
+      awaitingPlaybackAck: false,
       suppressPostNavSpeech: false,
       pendingContextUpdate: null,
       pendingContextTimer: null,
@@ -628,6 +638,7 @@ export class VoiceProxyGateway {
         clearTimeout(session.playbackAckTimer);
         session.playbackAckTimer = null;
       }
+      session.awaitingPlaybackAck = false;
       flushBufferedUserText(); // save any partial user speech before closing
       flushBufferedAiText();
       if (session.conversationId) {
@@ -684,6 +695,11 @@ export class VoiceProxyGateway {
      * The turn now ends when the client reports its WebAudio queue has drained.
      */
     const completeAgentTurn = (reason: 'playback_ack' | 'fallback' | 'interrupted') => {
+      // A barge-in ends whatever is in flight; everything else must be answering an
+      // outstanding turn. A repeated or unsolicited acknowledgement is dropped here.
+      if (reason !== 'interrupted' && !session.awaitingPlaybackAck) return;
+
+      session.awaitingPlaybackAck = false;
       if (session.playbackAckTimer) {
         clearTimeout(session.playbackAckTimer);
         session.playbackAckTimer = null;
@@ -707,6 +723,7 @@ export class VoiceProxyGateway {
      */
     const armPlaybackAckFallback = () => {
       if (session.playbackAckTimer) clearTimeout(session.playbackAckTimer);
+      session.awaitingPlaybackAck = true;
       const estimatedPlaybackMs = (session.turnAudioBytes / 48000) * 1000;
       const fallbackMs = Math.min(
         AGENT_SPEAKING_MAX_MS,
@@ -989,9 +1006,32 @@ export class VoiceProxyGateway {
     );
 
     const skipGreetingParam = parsedUrl.query.skipGreeting === 'true';
+    const returningVisitorParam = parsedUrl.query.returningVisitor === 'true';
+
+    /**
+     * Whether this session has already been greeted, tracked server-side.
+     *
+     * `skipGreeting` alone is not enough. It is set by the widget from its own
+     * sessionStorage, which a hard reload can lose, an opened-in-new-tab link never
+     * has, and a restored bfcache page may disagree about — and every one of those
+     * cases reconnects with the SAME sessionId, so the customer would be greeted
+     * again mid-conversation. The session id is the thing that actually defines "this
+     * conversation", so the flag belongs next to it.
+     *
+     * 24h TTL: past that the id is a dead conversation, and a greeting is correct again.
+     */
+    const greetedKey = `session:${sessionId}:greeted`;
+    let alreadyGreeted = false;
+    try {
+      alreadyGreeted = (await this.redisService.getClient().get(greetedKey)) === '1';
+    } catch (err: any) {
+      // Redis unavailable — fall back to the client's own claim rather than failing the
+      // connection. Worst case is a repeated greeting, not a broken session.
+      this.logger.warn(`[VoiceProxyGateway] Greeting-state read notice: ${err.message}`);
+    }
 
     // ── Dispatch Proactive Initial Greeting on Voice Connection ─────────────
-    if (!skipGreetingParam && !silentMode) {
+    if (!skipGreetingParam && !alreadyGreeted && !silentMode) {
       try {
         let greetingTrigger = '';
         if (sessionMode === 'training') {
@@ -1000,6 +1040,10 @@ export class VoiceProxyGateway {
           greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them by name in ONE warm, concise sentence (maximum 10-12 words, e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you today?"). Speak aloud now.`;
         } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
           greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them in ONE warm, concise sentence (maximum 10-12 words, e.g. "Hi ${resolvedName}! How can I help you today?"). Speak aloud now.`;
+        } else if (returningVisitorParam) {
+          // Known device, new conversation. Shorter than a first greeting on purpose:
+          // they have heard the full introduction already.
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A returning visitor reconnected on a device that has spoken to you before, in a NEW conversation. Greet them in ONE short phrase (maximum 12 words, e.g. "Welcome back! Pleasure to meet you again. How can I help you today?"). Do not re-introduce yourself. Speak aloud now.`;
         } else {
           const isPricing = currentPathParam === '/pricing';
           const isDocs = currentPathParam.startsWith('/docs');
@@ -1018,6 +1062,13 @@ export class VoiceProxyGateway {
           `[VoiceProxyGateway] 🎙️ Dispatching initial greeting trigger (${sessionMode}) for session ${sessionId}`,
         );
         sessionControls.sendTextMessage(greetingTrigger);
+
+        // Recorded immediately, not on turn completion: a reconnect racing the greeting
+        // must find the flag already set, or it greets over the top of it.
+        this.redisService
+          .getClient()
+          .set(greetedKey, '1', 'EX', 86400)
+          .catch(() => { });
       } catch (greetErr: any) {
         this.logger.warn(
           `[VoiceProxyGateway] Greeting trigger notice for session ${sessionId}: ${greetErr.message}`,

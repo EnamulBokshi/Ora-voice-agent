@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { ProductsService } from './products.service';
+import { RedisService } from '../common/redis/redis.service';
 import { Product } from './schemas/product.schema';
 import { DomainException } from '../common/exceptions/domain.exception';
 
@@ -82,6 +83,66 @@ describe('ProductsService', () => {
     ]);
     expect(result).toHaveLength(1);
     expect(result[0].isLowStock).toBe(true); // 3 <= lowStockThreshold (5)
+  });
+
+  describe('verifyLiveDocs', () => {
+    it('overlays live stock without re-reading the documents from Mongo', async () => {
+      const productModel = moduleRef.get(getModelToken(Product.name));
+      productModel.find.mockClear();
+
+      const result = await service.verifyLiveDocs('64b1f2a3c9e77b001f2a3b4e', [
+        {
+          _id: '64b1f2a3c9e77b001f2a3b4c',
+          name: 'Product A',
+          price: 100,
+          stockQuantity: 3,
+          availability: 'in_stock',
+        },
+      ]);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].isLowStock).toBe(true); // 3 <= lowStockThreshold (5)
+      expect(productModel.find).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty list for no documents', async () => {
+      await expect(service.verifyLiveDocs('64b1f2a3c9e77b001f2a3b4e', [])).resolves.toEqual([]);
+    });
+
+    it('reads every cached stock entry in one Redis round trip', async () => {
+      const mget = jest.fn().mockResolvedValue([
+        JSON.stringify({ price: 88, stockQuantity: 2, availability: 'in_stock', isLowStock: true }),
+        null,
+      ]);
+      const get = jest.fn();
+      const redisModule = await Test.createTestingModule({
+        providers: [
+          ProductsService,
+          { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('5') } },
+          { provide: getModelToken(Product.name), useValue: { find: jest.fn() } },
+          {
+            provide: RedisService,
+            useValue: {
+              getClient: () => ({ mget, get, set: jest.fn().mockResolvedValue('OK') }),
+            },
+          },
+        ],
+      }).compile();
+
+      const redisService = redisModule.get<ProductsService>(ProductsService);
+      const result = await redisService.verifyLiveDocs('64b1f2a3c9e77b001f2a3b4e', [
+        { _id: 'a', name: 'Cached', price: 100, stockQuantity: 9, availability: 'in_stock' },
+        { _id: 'b', name: 'Uncached', price: 50, stockQuantity: 9, availability: 'in_stock' },
+      ]);
+
+      expect(mget).toHaveBeenCalledTimes(1);
+      expect(get).not.toHaveBeenCalled();
+      // Cached entry wins over the document; the miss falls back to the document.
+      expect(result[0].price).toBe(88);
+      expect(result[0].isLowStock).toBe(true);
+      expect(result[1].price).toBe(50);
+      expect(result[1].isLowStock).toBe(false);
+    });
   });
 
   describe('verifyLive', () => {

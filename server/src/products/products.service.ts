@@ -461,62 +461,100 @@ export class ProductsService {
     if (!ids || ids.length === 0) return [];
 
     const products = await this.findManyByIds(businessId, ids);
-    if (products.length === 0) return [];
+    return this.verifyLiveDocs(businessId, products);
+  }
+
+  /**
+   * Overlays cached live price and stock onto product documents the caller already has.
+   *
+   * Split out of verifyLiveBatch because the callers that matter — the voice agent's
+   * find_products tool — reach this point holding the very documents verifyLiveBatch
+   * would re-read. RAG hydrates its vector hits from Mongo to filter them on price and
+   * category, and the tool then asked for the same ids again by id. Two identical
+   * queries per spoken product question, on the path between the customer asking and
+   * ORA answering.
+   *
+   * Callers that hold only ids still have verifyLiveBatch above.
+   */
+  async verifyLiveDocs(businessId: string, products: any[]): Promise<any[]> {
+    if (!products || products.length === 0) return [];
 
     const lowStockThreshold = parseInt(
       this.configService.get<string>('LOW_STOCK_THRESHOLD') ?? '5',
       10,
     );
 
-    const verifiedList = await Promise.all(
-      products.map(async (product) => {
-        const prodId = product._id.toString();
-        const cacheKey = `live_stock:${businessId}:${prodId}`;
-        let liveStockData: any = null;
+    const cacheKeys = products.map(
+      (product) => `live_stock:${businessId}:${product._id.toString()}`,
+    );
 
-        if (this.redisService) {
-          try {
-            const cached = await this.redisService.getClient().get(cacheKey);
-            if (cached) {
-              liveStockData = JSON.parse(cached);
-            }
-          } catch {
-            // non-fatal
-          }
+    // One MGET rather than one GET per product: the round trips were previously
+    // concurrent but still N of them, so the slowest one set the floor on every call.
+    const cachedRaw = await this.readLiveStockCache(cacheKeys);
+
+    return products.map((product, i) => {
+      let liveStockData: any = null;
+      if (cachedRaw[i]) {
+        try {
+          liveStockData = JSON.parse(cachedRaw[i] as string);
+        } catch {
+          // Corrupt entry — fall back to the document's own values.
         }
+      }
 
-        const price = liveStockData?.price ?? product.price;
-        const stockQuantity = liveStockData?.stockQuantity ?? product.stockQuantity;
-        const availability = liveStockData?.availability ?? product.availability;
-        const isLowStock =
-          liveStockData?.isLowStock ??
-          (availability === ProductAvailability.IN_STOCK && stockQuantity <= lowStockThreshold);
+      const price = liveStockData?.price ?? product.price;
+      const stockQuantity = liveStockData?.stockQuantity ?? product.stockQuantity;
+      const availability = liveStockData?.availability ?? product.availability;
+      const isLowStock =
+        liveStockData?.isLowStock ??
+        (availability === ProductAvailability.IN_STOCK && stockQuantity <= lowStockThreshold);
 
-        // Async write-through to Redis cache if not already cached
-        if (this.redisService && !liveStockData) {
-          const cacheValue = JSON.stringify({
-            price,
-            stockQuantity,
-            availability,
-            isLowStock,
-          });
-          this.redisService
-            .getClient()
-            .set(cacheKey, cacheValue, 'EX', 900)
-            .catch(() => {});
-        }
-
-        const baseObj = typeof (product as any).toObject === 'function' ? (product as any).toObject() : product;
-        return Object.assign(baseObj, {
+      // Async write-through to Redis cache if not already cached
+      if (this.redisService && !liveStockData) {
+        const cacheValue = JSON.stringify({
           price,
           stockQuantity,
           availability,
           isLowStock,
         });
-      }),
-    );
+        this.redisService
+          .getClient()
+          .set(cacheKeys[i], cacheValue, 'EX', 900)
+          .catch(() => {});
+      }
 
-    return verifiedList;
+      const baseObj =
+        typeof (product as any).toObject === 'function' ? (product as any).toObject() : product;
+      return Object.assign(baseObj, {
+        price,
+        stockQuantity,
+        availability,
+        isLowStock,
+      });
+    });
+  }
+
+  /**
+   * Reads every live-stock cache entry in one round trip, degrading to individual GETs
+   * on a client without MGET and to all-misses when Redis is absent or erroring. A cache
+   * miss is never fatal here: the product document's own price and stock are the answer.
+   */
+  private async readLiveStockCache(cacheKeys: string[]): Promise<(string | null)[]> {
+    const misses: (string | null)[] = cacheKeys.map(() => null);
+    if (!this.redisService) return misses;
+
+    try {
+      const client: any = this.redisService.getClient();
+      if (typeof client.mget === 'function') {
+        const values = await client.mget(cacheKeys);
+        return Array.isArray(values) ? values : misses;
+      }
+      return await Promise.all(
+        cacheKeys.map((key) => client.get(key).catch(() => null)),
+      );
+    } catch {
+      return misses;
+    }
   }
 
   async incrementAgentMetrics(

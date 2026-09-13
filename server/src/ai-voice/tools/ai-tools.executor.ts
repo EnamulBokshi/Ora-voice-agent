@@ -19,6 +19,10 @@ import { Business, BusinessDocument } from '../../users/schemas/business.schema'
 /** How long a tenant's platform flag is trusted without re-reading Mongo. */
 const PLATFORM_FLAG_TTL_MS = 5 * 60 * 1000;
 
+/** How long a tenant's low-stock-urgency playbook flag is trusted without re-reading Mongo. */
+const URGENCY_FLAG_TTL_MS = 5 * 60 * 1000;
+
+
 @Injectable()
 export class AiToolsExecutor {
   private readonly logger = new Logger(AiToolsExecutor.name);
@@ -32,6 +36,20 @@ export class AiToolsExecutor {
   private readonly platformFlagCache = new Map<
     string,
     { isPlatform: boolean; expiresAt: number }
+  >();
+
+  /**
+   * Whether a tenant's sales playbook asks for low-stock urgency hints.
+   *
+   * Cached for the same reason as the platform flag, and more urgently: reading it went
+   * through AgentConfigService.getConfig(), which issues three Mongo findOne calls (agent
+   * config, voice settings, playbook) and creates any that are missing. find_products
+   * awaited all of that, in series between the catalog search and the stock check, to
+   * read one boolean.
+   */
+  private readonly urgencyFlagCache = new Map<
+    string,
+    { mentionLowStockUrgency: boolean; expiresAt: number }
   >();
 
   constructor(
@@ -126,71 +144,103 @@ export class AiToolsExecutor {
   }
 
   private async handleFindProducts(businessId: string, args: Record<string, any>) {
-    // 1. Semantic RAG search for shortlist of candidate product IDs
-    const ragRes = await this.ragService.searchCombined(businessId, args.query, {
-      limit: 5,
-    });
+    const queryText = args && args.query ? String(args.query) : '';
 
-    // 2. Fetch sales playbook for this tenant — needed for mentionLowStockUrgency (Fix 5)
-    let mentionLowStockUrgency = false;
-    try {
-      const agentCfg = await this.agentConfigService.getConfig(businessId);
-      mentionLowStockUrgency = agentCfg?.playbook?.mentionLowStockUrgency ?? false;
-    } catch {
-      // Non-fatal: proceed without urgency hints
+    // 1. Start every independent lookup at once.
+    //
+    //    All three used to run in series, and the customer waited for the sum: the
+    //    embedding API round trip, then three Mongo reads for one playbook boolean, then
+    //    the stock check. Only the stock check genuinely depends on what came before it.
+    //
+    //    The keyword search is the interesting one. It hits indexed Mongo fields and
+    //    returns in a few milliseconds, while the semantic search cannot start until an
+    //    external embedding API answers. When the shopper names a product the catalog
+    //    actually stocks — which is most of the time — the keyword result is both faster
+    //    and better, so we answer from it and let the semantic search finish into the
+    //    RAG cache unread rather than making the shopper wait for it.
+    const ragPromise = this.ragService
+      .searchCombined(businessId, queryText, { limit: 5 })
+      .catch((err: any) => {
+        this.logger.warn(`[AiToolsExecutor] Semantic search notice: ${err.message}`);
+        return {
+          products: [] as any[],
+          knowledge: [] as any[],
+          fallbackTriggered: true,
+          fallbackTier: 'none' as const,
+        };
+      });
+
+    const [keywordRes, mentionLowStockUrgency] = await Promise.all([
+      this.searchCatalogByKeyword(businessId, queryText),
+      this.resolveUrgencyFlag(businessId),
+    ]);
+
+    // 2. Confident keyword hit — answer now, without waiting on the embedding.
+    if (keywordRes.confident.length > 0) {
+      const fastVerified = await this.verifyProductDocs(businessId, keywordRes.confident);
+      if (fastVerified.length > 0) {
+        const fastProducts = fastVerified.map((live) =>
+          this.toProductEntry(live, mentionLowStockUrgency),
+        );
+        // Reported as its own tier rather than as a fallback: nothing failed here, the
+        // semantic search was simply not worth waiting for.
+        return this.buildFindProductsResult(queryText, fastProducts, false, 'keyword_fast_path');
+      }
     }
 
-    // 3. Batch live-verify price and stock for each candidate in a single roundtrip
-    const candidateIds = ragRes.products
-      .map((prod) => {
-        const targetId =
-          (prod as any).entityId ||
-          (prod as any).id ||
-          (prod as any)._id ||
-          ((prod as any).data && (prod as any).data._id);
-        return targetId ? targetId.toString() : null;
-      })
-      .filter(Boolean) as string[];
+    const ragRes = await ragPromise;
+
+    // 3. Live-verify price and stock for each semantic candidate.
+    //
+    //    RAG has already hydrated these documents from Mongo — it has to, in order to
+    //    filter them on price, category and brand — so they are reused here. Asking
+    //    verifyLiveBatch for the same ids meant a second identical Mongo query per
+    //    spoken question. Candidates whose document did not hydrate (a vector entry
+    //    outliving its product, or a Gap B live result never written to Mongo) still
+    //    fall through to the id-based path below.
+    const hydratedDocs: any[] = [];
+    const unhydratedIds: string[] = [];
+
+    for (const prod of ragRes.products) {
+      const raw = prod as any;
+      const doc = raw.data;
+      if (doc && doc._id) {
+        hydratedDocs.push(doc);
+        continue;
+      }
+      const targetId = raw.entityId || raw.id || raw._id;
+      if (targetId) unhydratedIds.push(targetId.toString());
+    }
 
     let verifiedList: any[] = [];
-    if (candidateIds.length > 0) {
-      try {
-        if (typeof this.productsService.verifyLiveBatch === 'function') {
-          verifiedList = await this.productsService.verifyLiveBatch(businessId, candidateIds);
-        }
-        if (verifiedList.length === 0 && typeof this.productsService.verifyLive === 'function') {
-          const individual = await Promise.all(
-            candidateIds.map((id) =>
-              this.productsService.verifyLive(businessId, id).catch(() => null),
-            ),
-          );
-          verifiedList = individual.filter(Boolean);
-        }
-      } catch (err: any) {
-        this.logger.warn(`[AiToolsExecutor] Batch verification notice: ${err.message}`);
+    try {
+      if (hydratedDocs.length > 0) {
+        verifiedList = await this.verifyProductDocs(businessId, hydratedDocs);
       }
+
+      if (unhydratedIds.length > 0 && typeof this.productsService.verifyLiveBatch === 'function') {
+        const byId = await this.productsService.verifyLiveBatch(businessId, unhydratedIds);
+        verifiedList = verifiedList.concat(byId);
+      }
+
+      if (verifiedList.length === 0 && typeof this.productsService.verifyLive === 'function') {
+        const candidateIds = hydratedDocs
+          .map((doc) => doc._id.toString())
+          .concat(unhydratedIds);
+        const individual = await Promise.all(
+          candidateIds.map((id) =>
+            this.productsService.verifyLive(businessId, id).catch(() => null),
+          ),
+        );
+        verifiedList = individual.filter(Boolean);
+      }
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Batch verification notice: ${err.message}`);
     }
 
-    const liveVerifiedProducts: Record<string, any>[] = verifiedList.map((live) => {
-      const entry: Record<string, any> = {
-        id: live._id ? live._id.toString() : (live.id || live.nativeProductId),
-        name: live.name,
-        price: live.price,
-        currency: live.currency || 'USD',
-        availability: live.availability,
-        stockQuantity: live.stockQuantity,
-        category: live.category,
-        sourceTier: live.sourceTier,
-        confidenceScore: live.confidenceScore || 0.9,
-        isLowStock: live.isLowStock ?? false,
-      };
-
-      if (mentionLowStockUrgency && live.isLowStock) {
-        entry.urgencyHint = `Only ${live.stockQuantity} left in stock — selling fast!`;
-      }
-
-      return entry;
-    });
+    const liveVerifiedProducts: Record<string, any>[] = verifiedList.map((live) =>
+      this.toProductEntry(live, mentionLowStockUrgency),
+    );
 
     // 4. If RAG returned Gap B live results (not in Mongo yet), surface them directly
     //    They're already live-verified (sourced fresh from the platform)
@@ -230,16 +280,21 @@ export class AiToolsExecutor {
       };
     }
 
-    // 6. Direct MongoDB catalog fallback: if vector RAG was empty, query DB directly
+    // 6. Direct MongoDB catalog fallback: if vector RAG was empty, use the catalog.
+    //    The keyword search in step 1 already ran this exact query — it just did not
+    //    clear the bar to answer from on its own — so its results are reused rather
+    //    than asking Mongo the same question a second time.
     if (liveVerifiedProducts.length === 0) {
       try {
-        const directDb = await this.productsService.findAll(businessId, {
-          search: (args && args.query) ? String(args.query) : '',
-          limit: 5,
-        });
+        const directItems = keywordRes.items.length > 0
+          ? keywordRes.items
+          : (await this.productsService.findAll(businessId, {
+              search: (args && args.query) ? String(args.query) : '',
+              limit: 5,
+            })).items;
 
-        if (directDb.items.length > 0) {
-          for (const item of directDb.items) {
+        if (directItems.length > 0) {
+          for (const item of directItems) {
             const entry: Record<string, any> = {
               id: item._id.toString(),
               name: item.name,
@@ -278,7 +333,44 @@ export class AiToolsExecutor {
       };
     }
 
-    const productSummary = liveVerifiedProducts
+    return this.buildFindProductsResult(
+      args.query,
+      liveVerifiedProducts,
+      ragRes.fallbackTriggered,
+      ragRes.fallbackTier,
+    );
+  }
+
+  /** Shapes one live-verified product document into the payload Gemini receives. */
+  private toProductEntry(live: any, mentionLowStockUrgency: boolean): Record<string, any> {
+    const entry: Record<string, any> = {
+      id: live._id ? live._id.toString() : (live.id || live.nativeProductId),
+      name: live.name,
+      price: live.price,
+      currency: live.currency || 'USD',
+      availability: live.availability,
+      stockQuantity: live.stockQuantity,
+      category: live.category,
+      sourceTier: live.sourceTier,
+      confidenceScore: live.confidenceScore || 0.9,
+      isLowStock: live.isLowStock ?? false,
+    };
+
+    if (mentionLowStockUrgency && live.isLowStock) {
+      entry.urgencyHint = `Only ${live.stockQuantity} left in stock — selling fast!`;
+    }
+
+    return entry;
+  }
+
+  /** The successful find_products payload, shared by the fast path and the semantic path. */
+  private buildFindProductsResult(
+    query: string,
+    products: Record<string, any>[],
+    fallbackTriggered: boolean,
+    fallbackTier: string,
+  ) {
+    const productSummary = products
       .map(
         (p) =>
           `${p.name} at ${p.currency} ${p.price} (${p.availability}, Stock: ${p.stockQuantity}${p.urgencyHint ? ` - ${p.urgencyHint}` : ''})`,
@@ -287,13 +379,112 @@ export class AiToolsExecutor {
 
     return {
       success: true,
-      query: args.query,
-      products: liveVerifiedProducts,
-      totalFound: liveVerifiedProducts.length,
-      message: `Found ${liveVerifiedProducts.length} product(s): ${productSummary}`,
-      fallbackTriggered: ragRes.fallbackTriggered,
-      fallbackTier: ragRes.fallbackTier,
+      query,
+      products,
+      totalFound: products.length,
+      message: `Found ${products.length} product(s): ${productSummary}`,
+      fallbackTriggered,
+      fallbackTier,
     };
+  }
+
+  /**
+   * Live price and stock for documents the caller already holds, without re-reading them.
+   *
+   * Falls back to the id-based path on a ProductsService that predates verifyLiveDocs.
+   */
+  private async verifyProductDocs(businessId: string, docs: any[]): Promise<any[]> {
+    if (docs.length === 0) return [];
+    try {
+      if (typeof (this.productsService as any).verifyLiveDocs === 'function') {
+        return await (this.productsService as any).verifyLiveDocs(businessId, docs);
+      }
+      if (typeof this.productsService.verifyLiveBatch === 'function') {
+        return await this.productsService.verifyLiveBatch(
+          businessId,
+          docs.map((doc) => doc._id.toString()),
+        );
+      }
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Document verification notice: ${err.message}`);
+    }
+    return [];
+  }
+
+  /**
+   * Indexed keyword search over the catalog, returning only matches strong enough to
+   * answer with directly.
+   *
+   * findAll() already does the hard part — it strips conversational stop words ("do you
+   * have any", "what is the price of"), matches the remaining terms on word boundaries,
+   * and re-ranks so title matches outrank description matches. What it cannot do is say
+   * whether the top hit is good enough to skip the semantic search, so that judgement is
+   * here: every meaningful word of the question has to appear in the product's name.
+   * Anything looser ("something warm for winter") is exactly what the embedding is for.
+   */
+  private async searchCatalogByKeyword(
+    businessId: string,
+    queryText: string,
+  ): Promise<{ confident: any[]; items: any[] }> {
+    const empty = { confident: [] as any[], items: [] as any[] };
+    const trimmed = (queryText || '').trim();
+    if (!trimmed) return empty;
+    if (typeof (this.productsService as any).findAll !== 'function') return empty;
+
+    try {
+      const res = await this.productsService.findAll(businessId, {
+        search: trimmed,
+        limit: 5,
+      } as any);
+      if (!res || !res.items || res.items.length === 0) return empty;
+
+      const terms = trimmed
+        .toLowerCase()
+        .split(/\s+/)
+        .map((t) => t.replace(/[^a-z0-9]/g, ''))
+        .filter((t) => t.length >= 3);
+
+      // A query with no substantive word of its own ("what do you sell?") has nothing
+      // for a keyword match to be confident about, but its results are still worth
+      // handing back for the catalog fallback further down.
+      if (terms.length === 0) return { confident: [], items: res.items };
+
+      const confident = res.items.filter((item: any) => {
+        const nameLower = (item.name || '').toLowerCase();
+        return terms.every((term) => nameLower.includes(term));
+      });
+
+      return { confident, items: res.items };
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Keyword fast-path notice: ${err.message}`);
+      return { confident: [], items: [] };
+    }
+  }
+
+  /**
+   * Whether this tenant's playbook asks for low-stock urgency hints, cached in memory.
+   * See urgencyFlagCache for why this is not read from Mongo on every tool call.
+   */
+  private async resolveUrgencyFlag(businessId: string): Promise<boolean> {
+    const cached = this.urgencyFlagCache.get(businessId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.mentionLowStockUrgency;
+    }
+
+    let mentionLowStockUrgency = false;
+    try {
+      const agentCfg = await this.agentConfigService.getConfig(businessId);
+      mentionLowStockUrgency = agentCfg?.playbook?.mentionLowStockUrgency ?? false;
+    } catch {
+      // Non-fatal: proceed without urgency hints, and do not cache a failed read.
+      return false;
+    }
+
+    this.urgencyFlagCache.set(businessId, {
+      mentionLowStockUrgency,
+      expiresAt: Date.now() + URGENCY_FLAG_TTL_MS,
+    });
+    return mentionLowStockUrgency;
   }
 
   private async handleGetProductDetails(businessId: string, args: Record<string, any>) {

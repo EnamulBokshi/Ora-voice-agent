@@ -105,6 +105,11 @@
   /** Whether the gate is currently passing audio (drives the hysteresis branch). */
   let vadGateOpen = false;
   /**
+   * When the last `user_speaking` keep-alive was sent, so an open gate produces at most
+   * one per USER_SPEAKING_PING_MS rather than one per 64ms chunk.
+   */
+  let lastSpeakingPingAt = 0;
+  /**
    * Chunks remaining in the start-of-session room measurement. Armed by
    * resetVadState(), which startMicCapture() calls — the constant it is set from is
    * declared further down this scope, so it cannot be referenced here.
@@ -120,6 +125,7 @@
     lastSpeechAt = 0;
     prerollFrames.length = 0;
     vadNoiseFloor = 0.01;
+    lastSpeakingPingAt = 0;
     vadOpenStreak = 0;
     vadGateOpen = false;
     vadCalibrationLeft = VAD_CALIBRATION_CHUNKS;
@@ -140,6 +146,26 @@
   let muteGainNode = null;
   let audioQueueTime = 0;
   let activeSources = [];
+  /**
+   * True from the first audio chunk of an agent turn until that turn's playback is
+   * settled. Gates the playback acknowledgement to one per turn — the server refreshes
+   * its idle clock on that message, so sending it twice would hold the session open.
+   */
+  let playbackTurnOpen = false;
+  let playbackWatchdogTimer = null;
+  /** Consecutive watchdog firings that found the audio clock not running. */
+  let playbackStallChecks = 0;
+
+  /**
+   * A navigation ORA has asked for, held until it has finished saying where it is going.
+   *
+   * Navigating immediately assigned window.location.href, which unloaded the page — and
+   * with it the widget and its WebSocket — the instant the tool result arrived. ORA was
+   * cut off mid-sentence, so the visitor got a silent page change, and whether any words
+   * escaped before the unload varied from run to run.
+   */
+  let pendingNavigation = null;
+  let pendingNavTimer = null;
   let geminiWs = null;
   let recognition = null;
   let sessionId = 'ses_w_' + Math.random().toString(36).substring(2, 9);
@@ -692,13 +718,26 @@
   initHydrationAndDomObserver();
 
   // ─── Customer Identity & Fail-Closed Consent Resolution ─────────────────────
-  function getOrCreateDeviceId() {
-    var consentAllowed = false;
+  /**
+   * Whether the visitor may be remembered across visits.
+   *
+   * Fail-closed: anything other than an explicit true — including an unanswered consent
+   * banner — is a no. Governs every write to localStorage, which outlives the visit.
+   * sessionStorage is deliberately NOT gated on it: it dies with the tab and only holds
+   * the id of a conversation already in progress.
+   */
+  function isTrackingConsented() {
     if (_cfg && _cfg.consent !== undefined) {
-      consentAllowed = _cfg.consent === true;
-    } else if (window.Shopify && window.Shopify.customerPrivacy && typeof window.Shopify.customerPrivacy.userCanBeTracked === 'function') {
-      consentAllowed = window.Shopify.customerPrivacy.userCanBeTracked() === true;
+      return _cfg.consent === true;
     }
+    if (window.Shopify && window.Shopify.customerPrivacy && typeof window.Shopify.customerPrivacy.userCanBeTracked === 'function') {
+      return window.Shopify.customerPrivacy.userCanBeTracked() === true;
+    }
+    return false;
+  }
+
+  function getOrCreateDeviceId() {
+    var consentAllowed = isTrackingConsented();
 
     // Fail-Closed: Any state other than strict true uses memory-only ephemeral ID
     if (consentAllowed !== true) {
@@ -718,6 +757,104 @@
     } catch (e) {
       return 'ephem_' + Math.random().toString(36).substring(2, 15);
     }
+  }
+
+  // ─── Session Continuity Across Page Loads ──────────────────────────────────
+  /**
+   * Where the in-progress conversation is parked while the browser replaces the page.
+   *
+   * A storefront is a multi-page app: clicking a product link is a full document
+   * reload, and everything in this closure — sessionId included — is destroyed. The
+   * widget then minted a fresh session id and the server, seeing an id it had never
+   * met, opened a new conversation and greeted the customer again. Three clicks
+   * through a catalogue meant three introductions and three lost conversations.
+   *
+   * sessionStorage is the right store for this and not localStorage: the state is only
+   * meaningful inside the tab that owns the conversation, and it must not outlive it.
+   */
+  var NAV_STATE_KEY = 'ora_session_state';
+
+  /** Marks a device that has spoken to ORA before, for the welcome-back greeting. */
+  var VISITED_KEY = 'ora_has_visited';
+
+  /**
+   * How stale a parked session may be and still be resumed.
+   *
+   * Sized for a page load, not for a visit: it is the gap between the old page saving
+   * state on pagehide and the new page reading it back. A slow storefront render is
+   * seconds, so 45s is generous. Beyond it the customer has been sitting on a page and
+   * a fresh conversation is the honest interpretation.
+   */
+  var NAV_RESUME_WINDOW_MS = 45000;
+
+  function readNavState() {
+    try {
+      if (!window.sessionStorage) return null;
+      var raw = window.sessionStorage.getItem(NAV_STATE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.sessionId) return null;
+      if (Date.now() - (parsed.savedAt || 0) > NAV_RESUME_WINDOW_MS) {
+        window.sessionStorage.removeItem(NAV_STATE_KEY);
+        return null;
+      }
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeNavState(patch) {
+    try {
+      if (!window.sessionStorage) return;
+      var current = readNavState() || {};
+      var next = {
+        sessionId: sessionId,
+        greeted: current.greeted === true,
+        wasVoiceActive: current.wasVoiceActive === true,
+        savedAt: Date.now(),
+      };
+      for (var k in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, k)) next[k] = patch[k];
+      }
+      window.sessionStorage.setItem(NAV_STATE_KEY, JSON.stringify(next));
+    } catch (e) {}
+  }
+
+  function clearNavState() {
+    try {
+      if (window.sessionStorage) window.sessionStorage.removeItem(NAV_STATE_KEY);
+    } catch (e) {}
+  }
+
+  function hasVisitedBefore() {
+    if (!isTrackingConsented()) return false;
+    try {
+      return window.localStorage.getItem(VISITED_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markVisited() {
+    if (!isTrackingConsented()) return;
+    try {
+      window.localStorage.setItem(VISITED_KEY, '1');
+    } catch (e) {}
+  }
+
+  /**
+   * Adopts a conversation parked by the previous page, if there is a live one.
+   *
+   * Runs once at load. Reusing the id is the whole mechanism: the server keys its
+   * conversation record and its greeting flag on it, so adopting the id restores the
+   * turn history and suppresses the greeting without either side having to negotiate.
+   */
+  var resumedSession = readNavState();
+  var resumedFromNavigation = false;
+  if (resumedSession) {
+    sessionId = resumedSession.sessionId;
+    resumedFromNavigation = true;
   }
 
   function normalizeCustomerData(raw) {
@@ -1362,6 +1499,25 @@
   const VAD_ABS_FLOOR = 0.005;
 
   /**
+   * Hard minimum for the open threshold. The adaptive threshold may rise above this in
+   * a noisy room but never falls below it.
+   *
+   * This is the important guard. Without it, a quiet room drove the floor to ~0.002 and
+   * the open threshold to 0.002 * VAD_SNR_OPEN = 0.007. Intermittent noise (a TV in the
+   * next room, passing traffic) never raises the floor, because it decays during the
+   * gaps, so every burst cleared the low threshold and reached Gemini. The adaptive part
+   * still earns its place in loud rooms; it just must not make a quiet room worse.
+   *
+   * It was 0.03, set when autoGainControl was off. At that setting a built-in laptop or
+   * phone mic puts ordinary conversational speech BELOW the floor, so the gate never
+   * opened and the customer's voice never left the browser — the loudest of the four
+   * reasons a talking shopper was treated as silent. With AGC now normalising the input
+   * level, 0.012 admits a quiet voice while still sitting above the residual noise of a
+   * gain-corrected quiet room, and the SNR ratio carries the rest of the work.
+   */
+  const VAD_MIN_OPEN = 0.012;
+
+  /**
    * How far above the measured noise floor a chunk must sit to OPEN the gate
    * (~11 dB). Because this is a ratio, a whisper in a silent room passes just as
    * readily as a shout in a loud one, which is the property a fixed threshold lacked.
@@ -1376,12 +1532,17 @@
   const VAD_SNR_CLOSE = 2.0;
 
   /**
-   * Consecutive qualifying chunks needed before the gate opens (~256ms at 128ms per
-   * chunk). Rejects transients — a door, a keyboard, a cough — that clear the ratio
-   * for one chunk only. The pre-roll buffer is longer than this window, so the
-   * qualifying audio is replayed and no syllable is lost.
+   * Consecutive qualifying chunks needed before the gate opens. Rejects transients — a
+   * door, a keyboard, a cough — that clear the ratio for one chunk only. The pre-roll
+   * buffer is at least this long, so the qualifying audio is replayed and no syllable
+   * is lost.
+   *
+   * The worklet emits a chunk every ~64ms, not the ~128ms an earlier comment here
+   * assumed, so 2 chunks was a 128ms onset requirement rather than the ~256ms intended
+   * — weak enough that a keyboard clatter cleared it, opened the gate, and bought
+   * itself the whole hangover tail downstream. 3 chunks restores the intended window.
    */
-  const VAD_OPEN_CHUNKS = 2;
+  const VAD_OPEN_CHUNKS = 3;
 
   /**
    * Noise-floor tracking rates.
@@ -1415,6 +1576,23 @@
   const CLIENT_STANDBY_MS = 90000; // 90 seconds (1.5 minutes)
 
   /**
+   * Minimum gap between `user_speaking` keep-alives sent while the gate is open.
+   *
+   * The server cannot treat raw audio frames as proof of a live customer — they carry
+   * room noise, and would keep an abandoned session open indefinitely. It therefore
+   * infers activity from recognised speech only: Gemini's transcription, this widget's
+   * SpeechRecognition result, or a barge-in. All three can be absent while somebody is
+   * genuinely talking (transcription lags, SpeechRecognition does not exist in Firefox
+   * and only reports on a final phrase, and barge-in cannot fire because the uplink is
+   * gated shut while ORA speaks), and the session then closed on a talking customer.
+   *
+   * This is the fourth source, and unlike a raw frame it carries a judgement: it is only
+   * sent once the gate has cleared its full onset requirement, which is the same bar the
+   * uplink itself has to clear.
+   */
+  const USER_SPEAKING_PING_MS = 2000;
+
+  /**
    * How long the mic uplink keeps streaming after speech drops below the threshold.
    *
    * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (700ms): Gemini decides the
@@ -1422,13 +1600,17 @@
    * (quiet) audio for a moment after they stop. Cut the stream too early and Gemini waits
    * for silence it never receives, delaying ORA's reply instead of speeding it up.
    */
-  const VAD_HANGOVER_MS = 1200;
+  const VAD_HANGOVER_MS = 700;
 
   /**
    * Frames retained while the gate is shut, replayed when it opens, so the attack of the
    * first word survives. At 1024 samples / 16 kHz each frame is ~64ms.
+   *
+   * Must stay >= VAD_OPEN_CHUNKS, otherwise the audio spent proving the onset is
+   * discarded rather than replayed and Gemini hears the utterance with its first
+   * syllable missing.
    */
-  const VAD_PREROLL_FRAMES = 3;
+  const VAD_PREROLL_FRAMES = 4;
 
   function cancelIdleTimer() {
     if (idleTimer) {
@@ -1853,6 +2035,31 @@
       });
     }
 
+    // ── Park the conversation before the browser replaces the page ───────────
+    // pagehide fires for a normal link click and for a bfcache freeze; beforeunload
+    // does not fire reliably on mobile Safari, so both are registered and the write is
+    // idempotent.
+    function parkSessionForNavigation() {
+      if (voiceState === 'idle' || voiceState === 'error') {
+        clearNavState();
+        return;
+      }
+      writeNavState({
+        sessionId: sessionId,
+        wasVoiceActive: voiceState !== 'standby',
+      });
+    }
+    window.addEventListener('pagehide', parkSessionForNavigation);
+    window.addEventListener('beforeunload', parkSessionForNavigation);
+
+    // ── Resume a conversation the previous page was holding ──────────────────
+    // Only when it was actually live. A session the customer had let lapse to standby
+    // stays parked but silent: they get their history back when they tap, and are not
+    // reconnected to a microphone they did not ask for.
+    if (resumedFromNavigation && resumedSession && resumedSession.wasVoiceActive === true) {
+      startVoiceSession();
+    }
+
     render();
   }
 
@@ -2117,6 +2324,11 @@
 
   // ─── Instant Barge-in / Audio Playback Cutoff ───────────────────────────────
   function flushPlaybackQueue() {
+    cancelPlaybackWatchdog();
+    playbackStallChecks = 0;
+    // A barge-in ends the turn from Gemini's own interrupt signal, so the server is not
+    // waiting on an acknowledgement for it — drop the flag rather than sending one.
+    playbackTurnOpen = false;
     for (let i = 0; i < activeSources.length; i++) {
       try {
         activeSources[i].stop();
@@ -2134,6 +2346,141 @@
     cancelIdleTimer();
   }
 
+  /**
+   * Grace period added to the watchdog's estimate of when playback should be finished.
+   * Covers jitter-buffer slack and the gap between one chunk ending and the next
+   * arriving, so a healthy stream never trips it.
+   */
+  var PLAYBACK_WATCHDOG_GRACE_MS = 1500;
+
+  function cancelPlaybackWatchdog() {
+    if (playbackWatchdogTimer) {
+      clearTimeout(playbackWatchdogTimer);
+      playbackWatchdogTimer = null;
+    }
+  }
+
+  /**
+   * Force-ends playback state, whether or not the audio graph cooperated.
+   *
+   * `voiceState === 'ora-speaking'` gates the microphone uplink shut, so anything that
+   * leaves it set is not a cosmetic glitch — the customer is muted, cannot be heard,
+   * and the only way out was to reload the page.
+   */
+  function settlePlayback() {
+    cancelPlaybackWatchdog();
+    playbackStallChecks = 0;
+
+    for (var i = 0; i < activeSources.length; i++) {
+      try {
+        activeSources[i].stop();
+        activeSources[i].disconnect();
+      } catch (e) {}
+    }
+    activeSources = [];
+    speakingLevel = 0;
+    isWaitingForAi = false;
+    if (voiceState === 'ora-speaking') voiceState = 'active';
+    armIdleTimer();
+
+    if (playbackTurnOpen) {
+      playbackTurnOpen = false;
+      notifyPlaybackDrained();
+    }
+    render();
+  }
+
+  /**
+   * Re-arms the stall check for as long as audio is still expected to be playing.
+   *
+   * The normal path out of a turn is `source.onended`, but that callback depends on the
+   * AudioContext clock advancing. A backgrounded tab or an iOS interruption suspends the
+   * context, `currentTime` stops, and no source ever ends — the widget then sat in
+   * 'ora-speaking' with the mic gated shut for the rest of the session.
+   */
+  function armPlaybackWatchdog() {
+    cancelPlaybackWatchdog();
+    playbackWatchdogTimer = setTimeout(
+      checkPlaybackProgress,
+      remainingPlaybackMs() + PLAYBACK_WATCHDOG_GRACE_MS,
+    );
+  }
+
+  function checkPlaybackProgress() {
+    playbackWatchdogTimer = null;
+    if (!playbackTurnOpen && activeSources.length === 0) return;
+
+    var ctx = playbackContext;
+    if (!ctx) {
+      settlePlayback();
+      return;
+    }
+
+    if (ctx.state !== 'running') {
+      // Try to get the clock going again. If two checks in a row find it stopped, the
+      // audio is not coming back on its own, and an unusable microphone costs the
+      // customer more than the unplayed tail of an answer.
+      playbackStallChecks++;
+      try { ctx.resume().catch(function () {}); } catch (e) {}
+      if (playbackStallChecks >= 2) {
+        console.warn('[ORA Widget] Audio clock stalled — releasing playback state.');
+        settlePlayback();
+        return;
+      }
+      playbackWatchdogTimer = setTimeout(checkPlaybackProgress, PLAYBACK_WATCHDOG_GRACE_MS);
+      return;
+    }
+
+    playbackStallChecks = 0;
+    if (remainingPlaybackMs() > 0) {
+      armPlaybackWatchdog();
+      return;
+    }
+    settlePlayback();
+  }
+
+  /** Milliseconds of ORA audio still queued for playback. */
+  function remainingPlaybackMs() {
+    try {
+      if (!playbackContext) return 0;
+      return Math.max(0, (audioQueueTime - playbackContext.currentTime) * 1000);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Queues a navigation to run once ORA stops speaking.
+   *
+   * The safety timeout matters: if the turn never completes (dropped socket, model
+   * error) the visitor is still taken where they asked to go.
+   */
+  function scheduleNavigation(dest) {
+    pendingNavigation = dest;
+    if (pendingNavTimer) clearTimeout(pendingNavTimer);
+    pendingNavTimer = setTimeout(function () { runPendingNavigation(true); }, 8000);
+  }
+
+  function runPendingNavigation(force) {
+    if (!pendingNavigation) return;
+
+    // Let the queued audio drain first, or the unload clips ORA mid-word.
+    var remaining = remainingPlaybackMs();
+    if (!force && remaining > 60) {
+      if (pendingNavTimer) clearTimeout(pendingNavTimer);
+      pendingNavTimer = setTimeout(
+        function () { runPendingNavigation(true); },
+        Math.min(remaining + 150, 8000),
+      );
+      return;
+    }
+
+    var dest = pendingNavigation;
+    pendingNavigation = null;
+    if (pendingNavTimer) { clearTimeout(pendingNavTimer); pendingNavTimer = null; }
+    window.location.href = dest;
+  }
+
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
   function playIncomingPcm(base64Pcm) {
     try {
@@ -2146,6 +2493,13 @@
       }
       const ctx = playbackContext;
       if (ctx.state === 'suspended') ctx.resume();
+      if (!ctx.onstatechange) {
+        // A suspend/resume cycle changes how long playback will take, so the stall
+        // check has to be recomputed rather than left on its old deadline.
+        ctx.onstatechange = function () {
+          if (playbackTurnOpen) armPlaybackWatchdog();
+        };
+      }
 
       const float32 = base64ToFloat32Array(base64Pcm);
       if (float32.length === 0) return;
@@ -2167,6 +2521,8 @@
 
       activeSources.push(source);
       voiceState = 'ora-speaking';
+      playbackTurnOpen = true;
+      armPlaybackWatchdog();
 
       // Energy level for visualizer
       let sum = 0;
@@ -2177,10 +2533,7 @@
       source.onended = function () {
         activeSources = activeSources.filter((s) => s !== source);
         if (activeSources.length === 0 && ctx.currentTime >= audioQueueTime - 0.05) {
-          voiceState = 'active';
-          speakingLevel = 0;
-          isWaitingForAi = false;
-          armIdleTimer();
+          settlePlayback();
         }
       };
     } catch (e) {
@@ -2188,9 +2541,31 @@
     }
   }
 
+  /**
+   * Tells the server ORA has finished speaking in the customer's ear.
+   *
+   * Gemini finishes generating a long answer several times faster than it can be played,
+   * and the server used to start its silence countdown at generation time — while this
+   * widget was still playing the answer and still holding the mic uplink shut. Most of
+   * the customer's allowance was spent before they could say a word, which is what made
+   * ORA break into its own answers to ask if they were still there.
+   *
+   * Sent only on a natural drain. A barge-in also empties the queue, but the server ends
+   * that turn from Gemini's own interrupt signal and is not waiting on us.
+   */
+  function notifyPlaybackDrained() {
+    if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
+    try {
+      geminiWs.send(JSON.stringify({ type: 'audio_playback_complete' }));
+    } catch (e) {}
+  }
+
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
     cancelIdleTimer();
+    // The conversation is over, not paused. Leaving it parked would have the next page
+    // load silently rejoin a dead session and wait for a greeting that never comes.
+    clearNavState();
     // Drop any pending notice + its auto-clear timer. Callers that need to show a
     // reason (e.g. session_ended) set the notice AFTER calling teardown().
     if (noticeClearTimer) { clearTimeout(noticeClearTimer); noticeClearTimer = null; }
@@ -2243,6 +2618,9 @@
    */
   function disconnectVoice(nextState) {
     cancelIdleTimer();
+    // Standby keeps the conversation, so the parked state stays — but a page load must
+    // not resume audio on its own for a session the customer had already let go quiet.
+    writeNavState({ wasVoiceActive: false });
     isWaitingForAi = false;
     flushPlaybackQueue();
     userMicLevel = 0;
@@ -2342,10 +2720,24 @@
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
-        // autoGainControl works against us here: with nobody talking it amplifies
-        // quiet room noise up toward speech level, which is exactly what we are
-        // trying to keep out of the uplink.
-        autoGainControl: false,
+        // AGC on. It does raise quiet room noise toward speech level, which is why it
+        // was off — but the gate below keys off signal-to-NOISE, and AGC raises the
+        // measured noise floor by the same factor it raises the voice, so the ratio the
+        // gate actually tests is unchanged. What AGC does fix is the absolute level:
+        // without it a built-in laptop or phone mic delivers conversational speech at
+        // an amplitude low enough to sit under any fixed floor, so the hard minimum
+        // below rejected normal talking outright on exactly the devices most shoppers
+        // use. Normalising the level first is what lets that minimum be set low enough
+        // to admit a quiet voice without admitting a quiet room.
+        autoGainControl: true,
+        // Browser-level voice isolation: suppresses everything that is not the
+        // near-field speaker, which is the only mechanism here that can reject
+        // *speech-like* distance noise — a television, or people talking nearby.
+        // An RMS threshold cannot, because that noise sits at speech level by
+        // definition. Unsupported browsers ignore an unknown constraint, so this is
+        // safe to request unconditionally; Chrome and Edge honour it on platforms
+        // where the OS provides it.
+        voiceIsolation: true,
       },
     });
     mediaStream = stream;
@@ -2382,8 +2774,8 @@
       // Thresholds are derived from the measured room level rather than fixed, so the
       // same code serves a whisper in a quiet room and a normal voice in a noisy one.
       const nowMs = Date.now();
-      const openAt = Math.max(VAD_ABS_FLOOR, vadNoiseFloor * VAD_SNR_OPEN);
-      const closeAt = Math.max(VAD_ABS_FLOOR * 0.6, vadNoiseFloor * VAD_SNR_CLOSE);
+      const openAt = Math.max(VAD_MIN_OPEN, vadNoiseFloor * VAD_SNR_OPEN);
+      const closeAt = Math.max(VAD_MIN_OPEN * 0.55, vadNoiseFloor * VAD_SNR_CLOSE);
 
       let isSpeech;
       if (vadCalibrationLeft > 0) {
@@ -2418,6 +2810,13 @@
         lastSpeechAt = nowMs;
         cancelIdleTimer();
         clearSessionNotice(); // the customer is speaking — drop any "are you still there?"
+        // Tell the server a human is talking, whether or not anything transcribes it.
+        if (nowMs - lastSpeakingPingAt >= USER_SPEAKING_PING_MS) {
+          lastSpeakingPingAt = nowMs;
+          try {
+            geminiWs.send(JSON.stringify({ type: 'user_speaking' }));
+          } catch (e) {}
+        }
         if (userSpeechSilenceTimeout) {
           clearTimeout(userSpeechSilenceTimeout);
           userSpeechSilenceTimeout = null;
@@ -2528,9 +2927,14 @@
     });
 
     try {
-      if (!resumeToken) {
+      // A parked conversation keeps its id — that is what makes the server treat this
+      // as the same conversation rather than a new one that needs greeting.
+      if (!resumeToken && !resumedFromNavigation) {
         sessionId = 'ses_w_' + Math.random().toString(36).substring(2, 9);
       }
+      const navState = readNavState();
+      const skipGreeting = resumedFromNavigation || (navState && navState.greeted === true);
+      const returningVisitor = !skipGreeting && hasVisitedBefore();
       const wsBase = apiBase.replace(/^http/, 'ws');
       const custPayload = resolveCustomerPayload();
       const curPath = (typeof window !== 'undefined' && window.location.pathname) ? window.location.pathname : '/';
@@ -2542,6 +2946,12 @@
         '&currentPath=' + encodeURIComponent(curPath) +
         '&pageTitle=' + encodeURIComponent(curTitle);
 
+      if (skipGreeting) {
+        wsUri += '&skipGreeting=true';
+      } else if (returningVisitor) {
+        wsUri += '&returningVisitor=true';
+      }
+
       if (custPayload.customerToken && custPayload.customerToken.customerId) {
         wsUri += '&customerId=' + encodeURIComponent(custPayload.customerToken.customerId) +
           '&customerTimestamp=' + encodeURIComponent(custPayload.customerToken.timestamp) +
@@ -2551,6 +2961,12 @@
       if (resumeToken) {
         wsUri += '&resumptionToken=' + encodeURIComponent(resumeToken);
       }
+
+      // Recorded before the socket opens, not after the greeting plays: a page change
+      // mid-greeting must still find the conversation parked and already greeted.
+      writeNavState({ sessionId: sessionId, greeted: true, wasVoiceActive: true });
+      if (!skipGreeting) markVisited();
+      resumedFromNavigation = false;
 
       const ws = new WebSocket(wsUri);
       geminiWs = ws;
@@ -2623,7 +3039,16 @@
             cancelIdleTimer();
             isWaitingForAi = false;
             const cleanText = msg.text.trim();
-            if (cleanText && !cleanText.startsWith('**') && !cleanText.startsWith('#')) {
+            if (
+              cleanText &&
+              !cleanText.startsWith('**') &&
+              !cleanText.startsWith('##') &&
+              !cleanText.startsWith('#') &&
+              !cleanText.toLowerCase().startsWith('thought') &&
+              !cleanText.toLowerCase().startsWith('thinking') &&
+              !cleanText.toLowerCase().startsWith('internal:') &&
+              !cleanText.toLowerCase().startsWith('[thought')
+            ) {
               if (lastSpeaker !== 'agent') {
                 lastSpeaker = 'agent';
                 liveSpeaker = 'agent';
@@ -2680,10 +3105,12 @@
 
           if (msg.type === 'turn_complete') {
             if (activeSources.length === 0) {
-              voiceState = 'active';
-              isWaitingForAi = false;
-              armIdleTimer();
+              // Nothing left to play — the queue drained before the generation did, so
+              // the drain callback has already run and will not run again.
+              settlePlayback();
             }
+            // ORA has said where it is going; leave once the audio has played out.
+            if (pendingNavigation) runPendingNavigation(false);
             return;
           }
 
@@ -2719,10 +3146,12 @@
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
               var dest = msg.action.destination;
               if (dest.startsWith('#')) {
+                // An anchor keeps the page, and the session, alive — scroll right away.
                 var targetEl = document.querySelector(dest);
                 if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
               } else if (dest.startsWith('/') || dest.startsWith('http')) {
-                window.location.href = dest;
+                // A real page load ends this session, so let ORA announce it first.
+                scheduleNavigation(dest);
               }
             }
             return;
