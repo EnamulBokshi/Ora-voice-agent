@@ -764,9 +764,6 @@ export class VoiceProxyGateway {
 
         // Tool executed server-side → notify client for UI and forward action payload if present
         onToolResult: (toolName, result) => {
-          if (toolName === 'navigate_to_page') {
-            session.suppressPostNavSpeech = true;
-          }
           sendToClient({
             type: 'tool_result',
             toolName,

@@ -693,6 +693,9 @@ export function FloatingOrbWidget() {
               if (typeof window !== 'undefined') {
                 const currentFull = window.location.pathname + window.location.search;
                 if (currentFull !== dest) {
+                  try {
+                    router.prefetch(dest);
+                  } catch {}
                   router.push(dest);
                 }
               }
@@ -764,11 +767,8 @@ export function FloatingOrbWidget() {
   // Dynamic visual reactivity level
   const energyLevel = isSpeaking ? speakingLevel : userMicLevel;
 
-  // Below every hook, deliberately. An early return placed above them made
-  // each one conditional — React then renders a different number of hooks on
-  // the render where the route changes, which throws "rendered fewer hooks
-  // than expected" rather than quietly hiding the orb.
-  if (isDashboardOrPortal) {
+  // Only hide inside Shopify Admin iframe or when embedded in an external iframe
+  if (isShopifyEmbedded) {
     return null;
   }
 
