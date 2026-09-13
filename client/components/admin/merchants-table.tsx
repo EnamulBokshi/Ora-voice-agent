@@ -1,16 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { Button } from '@/components/ui/button';
 import {
   Search,
   CheckCircle2,
-  XCircle,
-  ExternalLink,
-  Shield,
   Loader2,
-  Filter,
   Key,
   ShieldAlert,
   ShieldCheck,
@@ -20,14 +17,15 @@ import {
   Check,
   Globe,
   X,
-  Activity,
   Eye,
   PauseCircle,
   PlayCircle,
   Ban,
-  Store,
+  Radio,
+  MessageSquare,
+  Building2,
 } from 'lucide-react';
-import { AdminBusinessItem, DetectedOriginItem } from '@/types/admin';
+import { AdminBusinessItem } from '@/types/admin';
 import {
   updateBusinessStatus,
   adminRevokeBusinessKeyApi,
@@ -157,6 +155,16 @@ export function MerchantsTable({
     }
   };
 
+  // Filtered businesses if "flagged" filter tab is selected
+  const displayedBusinesses = useMemo(() => {
+    if (statusFilter === 'flagged') {
+      return businesses.filter(
+        (b) => b.anomalyFlags?.isMultiSite || b.anomalyFlags?.hasMismatch,
+      );
+    }
+    return businesses;
+  }, [businesses, statusFilter]);
+
   return (
     <>
       {/* ── Interactive Confirmation Toast Modal for Store Status ── */}
@@ -165,24 +173,24 @@ export function MerchantsTable({
           <div className="flex items-start gap-3">
             <div
               className={cn(
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                'flex size-8 shrink-0 items-center justify-center rounded-lg',
                 confirmToggleBusiness.status === 'active'
-                  ? 'bg-amber-500/15 text-amber-400'
-                  : 'bg-primary/15 text-primary',
+                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  : 'bg-primary/15 text-primary border border-primary/30',
               )}
             >
-              {confirmToggleBusiness.status === 'active' ? <Ban size={18} /> : <CheckCircle2 size={18} />}
+              {confirmToggleBusiness.status === 'active' ? <Ban size={16} /> : <CheckCircle2 size={16} />}
             </div>
             <div className="flex-1 pr-1">
-              <h4 className="font-bold text-foreground text-sm font-heading">
+              <h4 className="font-semibold text-foreground text-sm font-heading">
                 {confirmToggleBusiness.status === 'active'
                   ? 'Suspend Merchant Store?'
                   : 'Reactivate Merchant Store?'}
               </h4>
-              <p className="text-xs text-muted-foreground font-normal mt-0.5 leading-relaxed">
+              <p className="text-xs text-muted-foreground font-normal mt-1 leading-relaxed">
                 {confirmToggleBusiness.status === 'active'
-                  ? `Are you sure you want to suspend "${confirmToggleBusiness.name}"? Their AI voice widget and storefront integrations will be paused.`
-                  : `Are you sure you want to reactivate "${confirmToggleBusiness.name}" and restore all AI sales services?`}
+                  ? `Are you sure you want to suspend "${confirmToggleBusiness.name}"? The voice widget and integrations will be paused.`
+                  : `Are you sure you want to reactivate "${confirmToggleBusiness.name}" and restore live AI storefront features?`}
               </p>
             </div>
             <button
@@ -193,26 +201,21 @@ export function MerchantsTable({
             </button>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
-            <button
-              type="button"
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setConfirmToggleBusiness(null)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground bg-surface-high hover:bg-surface-bright hover:text-foreground transition-colors"
             >
               Cancel
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant={confirmToggleBusiness.status === 'active' ? 'destructive' : 'default'}
               onClick={handleConfirmToggleStatus}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-opacity shadow-xs',
-                confirmToggleBusiness.status === 'active'
-                  ? 'bg-amber-500 text-black hover:opacity-90'
-                  : 'bg-primary text-primary-foreground hover:opacity-90',
-              )}
             >
-              <span>{confirmToggleBusiness.status === 'active' ? 'Confirm Suspend' : 'Confirm Reactivate'}</span>
-            </button>
+              {confirmToggleBusiness.status === 'active' ? 'Confirm Suspend' : 'Confirm Reactivate'}
+            </Button>
           </div>
         </div>
       )}
@@ -221,7 +224,7 @@ export function MerchantsTable({
       {feedback && (
         <div
           className={cn(
-            'fixed top-6 right-6 z-50 flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-semibold shadow-2xl backdrop-blur-md animate-in slide-in-from-top-4 duration-200',
+            'fixed top-6 right-6 z-50 flex items-center gap-3 rounded-2xl border px-4 py-3 text-xs font-medium shadow-2xl backdrop-blur-md animate-in slide-in-from-top-4 duration-200',
             feedback.type === 'success'
               ? 'border-primary/40 bg-surface-container/95 text-foreground shadow-primary/10'
               : 'border-destructive/40 bg-surface-container/95 text-foreground shadow-destructive/10',
@@ -229,19 +232,19 @@ export function MerchantsTable({
         >
           <div
             className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+              'flex size-7 shrink-0 items-center justify-center rounded-lg',
               feedback.type === 'success'
                 ? 'bg-primary/15 text-primary'
                 : 'bg-destructive/15 text-destructive',
             )}
           >
-            {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+            {feedback.type === 'success' ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
           </div>
           <div className="flex flex-col pr-2">
-            <span className="font-bold text-foreground">
-              {feedback.type === 'success' ? 'Success' : 'Error'}
+            <span className="font-semibold text-foreground">
+              {feedback.type === 'success' ? 'Success' : 'Attention'}
             </span>
-            <span className="text-xs text-muted-foreground font-normal">{feedback.text}</span>
+            <span className="text-xs text-muted-foreground">{feedback.text}</span>
           </div>
           <button
             onClick={() => setFeedback(null)}
@@ -253,254 +256,332 @@ export function MerchantsTable({
       )}
 
       {/* ── Master Card Container ── */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface-container p-5 sm:p-6 shadow-xs">
-        {/* Table Controls */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface-container p-4 sm:p-5 shadow-xs">
+        {/* Table Controls Ribbon */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Search bar */}
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search stores by name, domain, owner, or key..."
+              placeholder="Search stores, domains, owners, or keys..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface-high py-2 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
+              className="w-full rounded-xl border border-border bg-surface-low py-1.5 pl-9 pr-8 text-xs text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-              <Filter size={13} />
-              <span>Status:</span>
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => onStatusChange(e.target.value)}
-              className="rounded-lg border border-border bg-surface-high px-3 py-1.5 text-xs font-medium text-foreground outline-none focus:border-primary/50"
+          {/* Quick Segmented Filter Tabs */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-low border border-border text-xs">
+            <button
+              type="button"
+              onClick={() => onStatusChange('all')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg font-medium transition-all text-xs',
+                statusFilter === 'all'
+                  ? 'bg-surface-high text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
             >
-              <option value="all">All Merchants</option>
-              <option value="active">Active Only</option>
-              <option value="suspended">Suspended Only</option>
-            </select>
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatusChange('active')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg font-medium transition-all text-xs flex items-center gap-1.5',
+                statusFilter === 'active'
+                  ? 'bg-surface-high text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-primary" />
+              Active
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatusChange('suspended')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg font-medium transition-all text-xs flex items-center gap-1.5',
+                statusFilter === 'suspended'
+                  ? 'bg-surface-high text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-amber-400" />
+              Suspended
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatusChange('flagged')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg font-medium transition-all text-xs flex items-center gap-1.5',
+                statusFilter === 'flagged'
+                  ? 'bg-destructive/15 text-destructive border border-destructive/30 font-semibold'
+                  : 'text-muted-foreground hover:text-destructive',
+              )}
+            >
+              <ShieldAlert size={12} />
+              Flagged
+            </button>
           </div>
         </div>
 
-        {/* Table Body */}
-        <div className="overflow-x-auto rounded-xl border border-border bg-surface-container">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-surface-lowest text-muted-foreground font-semibold uppercase tracking-wider text-[10px] border-b border-border">
+        {/* ── High-Scan Executive Table (Zero Horizontal Overflow) ── */}
+        <div className="rounded-xl border border-border bg-surface-lowest overflow-hidden">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-surface-low text-muted-foreground font-medium uppercase tracking-wider text-[10px] border-b border-border">
               <tr>
-                <th className="px-4 py-3">Store Tenant</th>
-                <th className="px-4 py-3">Owner Contact</th>
-                <th className="px-4 py-3">Publishable Key & Security</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Platform</th>
-                <th className="px-4 py-3 text-right">Conversations</th>
-                <th className="px-4 py-3">Joined Date</th>
-                <th className="px-4 py-3 text-center">Action</th>
+                <th className="px-4 py-2.5">Store & Platform</th>
+                <th className="px-3 py-2.5">Owner Contact</th>
+                <th className="px-3 py-2.5">Key & Origin Telemetry</th>
+                <th className="px-3 py-2.5 text-center">Status</th>
+                <th className="px-3 py-2.5 text-right">Activity & Created</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      <span>Loading merchant directory...</span>
+                      <Loader2 className="size-4 animate-spin text-primary" />
+                      <span>Loading merchants directory...</span>
                     </div>
                   </td>
                 </tr>
-              ) : businesses.length === 0 ? (
+              ) : displayedBusinesses.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
-                    No merchants found matching your query.
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <Building2 className="size-8 text-muted-foreground/40 stroke-1" />
+                      <p className="text-xs font-medium text-foreground">No merchant stores found</p>
+                      <p className="text-[11px] text-muted-foreground">Try adjusting your search query or status filter.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                businesses.map((b) => {
+                displayedBusinesses.map((b) => {
                   const hasKey = Boolean(b.publishableKey);
                   const isSuspended =
                     b.keyStatus === 'suspended' || b.status === 'suspended';
                   const isMultiSite = b.anomalyFlags?.isMultiSite;
                   const hasMismatch = b.anomalyFlags?.hasMismatch;
+                  const originCount = b.detectedOrigins?.length || 0;
 
                   return (
                     <tr
                       key={b.id}
-                      className="hover:bg-surface-high/50 transition-colors"
+                      className="hover:bg-surface-container/60 transition-colors group"
                     >
-                      {/* Store Tenant Identity */}
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-high border border-border text-xs font-serif font-bold text-foreground">
+                      {/* 1. Store Identity & Platform (Combined) */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Store Avatar */}
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-high border border-border text-xs font-bold text-foreground">
                             {b.name ? b.name.charAt(0).toUpperCase() : 'S'}
                           </div>
+
                           <div className="flex flex-col min-w-0">
-                            <Link
-                              href={`/admin/users/${b.id}`}
-                              className="font-semibold text-sm hover:text-primary transition-colors block truncate"
-                              title="Inspect Store & Owner"
-                            >
-                              {b.name}
-                            </Link>
-                            <span className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-                              <Globe size={11} className="opacity-60 shrink-0" />
-                              <span className="truncate">{b.domain || 'no domain registered'}</span>
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/admin/users/${b.id}`}
+                                className="font-semibold text-xs text-foreground hover:text-primary transition-colors truncate"
+                                title={b.name}
+                              >
+                                {b.name}
+                              </Link>
+                              {b.connectedPlatform && b.connectedPlatform !== 'none' && (
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-medium uppercase tracking-wider bg-surface-high border border-border text-muted-foreground">
+                                  {b.connectedPlatform}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                              <Globe size={10} className="shrink-0 opacity-60" />
+                              {b.domain ? (
+                                <span className="truncate">{b.domain}</span>
+                              ) : (
+                                <span className="italic text-[10px] text-muted-foreground/60">No domain set</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Owner Contact */}
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-foreground font-medium">{b.ownerName}</span>
-                          <span className="text-[11px] text-muted-foreground font-mono">
+                      {/* 2. Owner Contact */}
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-foreground text-xs font-medium truncate">
+                            {b.ownerName || 'Store Owner'}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground truncate font-mono">
                             {b.ownerEmail}
                           </span>
                         </div>
                       </td>
 
-                      {/* Key & Security Column */}
-                      <td className="px-4 py-3">
+                      {/* 3. Publishable Key & Origin Telemetry (Clean Pill) */}
+                      <td className="px-3 py-3">
                         {hasKey ? (
-                          <div className="flex flex-col gap-1.5 items-start">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono text-[11px] font-semibold text-primary">
-                                {b.publishableKey?.slice(0, 16)}...
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Key string chip with copy button */}
+                            <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-low border border-border text-[11px] font-mono">
+                              <span className="text-muted-foreground font-semibold">
+                                {b.publishableKey?.slice(0, 10)}...{b.publishableKey?.slice(-4)}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleCopyKey(b.publishableKey!)}
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
-                                title="Copy full key"
+                                className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+                                title="Copy Key"
                               >
-                                {copiedKey ? <Check size={11} className="text-primary" /> : <Copy size={11} />}
+                                {copiedKey ? (
+                                  <Check size={11} className="text-primary" />
+                                ) : (
+                                  <Copy size={11} />
+                                )}
                               </button>
                             </div>
 
-                            {/* Anomaly / Security Pills */}
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {isSuspended ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                  KEY SUSPENDED
-                                </span>
-                              ) : isMultiSite ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-destructive/15 text-destructive border border-destructive/30">
-                                  <ShieldAlert size={10} /> MULTI-SITE ({b.anomalyFlags?.activeOriginsCount} SITES)
-                                </span>
-                              ) : hasMismatch ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                  <AlertTriangle size={10} /> DOMAIN MISMATCH
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-primary/10 text-primary border border-primary/20">
-                                  <ShieldCheck size={10} /> SECURE ({b.detectedOrigins?.length || 0} ORIGIN)
-                                </span>
-                              )}
+                            {/* Security Telemetry Badge */}
+                            {isSuspended ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                Suspended
+                              </span>
+                            ) : isMultiSite ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-destructive/15 text-destructive border border-destructive/30">
+                                <ShieldAlert size={10} />
+                                Multi-Site ({originCount})
+                              </span>
+                            ) : hasMismatch ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                <AlertTriangle size={10} />
+                                Mismatch
+                              </span>
+                            ) : originCount > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                                <ShieldCheck size={10} />
+                                Verified ({originCount})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface-high border border-border text-muted-foreground">
+                                No Traffic
+                              </span>
+                            )}
 
-                              <button
-                                type="button"
-                                onClick={() => setSelectedBusinessForKey(b)}
-                                className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors font-medium underline decoration-dotted ml-0.5"
-                              >
-                                Inspect
-                              </button>
-                            </div>
+                            {/* Quick Inspect Button */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBusinessForKey(b)}
+                              className="text-[11px] font-medium text-primary hover:underline transition-colors"
+                            >
+                              Inspect
+                            </button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <span className="text-[11px] font-mono opacity-60">
-                              No active key
-                            </span>
+                            <span className="text-[11px] italic">No active key</span>
                             {b.keyRevokedAt && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-destructive/10 text-destructive border border-destructive/20">
-                                REVOKED
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-destructive/10 text-destructive border border-destructive/20">
+                                Revoked
                               </span>
                             )}
                           </div>
                         )}
                       </td>
 
-                      {/* Store Status */}
-                      <td className="px-4 py-3">
+                      {/* 4. Store Status */}
+                      <td className="px-3 py-3 text-center">
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider',
+                            'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium',
                             b.status === 'active'
-                              ? 'bg-primary/15 text-primary border border-primary/30'
-                              : 'bg-destructive/15 text-destructive border border-destructive/30',
+                              ? 'bg-primary/10 text-primary border border-primary/25'
+                              : 'bg-destructive/10 text-destructive border border-destructive/25',
                           )}
                         >
-                          {b.status === 'active' ? (
-                            <CheckCircle2 size={11} />
-                          ) : (
-                            <XCircle size={11} />
-                          )}
-                          {b.status}
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              b.status === 'active' ? 'bg-primary animate-pulse' : 'bg-destructive',
+                            )}
+                          />
+                          <span className="capitalize">{b.status}</span>
                         </span>
                       </td>
 
-                      {/* Platform */}
-                      <td className="px-4 py-3">
-                        <span className="rounded-md bg-surface-high px-2 py-0.5 text-[10px] font-mono text-muted-foreground uppercase border border-border">
-                          {b.connectedPlatform || 'custom'}
-                        </span>
+                      {/* 5. Activity & Created (Paired) */}
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="font-semibold text-foreground text-xs flex items-center gap-1 tabular-nums">
+                            <MessageSquare size={11} className="text-muted-foreground" />
+                            {b.conversationsCount.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                            {b.createdAt
+                              ? new Date(b.createdAt).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                              : 'N/A'}
+                          </span>
+                        </div>
                       </td>
 
-                      {/* Conversations Count */}
-                      <td className="px-4 py-3 text-right font-serif font-semibold text-sm text-foreground tabular-nums">
-                        {b.conversationsCount.toLocaleString()}
-                      </td>
-
-                      {/* Joined Date */}
-                      <td className="px-4 py-3 text-muted-foreground font-mono text-[11px] tabular-nums">
-                        {b.createdAt
-                          ? new Date(b.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-                          : 'N/A'}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* Direct Inspect Button */}
+                      {/* 6. Action Buttons */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Inspect Store Details */}
                           <Link
                             href={`/admin/users/${b.id}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-high hover:bg-surface-bright text-xs font-semibold text-foreground border border-border transition-colors shadow-xs"
-                            title="Inspect Store & Telemetry"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+                            title="Inspect Store Details"
                           >
-                            <Eye size={12} />
-                            <span>Inspect</span>
+                            <Eye size={14} />
                           </Link>
 
-                          {/* Key Telemetry Button */}
+                          {/* Inspect Key Telemetry */}
                           {hasKey && (
                             <button
                               type="button"
                               onClick={() => setSelectedBusinessForKey(b)}
-                              className="p-1 rounded-lg border border-border bg-surface-high hover:bg-surface-bright text-foreground transition-colors shadow-xs"
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-surface-high transition-colors"
                               title="Inspect Key & Live Origins"
                             >
-                              <Key size={13} />
+                              <Key size={14} />
                             </button>
                           )}
 
-                          {/* Store Suspend / Activate Toggle */}
+                          {/* Suspend / Activate Store Toggle */}
                           <button
+                            type="button"
                             onClick={() => setConfirmToggleBusiness(b)}
                             disabled={updatingId === b.id}
                             className={cn(
-                              'rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50 shadow-xs border',
+                              'p-1.5 rounded-lg transition-colors disabled:opacity-50',
                               b.status === 'active'
-                                ? 'border-border bg-surface-high text-amber-400 hover:bg-surface-bright'
-                                : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/20',
+                                ? 'text-muted-foreground hover:text-amber-400 hover:bg-surface-high'
+                                : 'text-muted-foreground hover:text-primary hover:bg-surface-high',
                             )}
+                            title={b.status === 'active' ? 'Suspend Store' : 'Activate Store'}
                           >
                             {updatingId === b.id ? (
-                              <Loader2 size={12} className="animate-spin inline" />
+                              <Loader2 size={14} className="animate-spin" />
                             ) : b.status === 'active' ? (
-                              'Suspend'
+                              <PauseCircle size={14} />
                             ) : (
-                              'Activate'
+                              <PlayCircle size={14} />
                             )}
                           </button>
                         </div>
@@ -524,10 +605,10 @@ export function MerchantsTable({
         />
       </div>
 
-      {/* ── Key Telemetry & Moderation Modal ── */}
+      {/* ── High-Craft Key Intelligence & Origin Security Modal ── */}
       {selectedBusinessForKey && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
           onClick={() => {
             if (!keyActionLoading) {
               setSelectedBusinessForKey(null);
@@ -540,19 +621,30 @@ export function MerchantsTable({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-border pb-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Key size={18} className="text-primary" />
+            <div className="flex items-start justify-between gap-4 border-b border-border/80 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="size-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                  <Key size={17} />
+                </div>
+                <div className="space-y-1">
                   <h3 className="text-base font-heading font-bold text-foreground tracking-tight">
                     Key Intelligence & Origin Security
                   </h3>
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                    <span>
+                      Store: <strong className="text-foreground">{selectedBusinessForKey.name}</strong>
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      Domain:{' '}
+                      <span className="text-foreground font-medium">
+                        {selectedBusinessForKey.domain || 'Unregistered (N/A)'}
+                      </span>
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Store: <strong className="text-foreground">{selectedBusinessForKey.name}</strong> • Registered Domain:{' '}
-                  <span className="font-mono text-foreground">{selectedBusinessForKey.domain || 'None'}</span>
-                </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -560,7 +652,7 @@ export function MerchantsTable({
                   setShowRevokeConfirm(false);
                 }}
                 disabled={keyActionLoading}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-surface-high transition-colors"
+                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-surface-high transition-colors"
                 aria-label="Close"
               >
                 <X size={16} />
@@ -568,69 +660,100 @@ export function MerchantsTable({
             </div>
 
             {/* Key Information Box */}
-            <div className="p-3.5 rounded-xl bg-surface-low border border-border space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                  Publishable Key String
+            <div className="p-4 rounded-xl bg-surface-low border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Publishable Storefront Key
                 </span>
                 <span
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider',
-                    selectedBusinessForKey.publishableKey && selectedBusinessForKey.keyStatus !== 'suspended'
+                    'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
+                    selectedBusinessForKey.publishableKey &&
+                      selectedBusinessForKey.keyStatus !== 'suspended'
                       ? 'bg-primary/15 text-primary border border-primary/30'
-                      : 'bg-destructive/15 text-destructive border border-destructive/30',
+                      : selectedBusinessForKey.keyStatus === 'suspended'
+                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                        : 'bg-destructive/15 text-destructive border border-destructive/30',
                   )}
                 >
+                  <span
+                    className={cn(
+                      'size-1.5 rounded-full',
+                      selectedBusinessForKey.publishableKey &&
+                        selectedBusinessForKey.keyStatus !== 'suspended'
+                        ? 'bg-primary animate-pulse'
+                        : selectedBusinessForKey.keyStatus === 'suspended'
+                          ? 'bg-amber-400'
+                          : 'bg-destructive',
+                    )}
+                  />
                   {selectedBusinessForKey.publishableKey
                     ? selectedBusinessForKey.keyStatus?.toUpperCase() || 'ACTIVE'
-                    : 'NO KEY / REVOKED'}
+                    : 'REVOKED'}
                 </span>
               </div>
 
               {selectedBusinessForKey.publishableKey ? (
-                <div className="flex items-center gap-2 bg-surface-container border border-border rounded-lg p-2">
-                  <span className="font-mono text-xs text-primary font-bold break-all flex-1">
+                <div className="flex items-center justify-between gap-3 bg-surface-container border border-border rounded-xl px-3 py-2">
+                  <span className="font-mono text-xs text-primary font-medium select-all break-all flex-1">
                     {selectedBusinessForKey.publishableKey}
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon-sm"
                     onClick={() => handleCopyKey(selectedBusinessForKey.publishableKey!)}
-                    className="p-1.5 rounded bg-surface-high hover:bg-surface-bright text-foreground transition-colors shrink-0"
-                    title="Copy Key"
+                    title="Copy Key to Clipboard"
                   >
                     {copiedKey ? <Check size={13} className="text-primary" /> : <Copy size={13} />}
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic">
+                <p className="text-xs text-muted-foreground italic py-1">
                   This store has no active publishable key.
                 </p>
               )}
+
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Public key used by the storefront widget to establish secure WebSocket sessions.
+                Authorized origins are automatically monitored below.
+              </p>
             </div>
 
             {/* Detected Origins & Anomaly Section */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-heading font-bold text-foreground flex items-center gap-1.5">
-                  <Globe size={14} className="text-primary" /> Live Detected Origins & Connected Sites
+                <h4 className="text-xs font-heading font-semibold text-foreground flex items-center gap-1.5">
+                  <Globe size={14} className="text-primary" />
+                  Live Connected Storefronts & Origins
                 </h4>
                 <span className="text-[11px] text-muted-foreground font-mono">
                   {selectedBusinessForKey.detectedOrigins?.length || 0} active
                 </span>
               </div>
 
-              <div className="max-h-48 overflow-y-auto space-y-2 rounded-xl border border-border bg-surface-low p-2.5">
-                {(!selectedBusinessForKey.detectedOrigins ||
-                  selectedBusinessForKey.detectedOrigins.length === 0) ? (
-                  <p className="text-xs text-muted-foreground py-4 text-center">
-                    No web origins have connected using this key yet.
-                  </p>
+              <div className="max-h-52 overflow-y-auto space-y-2 rounded-xl border border-border bg-surface-low p-2.5">
+                {!selectedBusinessForKey.detectedOrigins ||
+                selectedBusinessForKey.detectedOrigins.length === 0 ? (
+                  /* High-craft Empty State */
+                  <div className="py-6 px-4 flex flex-col items-center justify-center text-center gap-2">
+                    <div className="size-10 rounded-full bg-surface-container border border-border flex items-center justify-center text-muted-foreground">
+                      <Radio size={18} className="text-muted-foreground/60" />
+                    </div>
+                    <p className="text-xs font-semibold text-foreground">
+                      No Web Origins Connected Yet
+                    </p>
+                    <p className="text-[11px] text-muted-foreground max-w-xs leading-relaxed">
+                      When a customer or merchant loads the widget on any website using this key,
+                      the connecting domain and live telemetry will automatically appear here.
+                    </p>
+                  </div>
                 ) : (
                   selectedBusinessForKey.detectedOrigins.map((orig, idx) => (
                     <div
                       key={idx}
                       className={cn(
-                        'p-2.5 rounded-lg border text-xs flex flex-col gap-1 transition-colors',
+                        'p-2.5 rounded-xl border text-xs flex flex-col gap-1.5 transition-colors',
                         orig.isMismatch
                           ? 'bg-amber-500/5 border-amber-500/30'
                           : 'bg-surface-container border-border',
@@ -638,22 +761,34 @@ export function MerchantsTable({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 font-mono text-foreground font-medium truncate">
-                          <Globe size={13} className={orig.isMismatch ? 'text-amber-400' : 'text-primary'} />
+                          <Globe
+                            size={13}
+                            className={orig.isMismatch ? 'text-amber-400' : 'text-primary'}
+                          />
                           <span className="truncate">{orig.origin}</span>
                         </div>
                         {orig.isMismatch ? (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
-                            Mismatch
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+                            Domain Mismatch
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-primary/10 text-primary border border-primary/20 shrink-0">
-                            Verified
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-primary/10 text-primary border border-primary/20 shrink-0">
+                            Verified Domain
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 font-mono tabular-nums">
-                        <span>Sessions: <strong className="text-foreground">{orig.sessionCount}</strong></span>
-                        <span>Last seen: {new Date(orig.lastSeen).toLocaleTimeString()} ({new Date(orig.lastSeen).toLocaleDateString()})</span>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 tabular-nums">
+                        <span>
+                          Sessions: <strong className="text-foreground">{orig.sessionCount}</strong>
+                        </span>
+                        <span>
+                          Last active:{' '}
+                          {new Date(orig.lastSeen).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          ({new Date(orig.lastSeen).toLocaleDateString()})
+                        </span>
                       </div>
                     </div>
                   ))
@@ -661,55 +796,55 @@ export function MerchantsTable({
               </div>
             </div>
 
-            {/* Revoke Confirmation Warning Prompt */}
+            {/* Revoke Confirmation Prompt */}
             {showRevokeConfirm && (
-              <div className="p-3.5 rounded-xl border border-destructive/40 bg-destructive/10 space-y-2 animate-in fade-in duration-150">
+              <div className="p-3.5 rounded-xl border border-destructive/40 bg-destructive/10 space-y-2.5 animate-in fade-in duration-150">
                 <p className="text-xs text-destructive font-semibold flex items-center gap-1.5">
                   <AlertTriangle size={14} /> Permanently revoke and destroy key?
                 </p>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  This will immediately disconnect and reject all live voice sessions and storefront widgets across all websites.
+                  This will immediately disconnect and reject all live voice sessions and storefront
+                  widgets using this key across all websites.
                 </p>
                 <div className="flex items-center justify-end gap-2 pt-1">
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setShowRevokeConfirm(false)}
                     disabled={keyActionLoading}
-                    className="px-3 py-1 text-xs font-medium rounded-lg bg-surface-low border border-border text-foreground hover:bg-surface-high"
                   >
                     Cancel
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     onClick={() => handleAdminRevokeKey(selectedBusinessForKey.id)}
                     disabled={keyActionLoading}
-                    className="px-3 py-1 text-xs font-semibold rounded-lg bg-destructive text-white hover:bg-destructive/90 flex items-center gap-1.5"
                   >
-                    {keyActionLoading && <Loader2 size={12} className="animate-spin" />}
+                    {keyActionLoading && <Loader2 size={12} className="animate-spin mr-1" />}
                     Confirm Revocation
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
 
-            {/* Modal Actions */}
+            {/* Modal Actions Footer */}
             {!showRevokeConfirm && (
-              <div className="flex items-center justify-between pt-2 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedBusinessForKey(null);
-                  }}
+              <div className="flex items-center justify-between pt-3 border-t border-border/80">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedBusinessForKey(null)}
                   disabled={keyActionLoading}
-                  className="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-surface-low border border-border text-foreground hover:bg-surface-high transition-colors"
                 >
                   Close
-                </button>
+                </Button>
 
                 {selectedBusinessForKey.publishableKey && (
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() =>
                         handleAdminToggleKeyStatus(
                           selectedBusinessForKey.id,
@@ -718,35 +853,34 @@ export function MerchantsTable({
                       }
                       disabled={keyActionLoading}
                       className={cn(
-                        'px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors flex items-center gap-1.5',
                         selectedBusinessForKey.keyStatus === 'suspended'
-                          ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/20'
-                          : 'border-border bg-surface-high text-amber-400 hover:bg-surface-bright',
+                          ? 'border-primary/40 text-primary hover:bg-primary/10'
+                          : 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border-amber-500/30',
                       )}
                     >
                       {keyActionLoading ? (
-                        <Loader2 size={13} className="animate-spin" />
+                        <Loader2 size={13} className="animate-spin mr-1" />
                       ) : selectedBusinessForKey.keyStatus === 'suspended' ? (
-                        <PlayCircle size={13} />
+                        <PlayCircle size={13} className="mr-1" />
                       ) : (
-                        <PauseCircle size={13} />
+                        <PauseCircle size={13} className="mr-1" />
                       )}
                       <span>
                         {selectedBusinessForKey.keyStatus === 'suspended'
                           ? 'Reactivate Key'
                           : 'Suspend Key'}
                       </span>
-                    </button>
+                    </Button>
 
-                    <button
-                      type="button"
+                    <Button
+                      variant="destructive"
+                      size="sm"
                       onClick={() => setShowRevokeConfirm(true)}
                       disabled={keyActionLoading}
-                      className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/25 transition-colors flex items-center gap-1.5"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={13} className="mr-1" />
                       <span>Revoke Key</span>
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
