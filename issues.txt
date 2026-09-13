@@ -2,3 +2,29 @@
 2. when ora replying lets say it 15 sec. it ask me middle of the conversation while it responding another query that " are u still there"
 3. then after asking i'm constantly talking but it cannot catching anything it then sayed good bye and terminate the session
 4. session overlapping. during one session initially it did not have it uses tools but constantly talking then finds it automatically turns to new findings.
+
+
+
+------------
+
+1. tool calling is very time consuming.
+2. greething each connection. only greething once when first time and then just welcome  again, pleasure to meet you again. or not greething at all, after first time. 
+2. in shopify: 
+ -> extream latency. 
+ -> reload issue 
+ -> order functionality should be added.
+ -> filling forms.
+ -> taking orders, and report on admin email if any order confirms. 
+
+
+ admin-panel: 
+live:-> ora should be more accurate
+admin routes is not accessible, through ora. 
+it's confidently lies sometimes. 
+
+
+overall: noice causing some latency. and session timeout issue. 
+ignoring the actual prompt for noices and treating actual voice as noice. 
+
+generally for conversation, it should not ask "are u still there" and if it does, and user is talking then it should not terminate the session.
+good bye should be netural.

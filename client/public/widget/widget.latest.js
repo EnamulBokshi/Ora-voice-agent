@@ -105,6 +105,11 @@
   /** Whether the gate is currently passing audio (drives the hysteresis branch). */
   let vadGateOpen = false;
   /**
+   * When the last `user_speaking` keep-alive was sent, so an open gate produces at most
+   * one per USER_SPEAKING_PING_MS rather than one per 64ms chunk.
+   */
+  let lastSpeakingPingAt = 0;
+  /**
    * Chunks remaining in the start-of-session room measurement. Armed by
    * resetVadState(), which startMicCapture() calls — the constant it is set from is
    * declared further down this scope, so it cannot be referenced here.
@@ -120,6 +125,7 @@
     lastSpeechAt = 0;
     prerollFrames.length = 0;
     vadNoiseFloor = 0.01;
+    lastSpeakingPingAt = 0;
     vadOpenStreak = 0;
     vadGateOpen = false;
     vadCalibrationLeft = VAD_CALIBRATION_CHUNKS;
@@ -1377,13 +1383,19 @@
    * a noisy room but never falls below it.
    *
    * This is the important guard. Without it, a quiet room drove the floor to ~0.002 and
-   * the open threshold to 0.002 * VAD_SNR_OPEN = 0.007 — far *more* sensitive than the
-   * fixed 0.018 it replaced. Intermittent noise (a TV in the next room, passing
-   * traffic) never raises the floor, because it decays during the gaps, so every burst
-   * cleared the low threshold and reached Gemini. The adaptive part still earns its
-   * place in loud rooms; it just must not make a quiet room worse.
+   * the open threshold to 0.002 * VAD_SNR_OPEN = 0.007. Intermittent noise (a TV in the
+   * next room, passing traffic) never raises the floor, because it decays during the
+   * gaps, so every burst cleared the low threshold and reached Gemini. The adaptive part
+   * still earns its place in loud rooms; it just must not make a quiet room worse.
+   *
+   * It was 0.03, set when autoGainControl was off. At that setting a built-in laptop or
+   * phone mic puts ordinary conversational speech BELOW the floor, so the gate never
+   * opened and the customer's voice never left the browser — the loudest of the four
+   * reasons a talking shopper was treated as silent. With AGC now normalising the input
+   * level, 0.012 admits a quiet voice while still sitting above the residual noise of a
+   * gain-corrected quiet room, and the SNR ratio carries the rest of the work.
    */
-  const VAD_MIN_OPEN = 0.03;
+  const VAD_MIN_OPEN = 0.012;
 
   /**
    * How far above the measured noise floor a chunk must sit to OPEN the gate
@@ -1400,12 +1412,17 @@
   const VAD_SNR_CLOSE = 2.0;
 
   /**
-   * Consecutive qualifying chunks needed before the gate opens (~256ms at 128ms per
-   * chunk). Rejects transients — a door, a keyboard, a cough — that clear the ratio
-   * for one chunk only. The pre-roll buffer is longer than this window, so the
-   * qualifying audio is replayed and no syllable is lost.
+   * Consecutive qualifying chunks needed before the gate opens. Rejects transients — a
+   * door, a keyboard, a cough — that clear the ratio for one chunk only. The pre-roll
+   * buffer is at least this long, so the qualifying audio is replayed and no syllable
+   * is lost.
+   *
+   * The worklet emits a chunk every ~64ms, not the ~128ms an earlier comment here
+   * assumed, so 2 chunks was a 128ms onset requirement rather than the ~256ms intended
+   * — weak enough that a keyboard clatter cleared it, opened the gate, and bought
+   * itself the whole hangover tail downstream. 3 chunks restores the intended window.
    */
-  const VAD_OPEN_CHUNKS = 2;
+  const VAD_OPEN_CHUNKS = 3;
 
   /**
    * Noise-floor tracking rates.
@@ -1439,6 +1456,23 @@
   const CLIENT_STANDBY_MS = 90000; // 90 seconds (1.5 minutes)
 
   /**
+   * Minimum gap between `user_speaking` keep-alives sent while the gate is open.
+   *
+   * The server cannot treat raw audio frames as proof of a live customer — they carry
+   * room noise, and would keep an abandoned session open indefinitely. It therefore
+   * infers activity from recognised speech only: Gemini's transcription, this widget's
+   * SpeechRecognition result, or a barge-in. All three can be absent while somebody is
+   * genuinely talking (transcription lags, SpeechRecognition does not exist in Firefox
+   * and only reports on a final phrase, and barge-in cannot fire because the uplink is
+   * gated shut while ORA speaks), and the session then closed on a talking customer.
+   *
+   * This is the fourth source, and unlike a raw frame it carries a judgement: it is only
+   * sent once the gate has cleared its full onset requirement, which is the same bar the
+   * uplink itself has to clear.
+   */
+  const USER_SPEAKING_PING_MS = 2000;
+
+  /**
    * How long the mic uplink keeps streaming after speech drops below the threshold.
    *
    * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (700ms): Gemini decides the
@@ -1451,8 +1485,12 @@
   /**
    * Frames retained while the gate is shut, replayed when it opens, so the attack of the
    * first word survives. At 1024 samples / 16 kHz each frame is ~64ms.
+   *
+   * Must stay >= VAD_OPEN_CHUNKS, otherwise the audio spent proving the onset is
+   * discarded rather than replayed and Gemini hears the utterance with its first
+   * syllable missing.
    */
-  const VAD_PREROLL_FRAMES = 3;
+  const VAD_PREROLL_FRAMES = 4;
 
   function cancelIdleTimer() {
     if (idleTimer) {
@@ -2247,11 +2285,31 @@
           speakingLevel = 0;
           isWaitingForAi = false;
           armIdleTimer();
+          notifyPlaybackDrained();
         }
       };
     } catch (e) {
       console.error('[ORA Widget] Audio playback error:', e);
     }
+  }
+
+  /**
+   * Tells the server ORA has finished speaking in the customer's ear.
+   *
+   * Gemini finishes generating a long answer several times faster than it can be played,
+   * and the server used to start its silence countdown at generation time — while this
+   * widget was still playing the answer and still holding the mic uplink shut. Most of
+   * the customer's allowance was spent before they could say a word, which is what made
+   * ORA break into its own answers to ask if they were still there.
+   *
+   * Sent only on a natural drain. A barge-in also empties the queue, but the server ends
+   * that turn from Gemini's own interrupt signal and is not waiting on us.
+   */
+  function notifyPlaybackDrained() {
+    if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
+    try {
+      geminiWs.send(JSON.stringify({ type: 'audio_playback_complete' }));
+    } catch (e) {}
   }
 
   // ─── Teardown / End Session ─────────────────────────────────────────────────
@@ -2408,10 +2466,16 @@
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
-        // autoGainControl works against us here: with nobody talking it amplifies
-        // quiet room noise up toward speech level, which is exactly what we are
-        // trying to keep out of the uplink.
-        autoGainControl: false,
+        // AGC on. It does raise quiet room noise toward speech level, which is why it
+        // was off — but the gate below keys off signal-to-NOISE, and AGC raises the
+        // measured noise floor by the same factor it raises the voice, so the ratio the
+        // gate actually tests is unchanged. What AGC does fix is the absolute level:
+        // without it a built-in laptop or phone mic delivers conversational speech at
+        // an amplitude low enough to sit under any fixed floor, so the hard minimum
+        // below rejected normal talking outright on exactly the devices most shoppers
+        // use. Normalising the level first is what lets that minimum be set low enough
+        // to admit a quiet voice without admitting a quiet room.
+        autoGainControl: true,
         // Browser-level voice isolation: suppresses everything that is not the
         // near-field speaker, which is the only mechanism here that can reject
         // *speech-like* distance noise — a television, or people talking nearby.
@@ -2492,6 +2556,13 @@
         lastSpeechAt = nowMs;
         cancelIdleTimer();
         clearSessionNotice(); // the customer is speaking — drop any "are you still there?"
+        // Tell the server a human is talking, whether or not anything transcribes it.
+        if (nowMs - lastSpeakingPingAt >= USER_SPEAKING_PING_MS) {
+          lastSpeakingPingAt = nowMs;
+          try {
+            geminiWs.send(JSON.stringify({ type: 'user_speaking' }));
+          } catch (e) {}
+        }
         if (userSpeechSilenceTimeout) {
           clearTimeout(userSpeechSilenceTimeout);
           userSpeechSilenceTimeout = null;
@@ -2766,6 +2837,9 @@
               voiceState = 'active';
               isWaitingForAi = false;
               armIdleTimer();
+              // Nothing left to play — the queue drained before the generation did, so
+              // the drain callback has already run and will not run again.
+              notifyPlaybackDrained();
             }
             // ORA has said where it is going; leave once the audio has played out.
             if (pendingNavigation) runPendingNavigation(false);
