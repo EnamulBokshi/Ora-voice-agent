@@ -138,6 +138,17 @@ export class GeminiLiveClient {
     }
   }
 
+  public async resumeAudio(): Promise<void> {
+    try {
+      if (this.outputAudioCtx && this.outputAudioCtx.state === 'suspended') {
+        await this.outputAudioCtx.resume();
+      }
+      if (this.inputAudioCtx && this.inputAudioCtx.state === 'suspended') {
+        await this.inputAudioCtx.resume();
+      }
+    } catch {}
+  }
+
   public async start(): Promise<void> {
     const {
       publishableKey,
@@ -450,7 +461,7 @@ export class GeminiLiveClient {
       }
 
       this.micStream = stream;
-      this.nextPlayTime = outputAudioCtx.currentTime;
+      this.nextPlayTime = Math.max(this.nextPlayTime, outputAudioCtx.currentTime);
 
       while (this.pendingAudioQueue.length > 0) {
         const queuedAudio = this.pendingAudioQueue.shift();

@@ -1238,11 +1238,11 @@ export class AdminService implements OnModuleInit {
         voiceModel:
           this.configService.get<string>('GEMINI_MODEL') ||
           process.env.GEMINI_MODEL ||
-          'models/gemini-2.5-flash-native-audio-latest',
+          'models/gemini-3.1-flash-live-preview',
         liveModel:
           this.configService.get<string>('GEMINI_LIVE_MODEL') ||
           process.env.GEMINI_LIVE_MODEL ||
-          'models/gemini-2.0-flash',
+          'models/gemini-3.1-flash-live-preview',
         embeddingModel:
           this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
           process.env.GEMINI_EMBEDDING_MODEL ||

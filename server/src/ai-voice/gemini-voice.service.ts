@@ -248,10 +248,13 @@ export class GeminiVoiceService {
     const host = 'generativelanguage.googleapis.com';
 
     // Default Live Bidi model identifier supported by Google AI Studio
-    const geminiModel =
+    const rawModel =
       this.configService.get<string>('GEMINI_MODEL') ||
+      this.configService.get<string>('GEMINI_LIVE_MODEL') ||
       process.env.GEMINI_MODEL ||
-      'models/gemini-2.5-flash-native-audio-latest';
+      process.env.GEMINI_LIVE_MODEL ||
+      'models/gemini-3.1-flash-live-preview';
+    const geminiModel = rawModel.startsWith('models/') ? rawModel : `models/${rawModel}`;
 
     this.logger.log(
       `[GeminiVoiceService] Connecting to Gemini Live API — model: ${geminiModel}, session: ${options.sessionId}`,
