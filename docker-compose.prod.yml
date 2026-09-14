@@ -78,7 +78,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required in production}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?ENCRYPTION_SECRET required in production}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY required}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-models/gemini-3.1-flash-live-preview}
       GEMINI_LIVE_MODEL: ${GEMINI_LIVE_MODEL:-models/gemini-3.1-flash-live-preview}
       GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-models/text-embedding-004}

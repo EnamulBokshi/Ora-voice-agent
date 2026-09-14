@@ -1121,7 +1121,15 @@ export class VoiceProxyGateway {
       this.logger.error(
         `[VoiceProxyGateway] Failed to establish Google session for ${sessionId}: ${err.message}`,
       );
-      sendToClient({ type: 'error', message: err.message || 'Failed to connect to AI service.' });
+      const isDepleted =
+        err.message?.includes('depleted') ||
+        err.message?.includes('credits') ||
+        err.message?.includes('quota') ||
+        err.message?.includes('1011');
+      const clientMessage = isDepleted
+        ? 'Voice service is currently undergoing provider capacity maintenance. Please try again shortly.'
+        : err.message || 'Failed to connect to AI service.';
+      sendToClient({ type: 'error', message: clientMessage });
       clientWs.close(1011, 'Session setup failed');
       return;
     }

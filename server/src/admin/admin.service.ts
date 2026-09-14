@@ -1250,7 +1250,9 @@ export class AdminService implements OnModuleInit {
         provider: 'Google Gemini Multimodal Live API',
         hasApiKey: !!(
           this.configService.get<string>('GEMINI_API_KEY') ||
-          process.env.GEMINI_API_KEY
+          this.configService.get<string>('GEMINI_API_KEYS') ||
+          process.env.GEMINI_API_KEY ||
+          process.env.GEMINI_API_KEYS
         ),
       },
     };
