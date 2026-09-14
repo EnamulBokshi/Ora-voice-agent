@@ -76,7 +76,10 @@ export class VoiceSessionController {
     try {
       const modelName =
         this.configService.get<string>('GEMINI_MODEL')?.replace('models/', '') ||
-        'gemini-2.0-flash';
+        this.configService.get<string>('GEMINI_LIVE_MODEL')?.replace('models/', '') ||
+        process.env.GEMINI_MODEL?.replace('models/', '') ||
+        process.env.GEMINI_LIVE_MODEL?.replace('models/', '') ||
+        'gemini-3.1-flash-live-preview';
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
       const payload = {

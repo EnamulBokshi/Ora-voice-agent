@@ -235,7 +235,8 @@ export class UsageTrackingService {
       activeModel: {
         voiceModel:
           process.env.GEMINI_MODEL ||
-          'models/gemini-2.5-flash-native-audio-latest',
+          process.env.GEMINI_LIVE_MODEL ||
+          'models/gemini-3.1-flash-live-preview',
         embeddingModel:
           process.env.GEMINI_EMBEDDING_MODEL ||
           'models/text-embedding-004',

@@ -871,7 +871,10 @@ export class VoiceProxyGateway {
         const compToks = session.completionTokens;
         const activeModelName =
           this.configService.get<string>('GEMINI_MODEL')?.replace('models/', '') ||
-          'gemini-2.0-flash';
+          this.configService.get<string>('GEMINI_LIVE_MODEL')?.replace('models/', '') ||
+          process.env.GEMINI_MODEL?.replace('models/', '') ||
+          process.env.GEMINI_LIVE_MODEL?.replace('models/', '') ||
+          'gemini-3.1-flash-live-preview';
 
         this.usageTrackingService
           .recordUsage({
