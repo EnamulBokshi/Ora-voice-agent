@@ -166,7 +166,12 @@ describe('ShopifyService staff role mapping', () => {
   it('claims the install-time owner record for the account owner', async () => {
     mockIdentify({ account_owner: true, id: 9000 });
 
-    const installOwner = {
+    const installOwner: {
+      _id: string;
+      role: AdminRole;
+      shopifyStaffUserId?: string;
+      save: jest.Mock;
+    } = {
       _id: 'owner-1',
       role: AdminRole.OWNER,
       save: jest.fn().mockResolvedValue(undefined),
