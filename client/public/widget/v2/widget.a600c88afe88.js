@@ -88,6 +88,21 @@
   let activeResumptionToken = null;
   let isWaitingForAi = false;
 
+  /**
+   * Fails a connect attempt that never gets an answer.
+   *
+   * The orb ignores taps while the state is 'connecting', and nothing else times a
+   * connect out. So a socket that opens and then stays silent — a server that abandons
+   * session setup without closing the socket — left the widget stuck on "Connecting to
+   * ORA…" and unable to start any further session until the page was reloaded. This is
+   * the only path back to a usable state.
+   *
+   * Longer than the server's own 10s Gemini setup timeout, so a server that is going to
+   * report a real error still gets the chance to.
+   */
+  const CONNECT_TIMEOUT_MS = 12000;
+  let connectWatchdog = null;
+
   // Server-driven session notices (idle_warning / session_warning / session_ended).
   // Without these the server's warnings were sent and silently discarded, so a session
   // could simply vanish with nothing shown to the customer.
@@ -104,6 +119,10 @@
   let vadOpenStreak = 0;
   /** Whether the gate is currently passing audio (drives the hysteresis branch). */
   let vadGateOpen = false;
+  /** Timestamp the gate last opened, for the energy-dropoff check below. */
+  let vadGateOpenedAt = 0;
+  /** Loudest RMS seen since the gate opened (see VAD_PEAK_DROP_RATIO). */
+  let vadUtterancePeak = 0;
   /**
    * When the last `user_speaking` keep-alive was sent, so an open gate produces at most
    * one per USER_SPEAKING_PING_MS rather than one per 64ms chunk.
@@ -128,6 +147,8 @@
     lastSpeakingPingAt = 0;
     vadOpenStreak = 0;
     vadGateOpen = false;
+    vadGateOpenedAt = 0;
+    vadUtterancePeak = 0;
     vadCalibrationLeft = VAD_CALIBRATION_CHUNKS;
   }
 
@@ -740,10 +761,35 @@
   function getOrCreateDeviceId() {
     var consentAllowed = isTrackingConsented();
 
-    // Fail-Closed: Any state other than strict true uses memory-only ephemeral ID
+    // Fail-Closed: Any state other than strict true uses an ephemeral ID.
+    //
+    // Held in sessionStorage rather than only in memory. A page navigation destroys the
+    // closure, so a memory-only id was reissued on every page load — and the server
+    // binds session adoption to the device id, so a non-consented visitor could never
+    // rebind to their own conversation and got a fresh one on every click.
+    //
+    // sessionStorage does not weaken the consent position: the id still dies with the
+    // tab, still never identifies the visitor across visits, and is still never written
+    // to localStorage. It survives exactly the navigation it needs to survive.
     if (consentAllowed !== true) {
       if (!window.__oraEphemeralDeviceId) {
-        window.__oraEphemeralDeviceId = 'ephem_' + Math.random().toString(36).substring(2, 15);
+        var storedEphemeral = null;
+        try {
+          storedEphemeral = window.sessionStorage
+            ? window.sessionStorage.getItem('ora_ephemeral_device_id')
+            : null;
+        } catch (e) {}
+
+        window.__oraEphemeralDeviceId =
+          storedEphemeral || 'ephem_' + Math.random().toString(36).substring(2, 15);
+
+        if (!storedEphemeral) {
+          try {
+            if (window.sessionStorage) {
+              window.sessionStorage.setItem('ora_ephemeral_device_id', window.__oraEphemeralDeviceId);
+            }
+          } catch (e) {}
+        }
       }
       return window.__oraEphemeralDeviceId;
     }
@@ -781,12 +827,14 @@
   /**
    * How stale a parked session may be and still be resumed.
    *
-   * Sized for a page load, not for a visit: it is the gap between the old page saving
-   * state on pagehide and the new page reading it back. A slow storefront render is
-   * seconds, so 45s is generous. Beyond it the customer has been sitting on a page and
-   * a fresh conversation is the honest interpretation.
+   * Must stay BELOW the server's SESSION_PARK_GRACE_MS (30s), which is how long the
+   * server holds the Gemini session with no browser attached. Claiming a resume the
+   * server can no longer honour is the worst of both outcomes: the reconnect suppresses
+   * the greeting because it believes it is mid-conversation, while the server has
+   * already torn the old session down and started a fresh one with no memory of it — so
+   * ORA comes back silent AND amnesiac. 25s leaves margin for a slow connect.
    */
-  var NAV_RESUME_WINDOW_MS = 45000;
+  var NAV_RESUME_WINDOW_MS = 25000;
 
   function readNavState() {
     try {
@@ -1560,7 +1608,16 @@
    */
   const VAD_FLOOR_DECAY = 0.20;
   const VAD_FLOOR_ATTACK_CLOSED = 0.05;
-  const VAD_FLOOR_ATTACK_OPEN = 0.01;
+  /**
+   * Rise rate while the gate is open. It was 0.01, a ~6.4s time constant at 64ms per
+   * frame, which is the reason a gate that opened just before the room got louder (mic
+   * AGC ramping back up after a loud syllable, a fan starting, ORA's own voice leaking
+   * from the speakers) could hold open for seconds: the close threshold is derived from
+   * the floor, so until the floor caught up with the new ambient level, ambient alone
+   * kept clearing it. 0.04 catches up in ~1.6s instead, still slow enough that the
+   * speaker's own voice does not raise the floor against them mid-sentence.
+   */
+  const VAD_FLOOR_ATTACK_OPEN = 0.04;
 
   /** Ceiling on the learned floor, so even a very loud room still admits speech. */
   const VAD_FLOOR_MAX = 0.02;
@@ -1596,12 +1653,47 @@
   /**
    * How long the mic uplink keeps streaming after speech drops below the threshold.
    *
-   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (700ms): Gemini decides the
+   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (250ms): Gemini decides the
    * customer's turn has ended by hearing silence, so we have to keep feeding it real
    * (quiet) audio for a moment after they stop. Cut the stream too early and Gemini waits
-   * for silence it never receives, delaying ORA's reply instead of speeding it up.
+   * for silence it never receives, hanging the turn instead of speeding it up. Nothing
+   * else closes the turn — no audioStreamEnd, no explicit activityEnd is ever sent.
+   *
+   * The two must move together, server first: lowering this below a server still set to
+   * 400ms hangs every turn.
+   *
+   * 480ms is measured, not derived. Replaying recorded speech into a live session and
+   * cutting the uplink after exactly this many milliseconds of quiet audio: 320ms hung
+   * the turn outright (no response in 12s, 2 of 2 runs), while 384, 448 and 512ms all
+   * answered on every run. Gemini needs roughly 130ms of audio beyond its own
+   * silenceDurationMs before it commits to the turn ending, so the margin here has to
+   * cover that plus ~64ms of frame quantisation, not just clock skew. 480ms keeps
+   * ~230ms over the server's 250ms, one frame clear of the nearest value proven to work.
    */
-  const VAD_HANGOVER_MS = 700;
+  const VAD_HANGOVER_MS = 480;
+
+  /**
+   * Energy-dropoff guard, the second half of the fix for a gate stuck open on noise.
+   *
+   * Raising VAD_FLOOR_ATTACK_OPEN shortens that stall but cannot remove it, because the
+   * floor still has to travel. This check is level-independent instead: once an
+   * utterance has run long enough to have a meaningful peak, a fall to a small fraction
+   * of that peak means the speaker stopped, whatever the room is doing. The hangover
+   * then starts on time rather than waiting for the adaptive threshold to catch up.
+   *
+   * The ratio is deliberately well below the quiet part of ordinary speech — syllable
+   * troughs and trailing consonants sit far nearer the peak than this — so it ends turns
+   * that are genuinely over without chopping words mid-sentence, which is the failure
+   * the close-threshold hysteresis exists to prevent.
+   */
+  const VAD_PEAK_DROP_RATIO = 0.35;
+
+  /**
+   * How long the gate must have been open before the dropoff check arms. Short bursts
+   * have no reliable peak to measure against, and the onset of a word legitimately sits
+   * far below the peak it is about to reach.
+   */
+  const VAD_PEAK_DROP_MIN_OPEN_MS = 800;
 
   /**
    * Frames retained while the gate is shut, replayed when it opens, so the attack of the
@@ -1618,6 +1710,32 @@
       clearTimeout(idleTimer);
       idleTimer = null;
     }
+  }
+
+  function cancelConnectWatchdog() {
+    if (connectWatchdog) {
+      clearTimeout(connectWatchdog);
+      connectWatchdog = null;
+    }
+  }
+
+  function armConnectWatchdog() {
+    cancelConnectWatchdog();
+    connectWatchdog = setTimeout(function () {
+      connectWatchdog = null;
+      if (voiceState !== 'connecting') return;
+      console.warn(
+        '[ORA Widget] No response from the server within ' +
+        (CONNECT_TIMEOUT_MS / 1000) + 's — abandoning the connect attempt.',
+      );
+      teardown();
+      // Set AFTER teardown, which resets the state to idle. The customer must be told
+      // why the attempt failed, and 'error' is a state handleOrbTap will start from —
+      // leaving it on 'connecting' is what made the widget unusable.
+      errorMsg = 'Connection timed out';
+      voiceState = 'error';
+      render();
+    }, CONNECT_TIMEOUT_MS);
   }
 
   /** Shows a transient server notice in the status chip. */
@@ -1922,7 +2040,7 @@
       } else if (voiceState === 'standby') {
         startVoiceSession(activeResumptionToken);
       } else {
-        teardown();
+        endSessionByUser();
       }
     }
 
@@ -1942,7 +2060,7 @@
 
     closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      teardown();
+      endSessionByUser();
     });
 
     function toggleEdit(enable) {
@@ -2573,9 +2691,29 @@
     } catch (e) {}
   }
 
+  /**
+   * Ends the conversation deliberately, because the customer asked for it.
+   *
+   * Closing the socket on its own is ambiguous: the server cannot tell a customer who
+   * is finished from a browser that is mid-navigation, so it assumes the recoverable
+   * case and parks the session, holding its Gemini socket for the whole grace window.
+   * Starting again inside that window opens a second Gemini session while the first is
+   * still held, and both count against the model's concurrent-session quota. Saying
+   * plainly that the conversation is over lets the server close it immediately.
+   */
+  function endSessionByUser() {
+    if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+      try {
+        geminiWs.send(JSON.stringify({ type: 'end_session', sessionId: sessionId }));
+      } catch (e) {}
+    }
+    teardown();
+  }
+
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
     cancelIdleTimer();
+    cancelConnectWatchdog();
     // The conversation is over, not paused. Leaving it parked would have the next page
     // load silently rejoin a dead session and wait for a greeting that never comes.
     clearNavState();
@@ -2631,6 +2769,7 @@
    */
   function disconnectVoice(nextState) {
     cancelIdleTimer();
+    cancelConnectWatchdog();
     // Standby keeps the conversation, so the parked state stays — but a page load must
     // not resume audio on its own for a session the customer had already let go quiet.
     // Guarded on an existing entry: this must never re-create one teardown() cleared.
@@ -2804,10 +2943,29 @@
         // Already passing audio: hold open on the lower threshold so quiet syllables
         // mid-sentence do not chop the stream.
         isSpeech = rms > closeAt;
+        // ...but a sustained collapse relative to this utterance's own peak ends the
+        // turn regardless of level, so a room that got louder after the gate opened
+        // cannot hold it open while the noise floor slowly catches up.
+        if (
+          isSpeech &&
+          nowMs - vadGateOpenedAt >= VAD_PEAK_DROP_MIN_OPEN_MS &&
+          rms < vadUtterancePeak * VAD_PEAK_DROP_RATIO
+        ) {
+          isSpeech = false;
+        }
       } else {
         // Shut: require a sustained onset, not a single loud chunk.
         vadOpenStreak = rms > openAt ? vadOpenStreak + 1 : 0;
         isSpeech = vadOpenStreak >= VAD_OPEN_CHUNKS;
+      }
+      if (isSpeech && !vadGateOpen) {
+        // Gate opening: start a fresh peak for this utterance.
+        vadGateOpenedAt = nowMs;
+        vadUtterancePeak = rms;
+      } else if (isSpeech) {
+        vadUtterancePeak = Math.max(vadUtterancePeak, rms);
+      } else {
+        vadUtterancePeak = 0;
       }
       vadGateOpen = isSpeech;
       if (isSpeech) vadOpenStreak = 0;
@@ -2925,6 +3083,7 @@
     } catch (e) {}
 
     voiceState = 'connecting';
+    armConnectWatchdog();
     errorMsg = '';
     setSessionNotice(null); // clear any prior session-ended reason
     liveUtterance = '';
@@ -2938,9 +3097,13 @@
 
     const micPromise = startMicCapture().catch((err) => {
       console.warn('[ORA Widget] Mic permission error:', err);
+      // Written AFTER teardown, which resets the state to idle. Set before it, the
+      // error state and its message were immediately overwritten and the customer was
+      // returned to a silent idle orb with no idea the microphone had been refused.
+      teardown();
       errorMsg = 'Mic permission required';
       voiceState = 'error';
-      teardown();
+      render();
       throw err;
     });
 
@@ -3021,6 +3184,7 @@
           const msg = JSON.parse(msgData);
 
           if (msg.type === 'setup_complete' || msg.type === 'session_resumed') {
+            cancelConnectWatchdog();
             voiceState = 'active';
             isWaitingForAi = false;
             audioQueueTime = 0;
@@ -3210,6 +3374,16 @@
       await micPromise;
     } catch (err) {
       console.error('[ORA Widget] Start failed:', err);
+      // Everything below the throw is skipped, so without this the state stays on
+      // 'connecting' — which handleOrbTap refuses to act on, leaving the widget dead
+      // until the page is reloaded. Anything that has already landed on a final state
+      // (the mic handler above, or a teardown from the socket) is left alone.
+      if (voiceState === 'connecting') {
+        teardown();
+        errorMsg = errorMsg || 'Could not start the session';
+        voiceState = 'error';
+        render();
+      }
     }
   }
 

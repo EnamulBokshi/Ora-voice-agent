@@ -57,16 +57,28 @@ const SPEECH_PREFIX_PADDING_MS = 200;
 /**
  * Silence required after speech before Gemini closes the customer's turn.
  *
- * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS, 700ms),
+ * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS, 480ms),
  * because the widget's noise gate stops sending audio once that hangover elapses. If
  * this were the longer of the two, Gemini would still be waiting for silence it can no
  * longer hear and the turn would hang instead of ORA replying.
  *
- * 400ms rather than 700ms: this is dead time on every single turn, paid before ORA can
- * even begin generating. Natural mid-sentence pauses are shorter than this, so it still
- * does not cut a speaker off mid-thought.
+ * Nothing else ends the turn: neither the widget nor this service ever sends
+ * audioStreamEnd or an explicit activityEnd, so Gemini's own detector hearing this much
+ * quiet audio is the only signal. That makes the ordering above a hard constraint, not a
+ * tuning preference — raising this value above the widget's hangover hangs every turn.
+ *
+ * 250ms rather than 400ms: this is dead time on every single turn, paid before ORA can
+ * even begin generating. Natural mid-sentence pauses are still longer than this in
+ * practice, so it does not cut a speaker off mid-thought.
+ *
+ * The gain is real but small. Replaying recorded speech into a live session, measured
+ * from the last speech sample to the first audio byte back: 250ms answers in ~1075ms and
+ * 1000ms in ~1485ms, so only about half of any reduction reaches the customer, and the
+ * curve flattens below 250ms — 100ms measured no faster. Expect roughly 80ms against the
+ * old 400ms, not the ~150ms a linear reading of this number would suggest. The remaining
+ * ~1s is Gemini's own end-of-speech decision plus generation and is not tunable here.
  */
-const SPEECH_SILENCE_DURATION_MS = 400;
+const SPEECH_SILENCE_DURATION_MS = 250;
 
 /**
  * Hang guard for a single tool call.
