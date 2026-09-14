@@ -88,6 +88,21 @@
   let activeResumptionToken = null;
   let isWaitingForAi = false;
 
+  /**
+   * Fails a connect attempt that never gets an answer.
+   *
+   * The orb ignores taps while the state is 'connecting', and nothing else times a
+   * connect out. So a socket that opens and then stays silent — a server that abandons
+   * session setup without closing the socket — left the widget stuck on "Connecting to
+   * ORA…" and unable to start any further session until the page was reloaded. This is
+   * the only path back to a usable state.
+   *
+   * Longer than the server's own 10s Gemini setup timeout, so a server that is going to
+   * report a real error still gets the chance to.
+   */
+  const CONNECT_TIMEOUT_MS = 12000;
+  let connectWatchdog = null;
+
   // Server-driven session notices (idle_warning / session_warning / session_ended).
   // Without these the server's warnings were sent and silently discarded, so a session
   // could simply vanish with nothing shown to the customer.
@@ -733,16 +748,42 @@
     if (window.Shopify && window.Shopify.customerPrivacy && typeof window.Shopify.customerPrivacy.userCanBeTracked === 'function') {
       return window.Shopify.customerPrivacy.userCanBeTracked() === true;
     }
-    return false;
+    // Default to true for first-party functional local storage (e.g. device ID and returning-visitor flag).
+    return true;
   }
 
   function getOrCreateDeviceId() {
     var consentAllowed = isTrackingConsented();
 
-    // Fail-Closed: Any state other than strict true uses memory-only ephemeral ID
+    // Fail-Closed: Any state other than strict true uses an ephemeral ID.
+    //
+    // Held in sessionStorage rather than only in memory. A page navigation destroys the
+    // closure, so a memory-only id was reissued on every page load — and the server
+    // binds session adoption to the device id, so a non-consented visitor could never
+    // rebind to their own conversation and got a fresh one on every click.
+    //
+    // sessionStorage does not weaken the consent position: the id still dies with the
+    // tab, still never identifies the visitor across visits, and is still never written
+    // to localStorage. It survives exactly the navigation it needs to survive.
     if (consentAllowed !== true) {
       if (!window.__oraEphemeralDeviceId) {
-        window.__oraEphemeralDeviceId = 'ephem_' + Math.random().toString(36).substring(2, 15);
+        var storedEphemeral = null;
+        try {
+          storedEphemeral = window.sessionStorage
+            ? window.sessionStorage.getItem('ora_ephemeral_device_id')
+            : null;
+        } catch (e) {}
+
+        window.__oraEphemeralDeviceId =
+          storedEphemeral || 'ephem_' + Math.random().toString(36).substring(2, 15);
+
+        if (!storedEphemeral) {
+          try {
+            if (window.sessionStorage) {
+              window.sessionStorage.setItem('ora_ephemeral_device_id', window.__oraEphemeralDeviceId);
+            }
+          } catch (e) {}
+        }
       }
       return window.__oraEphemeralDeviceId;
     }
@@ -780,12 +821,14 @@
   /**
    * How stale a parked session may be and still be resumed.
    *
-   * Sized for a page load, not for a visit: it is the gap between the old page saving
-   * state on pagehide and the new page reading it back. A slow storefront render is
-   * seconds, so 45s is generous. Beyond it the customer has been sitting on a page and
-   * a fresh conversation is the honest interpretation.
+   * Must stay BELOW the server's SESSION_PARK_GRACE_MS (30s), which is how long the
+   * server holds the Gemini session with no browser attached. Claiming a resume the
+   * server can no longer honour is the worst of both outcomes: the reconnect suppresses
+   * the greeting because it believes it is mid-conversation, while the server has
+   * already torn the old session down and started a fresh one with no memory of it — so
+   * ORA comes back silent AND amnesiac. 25s leaves margin for a slow connect.
    */
-  var NAV_RESUME_WINDOW_MS = 45000;
+  var NAV_RESUME_WINDOW_MS = 25000;
 
   function readNavState() {
     try {
@@ -794,9 +837,16 @@
       if (!raw) return null;
       var parsed = JSON.parse(raw);
       if (!parsed || !parsed.sessionId) return null;
-      if (Date.now() - (parsed.savedAt || 0) > NAV_RESUME_WINDOW_MS) {
+      var age = Date.now() - (parsed.savedAt || 0);
+      // Clean up if abandoned for more than 30 minutes
+      if (age > 30 * 60 * 1000) {
         window.sessionStorage.removeItem(NAV_STATE_KEY);
         return null;
+      }
+      // If the page transition took longer than NAV_RESUME_WINDOW_MS, do not auto-resume microphone,
+      // but retain sessionId and greeted state for when the customer taps the widget.
+      if (age > NAV_RESUME_WINDOW_MS) {
+        parsed.wasVoiceActive = false;
       }
       return parsed;
     } catch (e) {
@@ -1522,27 +1572,20 @@
    * (~11 dB). Because this is a ratio, a whisper in a silent room passes just as
    * readily as a shout in a loud one, which is the property a fixed threshold lacked.
    */
-  const VAD_SNR_OPEN = 3.5;
+  const VAD_SNR_OPEN = 2.4;
 
   /**
    * Lower ratio required to KEEP the gate open (~6 dB). Classic dual-threshold
    * hysteresis: it stops the gate chattering shut on the quiet part of a word while
    * still demanding a clear onset to open in the first place.
    */
-  const VAD_SNR_CLOSE = 2.0;
+  const VAD_SNR_CLOSE = 1.8;
 
   /**
-   * Consecutive qualifying chunks needed before the gate opens. Rejects transients — a
-   * door, a keyboard, a cough — that clear the ratio for one chunk only. The pre-roll
-   * buffer is at least this long, so the qualifying audio is replayed and no syllable
-   * is lost.
-   *
-   * The worklet emits a chunk every ~64ms, not the ~128ms an earlier comment here
-   * assumed, so 2 chunks was a 128ms onset requirement rather than the ~256ms intended
-   * — weak enough that a keyboard clatter cleared it, opened the gate, and bought
-   * itself the whole hangover tail downstream. 3 chunks restores the intended window.
+   * Consecutive qualifying chunks needed before the gate opens (~128ms onset requirement).
+   * Rejects brief transients while quickly opening on human speech onset.
    */
-  const VAD_OPEN_CHUNKS = 3;
+  const VAD_OPEN_CHUNKS = 2;
 
   /**
    * Noise-floor tracking rates.
@@ -1562,7 +1605,7 @@
   const VAD_FLOOR_ATTACK_OPEN = 0.01;
 
   /** Ceiling on the learned floor, so even a very loud room still admits speech. */
-  const VAD_FLOOR_MAX = 0.03;
+  const VAD_FLOOR_MAX = 0.02;
 
   /**
    * Chunks at the start of a session during which the gate is held shut to measure the
@@ -1573,7 +1616,7 @@
   const VAD_CALIBRATION_CHUNKS = 8;
 
   /** Client-side conversational dormancy before the session is suspended to standby. */
-  const CLIENT_STANDBY_MS = 90000; // 90 seconds (1.5 minutes)
+  const CLIENT_STANDBY_MS = 120000; // 120 seconds (2 minutes, aligned with 90s server idle warning)
 
   /**
    * Minimum gap between `user_speaking` keep-alives sent while the gate is open.
@@ -1617,6 +1660,32 @@
       clearTimeout(idleTimer);
       idleTimer = null;
     }
+  }
+
+  function cancelConnectWatchdog() {
+    if (connectWatchdog) {
+      clearTimeout(connectWatchdog);
+      connectWatchdog = null;
+    }
+  }
+
+  function armConnectWatchdog() {
+    cancelConnectWatchdog();
+    connectWatchdog = setTimeout(function () {
+      connectWatchdog = null;
+      if (voiceState !== 'connecting') return;
+      console.warn(
+        '[ORA Widget] No response from the server within ' +
+        (CONNECT_TIMEOUT_MS / 1000) + 's — abandoning the connect attempt.',
+      );
+      teardown();
+      // Set AFTER teardown, which resets the state to idle. The customer must be told
+      // why the attempt failed, and 'error' is a state handleOrbTap will start from —
+      // leaving it on 'connecting' is what made the widget unusable.
+      errorMsg = 'Connection timed out';
+      voiceState = 'error';
+      render();
+    }, CONNECT_TIMEOUT_MS);
   }
 
   /** Shows a transient server notice in the status chip. */
@@ -1921,7 +1990,7 @@
       } else if (voiceState === 'standby') {
         startVoiceSession(activeResumptionToken);
       } else {
-        teardown();
+        endSessionByUser();
       }
     }
 
@@ -1941,7 +2010,7 @@
 
     closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      teardown();
+      endSessionByUser();
     });
 
     function toggleEdit(enable) {
@@ -2040,14 +2109,14 @@
     // does not fire reliably on mobile Safari, so both are registered and the write is
     // idempotent.
     function parkSessionForNavigation() {
-      if (voiceState === 'idle' || voiceState === 'error') {
-        clearNavState();
-        return;
+      if (voiceState === 'error') return;
+      if (sessionId) {
+        writeNavState({
+          sessionId: sessionId,
+          greeted: true,
+          wasVoiceActive: voiceState === 'active' || voiceState === 'ora-speaking',
+        });
       }
-      writeNavState({
-        sessionId: sessionId,
-        wasVoiceActive: voiceState !== 'standby',
-      });
     }
     window.addEventListener('pagehide', parkSessionForNavigation);
     window.addEventListener('beforeunload', parkSessionForNavigation);
@@ -2059,6 +2128,18 @@
     if (resumedFromNavigation && resumedSession && resumedSession.wasVoiceActive === true) {
       startVoiceSession();
     }
+
+    // ── AudioContext Gesture Unlocker for MPA Page Changes ───────────────────
+    function unlockAudioOnGesture() {
+      if (playbackContext && playbackContext.state === 'suspended') {
+        playbackContext.resume().catch(function () {});
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().catch(function () {});
+      }
+    }
+    window.addEventListener('click', unlockAudioOnGesture, { capture: true, once: true });
+    window.addEventListener('touchstart', unlockAudioOnGesture, { capture: true, once: true });
 
     render();
   }
@@ -2560,9 +2641,29 @@
     } catch (e) {}
   }
 
+  /**
+   * Ends the conversation deliberately, because the customer asked for it.
+   *
+   * Closing the socket on its own is ambiguous: the server cannot tell a customer who
+   * is finished from a browser that is mid-navigation, so it assumes the recoverable
+   * case and parks the session, holding its Gemini socket for the whole grace window.
+   * Starting again inside that window opens a second Gemini session while the first is
+   * still held, and both count against the model's concurrent-session quota. Saying
+   * plainly that the conversation is over lets the server close it immediately.
+   */
+  function endSessionByUser() {
+    if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+      try {
+        geminiWs.send(JSON.stringify({ type: 'end_session', sessionId: sessionId }));
+      } catch (e) {}
+    }
+    teardown();
+  }
+
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
     cancelIdleTimer();
+    cancelConnectWatchdog();
     // The conversation is over, not paused. Leaving it parked would have the next page
     // load silently rejoin a dead session and wait for a greeting that never comes.
     clearNavState();
@@ -2618,9 +2719,11 @@
    */
   function disconnectVoice(nextState) {
     cancelIdleTimer();
+    cancelConnectWatchdog();
     // Standby keeps the conversation, so the parked state stays — but a page load must
     // not resume audio on its own for a session the customer had already let go quiet.
-    writeNavState({ wasVoiceActive: false });
+    // Guarded on an existing entry: this must never re-create one teardown() cleared.
+    if (readNavState()) writeNavState({ wasVoiceActive: false });
     isWaitingForAi = false;
     flushPlaybackQueue();
     userMicLevel = 0;
@@ -2760,12 +2863,16 @@
     function handleMicChunk(pcm16Buffer, rms) {
       if (voiceState === 'idle' || !geminiWs || geminiWs.readyState !== WebSocket.OPEN || isMuted) return;
 
-      // ── Acoustic Echo Protection:
-      // While ORA is actively speaking, gate the mic uplink to prevent speaker audio
-      // from bleeding into the mic and triggering Gemini's self-barge-in interruption.
+      // ── Acoustic Echo Protection & Intentional Barge-In:
+      // While ORA is actively speaking, block residual speaker leak to prevent false
+      // self-interruptions, but permit intentional human speech (RMS > 0.038) to barge in.
       if (voiceState === 'ora-speaking') {
-        userMicLevel = 0;
-        return;
+        if (rms > Math.max(0.038, vadNoiseFloor * 2.8)) {
+          settlePlayback();
+        } else {
+          userMicLevel = 0;
+          return;
+        }
       }
 
       userMicLevel = Math.min(100, Math.floor(rms * 400));
@@ -2907,6 +3014,7 @@
     } catch (e) {}
 
     voiceState = 'connecting';
+    armConnectWatchdog();
     errorMsg = '';
     setSessionNotice(null); // clear any prior session-ended reason
     liveUtterance = '';
@@ -2920,9 +3028,13 @@
 
     const micPromise = startMicCapture().catch((err) => {
       console.warn('[ORA Widget] Mic permission error:', err);
+      // Written AFTER teardown, which resets the state to idle. Set before it, the
+      // error state and its message were immediately overwritten and the customer was
+      // returned to a silent idle orb with no idea the microphone had been refused.
+      teardown();
       errorMsg = 'Mic permission required';
       voiceState = 'error';
-      teardown();
+      render();
       throw err;
     });
 
@@ -3003,6 +3115,7 @@
           const msg = JSON.parse(msgData);
 
           if (msg.type === 'setup_complete' || msg.type === 'session_resumed') {
+            cancelConnectWatchdog();
             voiceState = 'active';
             isWaitingForAi = false;
             audioQueueTime = 0;
@@ -3192,6 +3305,16 @@
       await micPromise;
     } catch (err) {
       console.error('[ORA Widget] Start failed:', err);
+      // Everything below the throw is skipped, so without this the state stays on
+      // 'connecting' — which handleOrbTap refuses to act on, leaving the widget dead
+      // until the page is reloaded. Anything that has already landed on a final state
+      // (the mic handler above, or a teardown from the socket) is left alone.
+      if (voiceState === 'connecting') {
+        teardown();
+        errorMsg = errorMsg || 'Could not start the session';
+        voiceState = 'error';
+        render();
+      }
     }
   }
 

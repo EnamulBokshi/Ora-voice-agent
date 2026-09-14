@@ -88,6 +88,21 @@
   let activeResumptionToken = null;
   let isWaitingForAi = false;
 
+  /**
+   * Fails a connect attempt that never gets an answer.
+   *
+   * The orb ignores taps while the state is 'connecting', and nothing else times a
+   * connect out. So a socket that opens and then stays silent — a server that abandons
+   * session setup without closing the socket — left the widget stuck on "Connecting to
+   * ORA…" and unable to start any further session until the page was reloaded. This is
+   * the only path back to a usable state.
+   *
+   * Longer than the server's own 10s Gemini setup timeout, so a server that is going to
+   * report a real error still gets the chance to.
+   */
+  const CONNECT_TIMEOUT_MS = 12000;
+  let connectWatchdog = null;
+
   // Server-driven session notices (idle_warning / session_warning / session_ended).
   // Without these the server's warnings were sent and silently discarded, so a session
   // could simply vanish with nothing shown to the customer.
@@ -1647,6 +1662,32 @@
     }
   }
 
+  function cancelConnectWatchdog() {
+    if (connectWatchdog) {
+      clearTimeout(connectWatchdog);
+      connectWatchdog = null;
+    }
+  }
+
+  function armConnectWatchdog() {
+    cancelConnectWatchdog();
+    connectWatchdog = setTimeout(function () {
+      connectWatchdog = null;
+      if (voiceState !== 'connecting') return;
+      console.warn(
+        '[ORA Widget] No response from the server within ' +
+        (CONNECT_TIMEOUT_MS / 1000) + 's — abandoning the connect attempt.',
+      );
+      teardown();
+      // Set AFTER teardown, which resets the state to idle. The customer must be told
+      // why the attempt failed, and 'error' is a state handleOrbTap will start from —
+      // leaving it on 'connecting' is what made the widget unusable.
+      errorMsg = 'Connection timed out';
+      voiceState = 'error';
+      render();
+    }, CONNECT_TIMEOUT_MS);
+  }
+
   /** Shows a transient server notice in the status chip. */
   function setSessionNotice(text, autoClearMs) {
     sessionNotice = text || null;
@@ -1949,7 +1990,7 @@
       } else if (voiceState === 'standby') {
         startVoiceSession(activeResumptionToken);
       } else {
-        teardown();
+        endSessionByUser();
       }
     }
 
@@ -1969,7 +2010,7 @@
 
     closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      teardown();
+      endSessionByUser();
     });
 
     function toggleEdit(enable) {
@@ -2600,9 +2641,29 @@
     } catch (e) {}
   }
 
+  /**
+   * Ends the conversation deliberately, because the customer asked for it.
+   *
+   * Closing the socket on its own is ambiguous: the server cannot tell a customer who
+   * is finished from a browser that is mid-navigation, so it assumes the recoverable
+   * case and parks the session, holding its Gemini socket for the whole grace window.
+   * Starting again inside that window opens a second Gemini session while the first is
+   * still held, and both count against the model's concurrent-session quota. Saying
+   * plainly that the conversation is over lets the server close it immediately.
+   */
+  function endSessionByUser() {
+    if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+      try {
+        geminiWs.send(JSON.stringify({ type: 'end_session', sessionId: sessionId }));
+      } catch (e) {}
+    }
+    teardown();
+  }
+
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
     cancelIdleTimer();
+    cancelConnectWatchdog();
     // The conversation is over, not paused. Leaving it parked would have the next page
     // load silently rejoin a dead session and wait for a greeting that never comes.
     clearNavState();
@@ -2658,6 +2719,7 @@
    */
   function disconnectVoice(nextState) {
     cancelIdleTimer();
+    cancelConnectWatchdog();
     // Standby keeps the conversation, so the parked state stays — but a page load must
     // not resume audio on its own for a session the customer had already let go quiet.
     // Guarded on an existing entry: this must never re-create one teardown() cleared.
@@ -2952,6 +3014,7 @@
     } catch (e) {}
 
     voiceState = 'connecting';
+    armConnectWatchdog();
     errorMsg = '';
     setSessionNotice(null); // clear any prior session-ended reason
     liveUtterance = '';
@@ -2965,9 +3028,13 @@
 
     const micPromise = startMicCapture().catch((err) => {
       console.warn('[ORA Widget] Mic permission error:', err);
+      // Written AFTER teardown, which resets the state to idle. Set before it, the
+      // error state and its message were immediately overwritten and the customer was
+      // returned to a silent idle orb with no idea the microphone had been refused.
+      teardown();
       errorMsg = 'Mic permission required';
       voiceState = 'error';
-      teardown();
+      render();
       throw err;
     });
 
@@ -3048,6 +3115,7 @@
           const msg = JSON.parse(msgData);
 
           if (msg.type === 'setup_complete' || msg.type === 'session_resumed') {
+            cancelConnectWatchdog();
             voiceState = 'active';
             isWaitingForAi = false;
             audioQueueTime = 0;
@@ -3237,6 +3305,16 @@
       await micPromise;
     } catch (err) {
       console.error('[ORA Widget] Start failed:', err);
+      // Everything below the throw is skipped, so without this the state stays on
+      // 'connecting' — which handleOrbTap refuses to act on, leaving the widget dead
+      // until the page is reloaded. Anything that has already landed on a final state
+      // (the mic handler above, or a teardown from the socket) is left alone.
+      if (voiceState === 'connecting') {
+        teardown();
+        errorMsg = errorMsg || 'Could not start the session';
+        voiceState = 'error';
+        render();
+      }
     }
   }
 

@@ -223,6 +223,7 @@ export class GeminiLiveClient {
 
           switch (message.type) {
             case 'setup_complete':
+            case 'session_resumed':
               this.setupConfirmed = true;
               this.isAgentSpeaking = false;
               this.recordActivity();
@@ -673,6 +674,11 @@ export class GeminiLiveClient {
     }
 
     if (this.ws) {
+      try {
+        if (!silent && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ type: 'end_session' }));
+        }
+      } catch {}
       try { this.ws.close(); } catch {}
       this.ws = null;
     }

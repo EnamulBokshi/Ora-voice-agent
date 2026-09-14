@@ -606,15 +606,10 @@ export function FloatingOrbWidget() {
     setLiveSpeaker(null);
     setIsMuted(false);
 
-    let sessionId: string;
+    const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     try {
-      sessionId =
-        sessionStorage.getItem('ora_landing_session_id') ||
-        `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
       sessionStorage.setItem('ora_landing_session_id', sessionId);
-    } catch {
-      sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
-    }
+    } catch {}
     const apiBaseUrl = getApiBase();
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     try {
@@ -635,8 +630,14 @@ export function FloatingOrbWidget() {
           else if (status === 'thinking') setVoiceState('thinking');
           else if (status === 'listening' || status === 'connected') setVoiceState('active');
           else if (status === 'speaking') setVoiceState('ora-speaking');
-          else if (status === 'error') setVoiceState('error');
-          else if (status === 'idle') setVoiceState('idle');
+          else if (status === 'error') {
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            setVoiceState('error');
+          }
+          else if (status === 'idle') {
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            setVoiceState('idle');
+          }
         },
         onTranscript: (sender, text) => {
           if (!isMountedRef.current) return;
@@ -734,6 +735,9 @@ export function FloatingOrbWidget() {
   }, [handleStart]);
 
   const handleStop = useCallback(() => {
+    try {
+      sessionStorage.removeItem('ora_landing_session_id');
+    } catch {}
     liveClientRef.current?.stop();
     setVoiceState('idle');
     setLiveUtterance('');

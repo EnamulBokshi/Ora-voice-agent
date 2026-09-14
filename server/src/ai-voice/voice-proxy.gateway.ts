@@ -301,16 +301,72 @@ export class VoiceProxyGateway {
     });
 
     this.wss.on('connection', (clientWs: WebSocket, request: http.IncomingMessage) => {
-      // Fire-and-forget — errors are caught internally
-      this.handleConnection(clientWs, request).catch((err) => {
-        this.logger.error(`[VoiceProxyGateway] Unhandled connection error: ${err.message}`);
-      });
+      // Fire-and-forget — handleConnection reports its own failures and never rejects.
+      void this.handleConnection(clientWs, request);
     });
 
     this.logger.log('[VoiceProxyGateway] ✅ WebSocket proxy mounted at /ws/voice');
   }
 
+  /**
+   * Establishes one customer connection, and guarantees an answer either way.
+   *
+   * Every step of establishSession awaits something that can fail — Mongo lookups, the
+   * Redis session binding, customer resolution, the Gemini connect. A rejection used to
+   * be logged and nothing else, which left the browser holding an open socket that
+   * would never say anything. The widget has no way to tell a server that is still
+   * working from one that has given up, so it sat on "Connecting…" indefinitely and,
+   * because its orb ignores taps in that state, could not be used again without a page
+   * reload. Whatever goes wrong, the customer is told and the socket is closed.
+   */
   private async handleConnection(
+    clientWs: WebSocket,
+    request: http.IncomingMessage,
+  ): Promise<void> {
+    try {
+      await this.establishSession(clientWs, request);
+    } catch (err: any) {
+      this.logger.error(
+        `[VoiceProxyGateway] Connection setup failed: ${err?.message}`,
+        err?.stack,
+      );
+      try {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(
+            JSON.stringify({
+              type: 'error',
+              message: 'Voice session could not be started. Please try again.',
+            }),
+          );
+          clientWs.close(1011, 'Connection setup failed');
+        }
+      } catch {}
+
+      // A throw late in setup can land after the session is already registered. Left
+      // behind it would hold a Gemini socket against the concurrency quota with no
+      // browser attached and, if the throw came from starting its timers, nothing that
+      // would ever reclaim it.
+      try {
+        const failedSessionId = url.parse(request.url || '', true).query.sessionId as string;
+        const orphan = failedSessionId ? this.sessions.get(failedSessionId) : undefined;
+        if (orphan && orphan.clientWs === clientWs) {
+          orphan.closed = true;
+          if (orphan.parkTimer) {
+            clearTimeout(orphan.parkTimer);
+            orphan.parkTimer = null;
+          }
+          orphan.sessionControls?.closeSession();
+          this.sessions.delete(failedSessionId);
+          this.sessionTimerService.clearTimer(failedSessionId);
+          this.logger.warn(
+            `[VoiceProxyGateway] Discarded partially built session ${failedSessionId}.`,
+          );
+        }
+      } catch {}
+    }
+  }
+
+  private async establishSession(
     clientWs: WebSocket,
     request: http.IncomingMessage,
   ): Promise<void> {
@@ -333,6 +389,39 @@ export class VoiceProxyGateway {
       if (target && target.readyState === WebSocket.OPEN) {
         target.send(JSON.stringify(data));
       }
+    };
+
+    /**
+     * True once the browser has gone away, whether or not a session exists yet.
+     *
+     * Setting up a session is a long sequence of awaits, and the real close and error
+     * handlers are not registered until the end of it, so for the whole of that window
+     * the socket had nothing listening. A customer who gave up and navigated away mid
+     * setup was therefore never noticed: the session was built anyway, registered, and
+     * left holding a Gemini socket against the concurrency quota until its idle timer
+     * eventually expired. An 'error' emitted in that window was worse — with no
+     * listener, Node's EventEmitter throws it rather than delivering it.
+     *
+     * These are provisional: attachClient replaces them with the real handlers, which
+     * park rather than abandon.
+     */
+    let clientGone = false;
+    const onSetupClose = () => {
+      clientGone = true;
+    };
+    const onSetupError = (err: Error) => {
+      clientGone = true;
+      this.logger.warn(
+        `[VoiceProxyGateway] Client socket error during setup for session ${sessionId}: ${err.message}`,
+      );
+    };
+    clientWs.on('close', onSetupClose);
+    clientWs.on('error', onSetupError);
+
+    /** Hands the socket over from the provisional handlers to the session's own. */
+    const releaseSetupHandlers = () => {
+      clientWs.off('close', onSetupClose);
+      clientWs.off('error', onSetupError);
     };
 
     // ── Validate required params ──────────────────────────────────────────────
@@ -584,6 +673,7 @@ export class VoiceProxyGateway {
       }
       existingSession.isParked = false;
       existingSession.clientWs = clientWs;
+      releaseSetupHandlers();
       existingSession.attachClient(clientWs);
 
       this.logger.log(
@@ -801,6 +891,9 @@ export class VoiceProxyGateway {
 
       this.sessions.delete(sessionId);
       this.sessionTimerService.clearTimer(sessionId);
+      try {
+        this.redisService.getClient().del(`session:${sessionId}:greeted`).catch(() => {});
+      } catch {}
       try {
         session.sessionControls?.closeSession();
       } catch { }
@@ -1030,6 +1123,20 @@ export class VoiceProxyGateway {
       return;
     }
 
+    // ── Abort if the customer left while the session was being built ─────────
+    // Registering it now would leave a session nobody is attached to holding an open
+    // Gemini socket against the concurrency quota, reachable only by its idle timer.
+    if (clientGone) {
+      this.logger.log(
+        `[VoiceProxyGateway] Client left during setup for session ${sessionId} — discarding it.`,
+      );
+      releaseSetupHandlers();
+      try {
+        sessionControls.closeSession();
+      } catch {}
+      return;
+    }
+
     // Store session controls
     session.sessionControls = sessionControls;
     this.sessions.set(sessionId, session);
@@ -1149,17 +1256,18 @@ export class VoiceProxyGateway {
     // ── Dispatch Proactive Initial Greeting on Voice Connection ─────────────
     if (!skipGreetingParam && !alreadyGreeted && !silentMode) {
       try {
+        session.isGreetingPending = true;
+        session.greetingDispatchedAt = Date.now();
+
         let greetingTrigger = '';
         if (sessionMode === 'training') {
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Merchant training mode activated. This is ${authenticatedUser?.name || 'the store owner'}. Greet them in ONE short sentence confirming you are in training mode and ready to learn about the store (e.g. "Hi ${authenticatedUser?.name || ''}, I'm in training mode and ready to learn. What would you like to teach me?"). Speak aloud now.`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Merchant training mode activated. This is ${authenticatedUser?.name || 'the store owner'}. Greet them warmly in ONE short sentence: "Hello ${authenticatedUser?.name || ''}! I'm ORA, and I'm ready in training mode. What would you like to teach me?". Speak aloud now.`;
         } else if (authenticatedUser) {
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them by name in ONE warm, concise sentence (maximum 10-12 words, e.g. "Welcome back, ${authenticatedUser.name || ''}! How can I help you today?"). Speak aloud now.`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. This is ${authenticatedUser.name || 'a merchant'}, an authenticated ${authenticatedUser.role || 'user'}. Greet them warmly in ONE concise sentence introducing yourself as ORA (e.g. "Hello ${authenticatedUser.name || ''}! I'm ORA. How can I help you today?"). Speak aloud now.`;
         } else if (!isUserAnon && resolvedName && resolvedName !== 'Guest Shopper' && resolvedName !== 'Guest Visitor') {
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them in ONE warm, concise sentence (maximum 10-12 words, e.g. "Hi ${resolvedName}! How can I help you today?"). Speak aloud now.`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] Visitor connected. Name: ${resolvedName}. Greet them warmly in ONE concise sentence introducing yourself as ORA (e.g. "Hi ${resolvedName}! I'm ORA. How can I help you today?"). Speak aloud now.`;
         } else if (returningVisitorParam) {
-          // Known device, new conversation. Shorter than a first greeting on purpose:
-          // they have heard the full introduction already.
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A returning visitor reconnected on a device that has spoken to you before, in a NEW conversation. Greet them in ONE short phrase (maximum 12 words, e.g. "Welcome back! Pleasure to meet you again. How can I help you today?"). Do not re-introduce yourself. Speak aloud now.`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] A returning visitor reconnected in a new conversation. Greet them warmly in ONE short sentence introducing yourself (e.g. "Hello again! I'm ORA. Great to have you back. How can I help you today?"). Speak aloud now.`;
         } else {
           const isPricing = currentPathParam === '/pricing';
           const isDocs = currentPathParam.startsWith('/docs');
@@ -1171,7 +1279,7 @@ export class VoiceProxyGateway {
               : isDashboard
                 ? ' in dashboard'
                 : '';
-          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] New visitor connected${pageContextNote}. Speak first in ONE short, friendly sentence (maximum 10-12 words, e.g. "Hi there! I'm ORA. How can I help you today?"). Do not give long speeches. Speak aloud now.`;
+          greetingTrigger = `[SYSTEM_TRIGGER: GREETING_INITIALIZATION] New visitor connected${pageContextNote}. Speak first in ONE short, friendly sentence introducing yourself as ORA (e.g. "Hi! I'm ORA. How can I help you today?"). Speak aloud now.`;
         }
 
         this.logger.log(
@@ -1234,6 +1342,21 @@ export class VoiceProxyGateway {
       if (session.closed) return;
       try {
         const msg = JSON.parse(data.toString());
+
+        if (msg.type === 'end_session') {
+          // The customer tapped stop. A bare socket close is indistinguishable from a
+          // page navigation and is therefore parked, but this is not ambiguous: the
+          // conversation is over, so end it now rather than holding its Gemini session
+          // open for the rest of the grace window.
+          this.logger.log(
+            `[VoiceProxyGateway] Session ${sessionId} ended at the client's request.`,
+          );
+          cleanup();
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.close(1000, 'Ended by client');
+          }
+          return;
+        }
 
         if (msg.type === 'client_identify') {
           // Dynamic identity update (e.g. user logged in mid-session or passed auth token)
@@ -1491,6 +1614,7 @@ export class VoiceProxyGateway {
     };
 
     session.attachClient = attachClient;
+    releaseSetupHandlers();
     attachClient(clientWs);
   }
 

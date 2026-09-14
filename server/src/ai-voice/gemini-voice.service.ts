@@ -258,7 +258,6 @@ export class GeminiVoiceService {
     );
 
     const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-    const ws = new WebSocket(uri);
 
     const systemInstructionText = await this.buildSystemInstruction(
       options.businessId,
@@ -275,6 +274,25 @@ export class GeminiVoiceService {
 
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
+
+    /**
+     * Opened here, and not before the await above, so that no event can be emitted
+     * before there is anything listening for it.
+     *
+     * The socket used to be constructed ahead of buildSystemInstruction, which reads
+     * Mongo and can take seconds on a cold instruction cache. Both of the events that
+     * matter are lost in that window: an 'open' that arrives early is never seen, so
+     * the setup frame is never sent and the connection dies on the 10s timeout; and an
+     * 'error' — which is what Google sends when the API key is over its concurrent
+     * session quota — is emitted with no listener, so Node's EventEmitter throws it
+     * instead of delivering it. That throw does not reject this promise, so the
+     * gateway's try/catch never sees it and the customer's socket is left open and
+     * silent forever.
+     *
+     * The promise executor below runs synchronously, so the handlers are attached in
+     * the same tick as the construction and the window is closed.
+     */
+    const ws = new WebSocket(uri);
 
     // Promise that resolves when Gemini acknowledges setup, or rejects on connection failure
     return new Promise((resolve, reject) => {
