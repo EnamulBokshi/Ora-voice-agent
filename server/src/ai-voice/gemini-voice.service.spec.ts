@@ -255,4 +255,52 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
       expect(toolNames).not.toContain('find_products');
     });
   });
+
+  describe('Multi-Key Resilience & Failover Pool', () => {
+    it('should parse newline-separated keys from GEMINI_API_KEYS or GEMINI_API_KEY', () => {
+      const configMock = (service as any).configService;
+      configMock.get = jest.fn((key: string) => {
+        if (key === 'GEMINI_API_KEYS') {
+          return 'key_alpha_12345\nkey_beta_67890\r\nkey_gamma_111213';
+        }
+        return null;
+      });
+
+      const keys = service.getGeminiApiKeys();
+      expect(keys).toEqual([
+        'key_alpha_12345',
+        'key_beta_67890',
+        'key_gamma_111213',
+      ]);
+    });
+
+    it('should support numbered GEMINI_API_KEY_1, GEMINI_API_KEY_2 environment variables', () => {
+      const configMock = (service as any).configService;
+      configMock.get = jest.fn((key: string) => {
+        if (key === 'GEMINI_API_KEY_1') return 'key_primary_12345';
+        if (key === 'GEMINI_API_KEY_2') return 'key_secondary_67890';
+        return null;
+      });
+
+      const keys = service.getGeminiApiKeys();
+      expect(keys).toContain('key_primary_12345');
+      expect(keys).toContain('key_secondary_67890');
+    });
+
+    it('should put depleted keys into cooldown and yield available healthy keys', () => {
+      const configMock = (service as any).configService;
+      configMock.get = jest.fn((key: string) => {
+        if (key === 'GEMINI_API_KEYS') return 'key_one_12345\nkey_two_67890';
+        return null;
+      });
+
+      expect(service.getAvailableApiKeys()).toEqual(['key_one_12345', 'key_two_67890']);
+
+      // Mark key_one_12345 as depleted
+      service.markKeyError('key_one_12345', 'Your prepayment credits are depleted', 30 * 60 * 1000);
+
+      // Now only key_two_67890 should be available
+      expect(service.getAvailableApiKeys()).toEqual(['key_two_67890']);
+    });
+  });
 });

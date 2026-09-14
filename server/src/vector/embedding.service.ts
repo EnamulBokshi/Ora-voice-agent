@@ -20,11 +20,21 @@ export class EmbeddingService {
     @Optional() private readonly redisService?: RedisService,
   ) {}
 
+  private getApiKey(): string | undefined {
+    const raw =
+      this.configService.get<string>('GEMINI_API_KEY') ||
+      this.configService.get<string>('GEMINI_API_KEYS') ||
+      process.env.GEMINI_API_KEY ||
+      process.env.GEMINI_API_KEYS;
+    if (!raw) return undefined;
+    return raw.split(/[\r\n,]+/).map((k) => k.trim()).find((k) => k.length > 5);
+  }
+
   /**
    * Returns the currently active embedding model name (e.g. "text-embedding-004" or "fallback-term-hash").
    */
   getActiveModelName(): string {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = this.getApiKey();
     if (apiKey) {
       const rawModel =
         this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
@@ -63,7 +73,7 @@ export class EmbeddingService {
       }
     }
 
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = this.getApiKey();
 
     if (apiKey) {
       try {
@@ -160,7 +170,7 @@ export class EmbeddingService {
       return results as EmbeddingResult[];
     }
 
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = this.getApiKey();
     if (apiKey) {
       try {
         const rawModel =

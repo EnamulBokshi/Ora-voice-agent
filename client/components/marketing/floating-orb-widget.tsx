@@ -597,22 +597,21 @@ export function FloatingOrbWidget() {
   }, []);
 
   // ── Initiate full live voice session ───────────────────────────────────────
-  const handleStart = useCallback(async () => {
+  const userStoppedRef = useRef(false);
+  const autoStartedRef = useRef(false);
+
+  const handleStart = useCallback(async (isAutoOption?: boolean | React.MouseEvent) => {
+    const isAuto = isAutoOption === true;
     setVoiceState('connecting');
     setErrorMsg('');
     setLiveUtterance('');
     setLiveSpeaker(null);
     setIsMuted(false);
 
-    let sessionId: string;
+    const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     try {
-      sessionId =
-        sessionStorage.getItem('ora_landing_session_id') ||
-        `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
       sessionStorage.setItem('ora_landing_session_id', sessionId);
-    } catch {
-      sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
-    }
+    } catch {}
     const apiBaseUrl = getApiBase();
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     try {
@@ -633,8 +632,18 @@ export function FloatingOrbWidget() {
           else if (status === 'thinking') setVoiceState('thinking');
           else if (status === 'listening' || status === 'connected') setVoiceState('active');
           else if (status === 'speaking') setVoiceState('ora-speaking');
-          else if (status === 'error') setVoiceState('error');
-          else if (status === 'idle') setVoiceState('idle');
+          else if (status === 'error') {
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            if (isAuto) {
+              setVoiceState('idle');
+            } else {
+              setVoiceState('error');
+            }
+          }
+          else if (status === 'idle') {
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            setVoiceState('idle');
+          }
         },
         onTranscript: (sender, text) => {
           if (!isMountedRef.current) return;
@@ -702,8 +711,13 @@ export function FloatingOrbWidget() {
         },
         onError: (errMessage) => {
           if (!isMountedRef.current) return;
-          setErrorMsg(errMessage);
-          setVoiceState('error');
+          if (isAuto) {
+            console.warn('[OrbWidget] Auto-start mic/audio deferred until user gesture:', errMessage);
+            setVoiceState('idle');
+          } else {
+            setErrorMsg(errMessage);
+            setVoiceState('error');
+          }
         },
       });
 
@@ -712,10 +726,56 @@ export function FloatingOrbWidget() {
     } catch (err: any) {
       if (!isMountedRef.current) return;
       console.error('[OrbWidget] Direct GeminiLiveClient start failed:', err);
-      setErrorMsg(err.message || 'Could not connect to Voice Gateway');
-      setVoiceState('error');
+      if (isAuto) {
+        setVoiceState('idle');
+      } else {
+        setErrorMsg(err.message || 'Could not connect to Voice Gateway');
+        setVoiceState('error');
+      }
     }
   }, [pathname, router, armAutoDismiss, goToAnchor]);
+
+  // ── Auto-greet visitor on landing page visit or reload ──────────────────────
+  useEffect(() => {
+    // Only auto-greet on the public landing page root ('/'), and never in dashboard/admin/shopify
+    if (pathname !== '/' || isDashboardOrPortal) {
+      autoStartedRef.current = false;
+      return;
+    }
+
+    // Do not re-auto-start if user explicitly stopped ORA or if already started for this visit
+    if (userStoppedRef.current || autoStartedRef.current) {
+      return;
+    }
+
+    autoStartedRef.current = true;
+
+    const timer = setTimeout(() => {
+      if (!isMountedRef.current || userStoppedRef.current) return;
+      if (voiceStateRef.current === 'idle') {
+        handleStart(true);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [pathname, isDashboardOrPortal, handleStart]);
+
+  // ── AudioContext Gesture Unlocker for browser autoplay policies ────────────
+  useEffect(() => {
+    const unlockAudio = () => {
+      liveClientRef.current?.resumeAudio();
+    };
+    window.addEventListener('click', unlockAudio, { capture: true, once: true });
+    window.addEventListener('touchstart', unlockAudio, { capture: true, once: true });
+    window.addEventListener('pointerdown', unlockAudio, { capture: true, once: true });
+    window.addEventListener('keydown', unlockAudio, { capture: true, once: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio, { capture: true });
+      window.removeEventListener('touchstart', unlockAudio, { capture: true });
+      window.removeEventListener('pointerdown', unlockAudio, { capture: true });
+      window.removeEventListener('keydown', unlockAudio, { capture: true });
+    };
+  }, []);
 
   // ── Global event trigger support (e.g. from Hero CTA button) ───────────────
   const voiceStateRef = useRef<VoiceState>(voiceState);
@@ -724,7 +784,8 @@ export function FloatingOrbWidget() {
   useEffect(() => {
     const handleTrigger = () => {
       if (voiceStateRef.current === 'idle' || voiceStateRef.current === 'error') {
-        handleStart();
+        userStoppedRef.current = false;
+        handleStart(false);
       }
     };
     window.addEventListener('ora-trigger-voice', handleTrigger);
@@ -732,6 +793,10 @@ export function FloatingOrbWidget() {
   }, [handleStart]);
 
   const handleStop = useCallback(() => {
+    userStoppedRef.current = true;
+    try {
+      sessionStorage.removeItem('ora_landing_session_id');
+    } catch {}
     liveClientRef.current?.stop();
     setVoiceState('idle');
     setLiveUtterance('');
@@ -751,7 +816,8 @@ export function FloatingOrbWidget() {
   // ── Toggle orb click ───────────────────────────────────────────────────────
   const handleOrbClick = () => {
     if (voiceState === 'idle' || voiceState === 'error') {
-      handleStart();
+      userStoppedRef.current = false;
+      handleStart(false);
     } else {
       handleStop();
     }
@@ -1052,7 +1118,7 @@ export function FloatingOrbWidget() {
             <button
               type="button"
               className="lp-orb-island-pill error"
-              onClick={handleStart}
+              onClick={() => handleStart(false)}
               aria-label="Retry connection"
             >
               <span className="lp-orb-status-dot error" />

@@ -1,0 +1,72 @@
+❯ in shopify, it's reloading the page on page change and ora session get's closed and reload. how to handle this? and we need to maintain a consistent session connection. how to do it? any idea?
+
+Let me check what the server actually does when the socket closes.
+
+  Searched for 1 pattern, ran 4 shell commands
+
+v1alpha endpoint — that matters, see Layer 3.
+
+The hard constraint
+
+A WebSocket cannot survive a document unload. The browser destroys it. No API changes that — not SPA tricks, not View Transitions, not Speculation Rules. Those make the paint smooth; JS state still dies. And you can't force a merchant's theme into SPA navigation from an app embed.
+
+So the question isn't "keep the socket open." It's "what survives on the server while the browser rebuilds
+itself."
+
+What's actually killing you
+
+voice-proxy.gateway.ts:1322:
+clientWs.on('close', () => { cleanup();
+cleanup() closes the Gemini session, marks the conversation CLOSED, records usage, drops the timers. The Gemini socket is server↔Google — the browser reload has nothing to do with it, and you're tearing it down anyway.
+Every page click throws away the model's
+
+Second finding: the existing resumption is a placebo. :478-491 looks up
+conversation:session:${sessionId}:suspen:'session_resumed'} — that's all. Itdoesn't validate the token, doesn't restore anything. The next Gemini session starts empty. Conversation history is in Mongo via appendMessage, but nothing ever replays it.
+
+So today, even with the sessionId continuity I added last change, ORA reconnects amnesiac.
+
+Layer 1 — server-side grace window (do t
+
+On clientWs close, park instead of destroy. Keep sessionControls (the live Gemini socket), keep the timers,
+keep the conversation open, for ~30s. Sae the window → rebind clientWs to theparked session and continue.
+
+The Gemini session never closes, so fullno replay, no handles, no extra APIsurface. This is the real answer to "consistent session connection."
+
+Touches:
+- clientWs.on('close') → parkSession() with a timer that calls cleanup() on expiry.
+- :505, the existing-session path, currently kills a session when the same id reconnects ("Replaced by new
+  session"). Becomes: adopt it — swap inark timer, skip conversation/greetingsetup entirely.
+- Gemini audio arriving with no client attached: drop it, and tell the session timer the turn is over
+  (otherwise awaitingPlaybackAck hangs u
+- Usage telemetry must fire once, on real cleanup, not on park.
+
+Cost: a parked session holds a Gemini socket for up to 30s of nobody. Bounded by the grace window; worth measuring against your Gemini concurrency limit before picking the number.
+
+Layer 2 — replay history when the window is missed
+
+Slow render, long detour, tab restored after five minutes — grace window blown, new Gemini session. The last N turns are already in Mongo. Prime the new session with them so ORA picks up where it left off. Cheap, and it
+makes the "session expired" path degradeg off a cliff.
+
+Layer 3 — Gemini native session resumption
+
+You're on v1alpha (gemini-voice.service.ts:260), which supports it. Send sessionResumption: {} in the setup payload, keep the handle Google returns on its update message, pass it back on reconnect to resume the model's
+own context.
+
+This is the right tool for gaps longer tts you shorten the window. Exact field
+names need checking against the current — I'd rather verify than have you find out at runtime.
+
+Either wire the dead resumptionToken pataving a mechanism that reports successwhile doing nothing is worse than not having one.
+
+SharedWorker — the option that looks rig
+
+A SharedWorker does survive navigation within an origin and can own the WebSocket. Three problems:
+
+1. Origin. The worker script must be same-origin with the document. Your widget is served cross-origin.       Workaround is new SharedWorker(URL.crRLs inherit the document origin. Works inChrome/Firefox/Edge.                                                                                       Safari. SharedWorker only returned in fallback regardless, so you'd build andmaintain both paths.                                                                                       It doesn't buy what you want. AudioCoplayback state die with the document nomatter what the worker holds. The customer still gets an audio gap while the new page re-acquires the mic. Same user-visible result as Layer 1,
+
+Revisit only if the reconnect handshake neck.
+                                                                                                            Also worth knowing
+                                                                                                            ORA-driven navigation (scheduleNavigatioannounces, then unloads. Same path, soLayer 1 fixes that case as well.                                                                            
+Recommendation                                                                                              
+Layer 1 alone probably solves what you're seeing. Layer 2 is a small addition that covers the tail. Layer 3 when you want the grace window shorter o
+
+Want me to implement Layer 1?

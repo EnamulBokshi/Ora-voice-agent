@@ -19,12 +19,12 @@ export const SESSION_WARNING_LEAD_SECONDS = 60;
  * than a shopper's natural pause to look at a product turns that inference into a
  * wrong answer.
  */
-export const IDLE_WARNING_SECONDS = 60;
+export const IDLE_WARNING_SECONDS = 90;
 
 /**
  * Seconds after the idle warning before the session is auto-terminated.
- * Total idle before termination = IDLE_WARNING_SECONDS + IDLE_TERMINATE_SECONDS = 95s,
- * which is just past the widget's own CLIENT_STANDBY_MS (90s) so the client suspends
+ * Total idle before termination = IDLE_WARNING_SECONDS + IDLE_TERMINATE_SECONDS = 125s,
+ * which is aligned with the widget's own CLIENT_STANDBY_MS (120s) so the client suspends
  * to standby rather than the server closing the socket out from under it.
  *
  * The window is measured from when the customer has actually *heard* the warning —
@@ -306,7 +306,7 @@ export class SessionTimerService {
       entry.scheduleIdleCheck(IDLE_WARNING_SECONDS * 1000);
 
       this.logger.log(
-        `[SessionTimer] User activity after warning — session: ${entry.sessionId}, idle watch reset to 15s`,
+        `[SessionTimer] User activity after warning — session: ${entry.sessionId}, idle watch reset to ${IDLE_WARNING_SECONDS}s`,
       );
     }
   }

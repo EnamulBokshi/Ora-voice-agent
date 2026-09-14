@@ -62,9 +62,14 @@ export class VoiceSessionController {
     const text =
       body.sampleText ||
       'Welcome to our store! I am your AI sales assistant, ready to help you find the best products.';
-    const apiKey =
+    const rawApiKey =
       this.configService.get<string>('GEMINI_API_KEY') ||
-      process.env.GEMINI_API_KEY;
+      this.configService.get<string>('GEMINI_API_KEYS') ||
+      process.env.GEMINI_API_KEY ||
+      process.env.GEMINI_API_KEYS;
+    const apiKey = rawApiKey
+      ? rawApiKey.split(/[\r\n,]+/).map((k) => k.trim()).find((k) => k.length > 5)
+      : undefined;
 
     if (!apiKey) {
       return {
@@ -76,7 +81,10 @@ export class VoiceSessionController {
     try {
       const modelName =
         this.configService.get<string>('GEMINI_MODEL')?.replace('models/', '') ||
-        'gemini-2.0-flash';
+        this.configService.get<string>('GEMINI_LIVE_MODEL')?.replace('models/', '') ||
+        process.env.GEMINI_MODEL?.replace('models/', '') ||
+        process.env.GEMINI_LIVE_MODEL?.replace('models/', '') ||
+        'gemini-3.1-flash-live-preview';
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
       const payload = {

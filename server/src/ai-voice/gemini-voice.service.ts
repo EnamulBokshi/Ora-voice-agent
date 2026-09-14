@@ -57,16 +57,28 @@ const SPEECH_PREFIX_PADDING_MS = 200;
 /**
  * Silence required after speech before Gemini closes the customer's turn.
  *
- * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS, 700ms),
+ * Must stay BELOW the widget's post-speech hangover window (VAD_HANGOVER_MS, 480ms),
  * because the widget's noise gate stops sending audio once that hangover elapses. If
  * this were the longer of the two, Gemini would still be waiting for silence it can no
  * longer hear and the turn would hang instead of ORA replying.
  *
- * 400ms rather than 700ms: this is dead time on every single turn, paid before ORA can
- * even begin generating. Natural mid-sentence pauses are shorter than this, so it still
- * does not cut a speaker off mid-thought.
+ * Nothing else ends the turn: neither the widget nor this service ever sends
+ * audioStreamEnd or an explicit activityEnd, so Gemini's own detector hearing this much
+ * quiet audio is the only signal. That makes the ordering above a hard constraint, not a
+ * tuning preference — raising this value above the widget's hangover hangs every turn.
+ *
+ * 250ms rather than 400ms: this is dead time on every single turn, paid before ORA can
+ * even begin generating. Natural mid-sentence pauses are still longer than this in
+ * practice, so it does not cut a speaker off mid-thought.
+ *
+ * The gain is real but small. Replaying recorded speech into a live session, measured
+ * from the last speech sample to the first audio byte back: 250ms answers in ~1075ms and
+ * 1000ms in ~1485ms, so only about half of any reduction reaches the customer, and the
+ * curve flattens below 250ms — 100ms measured no faster. Expect roughly 80ms against the
+ * old 400ms, not the ~150ms a linear reading of this number would suggest. The remaining
+ * ~1s is Gemini's own end-of-speech decision plus generation and is not tunable here.
  */
-const SPEECH_SILENCE_DURATION_MS = 400;
+const SPEECH_SILENCE_DURATION_MS = 250;
 
 /**
  * Hang guard for a single tool call.
@@ -206,6 +218,7 @@ export class GeminiVoiceService {
     string,
     { instruction: string; voiceName: string; expiresAt: number }
   >();
+  private readonly keyCooldowns = new Map<string, number>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -226,39 +239,96 @@ export class GeminiVoiceService {
     private readonly customerModel?: Model<CustomerDocument>,
   ) { }
 
+  private maskKey(key: string): string {
+    if (!key || key.length < 10) return '***';
+    return `${key.substring(0, 6)}...${key.substring(key.length - 4)}`;
+  }
 
-  async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<GeminiVoiceSessionControls> {
-    const apiKey =
+  /**
+   * Retrieves all configured Gemini API keys from environment.
+   * Supports:
+   * - GEMINI_API_KEYS (newline-separated or comma-separated)
+   * - Numbered vars: GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+   * - GEMINI_API_KEY (newline-separated or single)
+   */
+  getGeminiApiKeys(): string[] {
+    const keys: string[] = [];
+
+    // 1. GEMINI_API_KEYS (supports newline-separated or comma-separated)
+    const multiKeys =
+      this.configService.get<string>('GEMINI_API_KEYS') ||
+      process.env.GEMINI_API_KEYS;
+    if (multiKeys) {
+      keys.push(...multiKeys.split(/[\r\n,]+/).map((k) => k.trim()).filter(Boolean));
+    }
+
+    // 2. Numbered env vars: GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+    for (let i = 1; i <= 10; i++) {
+      const k =
+        this.configService.get<string>(`GEMINI_API_KEY_${i}`) ||
+        process.env[`GEMINI_API_KEY_${i}`];
+      if (k && k.trim()) {
+        keys.push(k.trim());
+      }
+    }
+
+    // 3. GEMINI_API_KEY (supports newline-separated, single, or comma-separated)
+    const singleOrMulti =
       this.configService.get<string>('GEMINI_API_KEY') ||
       process.env.GEMINI_API_KEY;
+    if (singleOrMulti) {
+      keys.push(...singleOrMulti.split(/[\r\n,]+/).map((k) => k.trim()).filter(Boolean));
+    }
 
-    if (!apiKey) {
+    // Deduplicate preserving order, filter out invalid/empty keys
+    return Array.from(new Set(keys)).filter((k) => k.length > 5);
+  }
+
+  /**
+   * Returns healthy keys not currently in cooldown. If all keys are in cooldown,
+   * falls back to sorting keys by earliest cooldown expiration.
+   */
+  getAvailableApiKeys(): string[] {
+    const allKeys = this.getGeminiApiKeys();
+    const now = Date.now();
+    const healthyKeys = allKeys.filter((k) => {
+      const cooldownUntil = this.keyCooldowns.get(k);
+      return !cooldownUntil || cooldownUntil <= now;
+    });
+
+    if (healthyKeys.length > 0) {
+      return healthyKeys;
+    }
+
+    return [...allKeys].sort(
+      (a, b) => (this.keyCooldowns.get(a) || 0) - (this.keyCooldowns.get(b) || 0),
+    );
+  }
+
+  markKeyError(key: string, reason: string, cooldownMs = 15 * 60 * 1000): void {
+    const masked = this.maskKey(key);
+    this.logger.warn(
+      `[GeminiVoiceService] Marking API key ${masked} in cooldown for ${cooldownMs / 1000}s. Reason: ${reason}`,
+    );
+    this.keyCooldowns.set(key, Date.now() + cooldownMs);
+  }
+
+  async createVoiceSession(options: GeminiVoiceSessionOptions): Promise<GeminiVoiceSessionControls> {
+    const candidateKeys = this.getAvailableApiKeys();
+    if (candidateKeys.length === 0) {
       throw new Error(
-        'GEMINI_API_KEY is not configured. Add a valid Google AI Studio key (starts with AIzaSy...) to server/.env',
+        'No GEMINI_API_KEY configured. Add one or more keys to server/.env',
       );
     }
-
-    // Support both legacy AIza... keys and new AQ.Ab... Auth keys from Google AI Studio
-    if (!apiKey.startsWith('AIza') && !apiKey.startsWith('AQ.Ab')) {
-      this.logger.warn(
-        `[GeminiVoiceService] GEMINI_API_KEY has an unusual prefix: '${apiKey.substring(0, 6)}...'. Proceeding with WebSocket connection attempt.`,
-      );
-    }
-
-    const host = 'generativelanguage.googleapis.com';
 
     // Default Live Bidi model identifier supported by Google AI Studio
-    const geminiModel =
+    const rawModel =
       this.configService.get<string>('GEMINI_MODEL') ||
+      this.configService.get<string>('GEMINI_LIVE_MODEL') ||
       process.env.GEMINI_MODEL ||
-      'models/gemini-2.5-flash-native-audio-latest';
-
-    this.logger.log(
-      `[GeminiVoiceService] Connecting to Gemini Live API — model: ${geminiModel}, session: ${options.sessionId}`,
-    );
-
-    const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-    const ws = new WebSocket(uri);
+      process.env.GEMINI_LIVE_MODEL ||
+      'models/gemini-3.1-flash-live-preview';
+    const geminiModel = rawModel.startsWith('models/') ? rawModel : `models/${rawModel}`;
 
     const systemInstructionText = await this.buildSystemInstruction(
       options.businessId,
@@ -269,6 +339,70 @@ export class GeminiVoiceService {
       options.sessionMode,
     );
 
+    let lastError: Error | null = null;
+
+    for (let i = 0; i < candidateKeys.length; i++) {
+      const apiKey = candidateKeys[i];
+      const maskedKey = this.maskKey(apiKey);
+
+      try {
+        this.logger.log(
+          `[GeminiVoiceService] Connecting to Gemini Live API [key: ${maskedKey} (${i + 1}/${candidateKeys.length})] — model: ${geminiModel}, session: ${options.sessionId}`,
+        );
+        return await this.connectWithKey(
+          apiKey,
+          geminiModel,
+          systemInstructionText,
+          options,
+        );
+      } catch (err: any) {
+        lastError = err;
+        const msg = err.message || '';
+        const isFatalKeyError =
+          msg.includes('1011') ||
+          msg.includes('1008') ||
+          msg.includes('depleted') ||
+          msg.includes('denied') ||
+          msg.includes('quota') ||
+          msg.includes('429');
+
+        if (isFatalKeyError) {
+          const cooldown =
+            msg.includes('depleted') || msg.includes('1011')
+              ? 30 * 60 * 1000
+              : msg.includes('denied') || msg.includes('1008')
+              ? 60 * 60 * 1000
+              : 5 * 60 * 1000;
+          this.markKeyError(apiKey, msg, cooldown);
+        }
+
+        if (i < candidateKeys.length - 1) {
+          this.logger.warn(
+            `[GeminiVoiceService] Key ${maskedKey} failed (${msg}). Failing over to next key in pool...`,
+          );
+        }
+      }
+    }
+
+    throw lastError || new Error('All Gemini API keys in pool failed to connect.');
+  }
+
+  private connectWithKey(
+    apiKey: string,
+    geminiModel: string,
+    systemInstructionText: string,
+    options: GeminiVoiceSessionOptions,
+  ): Promise<GeminiVoiceSessionControls> {
+    // Support both legacy AIza... keys and new AQ.Ab... Auth keys from Google AI Studio
+    if (!apiKey.startsWith('AIza') && !apiKey.startsWith('AQ.Ab')) {
+      this.logger.warn(
+        `[GeminiVoiceService] GEMINI_API_KEY has an unusual prefix: '${apiKey.substring(0, 6)}...'. Proceeding with WebSocket connection attempt.`,
+      );
+    }
+
+    const host = 'generativelanguage.googleapis.com';
+    const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+
     const isTrainingSession = options.sessionMode === 'training';
     const cached = this.instructionCache.get(options.businessId);
     const archetype = cached?.archetype || 'general';
@@ -276,12 +410,33 @@ export class GeminiVoiceService {
     // Track whether Gemini has acknowledged the setup handshake
     let setupCompleted = false;
 
+    /**
+     * Opened here, and not before the await above, so that no event can be emitted
+     * before there is anything listening for it.
+     *
+     * The socket used to be constructed ahead of buildSystemInstruction, which reads
+     * Mongo and can take seconds on a cold instruction cache. Both of the events that
+     * matter are lost in that window: an 'open' that arrives early is never seen, so
+     * the setup frame is never sent and the connection dies on the 10s timeout; and an
+     * 'error' — which is what Google sends when the API key is over its concurrent
+     * session quota — is emitted with no listener, so Node's EventEmitter throws it
+     * instead of delivering it. That throw does not reject this promise, so the
+     * gateway's try/catch never sees it and the customer's socket is left open and
+     * silent forever.
+     *
+     * The promise executor below runs synchronously, so the handlers are attached in
+     * the same tick as the construction and the window is closed.
+     */
+    const ws = new WebSocket(uri);
+
     // Promise that resolves when Gemini acknowledges setup, or rejects on connection failure
     return new Promise((resolve, reject) => {
       // Timeout if setup takes too long (10 seconds)
       const setupTimeout = setTimeout(() => {
         if (!setupCompleted) {
-          ws.close();
+          try {
+            ws.terminate();
+          } catch {}
           reject(
             new Error(
               'Gemini Live API setup timed out after 10s. Check your API key and model.',
@@ -592,6 +747,9 @@ export class GeminiVoiceService {
         );
         if (!setupCompleted) {
           clearTimeout(setupTimeout);
+          try {
+            ws.terminate();
+          } catch {}
           reject(err);
         } else if (options.onError) {
           options.onError(err);
@@ -599,12 +757,20 @@ export class GeminiVoiceService {
       });
 
       ws.on('close', (code, reason) => {
+        const reasonStr = reason ? reason.toString() : '';
         this.logger.log(
-          `[GeminiVoiceService] WebSocket closed for session ${options.sessionId} (code: ${code}, reason: ${reason?.toString()})`,
+          `[GeminiVoiceService] WebSocket closed for session ${options.sessionId} (code: ${code}, reason: ${reasonStr})`,
         );
         if (!setupCompleted) {
           clearTimeout(setupTimeout);
-          reject(new Error(`WebSocket closed before setup completed (code: ${code})`));
+          try {
+            ws.terminate();
+          } catch {}
+          reject(
+            new Error(
+              `WebSocket closed before setup completed (code: ${code}${reasonStr ? `, reason: ${reasonStr}` : ''})`,
+            ),
+          );
         } else if (options.onClose) {
           options.onClose();
         }
