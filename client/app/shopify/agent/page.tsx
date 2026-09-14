@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { AgentClient } from '@/components/agent/agent-client';
 
 export const metadata: Metadata = {
-  title: 'System Configuration | Shopify',
+  title: 'Agent Configuration | Shopify',
   description: 'Configure voice persona, sales playbooks, knowledge, and store settings.',
 };
 

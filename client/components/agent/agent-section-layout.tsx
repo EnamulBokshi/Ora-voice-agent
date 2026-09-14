@@ -8,8 +8,12 @@ interface AgentSectionLayoutProps {
   title: string;
   description: string;
   ctaNodes?: ReactNode;
-  previewSrc: string;
-  previewAlt: string;
+  /**
+   * Optional: a section with no artwork of its own renders the header without
+   * the graphic rather than pointing at an image that does not exist.
+   */
+  previewSrc?: string;
+  previewAlt?: string;
   howLabel?: string;
   children: ReactNode;
 }
@@ -33,17 +37,15 @@ export function AgentSectionLayout({
 
           {/* Left: Text & Actions */}
           <div className="flex-1 min-w-0">
-            {/* Icon + Category */}
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
+            {/* Header row: Icon + Editorial Serif Title */}
+            <div className="flex items-center gap-2.5 sm:gap-3 mb-1.5">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
                 {iconNode}
               </div>
+              <h1 className="text-[22px] sm:text-[26px] font-semibold text-foreground font-serif tracking-tight leading-[1.2]">
+                {title}
+              </h1>
             </div>
-
-            {/* Editorial Serif Title */}
-            <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
-              {title}
-            </h1>
 
             {/* Subtitle */}
             <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-xl mb-3">
@@ -57,17 +59,19 @@ export function AgentSectionLayout({
           </div>
 
           {/* Right: High-End Preview Graphic */}
-          <div className="relative w-full sm:w-[220px] h-[130px] flex-shrink-0 rounded-md overflow-hidden border border-border/50 bg-surface-container/30 shadow-xs">
-            <Image
-              src={previewSrc}
-              alt={previewAlt}
-              fill
-              className="object-cover object-center"
-              sizes="(max-width: 640px) 100vw, 220px"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/30 via-transparent to-transparent pointer-events-none" />
-          </div>
+          {previewSrc && (
+            <div className="relative w-full sm:w-[220px] h-[130px] flex-shrink-0 rounded-md overflow-hidden border border-border/50 bg-surface-container/30 shadow-xs">
+              <Image
+                src={previewSrc}
+                alt={previewAlt ?? ''}
+                fill
+                className="object-cover object-center"
+                sizes="(max-width: 640px) 100vw, 220px"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/30 via-transparent to-transparent pointer-events-none" />
+            </div>
+          )}
         </div>
       </div>
 

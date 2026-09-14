@@ -69,9 +69,9 @@ interface CategoryOption {
 const CATEGORY_OPTIONS: CategoryOption[] = [
   {
     id: 'all',
-    label: 'Smart Classification',
-    description: 'Analyzes voice input and structures into discrete categories automatically.',
-    hint: 'Speak freely — automatically sorts policies, product specs, FAQs, and pricing tactics.',
+    label: 'Automatic Sorting',
+    description: 'Structures voice input into policies, products, FAQs, and guidelines automatically.',
+    hint: 'Speak freely — automatically sorts policies, product details, and store guidelines.',
     Icon: Layers,
     badgeClass: 'border-primary/40 bg-primary/10 text-primary',
     dotClass: 'bg-primary',
@@ -114,7 +114,7 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
   },
   {
     id: DocType.BRAND_RULE,
-    label: 'Brand & Persona',
+    label: 'Brand & Tone',
     description: 'Brand story, tone of voice, prohibited terms, core brand philosophy.',
     hint: 'Define your store personality, customer greeting style, or words ORA should never say.',
     Icon: FileText,
@@ -342,16 +342,16 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   return (
     <div className="space-y-5">
       {/* ── 1. Target Knowledge Category Selector ── */}
-      <div className="rounded-md border border-border/60 bg-surface-lowest/40 p-4">
-        <div className="flex items-center justify-between gap-2 pb-2.5 mb-3 border-b border-border/40">
+      <div className="rounded-md border border-border/50 bg-surface-lowest/40 p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
-            <Layers size={14} className="text-foreground dark:text-[#C8F031]" />
-            <span className="text-[12.5px] font-semibold text-foreground">
-              Target Knowledge Category
-            </span>
+            <Layers size={14} className="text-primary flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Target Category
+            </h2>
           </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            {selectedCategory === 'all' ? 'Auto-Classification Active' : 'Target Locked'}
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+            {selectedCategory === 'all' ? 'Auto-Sorting Active' : 'Category Selected'}
           </span>
         </div>
 
@@ -366,22 +366,22 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
                 className={cn(
-                  'flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-all border text-xs cursor-pointer',
+                  'flex items-center gap-2 px-3 py-2 rounded-md text-left transition-all border text-xs cursor-pointer',
                   isSelected
-                    ? 'bg-surface-high border-foreground/60 dark:border-[#C8F031]/80 text-foreground font-semibold shadow-xs'
+                    ? 'bg-surface-high border-border text-foreground font-semibold shadow-xs'
                     : 'bg-surface-low/50 border-border/40 text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
                 )}
               >
                 <div
                   className={cn(
                     'w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors',
-                    isSelected ? 'bg-foreground/10 dark:bg-[#C8F031]/20 text-foreground dark:text-[#C8F031]' : 'bg-surface-container text-muted-foreground',
+                    isSelected ? 'bg-primary/15 text-primary' : 'bg-surface-container text-muted-foreground',
                   )}
                 >
                   <CatIcon size={12} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11.5px] leading-tight truncate">{cat.label}</p>
+                  <p className="text-[12px] font-medium leading-tight truncate">{cat.label}</p>
                 </div>
               </button>
             );
@@ -389,7 +389,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
         </div>
 
         {/* Category Guidance Tip */}
-        <div className="mt-3 pt-2.5 border-t border-border/30 flex items-start gap-2 text-[11.5px] text-muted-foreground leading-relaxed">
+        <div className="mt-2 pt-2.5 border-t border-border/30 flex items-start gap-2 text-[11.5px] text-muted-foreground leading-relaxed">
           <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', activeCategoryMeta.dotClass)} />
           <p>
             <strong className="text-foreground">{activeCategoryMeta.label}:</strong> {activeCategoryMeta.hint}
@@ -420,15 +420,15 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
           {([
             {
               id: 'converse' as VoiceMode,
-              label: 'Converse (AI Note-Taker)',
+              label: 'Interactive Voice',
               Icon: AudioLines,
-              hint: 'ORA listens and confirms facts with brief spoken acknowledgments',
+              hint: 'Live conversation with spoken confirmations',
             },
             {
               id: 'dictate' as VoiceMode,
-              label: 'Transcribe / Dictate (Silent)',
+              label: 'Direct Dictation',
               Icon: PenLine,
-              hint: 'Full speech recognition with ORA completely silent — perfect for reading out long policies',
+              hint: 'Continuous transcription without spoken replies — ideal for reading out policies',
             },
           ]).map(({ id, label, Icon, hint }) => (
             <button
@@ -443,7 +443,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 }
               }}
               className={cn(
-                'px-3 py-1.5 rounded-[5px] text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
+                'px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
                 voiceMode === id
                   ? 'bg-surface-high text-foreground font-semibold shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
@@ -469,29 +469,22 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
         {/* Dynamic Status Display */}
         <div className="relative z-10 mt-1 max-w-md">
-          <p className="text-[12.5px] font-medium text-muted-foreground font-mono">
+          <p className="text-[12px] font-medium text-muted-foreground font-mono">
             {status === 'speaking'
               ? 'ORA speaking...'
               : status === 'listening'
                 ? voiceMode === 'dictate'
-                  ? 'Transcribing your voice — ORA is staying quiet'
-                  : 'Listening... speak about your store knowledge'
+                  ? 'Transcribing your speech'
+                  : 'Listening... speak store information'
                 : status === 'connecting'
-                  ? 'Connecting to live voice stream...'
-                  : voiceMode === 'dictate'
-                    ? 'Click the orb and read out store policies or product info'
-                    : 'Click the orb to start teaching ORA'}
+                  ? 'Connecting to live stream...'
+                  : 'Click the orb or press Start to begin speaking'}
           </p>
-          {interimText && (
-            <p className="mt-1.5 text-[12px] text-muted-foreground/80 italic animate-pulse">
-              "{interimText}"
-            </p>
-          )}
         </div>
 
-        {/* Live Controls */}
+        {/* Voice Control Toolbar */}
         {isActive && (
-          <div className="relative z-10 mt-4 flex items-center gap-3">
+          <div className="relative z-10 flex items-center gap-2 mt-4">
             {voiceMode === 'converse' && (
               <button
                 type="button"
@@ -517,17 +510,17 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
             <button
               type="button"
               onClick={stopAndOrganise}
-              title="End the session and file what you taught into the knowledge base"
+              title="End the session and save into store knowledge"
               className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-error/10 hover:text-error border border-border transition-colors flex items-center gap-1.5 text-muted-foreground cursor-pointer"
             >
               <Square size={12} />
-              Stop &amp; File
+              Stop &amp; Save
             </button>
           </div>
         )}
 
         {errorMessage && (
-          <div className="relative z-10 mt-3 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md">
+          <div className="relative z-10 mt-3 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md font-mono">
             {errorMessage}
           </div>
         )}
@@ -552,13 +545,13 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
             <textarea
               value={manualNoteText}
               onChange={(e) => setManualNoteText(e.target.value)}
-              placeholder={`Paste or type store info here to index under ${activeCategoryMeta.label}...\ne.g. Orders placed before 2 PM ship same day via Express Delivery. International shipping takes 5-7 business days.`}
+              placeholder={`Paste or type store info here to index under ${activeCategoryMeta.label}...\ne.g. Orders placed before 2 PM ship same day via Express Delivery.`}
               rows={3}
-              className="w-full p-2.5 text-xs rounded-md bg-surface-low border border-border/60 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:ring-1 focus:ring-primary leading-relaxed resize-y font-mono"
+              className="w-full p-2.5 text-xs rounded-md bg-surface-low border border-border/60 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-foreground leading-relaxed resize-y font-mono"
             />
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">
-                Will be indexed into: <strong className="text-foreground">{activeCategoryMeta.label}</strong>
+              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                Category: <strong className="text-foreground">{activeCategoryMeta.label}</strong>
               </span>
               <button
                 type="submit"
@@ -567,21 +560,21 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 {isSubmittingNote ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                <span>Index Note</span>
+                <span>Save Note</span>
               </button>
             </div>
           </form>
         )}
       </div>
 
-      {/* ── 4. Training Transcript Log ── */}
-      <div className="rounded-md border border-border/50 bg-transparent p-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border/40">
+      {/* ── 4. Session Transcript Log ── */}
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <span className="text-[13px] font-semibold text-foreground font-serif">
-              Training Transcript
-            </span>
+            <AudioLines size={14} className="text-primary flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Session Transcript
+            </h2>
             {transcripts.length > 0 && (
               <span className="text-[11px] font-mono text-muted-foreground">({transcripts.length})</span>
             )}
@@ -593,7 +586,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 type="button"
                 onClick={() => void organiseIntoKnowledge()}
                 disabled={isOrganising}
-                title="Split this session into topics and file each under its own category"
+                title="Save transcript entries into store knowledge"
                 className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isOrganising ? (
@@ -759,7 +752,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
                     {entry.chunksCount && (
                       <p className="text-[11px] font-mono text-muted-foreground/70">
-                        Generated {entry.chunksCount} vectorized RAG retrieval {entry.chunksCount === 1 ? 'chunk' : 'chunks'}
+                        Created {entry.chunksCount} indexed knowledge {entry.chunksCount === 1 ? 'section' : 'sections'}
                       </p>
                     )}
                   </div>
@@ -770,7 +763,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 <span>
                   Method:{' '}
                   <strong className="text-foreground">
-                    {organiseResult?.method === 'model' ? 'AI Semantic Structuring (Gemini)' : 'Semantic Heuristic'}
+                    {organiseResult?.method === 'model' ? 'Structured Knowledge' : 'Direct Layout'}
                   </strong>
                 </span>
                 <span className="text-muted-foreground/80">

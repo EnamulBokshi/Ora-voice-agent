@@ -78,10 +78,12 @@ export function KnowledgeFeedList({
   return (
     <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between pb-3 border-b border-border/40">
+      <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h3 className="text-[13px] font-semibold text-foreground font-serif">Knowledge Base</h3>
+          <Database size={15} className="text-primary flex-shrink-0" />
+          <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            Knowledge Base
+          </h2>
           <span className="text-[11px] font-mono text-muted-foreground">
             ({safeDocs.length})
           </span>

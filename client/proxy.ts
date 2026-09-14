@@ -77,7 +77,6 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
     pathname.startsWith('/billing') ||
-    pathname.startsWith('/notifications') ||
     pathname.startsWith('/profile');
 
   // Admin command center routes

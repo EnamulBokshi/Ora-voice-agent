@@ -100,20 +100,20 @@ export function AgentHub() {
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar bg-background">
-      <div className="max-w-5xl mx-auto px-8 lg:px-12 pt-10 pb-20">
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 lg:px-12 pt-6 sm:pt-10 pb-16">
 
         {/* ── Hub Hero Header (Same as Setup Hub) ── */}
-        <div className="mb-10 text-center max-w-2xl mx-auto">
+        <div className="mb-8 sm:mb-10 text-center max-w-2xl mx-auto">
           <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
             Configuration · All Sections
           </p>
-          <h1 className="text-[32px] sm:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] font-serif mb-3.5">
+          <h1 className="text-[26px] sm:text-[34px] lg:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] font-serif mb-3.5">
             Configure one AI sales agent for your entire store
           </h1>
-          <p className="text-[14.5px] text-muted-foreground leading-relaxed">
+          <p className="text-[13.5px] sm:text-[14.5px] text-muted-foreground leading-relaxed">
             Set your store type and store overview, write the system prompt, then feed ORA your policies, documents, and product catalog.
           </p>
-          <p className="text-[13px] text-muted-foreground/80 mt-2">
+          <p className="text-[12.5px] sm:text-[13px] text-muted-foreground/80 mt-2">
             Want to learn how ORA indexes data? Read our{' '}
             <AppLink
               href="/docs"

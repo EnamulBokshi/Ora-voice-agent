@@ -64,26 +64,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         */}
         <div
           className={cn(
-            'flex-1 h-full flex flex-col overflow-hidden transition-[margin] duration-200 ease-out',
+            'flex-1 h-full flex flex-col min-w-0 overflow-hidden transition-[margin] duration-200 ease-out',
             collapsed ? 'md:ml-16' : 'md:ml-[240px]',
           )}
         >
           {/* Mobile-only bar carrying the drawer trigger. */}
-          <div className="md:hidden h-12 flex items-center gap-2.5 px-3 border-b border-border bg-surface-lowest flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-              aria-expanded={mobileOpen}
-              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-border/60 bg-surface-high/40 text-foreground hover:bg-surface-high transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              <Menu size={15} />
-            </button>
-            <span className="text-[13px] font-semibold text-foreground tracking-tight">ORA</span>
+          <div className="md:hidden h-12 flex items-center justify-between px-3 border-b border-border bg-surface-lowest flex-shrink-0 z-20">
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open navigation"
+                aria-expanded={mobileOpen}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-md border border-border/60 bg-surface-high/40 text-foreground hover:bg-surface-high transition-colors cursor-pointer touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <Menu size={16} />
+              </button>
+              <span className="text-[13px] font-semibold text-foreground tracking-tight font-serif">ORA</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[color:var(--status-online)]" title="System operational" />
+            </div>
           </div>
 
           {/* Page content is responsible for its own TopHeader and scroll area */}
-          <main className="flex-1 flex overflow-hidden">{children}</main>
+          <main className="flex-1 flex flex-col min-w-0 overflow-hidden">{children}</main>
         </div>
       </div>
     </DashboardGuard>

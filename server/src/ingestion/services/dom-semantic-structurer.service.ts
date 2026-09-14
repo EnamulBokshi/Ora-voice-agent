@@ -10,6 +10,8 @@ import {
   AgentConfig,
   AgentConfigDocument,
 } from '../../agent-config/schemas/agent-config.schema';
+import { AgentProfileService } from '../../common/agent-profile/agent-profile.service';
+import { DEFAULT_ARCHETYPE, normalizeArchetype } from '../../common/constants/archetypes';
 
 @Injectable()
 export class DomSemanticStructurerService {
@@ -18,6 +20,7 @@ export class DomSemanticStructurerService {
   constructor(
     private readonly knowledgeService: KnowledgeService,
     private readonly productsService: ProductsService,
+    private readonly agentProfileService: AgentProfileService,
     @InjectModel(AgentConfig.name)
     private readonly agentConfigModel: Model<AgentConfigDocument>,
   ) {}
@@ -138,23 +141,35 @@ export class DomSemanticStructurerService {
       if (pageRes.updated) docsCount += 1;
     }
 
-    // 6. Update Agent Archetype and Summary in AgentConfig
+    // 6. Classify the business and enrich the live profile's summary.
+    //
+    // Archetype is an entity: switching it swaps the merchant's whole agent
+    // profile. A crawler must therefore only classify a business that is still
+    // on the default, unclassified profile — otherwise a routine re-crawl
+    // would move a merchant off the setup they built and show them a blank
+    // one. A merchant who has chosen an archetype keeps it.
     try {
-      const config = await this.agentConfigModel.findOne({ businessId }).exec();
-      if (config) {
-        let changed = false;
-        if (config.businessArchetype === 'general' || !config.businessArchetype) {
-          config.businessArchetype = detectedArchetype;
-          changed = true;
-        }
+      let archetype = await this.agentProfileService.getActiveArchetype(businessId);
 
+      if (archetype === DEFAULT_ARCHETYPE) {
+        const detected = normalizeArchetype(detectedArchetype);
+        if (detected && detected !== archetype) {
+          const switched = await this.agentProfileService.setActiveArchetype(
+            businessId,
+            detected,
+          );
+          if (switched) archetype = switched;
+        }
+      }
+
+      const config = await this.agentConfigModel
+        .findOne({ businessId, archetype })
+        .exec();
+
+      if (config) {
         const summaryCandidate = `${title ? `${title}. ` : ''}${telemetry.metaDescription || ''}`.trim();
         if (summaryCandidate && (!config.businessSummary || config.businessSummary.length < summaryCandidate.length)) {
           config.businessSummary = summaryCandidate.slice(0, 300);
-          changed = true;
-        }
-
-        if (changed) {
           await config.save();
         }
       }

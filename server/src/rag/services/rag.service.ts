@@ -16,6 +16,7 @@ import { ManualConnectorService } from '../../ingestion/services/manual-connecto
 import { SourceTier, ProductAvailability } from '../../products/schemas/product.schema';
 import { RedisService } from '../../common/redis/redis.service';
 import * as crypto from 'crypto';
+import { AgentProfileService } from '../../common/agent-profile/agent-profile.service';
 
 /** Fallback tier label recorded in the RAG_FALLBACK_TRIGGERED event payload. */
 export type FallbackTier =
@@ -34,6 +35,7 @@ export class RagService {
     private readonly embeddingService: EmbeddingService,
     private readonly productsService: ProductsService,
     private readonly knowledgeService: KnowledgeService,
+    private readonly agentProfileService: AgentProfileService,
     private readonly configService: ConfigService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
@@ -271,7 +273,12 @@ export class RagService {
       vectorResults = await this.vectorStoreService.searchVectors(
         businessId,
         queryVector,
-        { entityType: EntityType.KNOWLEDGE_CHUNK, limit, confidenceThreshold: threshold },
+        {
+          entityType: EntityType.KNOWLEDGE_CHUNK,
+          limit,
+          confidenceThreshold: threshold,
+          archetype: await this.agentProfileService.getActiveArchetype(businessId),
+        },
       );
     } catch (err: any) {
       this.logger.warn(`Vector search failed for knowledge query '${queryText}': ${err.message}`);
@@ -342,10 +349,16 @@ export class RagService {
       } catch {}
     }
 
+    // The archetype belongs in the key: a merchant who switches profiles must
+    // not keep receiving the previous profile's cached answers.
+    const archetype = await this.agentProfileService.getActiveArchetype(businessId);
+
     const trimmed = (queryText || '').trim();
     const queryHash = crypto
       .createHash('sha256')
-      .update(`${businessId}:${tenantVersion}:${trimmed.toLowerCase()}:${JSON.stringify(options)}`)
+      .update(
+        `${businessId}:${archetype}:${tenantVersion}:${trimmed.toLowerCase()}:${JSON.stringify(options)}`,
+      )
       .digest('hex');
     const cacheKey = `rag:cache:${businessId}:${queryHash}`;
 
@@ -437,6 +450,7 @@ export class RagService {
           entityType: EntityType.KNOWLEDGE_CHUNK,
           entityId: chunk._id.toString(),
           text: chunk.text,
+          archetype: (doc as any).archetype,
           metadata: {
             knowledgeBaseId: doc._id.toString(),
             docTitle: doc.title,

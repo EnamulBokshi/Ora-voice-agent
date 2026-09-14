@@ -22,12 +22,15 @@ import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 import { UsageTrackingService } from '../usage/usage-tracking.service';
+import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
+import { resolveArchetype } from '../common/constants/archetypes';
 
 @Injectable()
 export class AdminService implements OnModuleInit {
   private readonly logger = new Logger(AdminService.name);
 
   constructor(
+    private readonly agentProfileService: AgentProfileService,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
     @InjectModel(AdminUser.name)
@@ -149,11 +152,16 @@ export class AdminService implements OnModuleInit {
       }
 
       // 3. Ensure System AgentConfig exists
-      let agentConfig = await this.agentConfigModel.findOne({ businessId: systemBusiness._id as any }).exec();
+      let agentConfig = await this.agentConfigModel
+        .findOne({
+          businessId: systemBusiness._id as any,
+          archetype: resolveArchetype(systemBusiness.activeArchetype),
+        })
+        .exec();
       if (!agentConfig) {
         await this.agentConfigModel.create({
           businessId: systemBusiness._id as any,
-          businessArchetype: 'saas',
+          archetype: resolveArchetype(systemBusiness.activeArchetype),
           businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
           brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
           customDirectives: 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.',
@@ -1272,14 +1280,19 @@ export class AdminService implements OnModuleInit {
         keyStatus: 'active',
         status: 'active',
         connectedPlatform: 'none',
+        activeArchetype: 'saas',
       });
     }
 
-    let agentConfig = await this.agentConfigModel.findOne({ businessId: platformBiz._id as Types.ObjectId }).exec();
+    const platformArchetype = resolveArchetype(platformBiz.activeArchetype);
+
+    let agentConfig = await this.agentConfigModel
+      .findOne({ businessId: platformBiz._id as Types.ObjectId, archetype: platformArchetype })
+      .exec();
     if (!agentConfig) {
       agentConfig = await this.agentConfigModel.create({
         businessId: platformBiz._id as Types.ObjectId,
-        businessArchetype: 'saas',
+        archetype: platformArchetype,
         businessSummary: 'ORA — The Autonomous Multimodal Voice AI Sales Brain & Storefront Assistant.',
         brandVoiceDescription: 'Authoritative, enthusiastic, and highly knowledgeable AI sales representative for ORA.',
         customDirectives: 'Highlight our sub-400ms streaming latency, 60-second zero-config setup, Stripe & bKash checkout, and automated DOM scraping.',
@@ -1305,15 +1318,29 @@ export class AdminService implements OnModuleInit {
    * Updates ORA Platform (System Tenant) AgentConfig and brand directives.
    */
   async updatePlatformAgentConfig(dto: UpdatePlatformAgentDto) {
+    // A change of archetype is a profile switch, so it is applied before the
+    // config is loaded — the fields below then land on the profile that is
+    // live afterwards, not the one being left.
+    if (dto.archetype !== undefined) {
+      await this.agentProfileService.setActiveArchetype(
+        (await this.getPlatformAgentConfig()).business.id as any,
+        dto.archetype,
+      );
+    }
+
     const platformData = await this.getPlatformAgentConfig();
-    const config = await this.agentConfigModel.findOne({ businessId: platformData.business.id as Types.ObjectId }).exec();
+    const config = await this.agentConfigModel
+      .findOne({
+        businessId: platformData.business.id as Types.ObjectId,
+        archetype: resolveArchetype(dto.archetype ?? platformData.agentConfig.archetype),
+      })
+      .exec();
 
     if (!config) {
       throw new DomainException('PLATFORM_AGENT_NOT_FOUND', 'Platform AgentConfig not found.', HttpStatus.NOT_FOUND);
     }
 
     if (dto.brandVoiceDescription !== undefined) config.brandVoiceDescription = dto.brandVoiceDescription;
-    if (dto.businessArchetype !== undefined) config.businessArchetype = dto.businessArchetype;
     if (dto.businessSummary !== undefined) config.businessSummary = dto.businessSummary;
     if (dto.customDirectives !== undefined) config.customDirectives = dto.customDirectives;
     if (dto.language !== undefined) config.language = dto.language;

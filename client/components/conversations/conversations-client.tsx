@@ -13,6 +13,7 @@ import { ConversationTranscript } from './conversation-transcript';
 import { demoConversationItems } from '@/lib/demo-data';
 import { withDemoFallback } from '@/lib/demo-config';
 import { Loader2, MessageSquare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function ConversationsClient() {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -23,6 +24,7 @@ export function ConversationsClient() {
   const [isLoadingTranscript, setIsLoadingTranscript] = useState<boolean>(false);
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMobileTranscript, setShowMobileTranscript] = useState<boolean>(false);
 
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
@@ -143,33 +145,47 @@ export function ConversationsClient() {
   }
 
   return (
-    <div className="flex-1 flex h-full w-full overflow-hidden bg-background divide-x divide-border">
-      <ConversationListPanel
-        conversations={filteredConversations}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-
-      {selectedConversation ? (
-        <ConversationTranscript
-          conversation={selectedConversation}
-          onCloseSession={handleCloseSession}
-          isClosing={isClosing}
-          isLoadingTranscript={isLoadingTranscript}
+    <div className="flex-1 flex h-full w-full overflow-hidden bg-background divide-x divide-border/40">
+      <div className={cn(
+        'w-full md:w-auto h-full flex flex-col',
+        showMobileTranscript ? 'hidden md:flex' : 'flex',
+      )}>
+        <ConversationListPanel
+          conversations={filteredConversations}
+          selectedId={selectedId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setShowMobileTranscript(true);
+          }}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
-          <MessageSquare size={24} className="text-muted-foreground/30" />
-          <p className="font-medium text-foreground">No conversation selected</p>
-          <p className="text-xs text-muted-foreground/60">
-            Select a conversation from the left to view the transcript.
-          </p>
-        </div>
-      )}
+      </div>
+
+      <div className={cn(
+        'flex-1 h-full flex flex-col min-w-0',
+        !showMobileTranscript ? 'hidden md:flex' : 'flex',
+      )}>
+        {selectedConversation ? (
+          <ConversationTranscript
+            conversation={selectedConversation}
+            onCloseSession={handleCloseSession}
+            isClosing={isClosing}
+            isLoadingTranscript={isLoadingTranscript}
+            onBack={() => setShowMobileTranscript(false)}
+          />
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
+            <MessageSquare size={24} className="text-muted-foreground/30" />
+            <p className="font-medium text-foreground">No conversation selected</p>
+            <p className="text-xs text-muted-foreground/60">
+              Select a conversation from the left to view the transcript.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

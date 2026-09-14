@@ -332,7 +332,8 @@ export interface PlatformAgentConfigData {
     _id: string;
     businessId: string;
     brandVoiceDescription: string;
-    businessArchetype: string;
+    /** The profile this platform config belongs to. */
+    archetype: string;
     businessSummary: string;
     customDirectives: string;
     language: string;
@@ -345,7 +346,8 @@ export interface PlatformAgentConfigData {
 
 export interface UpdatePlatformAgentPayload {
   brandVoiceDescription?: string;
-  businessArchetype?: string;
+  /** Switches which profile the platform agent runs; it does not edit one. */
+  archetype?: string;
   businessSummary?: string;
   customDirectives?: string;
   language?: string;

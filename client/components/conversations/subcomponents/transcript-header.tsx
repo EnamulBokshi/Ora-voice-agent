@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, PowerOff } from 'lucide-react';
+import { Check, Copy, PowerOff, ArrowLeft } from 'lucide-react';
 import { ConversationItem } from '../conversation-types';
 
 interface TranscriptHeaderProps {
   conversation: ConversationItem;
   onCloseSession?: () => void;
   isClosing?: boolean;
+  onBack?: () => void;
 }
 
-export function TranscriptHeader({ conversation, onCloseSession, isClosing }: TranscriptHeaderProps) {
+export function TranscriptHeader({ conversation, onCloseSession, isClosing, onBack }: TranscriptHeaderProps) {
   const conv = conversation;
   const [copied, setCopied] = useState(false);
   const isActive = conv.status === 'active';
@@ -22,9 +23,20 @@ export function TranscriptHeader({ conversation, onCloseSession, isClosing }: Tr
   };
 
   return (
-    <div className="h-14 px-5 border-b border-border/40 bg-transparent flex items-center justify-between shrink-0 gap-4">
+    <div className="h-14 px-4 sm:px-5 border-b border-border/40 bg-transparent flex items-center justify-between shrink-0 gap-3 sm:gap-4">
       {/* Customer & Session Info */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to conversations"
+            className="md:hidden w-8 h-8 inline-flex items-center justify-center rounded-md border border-border/60 bg-surface-high/40 text-foreground hover:bg-surface-high transition-colors cursor-pointer shrink-0 touch-manipulation"
+          >
+            <ArrowLeft size={14} />
+          </button>
+        )}
+
         <div className="w-7 h-7 rounded-md bg-surface-high border border-border/60 flex items-center justify-center font-bold text-[11px] text-foreground shrink-0 select-none">
           {conv.customerName.charAt(0)}
         </div>

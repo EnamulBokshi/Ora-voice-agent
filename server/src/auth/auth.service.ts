@@ -764,6 +764,15 @@ export class AuthService {
             // A boolean, not the origin list, so this stays free of the host/telemetry
             // detail that only the admin console needs.
             hasWidgetTraffic: (business.detectedOrigins?.length ?? 0) > 0,
+            // The live agent profile, and whether this business actually sells
+            // from a catalogue. The dashboard shows catalogue surfaces on this
+            // evidence rather than to every tenant — not every business has
+            // products, and the agent only gets cart and checkout tools under
+            // the same rule (ai-voice/tools/archetype-capabilities.ts).
+            activeArchetype: business.activeArchetype,
+            hasCatalog: !['none', 'passive', undefined, null].includes(
+              business.connectedPlatform as any,
+            ),
           }
         : null,
     };

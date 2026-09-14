@@ -101,27 +101,27 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent divide-y divide-border/40">
 
       {/* ── Header: Clean, Simple, No Voice Icon ── */}
-      <div className="px-5 py-3 bg-transparent flex items-center justify-between gap-4 flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="px-4 sm:px-5 py-3 bg-transparent flex items-center justify-between gap-3 sm:gap-4 flex-shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div className="w-7 h-7 rounded-md bg-surface-high border border-border/60 flex items-center justify-center font-bold text-[11px] text-foreground flex-shrink-0 select-none">
             {session.initial}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-[14.5px] font-semibold text-foreground font-serif tracking-tight truncate">
+              <h2 className="text-[13.5px] sm:text-[14.5px] font-semibold text-foreground font-serif tracking-tight truncate">
                 {session.name}
               </h2>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11.5px] font-mono text-muted-foreground">
+        <div className="flex items-center gap-2 text-[11px] sm:text-[11.5px] font-mono text-muted-foreground shrink-0">
           <span>{session.time}</span>
         </div>
       </div>
 
       {/* ── Chat Messages: Left = ORA, Right = Customer Name ── */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-4 bg-transparent flex flex-col">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 bg-transparent flex flex-col">
         {displayMessages.map((msg, i) => {
           const isCustomer = msg.role === 'user';
 
@@ -129,12 +129,12 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
             <div
               key={msg._id || i}
               className={cn(
-                'flex flex-col gap-1 max-w-[80%]',
+                'flex flex-col gap-1 max-w-[88%] sm:max-w-[80%]',
                 isCustomer ? 'self-end items-end' : 'self-start items-start',
               )}
             >
               {/* Sender Name & Timestamp */}
-              <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[10.5px] sm:text-[11px] font-mono text-muted-foreground">
                 <span className={cn('font-medium', isCustomer ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
                   {isCustomer ? session.name : 'ORA'}
                 </span>
@@ -145,7 +145,7 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
               {/* Message Bubble */}
               <div
                 className={cn(
-                  'p-3.5 rounded-md text-[13px] leading-relaxed border',
+                  'p-3 sm:p-3.5 rounded-md text-[12.5px] sm:text-[13px] leading-relaxed border',
                   isCustomer
                     ? 'bg-surface-high/50 border-border/60 text-foreground'
                     : 'bg-transparent border-border/50 text-foreground',
@@ -158,7 +158,7 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
         })}
 
         {actionNotice && (
-          <div className="p-2 rounded-md border border-border/60 bg-surface-high/30 text-[11.5px] font-mono text-foreground flex items-center gap-1.5 self-center">
+          <div className="p-2 rounded-md border border-border/60 bg-surface-high/30 text-[11px] sm:text-[11.5px] font-mono text-foreground flex items-center gap-1.5 self-center">
             <CheckCircle2 size={12} className="text-foreground dark:text-[#C8F031]" />
             <span>{actionNotice}</span>
           </div>
@@ -166,9 +166,9 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
       </div>
 
       {/* ── Action Bar (bottom) — only real actions ── */}
-      <div className="p-3.5 bg-transparent border-t border-border/40 flex-shrink-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex-1 text-[11.5px] font-mono text-muted-foreground">
+      <div className="p-3 sm:p-3.5 bg-transparent border-t border-border/40 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="text-[11px] sm:text-[11.5px] font-mono text-muted-foreground">
             <span>Operator actions apply to this session.</span>
           </div>
 

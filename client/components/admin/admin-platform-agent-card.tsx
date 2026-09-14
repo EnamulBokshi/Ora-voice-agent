@@ -51,7 +51,7 @@ export function AdminPlatformAgentCard() {
       setData(res);
       if (res?.agentConfig) {
         setBrandVoice(res.agentConfig.brandVoiceDescription || '');
-        setArchetype(res.agentConfig.businessArchetype || 'saas');
+        setArchetype(res.agentConfig.archetype || 'saas');
         setBusinessSummary(res.agentConfig.businessSummary || '');
         setCustomDirectives(res.agentConfig.customDirectives || '');
         setLanguage(res.agentConfig.language || 'en');
@@ -83,7 +83,7 @@ export function AdminPlatformAgentCard() {
     try {
       const res = await updatePlatformAgentConfig({
         brandVoiceDescription: brandVoice,
-        businessArchetype: archetype,
+        archetype,
         businessSummary,
         customDirectives,
         language,

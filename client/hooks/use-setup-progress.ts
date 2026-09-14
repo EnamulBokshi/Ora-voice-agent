@@ -97,9 +97,14 @@ export function useSetupProgress() {
       // 1. Persona step
       if (agentConfigRes.status === 'fulfilled' && agentConfigRes.value?.config) {
         const config = agentConfigRes.value.config;
+        // The archetype used to count as evidence here. Every profile now has
+        // one — it identifies the profile rather than recording a choice the
+        // merchant made — so it would mark this step complete for everybody.
+        // Only content the merchant actually wrote counts.
         if (
-          config.businessArchetype ||
-          (config.brandVoiceDescription && config.brandVoiceDescription.trim().length > 0)
+          (config.brandVoiceDescription && config.brandVoiceDescription.trim().length > 0) ||
+          (config.systemPrompt && config.systemPrompt.trim().length > 0) ||
+          (config.businessSummary && config.businessSummary.trim().length > 0)
         ) {
           detected.persona = true;
         }

@@ -11,6 +11,7 @@ Orientation file for Claude Code working in this repository. It covers what exis
 | Frontend conventions, RSC rules, widget embed | `client/AGENTS.md` |
 | System architecture (v5/v6) | `ORA-Final-Architecture.md` |
 | Implementation status tracker | `build-state.md` |
+| Voice AI Engine, Audio Streaming & Interrupts | `.agents/skills/voice-ai-engine-development/` |
 
 ## What ORA is
 

@@ -21,6 +21,13 @@ export interface Business {
    * connection — the only client-visible proof the embed is actually installed.
    */
   hasWidgetTraffic?: boolean;
+  /** The agent profile currently serving traffic. */
+  activeArchetype?: string;
+  /**
+   * Whether this business actually sells from a catalogue. Catalogue surfaces
+   * in the dashboard are shown on this evidence rather than to everybody.
+   */
+  hasCatalog?: boolean;
 }
 
 export interface AuthResponseData {

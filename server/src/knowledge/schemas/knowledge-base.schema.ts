@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Business } from '../../users/schemas/business.schema';
+import { BUSINESS_ARCHETYPES, DEFAULT_ARCHETYPE } from '../../common/constants/archetypes';
 
 export type KnowledgeBaseDocument = KnowledgeBase & Document;
 
@@ -22,6 +23,20 @@ export class KnowledgeBase {
     index: true,
   })
   businessId: MongooseSchema.Types.ObjectId;
+
+  /**
+   * The agent profile this row belongs to. Knowledge is scoped per archetype,
+   * so switching a business to a different archetype presents a fresh, empty
+   * knowledge set while the previous one stays intact behind the old profile.
+   */
+  @Prop({
+    type: String,
+    enum: BUSINESS_ARCHETYPES,
+    default: DEFAULT_ARCHETYPE,
+    required: true,
+    index: true,
+  })
+  archetype: string;
 
   @Prop({
     type: String,
@@ -51,4 +66,5 @@ export class KnowledgeBase {
 }
 
 export const KnowledgeBaseSchema = SchemaFactory.createForClass(KnowledgeBase);
+KnowledgeBaseSchema.index({ businessId: 1, archetype: 1, isActive: 1 });
 KnowledgeBaseSchema.index({ businessId: 1, title: 'text', content: 'text' });

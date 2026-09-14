@@ -53,7 +53,7 @@ export function CustomersClient() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 lg:p-8 w-full">
+    <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6 lg:p-8 w-full bg-background">
       <div className="max-w-[1200px] mx-auto space-y-6">
         <CustomersHeader />
         <CustomersTable customers={customers} onReload={load} />

@@ -35,7 +35,7 @@ export function ConversationListPanel({
   ];
 
   return (
-    <div className="w-[300px] lg:w-[320px] shrink-0 flex flex-col border-r border-border/40 h-full overflow-hidden bg-transparent">
+    <div className="w-full md:w-[300px] lg:w-[320px] shrink-0 flex flex-col border-r border-border/40 h-full overflow-hidden bg-transparent">
       {/* ── Search & Filter Controls ── */}
       <div className="p-3.5 border-b border-border/40 space-y-3 bg-transparent flex-shrink-0">
         {/* Search Input */}

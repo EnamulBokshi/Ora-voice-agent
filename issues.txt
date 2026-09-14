@@ -2,6 +2,9 @@
 2. when ora replying lets say it 15 sec. it ask me middle of the conversation while it responding another query that " are u still there"
 3. then after asking i'm constantly talking but it cannot catching anything it then sayed good bye and terminate the session
 4. session overlapping. during one session initially it did not have it uses tools but constantly talking then finds it automatically turns to new findings.
+5. after completing session. turnig off ora and again can't turned on in a period of time.
+6. first time turning on...sometimes heard two ora voice talk a fraction of time.
+7. 
 
 
 

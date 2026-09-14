@@ -669,8 +669,10 @@ export class GeminiVoiceService {
       if (agentConfig?.config?.brandVoiceDescription) {
         merchantBrandVoice = `\nMerchant Brand Voice / Tone: ${agentConfig.config.brandVoiceDescription}`;
       }
-      if (agentConfig?.config?.businessArchetype) {
-        businessArchetype = agentConfig.config.businessArchetype;
+      // The archetype now identifies the profile that `getConfig` resolved,
+      // rather than being a field stored on it.
+      if (agentConfig?.activeArchetype) {
+        businessArchetype = agentConfig.activeArchetype;
       }
       if (agentConfig?.config?.businessSummary) {
         businessSummary = `\nPlatform Overview: ${agentConfig.config.businessSummary}`;

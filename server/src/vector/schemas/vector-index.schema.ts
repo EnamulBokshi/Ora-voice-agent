@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Business } from '../../users/schemas/business.schema';
 import { EntityType } from '../interfaces/vector-entry.interface';
+import { BUSINESS_ARCHETYPES } from '../../common/constants/archetypes';
 
 export type VectorIndexDocument = VectorIndex & Document;
 
@@ -14,6 +15,17 @@ export class VectorIndex {
     index: true,
   })
   businessId: MongooseSchema.Types.ObjectId;
+
+  /**
+   * The agent profile this vector belongs to, for entities that are scoped per
+   * archetype (knowledge). Left unset for entities the whole business shares
+   * regardless of archetype (products) — a catalogue does not stop being the
+   * merchant's catalogue when they reclassify, so product vectors must stay
+   * visible from every profile. `searchVectors` exempts unset rows for that
+   * reason, so never default this.
+   */
+  @Prop({ type: String, enum: BUSINESS_ARCHETYPES, required: false, index: true })
+  archetype?: string;
 
   @Prop({
     type: String,

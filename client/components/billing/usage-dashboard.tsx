@@ -87,7 +87,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
     <div className="space-y-6">
       {/* ── 1. Quota Utilization Card ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-6">
-        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
             <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
@@ -100,9 +100,9 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         </div>
 
         {/* 4-Column Flat Metric Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border/40 rounded-md overflow-hidden border border-border/40">
           {quotaItems.map((item) => (
-            <div key={item.label} className="p-4 first:pl-0 last:pr-0 space-y-3">
+            <div key={item.label} className="bg-background p-4 sm:p-5 space-y-3">
               <div className="flex justify-between items-baseline">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
                   {item.label}
@@ -142,7 +142,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
 
       {/* ── 2. Daily Activity Breakdown Card ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
             <h3 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
@@ -154,8 +154,8 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[13px]">
+        <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0">
+          <table className="w-full min-w-[480px] text-left border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-border/40 text-muted-foreground uppercase text-[11px] font-mono font-medium tracking-wider">
                 <th className="py-2.5 px-3">Date</th>

@@ -62,11 +62,11 @@ export function CustomersTable({ customers, onReload }: CustomersTableProps) {
           <div className="overflow-x-auto flex-1">
             <table className="w-full text-left border-collapse text-[13px]">
               <thead>
-                <tr className="border-b border-border text-muted-foreground uppercase text-[11px] tracking-wider font-medium">
-                  <th className="py-3 px-4">Customer</th>
-                  <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-4">Orders</th>
-                  <th className="py-3 px-4">Created</th>
+                <tr className="border-b border-border text-muted-foreground uppercase text-[11px] font-mono tracking-wider font-medium">
+                  <th className="py-3 px-3 sm:px-4">Customer</th>
+                  <th className="py-3 px-3 sm:px-4">Contact</th>
+                  <th className="py-3 px-3 sm:px-4 text-center">Orders</th>
+                  <th className="py-3 px-3 sm:px-4 hidden sm:table-cell">Created</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-foreground">
@@ -77,35 +77,42 @@ export function CustomersTable({ customers, onReload }: CustomersTableProps) {
                       key={c._id}
                       tabIndex={0}
                       aria-selected={isSelected}
-                      onClick={() => setSelectedId(c._id)}
+                      onClick={() => {
+                        setSelectedId(c._id);
+                        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                          setTimeout(() => {
+                            document.getElementById('customer-detail-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                          }, 50);
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           setSelectedId(c._id);
                         }
                       }}
-                      className={`cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                      className={`cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring touch-manipulation ${
                         isSelected ? 'bg-primary/10' : 'hover:bg-surface-high'
                       }`}
                     >
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-surface-high text-foreground shrink-0">
+                      <td className="py-3 px-3 sm:px-4">
+                        <div className="flex items-center gap-2 sm:gap-2.5">
+                          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-surface-high text-foreground shrink-0 select-none">
                             {c.name.charAt(0).toUpperCase()}
                           </span>
-                          <p className="font-medium text-foreground">{c.name}</p>
+                          <p className="font-medium text-foreground truncate max-w-[140px] sm:max-w-none">{c.name}</p>
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-muted-foreground text-[12px]">
+                      <td className="py-3 px-3 sm:px-4 text-muted-foreground text-[12px] truncate max-w-[120px] sm:max-w-none">
                         {c.email ?? c.phone ?? '—'}
                       </td>
 
-                      <td className="py-3.5 px-4 tabular-nums text-foreground">
+                      <td className="py-3 px-3 sm:px-4 tabular-nums text-foreground text-center font-mono">
                         {c.pastOrderIds?.length ?? 0}
                       </td>
 
-                      <td className="py-3.5 px-4 text-muted-foreground text-[12px]">
+                      <td className="py-3 px-3 sm:px-4 text-muted-foreground text-[12px] hidden sm:table-cell font-mono">
                         {new Date(c.createdAt).toLocaleDateString()}
                       </td>
                     </tr>
@@ -118,7 +125,7 @@ export function CustomersTable({ customers, onReload }: CustomersTableProps) {
       </div>
 
       {/* Right: Customer detail */}
-      <div className="lg:col-span-5 flex flex-col h-full">
+      <div id="customer-detail-section" className="lg:col-span-5 flex flex-col h-full scroll-mt-6">
         {selectedCustomer ? (
           <CustomerDetailPanel customer={selectedCustomer} onReload={onReload} />
         ) : (

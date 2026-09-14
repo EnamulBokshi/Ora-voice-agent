@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
+import { BUSINESS_ARCHETYPES, DEFAULT_ARCHETYPE } from '../../common/constants/archetypes';
 
 export type BusinessDocument = Business & Document;
 
@@ -90,6 +91,22 @@ export class Business {
 
   @Prop({ default: 'pending', enum: ['active', 'suspended', 'pending'] })
   status: string;
+
+  /**
+   * The agent profile currently serving traffic.
+   *
+   * Archetype is an entity: the business owns one AgentConfig, VoiceSettings,
+   * SalesPlaybook and knowledge set per archetype, and this field says which
+   * one is live. Changing it swaps the whole profile — the previous one stays
+   * on disk untouched and is restored by switching back.
+   */
+  @Prop({
+    type: String,
+    enum: BUSINESS_ARCHETYPES,
+    default: DEFAULT_ARCHETYPE,
+    index: true,
+  })
+  activeArchetype: string;
 
   /**
    * Which platform the merchant's product catalog is connected to.

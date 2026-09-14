@@ -10,6 +10,7 @@ interface ConversationTranscriptProps {
   onCloseSession?: () => void;
   isClosing?: boolean;
   isLoadingTranscript?: boolean;
+  onBack?: () => void;
 }
 
 export function ConversationTranscript({
@@ -17,6 +18,7 @@ export function ConversationTranscript({
   onCloseSession,
   isClosing,
   isLoadingTranscript,
+  onBack,
 }: ConversationTranscriptProps) {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent">
@@ -25,10 +27,11 @@ export function ConversationTranscript({
         conversation={conversation}
         onCloseSession={onCloseSession}
         isClosing={isClosing}
+        onBack={onBack}
       />
 
       {/* ── Message Transcript Scroll Stream ── */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-transparent">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-transparent">
         {isLoadingTranscript ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-2">
             <Loader2 className="animate-spin text-muted-foreground" size={16} />

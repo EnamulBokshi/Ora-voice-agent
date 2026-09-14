@@ -291,7 +291,7 @@ export function BusinessDetailsCard({
 
         {/* ── Card 2: Publishable Widget Key ── */}
         <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
-          <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-border/40">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
@@ -307,7 +307,7 @@ export function BusinessDetailsCard({
             {hasActiveKey && (
               <button
                 onClick={() => setShowRevokeModal(true)}
-                className="px-3 py-1.5 text-[12px] font-medium rounded-md border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="self-start sm:self-auto px-3 py-1.5 text-[12px] font-medium rounded-md border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 touch-manipulation"
               >
                 <Trash2 size={12} />
                 <span>Revoke Key</span>
@@ -352,7 +352,7 @@ export function BusinessDetailsCard({
                       type="button"
                       onClick={handleToggleWidget}
                       disabled={isTogglingWidget}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring touch-manipulation ${
                         isWidgetActive ? 'bg-foreground dark:bg-[#C8F031]' : 'bg-surface-bright border-border/80'
                       } ${isTogglingWidget ? 'opacity-60 cursor-wait' : ''}`}
                       role="switch"
@@ -378,7 +378,7 @@ export function BusinessDetailsCard({
                   </span>
                   <button
                     onClick={handleCopyKey}
-                    className="px-3 py-1.5 rounded-md bg-surface-high hover:bg-surface-bright border border-border/60 text-[12px] font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    className="h-9 sm:h-8 px-3 rounded-md bg-surface-high hover:bg-surface-bright border border-border/60 text-[12px] font-medium text-foreground transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer touch-manipulation"
                     title="Copy Key"
                   >
                     {copiedKey ? <Check size={13} className="text-foreground dark:text-[#C8F031]" /> : <Copy size={13} />}

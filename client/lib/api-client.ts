@@ -53,26 +53,26 @@ export async function apiClient<T>(
     const res = await fetch(url, config);
     const contentType = res.headers.get('content-type');
 
-    let json: ApiResponse<T>;
+    let json: ApiResponse<T> | null = null;
+    let responseText = '';
+
     if (contentType && contentType.includes('application/json')) {
-      json = await res.json();
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
     } else {
-      const text = await res.text();
-      throw new ApiClientError(
-        'HTTP_ERROR',
-        text || `HTTP request failed with status ${res.status}`,
-        undefined,
-        res.status,
-      );
+      responseText = await res.text().catch(() => '');
     }
 
     const isUnauthorized =
       res.status === 401 ||
-      (json.success === false && json.error?.code === 'UNAUTHORIZED');
+      (json?.success === false && json?.error?.code === 'UNAUTHORIZED');
 
     const isForbidden =
       res.status === 403 ||
-      (json.success === false && json.error?.code === 'Forbidden');
+      (json?.success === false && json?.error?.code === 'Forbidden');
 
     const shouldAttemptRefresh =
       (isUnauthorized || isForbidden) &&
@@ -121,11 +121,31 @@ export async function apiClient<T>(
       }
     }
 
-    if (!res.ok || json.success === false) {
-      const err: ApiError = json.error || {
-        code: 'UNKNOWN_ERROR',
-        message: 'An unexpected error occurred.',
-      };
+    if (!res.ok || (json && json.success === false)) {
+      let errMsg = 'An unexpected error occurred.';
+      let errCode = 'UNKNOWN_ERROR';
+      let correlationId: string | undefined = undefined;
+
+      if (json?.error) {
+        errCode = json.error.code || errCode;
+        errMsg = json.error.message || errMsg;
+        correlationId = json.error.correlationId;
+      } else if ((json as any)?.message) {
+        errMsg = Array.isArray((json as any).message)
+          ? (json as any).message.join(', ')
+          : (json as any).message;
+        errCode = (json as any).error || `HTTP_${res.status}`;
+      } else if (responseText) {
+        if (responseText.trim().startsWith('<')) {
+          errMsg = `Server error (HTTP ${res.status}${res.statusText ? `: ${res.statusText}` : ''})`;
+        } else {
+          errMsg = responseText.slice(0, 300);
+        }
+        errCode = `HTTP_${res.status}`;
+      } else {
+        errMsg = `HTTP request failed with status ${res.status}`;
+        errCode = `HTTP_${res.status}`;
+      }
 
       // If persistent 401 occurs, clear stale token for non-Shopify routes
       if (isUnauthorized && typeof window !== 'undefined') {
@@ -152,10 +172,14 @@ export async function apiClient<T>(
         }
       }
 
-      throw new ApiClientError(err.code, err.message, err.correlationId, res.status);
+      throw new ApiClientError(errCode, errMsg, correlationId, res.status);
     }
 
-    return json.data as T;
+    if (!json) {
+      return {} as T;
+    }
+
+    return (json.data !== undefined ? json.data : json) as T;
   } catch (err: any) {
     if (err instanceof ApiClientError) {
       throw err;

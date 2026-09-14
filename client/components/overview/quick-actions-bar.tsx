@@ -32,7 +32,7 @@ export function QuickActionsBar({ actions }: QuickActionsBarProps) {
             key={action.id}
             href={action.href}
             id={action.id}
-            className="group flex items-center justify-between gap-4 py-4 px-5 hover:bg-surface-high/30 transition-colors"
+            className="group flex items-center justify-between gap-3 sm:gap-4 py-3.5 sm:py-4 px-4 sm:px-5 hover:bg-surface-high/30 transition-colors touch-manipulation"
           >
             <div className="flex items-center gap-4 min-w-0">
               <span className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0">

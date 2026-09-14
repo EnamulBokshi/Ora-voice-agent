@@ -179,9 +179,22 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
   return (
     <>
       <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
+        {/* ── Section Header ── */}
+        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3.5">
+          <div className="flex items-center gap-2">
+            <Package size={15} className="text-primary flex-shrink-0" />
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              Product Catalog
+            </h2>
+          </div>
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+            {pagination.total} {pagination.total === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+
         {/* ── Top Bar: Filter Tabs & Actions ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-0">
-          {/* Availability filter tabs — Intercom style underline */}
+          {/* Availability filter tabs */}
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar -mb-px">
             {availabilityTabs.map((tab) => {
               const isActive = selectedAvailability === tab.id;
@@ -235,8 +248,8 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
         </div>
 
         {/* ── Search & Secondary Filters Toolbar ── */}
-        <div className="flex items-center justify-between gap-3 py-1 flex-wrap">
-          <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 py-1">
+          <div className="flex items-center gap-2 w-full sm:flex-1 sm:max-w-md">
             <div className="relative w-full">
               <Search
                 size={13}
@@ -255,7 +268,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 font-mono text-[11.5px]">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 font-mono text-[11.5px]">
             {categories.length > 0 && (
               <select
                 value={selectedCategory}
@@ -263,7 +276,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   setSelectedCategory(e.target.value);
                   setPagination((p) => ({ ...p, page: 1 }));
                 }}
-                className="rounded-md border border-border/60 bg-surface-high/30 px-2.5 py-1.5 text-[12px] text-foreground focus:border-foreground focus:outline-none cursor-pointer"
+                className="rounded-md border border-border/60 bg-surface-high/30 px-2.5 py-1.5 text-[12px] text-foreground focus:border-foreground focus:outline-none cursor-pointer flex-1 sm:flex-initial"
               >
                 <option value="all">All Categories</option>
                 {categories.map((c) => (
@@ -278,7 +291,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
               onClick={loadProducts}
               title="Refresh products"
               aria-label="Refresh catalog"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer border border-border/40"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer border border-border/40 shrink-0 touch-manipulation"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
             </button>

@@ -14,6 +14,7 @@ import {
   StructuredKnowledgeEntry,
   VoiceTranscriptStructurerService,
 } from './voice-transcript-structurer.service';
+import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
 
 @Injectable()
 export class KnowledgeService {
@@ -24,6 +25,7 @@ export class KnowledgeService {
     private readonly knowledgeBaseModel: Model<KnowledgeBaseDocument>,
     @InjectModel(KnowledgeChunk.name)
     private readonly knowledgeChunkModel: Model<KnowledgeChunkDocument>,
+    private readonly agentProfileService: AgentProfileService,
     @Optional()
     @Inject(forwardRef(() => VectorStoreService))
     private readonly vectorStoreService?: VectorStoreService,
@@ -47,10 +49,12 @@ export class KnowledgeService {
     dto: CreateKnowledgeDocDto,
   ): Promise<{ document: KnowledgeBaseDocument; chunksCount: number }> {
     const bId = new Types.ObjectId(businessId);
+    const archetype = await this.agentProfileService.getActiveArchetype(businessId);
 
     const doc = new this.knowledgeBaseModel({
       ...dto,
       businessId: bId,
+      archetype,
     });
 
     const savedDoc = await doc.save();
@@ -60,6 +64,7 @@ export class KnowledgeService {
     const chunks = this.chunkText(savedDoc.content);
     const chunkDocs = chunks.map((chunkText, index) => ({
       businessId: bId,
+      archetype,
       knowledgeBaseId: savedDoc._id,
       text: chunkText,
       chunkIndex: index,
@@ -78,6 +83,7 @@ export class KnowledgeService {
           entityType: EntityType.KNOWLEDGE_CHUNK,
           entityId: chunk._id.toString(),
           text: chunk.text,
+          archetype: savedDoc.archetype,
           metadata: {
             knowledgeBaseId: savedDoc._id.toString(),
             docTitle: savedDoc.title,
@@ -220,6 +226,7 @@ export class KnowledgeService {
   ) {
     const filter: Record<string, any> = {
       businessId: businessId as any,
+      archetype: await this.agentProfileService.getActiveArchetype(businessId),
       isActive: true,
     };
 
@@ -270,6 +277,7 @@ export class KnowledgeService {
       .findOne({
         _id: id as any,
         businessId: businessId as any,
+        archetype: await this.agentProfileService.getActiveArchetype(businessId),
       })
       .exec();
 
@@ -334,6 +342,9 @@ export class KnowledgeService {
       const chunks = this.chunkText(updatedDoc.content);
       const chunkDocs = chunks.map((chunkText, index) => ({
         businessId: new Types.ObjectId(businessId),
+        // Chunks inherit the document's profile, not the one that happens to
+        // be live — an edit must not move a document between profiles.
+        archetype: updatedDoc.archetype,
         knowledgeBaseId: updatedDoc._id,
         text: chunkText,
         chunkIndex: index,
@@ -353,6 +364,7 @@ export class KnowledgeService {
             entityType: EntityType.KNOWLEDGE_CHUNK,
             entityId: chunk._id.toString(),
             text: chunk.text,
+            archetype: updatedDoc.archetype,
             metadata: {
               knowledgeBaseId: updatedDoc._id.toString(),
               docTitle: updatedDoc.title,
@@ -438,6 +450,7 @@ export class KnowledgeService {
     const existing = await this.knowledgeBaseModel
       .findOne({
         businessId: businessId as any,
+        archetype: await this.agentProfileService.getActiveArchetype(businessId),
         $or: [
           ...(doc.sourceUrl ? [{ sourceUrl: doc.sourceUrl }] : []),
           { title: doc.title, docType },

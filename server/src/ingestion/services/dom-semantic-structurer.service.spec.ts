@@ -4,12 +4,14 @@ import { DomSemanticStructurerService } from './dom-semantic-structurer.service'
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { ProductsService } from '../../products/products.service';
 import { AgentConfig } from '../../agent-config/schemas/agent-config.schema';
+import { AgentProfileService } from '../../common/agent-profile/agent-profile.service';
 
 describe('DomSemanticStructurerService', () => {
   let service: DomSemanticStructurerService;
   let mockKnowledgeService: any;
   let mockProductsService: any;
   let mockAgentConfigModel: any;
+  let mockAgentProfileService: any;
 
   beforeEach(async () => {
     mockKnowledgeService = {
@@ -21,9 +23,16 @@ describe('DomSemanticStructurerService', () => {
     };
 
     const mockConfigDoc = {
-      businessArchetype: 'general',
+      archetype: 'general',
       businessSummary: '',
       save: jest.fn().mockResolvedValue(true),
+    };
+
+    // The business starts on the default profile, which is the only state in
+    // which a crawl is allowed to classify it.
+    mockAgentProfileService = {
+      getActiveArchetype: jest.fn().mockResolvedValue('general'),
+      setActiveArchetype: jest.fn().mockImplementation(async (_id: string, a: string) => a),
     };
 
     mockAgentConfigModel = {
@@ -38,6 +47,7 @@ describe('DomSemanticStructurerService', () => {
         { provide: KnowledgeService, useValue: mockKnowledgeService },
         { provide: ProductsService, useValue: mockProductsService },
         { provide: getModelToken(AgentConfig.name), useValue: mockAgentConfigModel },
+        { provide: AgentProfileService, useValue: mockAgentProfileService },
       ],
     }).compile();
 

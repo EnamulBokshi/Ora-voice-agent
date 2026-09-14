@@ -7,6 +7,7 @@ import {
   X,
   CheckCircle2,
   Globe,
+  FileText,
 } from 'lucide-react';
 import {
   createKnowledgeDocApi,
@@ -106,10 +107,10 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
       {/* ── Import from URL — clean prominent action row ── */}
       <div className="flex items-center justify-between pb-4 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h3 className="text-[13px] font-semibold text-foreground font-serif">
-            Upload & Sync Documents
-          </h3>
+          <FileText size={15} className="text-primary flex-shrink-0" />
+          <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            Documents & Policies
+          </h2>
         </div>
         <button
           type="button"
@@ -250,7 +251,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
             className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-[12px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
           >
             {isSaving ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
-            {isSaving ? 'Saving…' : 'Save & Index'}
+            {isSaving ? 'Saving…' : 'Save Document'}
           </button>
         </div>
       </form>

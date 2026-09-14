@@ -25,13 +25,13 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
   return (
     <div className="flex flex-col flex-1 min-h-[270px]">
       {/* Conversion Rate Sub-header */}
-      <div className="flex items-center justify-between pb-4 mb-3 border-b border-border/30">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-4 mb-3 border-b border-border/30">
         <span className="text-[12px] font-medium text-muted-foreground">
           Voice & Chat Conversion Funnel
         </span>
-        <div className="flex items-center gap-2 text-[12.5px]">
+        <div className="flex items-center gap-2 text-[12px] sm:text-[12.5px]">
           <span className="text-muted-foreground">Overall conversion rate:</span>
-          <span className="font-semibold text-foreground dark:text-primary font-mono tabular-nums text-[14px]">
+          <span className="font-semibold text-foreground dark:text-primary font-mono tabular-nums text-[13px] sm:text-[14px]">
             {overallConversion}%
           </span>
         </div>

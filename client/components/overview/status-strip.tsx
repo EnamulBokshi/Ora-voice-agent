@@ -21,9 +21,9 @@ export function StatusStrip({
   isTogglingWidget = false,
 }: StatusStripProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-border/50 text-[12.5px] bg-transparent">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 py-3 border-b border-border/50 text-[12.5px] bg-transparent">
       {/* Live Status Indicators — Voice Agent Only */}
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-2.5 sm:gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="relative flex h-2 w-2">
             {isWidgetActive ? (
@@ -44,7 +44,7 @@ export function StatusStrip({
               type="button"
               onClick={onToggleWidget}
               disabled={isTogglingWidget}
-              className={`ml-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+              className={`ml-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer touch-manipulation ${
                 isWidgetActive
                   ? 'border-border/60 text-muted-foreground hover:text-foreground hover:bg-surface-high'
                   : 'border-emerald-500/40 text-emerald-400 dark:text-primary bg-emerald-500/10 hover:bg-emerald-500/20'
@@ -58,16 +58,16 @@ export function StatusStrip({
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
-        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[12px]">
+        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[11.5px] sm:text-[12px]">
           <span className="font-semibold text-foreground">{voiceSessions}</span>
-          <span>live customer calls</span>
+          <span>live calls</span>
         </div>
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
-        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[12px]">
+        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[11.5px] sm:text-[12px]">
           <span className="font-semibold text-foreground">{productsCount.toLocaleString()}</span>
-          <span>products indexed</span>
+          <span>products</span>
         </div>
       </div>
 
@@ -75,7 +75,7 @@ export function StatusStrip({
       <AppLink
         href="/live-desk"
         title="Monitor ongoing voice conversations and shopper interactions in real time"
-        className="inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors ml-auto sm:ml-0"
+        className="inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground hover:underline underline-offset-4 transition-colors shrink-0 pt-0.5 sm:pt-0"
       >
         <Radio size={12} className="text-foreground dark:text-primary" />
         <span>Live Store Desk</span>

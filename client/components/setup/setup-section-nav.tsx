@@ -2,57 +2,24 @@
 
 import {
   ChevronDown, ChevronRight, ArrowUpRight, Check,
-  ShoppingBag, Layers, Briefcase, Globe, Building2,
   LayoutGrid, SlidersHorizontal, CheckCircle2, Circle, BarChart2,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
 import { useAppRouter } from '@/lib/navigation/app-path';
+import { ARCHETYPES, type BusinessArchetype } from '@/lib/archetypes';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type SetupArchetype = 'ecommerce' | 'saas' | 'agency' | 'portfolio' | 'general';
+/**
+ * The setup guide used to carry its own five-value archetype list whose ids
+ * drifted from the server enum. It now renders the shared list; the alias is
+ * kept so the guide's own prop names still read as setup concerns.
+ */
+export type SetupArchetype = BusinessArchetype;
 
-// ─── Archetype definitions ─────────────────────────────────────────────────────
-
-export const ARCHETYPES = [
-  {
-    id:        'ecommerce' as SetupArchetype,
-    label:     'E-Commerce Store',
-    category:  'Retail',
-    Icon:      ShoppingBag,
-    iconClass: 'text-foreground',
-  },
-  {
-    id:        'saas' as SetupArchetype,
-    label:     'SaaS Product',
-    category:  'Software',
-    Icon:      Layers,
-    iconClass: 'text-foreground',
-  },
-  {
-    id:        'agency' as SetupArchetype,
-    label:     'Agency & Services',
-    category:  'Services',
-    Icon:      Briefcase,
-    iconClass: 'text-foreground',
-  },
-  {
-    id:        'portfolio' as SetupArchetype,
-    label:     'Creator & Portfolio',
-    category:  'Personal',
-    Icon:      Globe,
-    iconClass: 'text-foreground',
-  },
-  {
-    id:        'general' as SetupArchetype,
-    label:     'Enterprise & FAQ',
-    category:  'Enterprise',
-    Icon:      Building2,
-    iconClass: 'text-foreground',
-  },
-] as const;
+export { ARCHETYPES };
 
 // Config steps — same for ALL archetypes
 const CONFIG_STEPS: { step: SetupStepId; label: string }[] = [

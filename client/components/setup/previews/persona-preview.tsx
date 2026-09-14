@@ -18,7 +18,11 @@ import {
   Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getAgentConfigApi, updateAgentConfigApi } from '@/services/agent-config-service';
+import {
+  getAgentConfigApi,
+  switchArchetypeApi,
+  updateAgentConfigApi,
+} from '@/services/agent-config-service';
 import { getVoiceSampleApi } from '@/services/voice-service';
 import { playGeminiAudioBase64, stopCurrentAudio } from '@/lib/audio-player';
 import {
@@ -27,6 +31,7 @@ import {
   SupportedLanguage,
 } from '@/lib/languages';
 import { useReadOnly } from '@/components/common/read-only-fence';
+import { normalizeArchetype } from '@/lib/archetypes';
 
 interface PersonaPreviewProps {
   archetype?: string | null;
@@ -353,8 +358,16 @@ export function PersonaPreview({ archetype = 'ecommerce', onSaved }: PersonaPrev
     setSavedSuccess(false);
 
     try {
+      // The archetype the guide is walking the merchant through is an entity,
+      // not a field on this form: making it live is a profile switch, and it
+      // has to happen before the attributes below are saved so they land on
+      // the profile the merchant is actually configuring.
+      const target = normalizeArchetype(archetype);
+      if (target) {
+        await switchArchetypeApi(target).catch(() => null);
+      }
+
       await updateAgentConfigApi({
-        businessArchetype: archetype || 'ecommerce',
         voiceId: selectedVoiceId,
         brandVoiceDescription: brandVoiceDesc,
         customDirectives,

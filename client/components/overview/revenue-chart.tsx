@@ -76,13 +76,13 @@ export function RevenueChart({
   return (
     <div className="flex flex-col">
       {/* Metric & Period Toggle Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-3">
-        <div className="flex items-baseline gap-3">
-          <span className="text-[12px] font-medium text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 mb-3 border-b border-border/30 sm:border-b-0">
+        <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+          <span className="text-[12px] font-medium text-muted-foreground block w-full sm:w-auto">
             Total Attributed Revenue
           </span>
           <div className="flex items-baseline gap-2.5">
-            <span className="text-[26px] font-semibold font-serif tabular-nums text-foreground">
+            <span className="text-xl sm:text-[26px] font-semibold font-serif tabular-nums text-foreground">
               {formatCurrency(displayRevenue)}
             </span>
             <span
@@ -100,13 +100,13 @@ export function RevenueChart({
         </div>
 
         {/* Period Toggle — Flat Non-Rounded */}
-        <div className="flex items-center gap-1 p-0.5 rounded-none bg-surface-high border border-border/40 text-[12px]">
+        <div className="flex items-center gap-1 p-0.5 rounded-none bg-surface-high border border-border/40 text-[12px] self-start sm:self-auto">
           {(['daily', 'weekly'] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                'px-3 py-1 rounded-none capitalize transition-colors font-medium cursor-pointer',
+                'px-3 py-1 rounded-none capitalize transition-colors font-medium cursor-pointer touch-manipulation',
                 period === p
                   ? 'bg-surface-lowest text-foreground font-semibold shadow-xs border border-border/50'
                   : 'text-muted-foreground hover:text-foreground',

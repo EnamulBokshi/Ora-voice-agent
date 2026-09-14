@@ -2,9 +2,21 @@
 
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AgentSectionNav, type AgentRole, type AgentView } from './agent-section-nav';
-import { AgentHub } from './agent-hub';
-import { AgentGetStartedPage } from './agent-get-started-page';
+import {
+  AGENT_VIEWS,
+  DEFAULT_AGENT_ROLE,
+  ROLE_LANDING_VIEW,
+  isRoleVisible,
+  type AgentRole,
+  type AgentView,
+} from '@/lib/agent-roles';
+import { ARCHETYPE_CHANGED_EVENT } from '@/lib/archetypes';
+import { AGENT_TEST_PAGE_ENABLED } from '@/lib/disabled-features';
+// DISABLED: the role hub and the editorial "Get started" pages are switched
+// off — see lib/disabled-features.ts. The components are kept rather than
+// deleted so a merge that restores their call sites conflicts here.
+// import { AgentHub } from './agent-hub';
+// import { AgentGetStartedPage } from './agent-get-started-page';
 import { AgentSectionLayout } from './agent-section-layout';
 import { VoiceTestModal } from './modals/voice-test-modal';
 import { VoiceFeedTab } from './feed/voice-feed-tab';
@@ -17,7 +29,8 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, ArrowRight, ExternalLink, Sliders, PhoneCall, SlidersHorizontal, MessageSquare } from 'lucide-react';
+import { Mic, FileText, Package, Database, ArrowRight, ExternalLink, Sliders, PhoneCall, SlidersHorizontal, MessageSquare, Code2 } from 'lucide-react';
+import { IntegrationPreview } from '@/components/setup/previews/integration-preview';
 import Link from 'next/link';
 import { AppLink } from '@/components/navigation/app-link';
 import { ReadOnlyFence } from '@/components/common/read-only-fence';
@@ -35,27 +48,52 @@ function AgentClientContent() {
   const rawView  = searchParams.get('view');
   const legacyTab = searchParams.get('tab'); // backward compat
 
-  // Resolve role
-  const activeRole: AgentRole | null =
-    rawRole && ['prompt', 'persona', 'voice', 'documents', 'products'].includes(rawRole)
-      ? ((rawRole === 'persona' ? 'prompt' : rawRole) as AgentRole)
-      : legacyTab && ['prompt', 'persona', 'voice', 'documents', 'products'].includes(legacyTab)
-      ? ((legacyTab === 'persona' ? 'prompt' : legacyTab) as AgentRole)
+  // Resolve role. With the hub disabled, `/agent` with no role opens the
+  // default role's page rather than a landing screen.
+  const normalizeRole = (r: string | null): AgentRole | null => {
+    if (!r) return null;
+    if (r === 'persona') return 'prompt';
+    if (r === 'embed' || r === 'widget') return 'script';
+    if (['prompt', 'voice', 'documents', 'products', 'script'].includes(r)) {
+      return r as AgentRole;
+    }
+    return null;
+  };
+
+  const activeRole: AgentRole =
+    normalizeRole(rawRole) ??
+    normalizeRole(legacyTab) ??
+    DEFAULT_AGENT_ROLE;
+
+  // Resolve view. `get-started` is no longer a destination, so a bookmarked
+  // link to one lands on the role's main feature page instead.
+  const requestedView =
+    rawView && AGENT_VIEWS.includes(rawView as AgentView)
+      ? (rawView as AgentView)
       : null;
 
-  // Resolve view — defaults to 'get-started' when role is selected (or 'prompt' for prompt role)
+  const DISABLED_VIEWS: AgentView[] = [
+    'get-started',
+    ...(AGENT_TEST_PAGE_ENABLED ? [] : (['test'] as AgentView[])),
+  ];
+
   const activeView: AgentView =
-    rawView && ['get-started', 'feed', 'test', 'knowledge', 'catalog', 'prompt'].includes(rawView)
-      ? (rawView as AgentView)
-      : activeRole === 'prompt'
-      ? 'prompt'
-      : 'get-started';
+    requestedView && !DISABLED_VIEWS.includes(requestedView)
+      ? requestedView
+      : ROLE_LANDING_VIEW[activeRole];
 
   const fallbackKey = demoProfile?.business?.publishableKey ?? null;
 
   const [publishableKey, setPublishableKey] = useState<string | null>(
     DEMO_MODE_ENABLED ? fallbackKey : null,
   );
+  // Which roles this business is offered depends on what it actually is: a
+  // business with no catalogue is not shown catalogue tools.
+  const [businessContext, setBusinessContext] = useState<{
+    archetype?: string;
+    hasCatalog?: boolean;
+    isWidgetActive?: boolean;
+  }>({});
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [docs, setDocs]               = useState<KnowledgeDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
@@ -75,37 +113,62 @@ function AgentClientContent() {
       .then((res) => {
         const key = withDemoFallback(res?.business?.publishableKey ?? null, fallbackKey);
         setPublishableKey(key);
+        setBusinessContext({
+          archetype: res?.business?.activeArchetype,
+          hasCatalog: res?.business?.hasCatalog,
+          isWidgetActive: res?.business?.isWidgetActive,
+        });
       })
       .catch(() => setPublishableKey(withDemoFallback(null, fallbackKey)));
     loadDocs();
   }, [loadDocs, fallbackKey]);
 
+  // Same reason as the dashboard sidebar: the fetch above runs once on mount,
+  // so a business type switched on the persona page would otherwise leave this
+  // surface still redirecting away from the Product Catalog role.
+  useEffect(() => {
+    const onArchetypeChange = (e: Event) => {
+      const next = (e as CustomEvent<unknown>).detail;
+      setBusinessContext((prev) => ({ ...prev, archetype: next as string | undefined }));
+    };
+    window.addEventListener(ARCHETYPE_CHANGED_EVENT, onArchetypeChange);
+    return () => window.removeEventListener(ARCHETYPE_CHANGED_EVENT, onArchetypeChange);
+  }, []);
+
   // ── Render content based on role + view ────────────────────────────────────
 
-  const renderContent = () => {
-    // ── No role selected: hub page ─────────────────────────────────────────
-    if (activeRole === null) return <AgentHub />;
+  // The persona page is the main feature of this surface: it is what `prompt`
+  // renders, and what anything unrecognised falls back to now that the hub and
+  // the "Get started" pages are disabled.
+  const renderPersona = () => (
+    <AgentSectionLayout
+      iconNode={<Sliders size={16} className="text-foreground" />}
+      title="System Prompt & Persona"
+      description="Set your business type, language, brand tone, and store instructions."
+      previewSrc="/previews/agent-persona-role.jpg"
+      previewAlt="Store voice and persona preview"
+    >
+      <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-2">
+        <AgentPersonaTab />
+      </div>
+    </AgentSectionLayout>
+  );
 
-    // ── "Get started" editorial page (default view) ────────────────────────
-    if (activeView === 'get-started' && activeRole !== 'prompt') {
-      return <AgentGetStartedPage role={activeRole} />;
+  const renderContent = () => {
+    // A role this business is not offered cannot be reached by typing its URL.
+    if (!isRoleVisible(activeRole, businessContext)) {
+      return renderPersona();
     }
+
+    // DISABLED: hub and "Get started" — see lib/disabled-features.ts.
+    // if (activeRole === null) return <AgentHub />;
+    // if (activeView === 'get-started' && activeRole !== 'prompt') {
+    //   return <AgentGetStartedPage role={activeRole} />;
+    // }
 
     // ── Prompt: System Prompt & Persona ────────────────────────────────────
     if (activeRole === 'prompt') {
-      return (
-        <AgentSectionLayout
-          iconNode={<Sliders size={16} className="text-foreground" />}
-          title="System Prompt & Persona"
-          description="Configure ORA's operating instructions, supported language & spoken dialect rules, greeting behavior, and strict avoidances."
-          previewSrc="/previews/agent-persona-role.jpg"
-          previewAlt="Store voice and persona preview"
-        >
-          <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-2">
-            <AgentPersonaTab />
-          </div>
-        </AgentSectionLayout>
-      );
+      return renderPersona();
     }
 
     // ── Voice: feed, test, or knowledge views ──────────────────────────────
@@ -115,21 +178,18 @@ function AgentClientContent() {
           <AgentSectionLayout
             iconNode={<Mic size={16} className="text-foreground" />}
             title="Voice Feed"
-            description="Engage your shoppers through real-time speech-to-speech AI. Feed ORA product knowledge by speaking — it indexes instantly."
+            description="Speak product updates and store knowledge directly to your sales agent."
             previewSrc="/previews/agent-voice-role.jpg"
             previewAlt="ORA voice interface"
-            howLabel="Train ORA by talking"
+            howLabel="Voice training"
             ctaNodes={
               <>
                 <button
                   onClick={() => setIsVoiceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
                 >
                   Start talking <ArrowRight size={10} />
                 </button>
-                <AppLink href="/agent?role=voice" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
-                  Get started <ExternalLink size={9} />
-                </AppLink>
               </>
             }
           >
@@ -146,19 +206,19 @@ function AgentClientContent() {
           </AgentSectionLayout>
         );
       }
-      if (activeView === 'test') {
+      if (AGENT_TEST_PAGE_ENABLED && activeView === 'test') {
         return (
           <AgentSectionLayout
             iconNode={<PhoneCall size={16} className="text-foreground" />}
-            title="Test ORA"
-            description="Talk to your agent exactly as a customer would. Ask it what you just taught it, and hear the answer it will give on your storefront."
+            title="Test Voice"
+            description="Talk to your agent exactly as a shopper would to preview storefront responses."
             previewSrc="/previews/agent-voice-role.jpg"
             previewAlt="Testing the ORA voice agent"
-            howLabel="Hear what your customers hear"
+            howLabel="Live test call"
             ctaNodes={
               <button
                 onClick={() => setIsVoiceModalOpen(true)}
-                className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
               >
                 Start test call <ArrowRight size={10} />
               </button>
@@ -170,17 +230,16 @@ function AgentClientContent() {
                   <div className="flex items-start gap-3">
                     <PhoneCall size={16} className="text-foreground mt-0.5 flex-shrink-0" />
                     <div className="min-w-0">
-                      <h3 className="text-[13px] font-semibold text-foreground font-serif">
+                      <h3 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
                         Start a live test call
                       </h3>
                       <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                        This is the same agent, the same voice, and the same knowledge base your
-                        shoppers reach through the widget. Nothing you say here is saved as
-                        training data.
+                        This uses the same agent voice, persona, and knowledge base your
+                        shoppers reach on your store. Nothing spoken here is saved into training records.
                       </p>
                       <button
                         onClick={() => setIsVoiceModalOpen(true)}
-                        className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-foreground text-background text-[12px] font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                        className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
                       >
                         <Mic size={12} /> Start test call
                       </button>
@@ -191,33 +250,31 @@ function AgentClientContent() {
                 <div className="rounded-md border border-border/50 p-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-border/40">
                     <MessageSquare size={13} className="text-foreground" />
-                    <span className="text-[13px] font-semibold text-foreground font-serif">
+                    <span className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
                       What to ask
                     </span>
                   </div>
                   <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground leading-relaxed">
-                    <li>• Something you taught in Voice feed — if the answer is vague, the entry needs rewording.</li>
-                    <li>• A question your customers actually ask, in their words rather than yours.</li>
-                    <li>• A question you have never answered, to hear how ORA behaves when it does not know.</li>
-                    <li>• Ask to be taken to a page, to check navigation works end to end.</li>
+                    <li>• A question about recently added products, policies, or return rules.</li>
+                    <li>• Common questions your customers ask, using their everyday phrasing.</li>
+                    <li>• Edge-case questions, to review how ORA politely handles missing details.</li>
+                    <li>• Navigation requests, to ensure checkout and store links work smoothly.</li>
                   </ul>
                 </div>
 
                 <div className="rounded-md border border-border/50 p-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-border/40">
                     <SlidersHorizontal size={13} className="text-foreground" />
-                    <span className="text-[13px] font-semibold text-foreground font-serif">
-                      If an answer is wrong
+                    <span className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                      Updating answers
                     </span>
                   </div>
                   <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed">
-                    Go back to{' '}
+                    Head to{' '}
                     <Link href="/agent?role=voice&view=feed" className="text-foreground underline underline-offset-2">
                       Voice feed
                     </Link>{' '}
-                    and say the correct version out loud. Re-teaching a topic updates the existing
-                    entry rather than adding a competing one, so the wrong answer stops being
-                    retrievable.
+                    or upload a reference document to refine your agent's knowledge base.
                   </p>
                 </div>
               </div>
@@ -228,12 +285,12 @@ function AgentClientContent() {
       if (activeView === 'knowledge') {
         return (
           <AgentSectionLayout
-            iconNode={<Mic size={16} className="text-foreground" />}
+            iconNode={<Database size={16} className="text-foreground" />}
             title="Knowledge Base"
-            description="All knowledge indexed by ORA — from voice training sessions, uploaded documents, and product catalog syncs."
+            description="Reference guides, store knowledge, and indexed documents used during customer conversations."
             previewSrc="/previews/docs-step2-index.jpg"
             previewAlt="ORA knowledge base"
-            howLabel="What ORA knows"
+            howLabel="Store knowledge"
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
@@ -250,15 +307,10 @@ function AgentClientContent() {
           <AgentSectionLayout
             iconNode={<FileText size={16} className="text-foreground" />}
             title="Upload Files"
-            description="Upload store policies, shipping guides, FAQs, and reference files. ORA's RAG engine indexes your content so answers cite what you uploaded."
-            previewSrc="/previews/docs-step1-upload.jpg"
-            previewAlt="ORA knowledge base"
-            howLabel="Upload your store knowledge"
-            ctaNodes={
-              <AppLink href="/agent?role=documents" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
-                Get started <ExternalLink size={9} />
-              </AppLink>
-            }
+            description="Upload store policies, shipping guides, and FAQs."
+            previewSrc="/previews/agent-docs-role.jpg"
+            previewAlt="Store documents and policies"
+            howLabel="Store documents"
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
@@ -273,76 +325,15 @@ function AgentClientContent() {
           </AgentSectionLayout>
         );
       }
-      if (activeView === 'test') {
-        return (
-          <AgentSectionLayout
-            iconNode={<PhoneCall size={16} className="text-foreground" />}
-            title="Test ORA"
-            description="Talk to your agent exactly as a customer would. Ask it what you just taught it, and hear the answer it will give on your storefront."
-            previewSrc="/previews/agent-voice-role.jpg"
-            previewAlt="Testing the ORA voice agent"
-            howLabel="Hear what your customers hear"
-            ctaNodes={
-              <button
-                onClick={() => setIsVoiceModalOpen(true)}
-                className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-foreground text-background text-[11.5px] font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-              >
-                Start test call <ArrowRight size={10} />
-              </button>
-            }
-          >
-            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
-              <div className="max-w-2xl space-y-5">
-                <div className="rounded-md border border-border/50 p-6">
-                  <div className="flex items-start gap-3">
-                    <PhoneCall size={16} className="text-foreground mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <h3 className="text-[13px] font-semibold text-foreground font-serif">
-                        Start a live test call
-                      </h3>
-                      <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                        This is the same agent, the same voice, and the same knowledge base your
-                        shoppers reach through the widget. Nothing you say here is saved as
-                        training data.
-                      </p>
-                      <button
-                        onClick={() => setIsVoiceModalOpen(true)}
-                        className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-foreground text-background text-[12px] font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                      >
-                        <Mic size={12} /> Start test call
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-border/50 p-5">
-                  <div className="flex items-center gap-2 pb-3 border-b border-border/40">
-                    <MessageSquare size={13} className="text-foreground" />
-                    <span className="text-[13px] font-semibold text-foreground font-serif">
-                      What to ask
-                    </span>
-                  </div>
-                  <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground leading-relaxed">
-                    <li>• Something you taught in Voice feed — if the answer is vague, the entry needs rewording.</li>
-                    <li>• A question your customers actually ask, in their words rather than yours.</li>
-                    <li>• A question you have never answered, to hear how ORA behaves when it does not know.</li>
-                    <li>• Ask to be taken to a page, to check navigation works end to end.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </AgentSectionLayout>
-        );
-      }
       if (activeView === 'knowledge') {
         return (
           <AgentSectionLayout
-            iconNode={<FileText size={16} className="text-foreground" />}
+            iconNode={<Database size={16} className="text-foreground" />}
             title="Knowledge Base"
-            description="All indexed documents available to ORA. Each file is vectorised and searchable by your shoppers through ORA's voice and chat interfaces."
+            description="Reference guides, store knowledge, and indexed documents used during customer conversations."
             previewSrc="/previews/docs-step2-index.jpg"
             previewAlt="ORA knowledge base"
-            howLabel="Indexed knowledge"
+            howLabel="Store knowledge"
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
@@ -359,15 +350,10 @@ function AgentClientContent() {
           <AgentSectionLayout
             iconNode={<Package size={16} className="text-foreground" />}
             title="Sync Catalog"
-            description="Sync your inventory from Shopify or WooCommerce, or upload a CSV. ORA uses live product data to answer availability questions and guide checkout."
-            previewSrc="/previews/products-step1-sync.jpg"
+            description="Connect your Shopify or WooCommerce catalog, or import products via CSV."
+            previewSrc="/previews/agent-products-role.jpg"
             previewAlt="ORA product catalog"
-            howLabel="Sync your product inventory"
-            ctaNodes={
-              <AppLink href="/agent?role=products" className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md border border-border/60 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors bg-surface-lowest/40">
-                Get started <ExternalLink size={9} />
-              </AppLink>
-            }
+            howLabel="Catalog synchronization"
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <ProductDetailsFeedTab onFed={loadDocs} />
@@ -377,8 +363,29 @@ function AgentClientContent() {
       }
     }
 
-    // ── Fallback: get-started ───────────────────────────────────────────────
-    return <AgentGetStartedPage role={activeRole} />;
+    // ── Widget Embed & Install Script ───────────────────────────────────────
+    if (activeRole === 'script') {
+      return (
+        <AgentSectionLayout
+          iconNode={<Code2 size={16} className="text-foreground" />}
+          title="Widget Embed"
+          description="Connect ORA to your storefront. Shoppers can talk to your voice agent immediately."
+          previewSrc="/previews/agent-script-role.jpg"
+          previewAlt="Storefront widget embed script"
+          howLabel="Storefront embed"
+        >
+          <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
+            <IntegrationPreview
+              publishableKey={publishableKey}
+              isWidgetActive={businessContext.isWidgetActive !== false}
+            />
+          </div>
+        </AgentSectionLayout>
+      );
+    }
+
+    // ── Fallback: the main feature page ─────────────────────────────────────
+    return renderPersona();
   };
 
   // Every write on this surface — persona, knowledge, catalog, keys — is

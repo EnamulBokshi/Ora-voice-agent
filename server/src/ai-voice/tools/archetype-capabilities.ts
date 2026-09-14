@@ -66,7 +66,7 @@ export const PLATFORM_TOOL_NAMES = [
 ] as const;
 
 export interface AgentCapabilityContext {
-  /** AgentConfig.businessArchetype, or undefined when not yet classified. */
+  /** The business's active agent profile, or undefined when unresolved. */
   archetype?: string;
   /** True only for ORA's own platform tenant. */
   isPlatform?: boolean;

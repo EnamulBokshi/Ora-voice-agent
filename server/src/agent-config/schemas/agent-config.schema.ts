@@ -1,6 +1,25 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 import { Business } from '../../users/schemas/business.schema';
+import {
+  BUSINESS_ARCHETYPES,
+  DEFAULT_ARCHETYPE,
+} from '../../common/constants/archetypes';
+
+/**
+ * Every document in this file is keyed on (businessId, archetype), not on
+ * businessId alone: a business owns one agent profile per archetype and
+ * `Business.activeArchetype` selects which one is live. Switching archetypes
+ * therefore reads a different profile — a blank one on first visit — while the
+ * previous profile stays on disk untouched.
+ */
+const archetypeProp = {
+  type: String,
+  enum: BUSINESS_ARCHETYPES,
+  default: DEFAULT_ARCHETYPE,
+  required: true,
+  index: true,
+};
 
 export type AgentConfigDocument = AgentConfig & Document;
 export type VoiceSettingsDocument = VoiceSettings & Document;
@@ -19,12 +38,13 @@ export class AgentConfig {
   @Prop({ default: 'Helpful, professional, and friendly sales assistant.' })
   brandVoiceDescription: string;
 
-  @Prop({
-    type: String,
-    enum: ['portfolio', 'agency_services', 'saas', 'ecommerce', 'clinic_appointments', 'consulting', 'general'],
-    default: 'general',
-  })
-  businessArchetype: string;
+  /**
+   * The archetype this profile belongs to. It identifies the profile rather
+   * than describing it, so it is never edited in place — a merchant changes
+   * archetype by switching profiles, not by writing a new value here.
+   */
+  @Prop(archetypeProp)
+  archetype: string;
 
   @Prop({ type: String, default: '' })
   businessSummary: string;
@@ -58,6 +78,7 @@ export class AgentConfig {
 }
 
 export const AgentConfigSchema = SchemaFactory.createForClass(AgentConfig);
+AgentConfigSchema.index({ businessId: 1, archetype: 1 }, { unique: true });
 
 @Schema({ timestamps: true })
 export class VoiceSettings {
@@ -69,6 +90,9 @@ export class VoiceSettings {
   })
   businessId: Types.ObjectId;
 
+  @Prop(archetypeProp)
+  archetype: string;
+
   @Prop({ default: 'Aoede' })
   voiceId: string;
 
@@ -77,6 +101,7 @@ export class VoiceSettings {
 }
 
 export const VoiceSettingsSchema = SchemaFactory.createForClass(VoiceSettings);
+VoiceSettingsSchema.index({ businessId: 1, archetype: 1 }, { unique: true });
 
 @Schema({ timestamps: true })
 export class SalesPlaybook {
@@ -88,6 +113,9 @@ export class SalesPlaybook {
   })
   businessId: Types.ObjectId;
 
+  @Prop(archetypeProp)
+  archetype: string;
+
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   upsellCategories: Record<string, any>;
 
@@ -96,3 +124,4 @@ export class SalesPlaybook {
 }
 
 export const SalesPlaybookSchema = SchemaFactory.createForClass(SalesPlaybook);
+SalesPlaybookSchema.index({ businessId: 1, archetype: 1 }, { unique: true });

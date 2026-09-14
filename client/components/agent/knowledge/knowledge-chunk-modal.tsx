@@ -30,7 +30,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
           setChunks(data || []);
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Failed to load vector chunks.');
+          setError(err instanceof Error ? err.message : 'Failed to load document sections.');
         })
         .finally(() => setLoading(false));
     } else {
@@ -52,34 +52,36 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Knowledge document chunks"
+        aria-label="Knowledge document sections"
         tabIndex={-1}
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden"
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-md border border-border bg-surface-container shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
-              <Layers size={18} />
+            <div className="rounded-md border border-border/60 bg-surface-high/40 p-2 text-primary">
+              <Layers size={15} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground truncate max-w-md">{doc.title}</h2>
-                <span className="rounded-md border border-border bg-surface-high px-2 py-0.5 text-[10px] font-mono text-muted-foreground uppercase">
+                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate max-w-md">
+                  {doc.title}
+                </h2>
+                <span className="rounded bg-surface-high border border-border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground uppercase">
                   {doc.docType}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Vector chunk segments indexed in ORA Semantic RAG store (~500 chars with 50 char overlap)
+              <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                Indexed document segments referenced during shopper conversations.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close vector chunks modal"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground"
+            aria-label="Close document sections modal"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground cursor-pointer"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
@@ -87,37 +89,37 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-              <Loader2 size={24} className="animate-spin text-primary" />
-              <p className="text-xs font-medium">Retrieving vector chunks from index...</p>
+              <Loader2 size={20} className="animate-spin text-primary" />
+              <p className="text-xs font-mono">Loading document sections...</p>
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-400">
-              <AlertCircle size={16} className="shrink-0" />
+            <div className="flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-400">
+              <AlertCircle size={15} className="shrink-0" />
               <span>{error}</span>
             </div>
           ) : chunks.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground">
-              <Database size={28} className="mx-auto mb-2 opacity-40 text-primary" />
-              <p>No chunk segments found for this document.</p>
+              <Database size={24} className="mx-auto mb-2 opacity-40 text-primary" />
+              <p>No document sections found for this entry.</p>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                 <span>
-                  Total Chunks: <strong className="text-foreground">{chunks.length}</strong>
+                  Total Sections: <strong className="text-foreground">{chunks.length}</strong>
                 </span>
-                <span className="text-[11px]">Ready for semantic cosine similarity search</span>
+                <span className="text-[11px] font-mono text-muted-foreground">Ready for customer search</span>
               </div>
 
               {chunks.map((chunk, index) => (
                 <div
                   key={chunk._id || index}
-                  className="rounded-xl border border-border bg-surface-low p-4 transition-colors hover:border-primary/30 space-y-2.5"
+                  className="rounded-md border border-border/60 bg-surface-low p-4 transition-colors hover:border-primary/30 space-y-2.5"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-mono font-semibold text-primary">
-                        Chunk #{chunk.chunkIndex ?? index}
+                      <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-mono font-semibold text-primary">
+                        Section #{chunk.chunkIndex ?? index}
                       </span>
                       <span className="text-[11px] text-muted-foreground font-mono">
                         {chunk.text.length} chars
@@ -126,8 +128,8 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
 
                     <button
                       onClick={() => handleCopyChunk(chunk.text, index)}
-                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                      title="Copy chunk text"
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      title="Copy section text"
                     >
                       {copiedIndex === index ? (
                         <>
@@ -143,7 +145,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
                     </button>
                   </div>
 
-                  <p className="rounded-lg bg-surface-highest/50 border border-border/50 p-3 text-xs leading-relaxed text-foreground font-mono whitespace-pre-wrap select-text">
+                  <p className="rounded-md bg-surface-highest/50 border border-border/50 p-3 text-xs leading-relaxed text-foreground font-mono whitespace-pre-wrap select-text">
                     {chunk.text}
                   </p>
                 </div>
@@ -159,7 +161,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
           </span>
           <button
             onClick={onClose}
-            className="rounded-md bg-surface-high border border-border px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-bright"
+            className="rounded-md bg-surface-high border border-border px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-bright cursor-pointer"
           >
             Done
           </button>

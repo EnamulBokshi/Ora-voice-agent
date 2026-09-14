@@ -326,20 +326,20 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
         aria-modal="true"
         aria-labelledby="voice-test-modal-title"
         tabIndex={-1}
-        className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] my-auto"
+        className="relative w-full max-w-2xl bg-surface-lowest border border-border/80 rounded-md shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] my-auto"
       >
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-3.5 border-b border-border/60 bg-surface-container/40 backdrop-blur-sm">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-surface-high flex items-center justify-center border border-border/60 shadow-sm flex-shrink-0">
-              <Radio size={15} className="text-foreground" />
+            <div className="w-8 h-8 rounded-md bg-surface-high flex items-center justify-center border border-border/60 shadow-xs flex-shrink-0">
+              <Radio size={15} className="text-primary" />
             </div>
             <div className="min-w-0">
-              <h2 id="voice-test-modal-title" className="text-[14.5px] sm:text-[15.5px] font-semibold text-foreground tracking-tight truncate">
-                Test ORA Live
+              <h2 id="voice-test-modal-title" className="text-[14px] sm:text-[15px] font-semibold text-foreground font-serif tracking-tight truncate">
+                Test Voice Assistant
               </h2>
-              <p className="text-[11px] sm:text-[12px] font-mono text-muted-foreground truncate">
-                Real-time multimodal speech & sales intelligence
+              <p className="text-[11px] font-mono text-muted-foreground truncate">
+                Real-time storefront voice conversation session
               </p>
             </div>
           </div>
@@ -347,43 +347,43 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           <button
             onClick={onClose}
             aria-label="Close voice test modal"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer flex-shrink-0"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer flex-shrink-0"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
         {/* Body Content - Scrollable on small viewports */}
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 flex flex-col items-center gap-3.5 sm:gap-4 md:gap-5 min-h-0 custom-scrollbar">
           {/* Mode Switcher */}
-          <div className="w-full sm:w-auto flex flex-wrap sm:flex-nowrap items-center justify-center gap-1 p-1 rounded-xl bg-surface-container border border-border/50 flex-shrink-0">
+          <div className="w-full sm:w-auto flex flex-wrap sm:flex-nowrap items-center justify-center gap-1 p-1 rounded-md bg-surface-container border border-border/50 flex-shrink-0">
             <button
               onClick={() => {
                 stopSession();
                 setVoiceMode('direct-live');
               }}
-              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg text-[11.5px] sm:text-[12.5px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-md text-[11.5px] sm:text-[12px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 voiceMode === 'direct-live'
-                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
+                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Zap size={13} className={voiceMode === 'direct-live' ? 'text-foreground dark:text-[#C8F031]' : ''} />
-              <span>Gemini Live (direct)</span>
+              <Zap size={13} className={voiceMode === 'direct-live' ? 'text-primary' : ''} />
+              <span>Direct Voice</span>
             </button>
             <button
               onClick={() => {
                 stopSession();
                 setVoiceMode('browser-speech');
               }}
-              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg text-[11.5px] sm:text-[12.5px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-md text-[11.5px] sm:text-[12px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 voiceMode === 'browser-speech'
-                  ? 'bg-surface-high text-foreground font-semibold shadow-sm'
+                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <SlidersHorizontal size={13} />
-              <span>Browser STT/TTS</span>
+              <span>Browser Voice</span>
             </button>
           </div>
 

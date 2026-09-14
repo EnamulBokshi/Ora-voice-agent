@@ -75,27 +75,29 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
         aria-modal="true"
         aria-label="Edit knowledge document"
         tabIndex={-1}
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-md border border-border bg-surface-container shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
-              <Edit3 size={18} />
+            <div className="rounded-md border border-border/60 bg-surface-high/40 p-2 text-primary">
+              <Edit3 size={15} />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Edit Knowledge Document</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Modifications will automatically re-chunk text and update ORA neural vector embeddings.
+              <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                Edit Knowledge Document
+              </h2>
+              <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                Modifications will automatically update your assistant&apos;s indexed knowledge.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Close edit document modal"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground cursor-pointer"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
@@ -153,15 +155,15 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
               onChange={(e) => setContent(e.target.value)}
               rows={9}
               placeholder="Enter full document rules, policy details, guidelines, or FAQ text..."
-              className="w-full rounded-lg border border-border bg-surface-low p-3.5 text-xs font-mono leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none"
+              className="w-full rounded-md border border-border bg-surface-low p-3.5 text-xs font-mono leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none resize-none"
               required
             />
           </div>
 
-          <div className="flex items-center gap-2 p-3 rounded-lg border border-primary/20 bg-primary/5 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 p-3 rounded-md border border-border bg-surface-low text-[11px] text-muted-foreground">
             <Database size={14} className="text-primary shrink-0" />
             <span>
-              Saving will re-index this document into ~500-char chunks for instant AI agent voice & text retrieval.
+              Saving will update this document for real-time customer search and answers.
             </span>
           </div>
 
@@ -170,17 +172,17 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-border bg-surface-high px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-surface-bright"
+              className="rounded-md border border-border bg-surface-high px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-surface-bright cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50"
+              className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50 cursor-pointer shadow-xs"
             >
               {isSaving && <Loader2 size={13} className="animate-spin" />}
-              {isSaving ? 'Saving & Re-Indexing...' : 'Save & Re-Index'}
+              {isSaving ? 'Saving Changes...' : 'Save Changes'}
             </button>
           </div>
         </form>

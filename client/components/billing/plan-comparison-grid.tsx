@@ -60,7 +60,7 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
   return (
     <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
           <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
@@ -82,7 +82,7 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
             <div
               key={plan._id}
               className={cn(
-                'p-6 flex flex-col justify-between transition-colors first:pl-0 last:pr-0',
+                'p-5 sm:p-6 flex flex-col justify-between transition-colors md:first:pl-0 md:last:pr-0',
                 isCurrent ? 'bg-surface-high/20' : 'hover:bg-surface-high/10',
               )}
             >
@@ -127,7 +127,7 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
                 {isCurrent ? (
                   <button
                     disabled
-                    className="w-full h-8 rounded-md text-[12px] font-medium border border-border/60 text-muted-foreground bg-surface-high/30 cursor-default"
+                    className="w-full h-9 sm:h-8 rounded-md text-[12px] font-medium border border-border/60 text-muted-foreground bg-surface-high/30 cursor-default touch-manipulation"
                   >
                     Active Plan
                   </button>
@@ -135,14 +135,17 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
                   <button
                     onClick={() => handleSubscribe(plan)}
                     disabled={Boolean(subscribingId)}
-                    className="w-full h-8 rounded-md text-[12px] font-semibold bg-foreground text-background hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                    className="w-full h-9 sm:h-8 rounded-md text-[12px] font-semibold bg-foreground text-background hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 touch-manipulation"
                   >
                     {isSubscribing ? (
-                      <Loader2 size={12} className="animate-spin" />
+                      <>
+                        <Loader2 className="animate-spin text-background" size={13} />
+                        <span>Redirecting…</span>
+                      </>
                     ) : (
                       <>
                         <span>Upgrade to {plan.name}</span>
-                        <ArrowRight size={11} />
+                        <ArrowRight size={13} />
                       </>
                     )}
                   </button>

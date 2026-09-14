@@ -30,6 +30,11 @@ export class VectorStoreService {
       entityType: EntityType;
       entityId: string;
       text: string;
+      /**
+       * Set for entities scoped to one agent profile (knowledge). Left unset
+       * for entities the business shares across every profile (products).
+       */
+      archetype?: string;
       metadata?: Record<string, any>;
     },
   ): Promise<VectorIndexDocument> {
@@ -45,6 +50,7 @@ export class VectorStoreService {
       {
         $set: {
           businessId: bId,
+          ...(entry.archetype ? { archetype: entry.archetype } : {}),
           text: entry.text,
           vector: embeddingResult.vector,
           metadata: entry.metadata || {},
@@ -75,6 +81,7 @@ export class VectorStoreService {
       entityType: EntityType;
       entityId: string;
       text: string;
+      archetype?: string;
       metadata?: Record<string, any>;
     }>,
   ): Promise<void> {
@@ -96,6 +103,7 @@ export class VectorStoreService {
           update: {
             $set: {
               businessId: bId,
+              ...(entry.archetype ? { archetype: entry.archetype } : {}),
               text: entry.text,
               vector: emb.vector,
               metadata: entry.metadata || {},
@@ -136,6 +144,12 @@ export class VectorStoreService {
       limit?: number;
       confidenceThreshold?: number;
       embeddingModel?: string;
+      /**
+       * The agent profile to search within. Rows with no archetype are shared
+       * across profiles (products) and always match, so passing this narrows
+       * knowledge to one profile without hiding the merchant's catalogue.
+       */
+      archetype?: string;
     } = {},
   ): Promise<SearchResultItem[]> {
     const limit = options.limit || 5;
@@ -144,11 +158,25 @@ export class VectorStoreService {
 
     const filter: Record<string, any> = {
       businessId: this.resolveBusinessIdFilter(businessId),
-      $or: [
-        { embeddingModel: activeModel },
-        { embeddingModel: { $exists: false } },
+      $and: [
+        {
+          $or: [
+            { embeddingModel: activeModel },
+            { embeddingModel: { $exists: false } },
+          ],
+        },
       ],
     };
+
+    if (options.archetype) {
+      filter.$and.push({
+        $or: [
+          { archetype: options.archetype },
+          { archetype: { $exists: false } },
+          { archetype: null },
+        ],
+      });
+    }
 
     if (options.entityType) {
       filter.entityType = options.entityType;

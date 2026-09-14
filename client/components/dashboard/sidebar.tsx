@@ -9,7 +9,6 @@ import {
   MessageSquareText,
   Receipt,
   BarChart2,
-  Bell,
   Settings,
   SlidersHorizontal,
   PanelLeftClose,
@@ -37,8 +36,22 @@ import { ThemeToggle } from '../marketing/theme-toggle';
 import { getMeApi } from '@/services/auth-service';
 import { demoProfile } from '@/lib/demo-data';
 import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
-import { ARCHETYPES, type SetupArchetype } from '@/components/setup/setup-section-nav';
-import { ROLES, TRAIN_ITEMS, type AgentRole, type AgentView } from '@/components/agent/agent-section-nav';
+import { SETUP_GUIDE_ENABLED } from '@/lib/disabled-features';
+import {
+  ARCHETYPES,
+  ARCHETYPE_CHANGED_EVENT,
+  normalizeArchetype,
+  type BusinessArchetype,
+} from '@/lib/archetypes';
+import {
+  AGENT_VIEWS,
+  DEFAULT_AGENT_ROLE,
+  ROLE_LANDING_VIEW,
+  TRAIN_ITEMS,
+  getVisibleRoles,
+  type AgentRole,
+  type AgentView,
+} from '@/lib/agent-roles';
 
 const CONFIG_STEPS: { step: SetupStepId; label: string }[] = [
   { step: 'persona',     label: 'Persona & prompt' },
@@ -73,22 +86,27 @@ export function Sidebar({
   const isSetupPage = pathname.startsWith('/setup');
 
   const rawRole = searchParams.get('role');
-  const activeRole: AgentRole | null =
-    rawRole && ['prompt', 'voice', 'documents', 'products'].includes(rawRole)
+  // `/agent` with no role opens the default role, so the sidebar highlights it
+  // as active rather than showing nothing selected.
+  const activeRole: AgentRole =
+    rawRole === 'persona'
+      ? 'prompt'
+      : rawRole === 'embed' || rawRole === 'widget'
+      ? 'script'
+      : rawRole && ['prompt', 'voice', 'documents', 'products', 'script'].includes(rawRole)
       ? (rawRole as AgentRole)
-      : null;
+      : DEFAULT_AGENT_ROLE;
 
   const rawView = searchParams.get('view');
   const activeAgentView: AgentView =
-    rawView && ['get-started', 'feed', 'test', 'knowledge', 'catalog', 'prompt'].includes(rawView)
+    rawView &&
+    AGENT_VIEWS.includes(rawView as AgentView) &&
+    rawView !== 'get-started'
       ? (rawView as AgentView)
-      : 'get-started';
+      : ROLE_LANDING_VIEW[activeRole];
 
   const rawArch = searchParams.get('archetype');
-  const activeArchetype: SetupArchetype | null =
-    rawArch && ['ecommerce', 'saas', 'agency', 'portfolio', 'general'].includes(rawArch)
-      ? (rawArch as SetupArchetype)
-      : null;
+  const activeArchetype: BusinessArchetype | null = normalizeArchetype(rawArch);
 
   const rawStep = searchParams.get('step');
   const activeStep: SetupStepId | null =
@@ -97,27 +115,27 @@ export function Sidebar({
       : null;
 
   // Dropdown menus
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [archDropdownOpen, setArchDropdownOpen] = useState(false);
-  const roleDropdownRef = useRef<HTMLDivElement>(null);
   const archDropdownRef = useRef<HTMLDivElement>(null);
 
   // Accordion state
   const [agentExpanded, setAgentExpanded] = useState(true);
   const [setupExpanded, setSetupExpanded] = useState(true);
-  const [agentTrainExpanded, setAgentTrainExpanded] = useState(true);
   const [setupConfigExpanded, setSetupConfigExpanded] = useState(true);
 
   // User Profile
   const [userName, setUserName] = useState<string>('Profile');
   const [userRole, setUserRole] = useState<string>('Owner');
+  // Which agent roles this business is offered. A business with no catalogue
+  // is not shown catalogue navigation.
+  const [businessContext, setBusinessContext] = useState<{
+    archetype?: string;
+    hasCatalog?: boolean;
+  }>({});
 
   // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) {
-        setRoleDropdownOpen(false);
-      }
       if (archDropdownRef.current && !archDropdownRef.current.contains(e.target as Node)) {
         setArchDropdownOpen(false);
       }
@@ -134,6 +152,10 @@ export function Sidebar({
           setUserName(data?.user?.name ?? demoProfile.user.name);
           const raw = (data?.user as { role?: string })?.role ?? 'owner';
           setUserRole(raw === 'super_admin' ? 'SuperAdmin' : raw[0].toUpperCase() + raw.slice(1));
+          setBusinessContext({
+            archetype: data?.business?.activeArchetype,
+            hasCatalog: data?.business?.hasCatalog,
+          });
         }
       })
       .catch(() => {
@@ -145,16 +167,23 @@ export function Sidebar({
     return () => { active = false; };
   }, []);
 
-  const currentRole = ROLES.find((r) => r.id === activeRole) ?? null;
+  // The fetch above runs once on mount. Switching the business type on the
+  // persona page changes which roles are offered, so listen for the broadcast
+  // and fold the new archetype in — otherwise Product Catalog only shows up
+  // after a full page reload.
+  useEffect(() => {
+    const onArchetypeChange = (e: Event) => {
+      const next = (e as CustomEvent<unknown>).detail;
+      setBusinessContext((prev) => ({ ...prev, archetype: next as string | undefined }));
+    };
+    window.addEventListener(ARCHETYPE_CHANGED_EVENT, onArchetypeChange);
+    return () => window.removeEventListener(ARCHETYPE_CHANGED_EVENT, onArchetypeChange);
+  }, []);
+
   const currentArch = ARCHETYPES.find((a) => a.id === activeArchetype) ?? null;
+  const visibleRoles = getVisibleRoles(businessContext);
 
-  const handleRoleSelect = (role: AgentRole | null) => {
-    setRoleDropdownOpen(false);
-    if (role === null) router.push('/agent');
-    else router.push(`/agent?role=${role}&view=get-started`);
-  };
-
-  const handleArchetypeSelect = (arch: SetupArchetype | null) => {
+  const handleArchetypeSelect = (arch: BusinessArchetype | null) => {
     setArchDropdownOpen(false);
     if (arch === null) router.push('/setup');
     else router.push(`/setup?archetype=${arch}`);
@@ -167,14 +196,13 @@ export function Sidebar({
 
   return (
     <aside
-      // Off-canvas below `md` and slid in as a drawer; docked from `md` up. Previously
-      // this was a fixed 240px rail with no breakpoint, so it covered most of a phone
-      // screen with no way to dismiss it.
+      // Off-canvas below `md` and slid in as a drawer; docked from `md` up.
       aria-label="Dashboard navigation"
       className={cn(
         'fixed left-0 top-0 h-full flex flex-col z-50 border-r border-border bg-surface-lowest',
         'transition-[width,transform] duration-200 ease-out',
-        collapsed ? 'w-16' : 'w-[240px]',
+        'w-[260px] max-w-[85vw] md:max-w-none',
+        collapsed ? 'md:w-16' : 'md:w-[240px]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full',
         'md:translate-x-0',
       )}
@@ -185,9 +213,9 @@ export function Sidebar({
           type="button"
           onClick={onMobileClose}
           aria-label="Close navigation"
-          className="md:hidden absolute top-3 right-3 w-7 h-7 inline-flex items-center justify-center rounded-md border border-border/60 bg-surface-high/40 text-foreground hover:bg-surface-high transition-colors cursor-pointer z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="md:hidden absolute top-3 right-3 w-8 h-8 inline-flex items-center justify-center rounded-md border border-border/60 bg-surface-high/40 text-foreground hover:bg-surface-high transition-colors cursor-pointer z-10 touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <X size={13} />
+          <X size={15} />
         </button>
       )}
       {/* ── Header: Logo ─────────────────────────────────────────────────── */}
@@ -269,19 +297,22 @@ export function Sidebar({
               <Radio size={16} />
             </Link>
 
-            <Link
-              href="/setup"
-              title={`Get Set Up (${completedCount}/${totalSteps})`}
-              className={cn(
-                'w-9 h-9 rounded-md flex items-center justify-center transition-colors relative',
-                isSetupPage ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
-              )}
-            >
-              <Compass size={16} />
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface-highest text-[9px] font-mono font-bold flex items-center justify-center border border-border">
-                {completedCount}
-              </span>
-            </Link>
+            {/* DISABLED: Get Set Up rail icon — see lib/disabled-features.ts. */}
+            {SETUP_GUIDE_ENABLED && (
+              <Link
+                href="/setup"
+                title={`Get Set Up (${completedCount}/${totalSteps})`}
+                className={cn(
+                  'w-9 h-9 rounded-md flex items-center justify-center transition-colors relative',
+                  isSetupPage ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+                )}
+              >
+                <Compass size={16} />
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-surface-highest text-[9px] font-mono font-bold flex items-center justify-center border border-border">
+                  {completedCount}
+                </span>
+              </Link>
+            )}
 
             <Link
               href="/agent"
@@ -332,17 +363,6 @@ export function Sidebar({
             <div className="h-px bg-border/40 w-6 my-1.5" />
 
             <Link
-              href="/notifications"
-              title="Notifications"
-              className={cn(
-                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
-                pathname.startsWith('/notifications') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
-              )}
-            >
-              <Bell size={16} />
-            </Link>
-
-            <Link
               href="/profile"
               title="Settings"
               className={cn(
@@ -385,145 +405,153 @@ export function Sidebar({
               <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)] shadow-[0_0_6px_rgba(200,240,49,0.7)]" />
             </Link>
 
-            {/* ── 3. GET SET UP SECTION (WHOLE SUB-SIDEBAR INTEGRATED) ── */}
-            <div className="flex flex-col mt-0.5">
-              <div
-                className={cn(
-                  'group flex items-center justify-between rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)] pr-1.5',
-                  isSetupPage
-                    ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
-                )}
-              >
-                <Link href="/setup" className="flex items-center gap-3 py-2 flex-1 min-w-0">
-                  <Compass size={15} className={isSetupPage ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-                  <span className="truncate flex-1">Get Set Up</span>
-                </Link>
+            {/* DISABLED: the Get Set Up guide is switched off — see
+                lib/disabled-features.ts. The section is kept in place rather than
+                deleted so a merge that touches it conflicts here instead of
+                silently restoring the feature. */}
+            {SETUP_GUIDE_ENABLED && (
+              <>
+              {/* ── 3. GET SET UP SECTION (WHOLE SUB-SIDEBAR INTEGRATED) ── */}
+              <div className="flex flex-col mt-0.5">
+                <div
+                  className={cn(
+                    'group flex items-center justify-between rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)] pr-1.5',
+                    isSetupPage
+                      ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+                  )}
+                >
+                  <Link href="/setup" className="flex items-center gap-3 py-2 flex-1 min-w-0">
+                    <Compass size={15} className={isSetupPage ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+                    <span className="truncate flex-1">Get Set Up</span>
+                  </Link>
 
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-[3px] bg-surface-high text-muted-foreground border border-border/60">
-                    {completedCount}/{totalSteps}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSetupExpanded((e) => !e)}
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
-                  >
-                    {setupExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Get Set Up Sub-Sidebar Content */}
-              {setupExpanded && (
-                <div className="mt-1 ml-3 pl-2.5 border-l border-border/50 flex flex-col gap-1 py-1">
-                  {/* Archetype Selector Dropdown */}
-                  <div className="relative mb-1" ref={archDropdownRef}>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-[3px] bg-surface-high text-muted-foreground border border-border/60">
+                      {completedCount}/{totalSteps}
+                    </span>
                     <button
                       type="button"
-                      onClick={() => setArchDropdownOpen((o) => !o)}
-                      className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-surface-high/40 hover:bg-surface-high border border-border/50 transition-colors text-left cursor-pointer"
+                      onClick={() => setSetupExpanded((e) => !e)}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {currentArch ? <currentArch.Icon size={12} className="text-foreground" /> : <LayoutGrid size={12} className="text-foreground" />}
-                        <span className="text-[11.5px] font-medium text-foreground truncate">
-                          {currentArch ? currentArch.label : 'All store types'}
-                        </span>
-                      </div>
-                      <ChevronDown size={11} className={cn('text-muted-foreground transition-transform', archDropdownOpen && 'rotate-180')} />
+                      {setupExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                     </button>
+                  </div>
+                </div>
 
-                    {archDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 bg-surface-container rounded-md border border-border shadow-xl p-1 space-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => handleArchetypeSelect(null)}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11.5px] font-medium transition-colors cursor-pointer',
-                            activeArchetype === null ? 'text-foreground font-semibold bg-surface-high' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
-                          )}
-                        >
-                          <LayoutGrid size={12} />
-                          <span className="flex-1 truncate">All store types</span>
-                          {activeArchetype === null && <Check size={11} />}
-                        </button>
-                        {ARCHETYPES.map((arch) => (
+                {/* Get Set Up Sub-Sidebar Content */}
+                {setupExpanded && (
+                  <div className="mt-1 ml-3 pl-2.5 border-l border-border/50 flex flex-col gap-1 py-1">
+                    {/* Archetype Selector Dropdown */}
+                    <div className="relative mb-1" ref={archDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setArchDropdownOpen((o) => !o)}
+                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-surface-high/40 hover:bg-surface-high border border-border/50 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {currentArch ? <currentArch.Icon size={12} className="text-foreground" /> : <LayoutGrid size={12} className="text-foreground" />}
+                          <span className="text-[11.5px] font-medium text-foreground truncate">
+                            {currentArch ? currentArch.label : 'All store types'}
+                          </span>
+                        </div>
+                        <ChevronDown size={11} className={cn('text-muted-foreground transition-transform', archDropdownOpen && 'rotate-180')} />
+                      </button>
+
+                      {archDropdownOpen && (
+                        <div className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 bg-surface-container rounded-md border border-border shadow-xl p-1 space-y-0.5">
                           <button
-                            key={arch.id}
                             type="button"
-                            onClick={() => handleArchetypeSelect(arch.id)}
+                            onClick={() => handleArchetypeSelect(null)}
                             className={cn(
                               'w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11.5px] font-medium transition-colors cursor-pointer',
-                              activeArchetype === arch.id ? 'text-foreground font-semibold bg-surface-high' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
+                              activeArchetype === null ? 'text-foreground font-semibold bg-surface-high' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
                             )}
                           >
-                            <arch.Icon size={12} />
-                            <span className="flex-1 truncate">{arch.label}</span>
-                            {activeArchetype === arch.id && <Check size={11} />}
+                            <LayoutGrid size={12} />
+                            <span className="flex-1 truncate">All store types</span>
+                            {activeArchetype === null && <Check size={11} />}
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Intro Overview link */}
-                  {activeArchetype && (
-                    <Link
-                      href={`/setup?archetype=${activeArchetype}`}
-                      className={cn(
-                        'flex items-center px-2 py-1 rounded-md text-[12px] font-medium transition-colors',
-                        isSetupPage && activeStep === null
-                          ? 'text-foreground bg-surface-high font-semibold'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
-                      )}
-                    >
-                      <span>Overview</span>
-                    </Link>
-                  )}
-
-                  {/* Configure Steps Tree */}
-                  <div className="space-y-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setSetupConfigExpanded((e) => !e)}
-                      className="w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      <span>Configure Steps</span>
-                      <ChevronDown size={11} className={cn('transition-transform', setupConfigExpanded && 'rotate-180')} />
-                    </button>
-
-                    {setupConfigExpanded && (
-                      <div className="space-y-0.5 ml-1 pl-1.5 border-l border-border/40">
-                        {CONFIG_STEPS.map(({ step, label }) => {
-                          const isActive = isSetupPage && activeStep === step;
-                          const isDone = progress[step];
-                          return (
+                          {ARCHETYPES.map((arch) => (
                             <button
-                              key={step}
+                              key={arch.id}
                               type="button"
-                              onClick={() => handleStepClick(step)}
+                              onClick={() => handleArchetypeSelect(arch.id)}
                               className={cn(
-                                'w-full flex items-center gap-2 px-2 py-1 rounded-md text-[12px] text-left transition-colors cursor-pointer',
-                                isActive
-                                  ? 'text-foreground font-semibold bg-surface-high'
-                                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
+                                'w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11.5px] font-medium transition-colors cursor-pointer',
+                                activeArchetype === arch.id ? 'text-foreground font-semibold bg-surface-high' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
                               )}
                             >
-                              {isDone ? (
-                                <CheckCircle2 size={12} className="text-foreground dark:text-[#C8F031] flex-shrink-0" />
-                              ) : (
-                                <Circle size={11} className={cn('flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/30')} />
-                              )}
-                              <span className="truncate">{label}</span>
+                              <arch.Icon size={12} />
+                              <span className="flex-1 truncate">{arch.label}</span>
+                              {activeArchetype === arch.id && <Check size={11} />}
                             </button>
-                          );
-                        })}
-                      </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Intro Overview link */}
+                    {activeArchetype && (
+                      <Link
+                        href={`/setup?archetype=${activeArchetype}`}
+                        className={cn(
+                          'flex items-center px-2 py-1 rounded-md text-[12px] font-medium transition-colors',
+                          isSetupPage && activeStep === null
+                            ? 'text-foreground bg-surface-high font-semibold'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
+                        )}
+                      >
+                        <span>Overview</span>
+                      </Link>
                     )}
+
+                    {/* Configure Steps Tree */}
+                    <div className="space-y-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setSetupConfigExpanded((e) => !e)}
+                        className="w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      >
+                        <span>Configure Steps</span>
+                        <ChevronDown size={11} className={cn('transition-transform', setupConfigExpanded && 'rotate-180')} />
+                      </button>
+
+                      {setupConfigExpanded && (
+                        <div className="space-y-0.5 ml-1 pl-1.5 border-l border-border/40">
+                          {CONFIG_STEPS.map(({ step, label }) => {
+                            const isActive = isSetupPage && activeStep === step;
+                            const isDone = progress[step];
+                            return (
+                              <button
+                                key={step}
+                                type="button"
+                                onClick={() => handleStepClick(step)}
+                                className={cn(
+                                  'w-full flex items-center gap-2 px-2 py-1 rounded-md text-[12px] text-left transition-colors cursor-pointer',
+                                  isActive
+                                    ? 'text-foreground font-semibold bg-surface-high'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
+                                )}
+                              >
+                                {isDone ? (
+                                  <CheckCircle2 size={12} className="text-foreground dark:text-[#C8F031] flex-shrink-0" />
+                                ) : (
+                                  <Circle size={11} className={cn('flex-shrink-0', isActive ? 'text-foreground' : 'text-muted-foreground/30')} />
+                                )}
+                                <span className="truncate">{label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+              </>
+            )}
 
             {/* ── 4. ORA AGENT SECTION (WHOLE SUB-SIDEBAR INTEGRATED) ── */}
             <div className="flex flex-col mt-0.5">
@@ -537,7 +565,7 @@ export function Sidebar({
               >
                 <Link href="/agent" className="flex items-center gap-3 py-2 flex-1 min-w-0">
                   <SlidersHorizontal size={15} className={isAgentPage ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-                  <span className="truncate flex-1">System Configuration</span>
+                  <span className="truncate flex-1">Agent Configuration</span>
                 </Link>
 
                 <button
@@ -552,122 +580,54 @@ export function Sidebar({
               {/* ORA Agent Sub-Sidebar Content */}
               {agentExpanded && (
                 <div className="mt-1 ml-3 pl-2.5 border-l border-border/50 flex flex-col gap-1 py-1">
-                  {/* Role Selector Dropdown */}
-                  <div className="relative mb-1" ref={roleDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setRoleDropdownOpen((o) => !o)}
-                      className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-surface-high/40 hover:bg-surface-high border border-border/50 transition-colors text-left cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {currentRole ? <currentRole.Icon size={12} className="text-foreground" /> : <LayoutGrid size={12} className="text-foreground" />}
-                        <span className="text-[11.5px] font-medium text-foreground truncate">
-                          {currentRole ? currentRole.label : 'All roles'}
-                        </span>
-                      </div>
-                      <ChevronDown size={11} className={cn('text-muted-foreground transition-transform', roleDropdownOpen && 'rotate-180')} />
-                    </button>
+                  {/* Roles — listed flat. These used to hide behind a
+                      dropdown that duplicated the agent workspace's own
+                      sub-sidebar; both the dropdown and that sub-sidebar are
+                      gone, so the roles are the navigation. */}
+                  {visibleRoles.map((role) => {
+                    const isRoleActive = isAgentPage && activeRole === role.id;
+                    // Roles open on their main feature page; the editorial
+                    // "Get started" pages are disabled — see
+                    // lib/disabled-features.ts.
+                    const roleHref = `/agent?role=${role.id}&view=${ROLE_LANDING_VIEW[role.id]}`;
 
-                    {roleDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 bg-surface-container rounded-md border border-border shadow-xl p-1 space-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => handleRoleSelect(null)}
+                    return (
+                      <div key={role.id} className="space-y-0.5">
+                        <Link
+                          href={roleHref}
                           className={cn(
-                            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11.5px] font-medium transition-colors cursor-pointer',
-                            activeRole === null ? 'text-foreground font-semibold bg-surface-high' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
+                            'flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium transition-colors',
+                            isRoleActive
+                              ? 'text-foreground font-semibold bg-surface-high'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
                           )}
                         >
-                          <LayoutGrid size={12} />
-                          <span className="flex-1 truncate">All roles</span>
-                          {activeRole === null && <Check size={11} />}
-                        </button>
-                        {ROLES.map((role) => (
-                          <button
-                            key={role.id}
-                            type="button"
-                            onClick={() => handleRoleSelect(role.id)}
-                            className={cn(
-                              'w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11.5px] font-medium transition-colors cursor-pointer',
-                              activeRole === role.id ? 'text-foreground font-semibold bg-surface-high' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
-                            )}
-                          >
-                            <role.Icon size={12} />
-                            <span className="flex-1 truncate">{role.label}</span>
-                            {activeRole === role.id && <Check size={11} />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          <role.Icon size={12} className="flex-shrink-0" />
+                          <span className="truncate flex-1">{role.label}</span>
+                        </Link>
 
-                  {/* When role is active: Train items */}
-                  {activeRole !== null ? (
-                    <div className="space-y-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setAgentTrainExpanded((e) => !e)}
-                        className="w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      >
-                        <span>Train</span>
-                        <ChevronDown size={11} className={cn('transition-transform', agentTrainExpanded && 'rotate-180')} />
-                      </button>
-
-                      {agentTrainExpanded && (
-                        <div className="space-y-0.5 ml-1 pl-1.5 border-l border-border/40">
-                          {TRAIN_ITEMS[activeRole].map((item) => {
-                            const isActive = isAgentPage && activeRole === activeRole && activeAgentView === item.view;
-                            return (
+                        {/* Train items for the role currently open */}
+                        {isRoleActive && TRAIN_ITEMS[role.id].length > 1 && (
+                          <div className="space-y-0.5 ml-1 pl-1.5 border-l border-border/40">
+                            {TRAIN_ITEMS[role.id].map((item) => (
                               <Link
                                 key={item.view}
-                                href={`/agent?role=${activeRole}&view=${item.view}`}
+                                href={`/agent?role=${role.id}&view=${item.view}`}
                                 className={cn(
                                   'flex items-center px-2 py-1 rounded-md text-[12px] transition-colors',
-                                  isActive
+                                  activeAgentView === item.view
                                     ? 'text-foreground font-semibold bg-surface-high'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
                                 )}
                               >
                                 <span>{item.label}</span>
                               </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* When All Roles: quick links */
-                    <div className="space-y-0.5">
-                      <Link
-                        href="/agent?role=voice&view=feed"
-                        className="flex items-center justify-between px-2 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground hover:bg-surface-high/50 transition-colors"
-                      >
-                        <span>Voice Feed</span>
-                        <ChevronRight size={11} className="opacity-40" />
-                      </Link>
-                      <Link
-                        href="/agent?role=voice&view=test"
-                        className="flex items-center justify-between px-2 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground hover:bg-surface-high/50 transition-colors"
-                      >
-                        <span>Test ORA</span>
-                        <ChevronRight size={11} className="opacity-40" />
-                      </Link>
-                      <Link
-                        href="/agent?role=documents&view=feed"
-                        className="flex items-center justify-between px-2 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground hover:bg-surface-high/50 transition-colors"
-                      >
-                        <span>Upload Files</span>
-                        <ChevronRight size={11} className="opacity-40" />
-                      </Link>
-                      <Link
-                        href="/agent?role=products&view=catalog"
-                        className="flex items-center justify-between px-2 py-1 rounded-md text-[12px] text-muted-foreground hover:text-foreground hover:bg-surface-high/50 transition-colors"
-                      >
-                        <span>Product Catalog</span>
-                        <ChevronRight size={11} className="opacity-40" />
-                      </Link>
-                    </div>
-                  )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -704,19 +664,6 @@ export function Sidebar({
               <span className="truncate flex-1">Customers</span>
             </Link>
 
-            <Link
-              href="/orders"
-              className={cn(
-                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
-                pathname.startsWith('/orders')
-                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
-              )}
-            >
-              <Package size={15} className={pathname.startsWith('/orders') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-              <span className="truncate flex-1">Orders</span>
-            </Link>
-
             {/* ── Section Divider ── */}
             <div className="h-px bg-border/40 my-2" />
 
@@ -751,21 +698,7 @@ export function Sidebar({
             {/* ── Section Divider ── */}
             <div className="h-px bg-border/40 my-2" />
 
-            {/* 8. Notifications */}
-            <Link
-              href="/notifications"
-              className={cn(
-                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
-                pathname.startsWith('/notifications')
-                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
-              )}
-            >
-              <Bell size={15} className={pathname.startsWith('/notifications') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-              <span className="truncate flex-1">Notifications</span>
-            </Link>
-
-            {/* 9. Settings */}
+            {/* Settings */}
             <Link
               href="/profile"
               className={cn(

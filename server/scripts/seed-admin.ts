@@ -103,6 +103,8 @@ interface IBusiness {
   status?: string;
   isWidgetActive?: boolean;
   connectedPlatform?: string;
+  /** Which agent profile the tenant runs. The platform agent is a SaaS. */
+  activeArchetype?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -128,7 +130,7 @@ interface IAgentConfig {
   businessId: Types.ObjectId;
   brandVoiceDescription?: string;
   language?: string;
-  businessArchetype?: string;
+  archetype?: string;
   businessSummary?: string;
   customDirectives?: string;
   systemPrompt?: string;
@@ -158,6 +160,19 @@ const BusinessMongooseSchema = new Schema<IBusiness>(
       enum: ['active', 'suspended', 'pending'],
     },
     isWidgetActive: { type: Boolean, default: true },
+    activeArchetype: {
+      type: String,
+      enum: [
+        'portfolio',
+        'agency_services',
+        'saas',
+        'ecommerce',
+        'clinic_appointments',
+        'consulting',
+        'general',
+      ],
+      default: 'general',
+    },
     connectedPlatform: {
       type: String,
       default: 'none',
@@ -217,7 +232,7 @@ const AgentConfigMongooseSchema = new Schema<IAgentConfig>(
       type: String,
       default: 'Helpful, professional, and friendly sales assistant.',
     },
-    businessArchetype: {
+    archetype: {
       type: String,
       enum: [
         'portfolio',
@@ -301,6 +316,7 @@ async function seedSuperAdmin(): Promise<void> {
         keyStatus: 'active',
         status: 'active',
         connectedPlatform: 'none',
+        activeArchetype: 'saas',
       });
       console.log(`✔ System Tenant created with ID: ${systemBusiness._id}`);
     } else {
@@ -311,6 +327,12 @@ async function seedSuperAdmin(): Promise<void> {
       }
       // A pending tenant's API calls are rejected, so the system tenant must
       // never be left at the schema default.
+      // The platform agent's profile is the SaaS one; leaving the pointer at
+      // the schema default would hand it a blank 'general' profile.
+      if (systemBusiness.activeArchetype !== 'saas') {
+        systemBusiness.activeArchetype = 'saas';
+        businessModified = true;
+      }
       if (systemBusiness.status !== 'active') {
         systemBusiness.status = 'active';
         businessModified = true;
@@ -368,10 +390,11 @@ async function seedSuperAdmin(): Promise<void> {
     // 4. Create or update the AgentConfig for the system tenant.
     const agentConfig = await AgentConfigModel.findOne({
       businessId: systemBusinessId,
+      archetype: 'saas',
     }).exec();
 
     if (agentConfig) {
-      agentConfig.businessArchetype = 'saas';
+      agentConfig.archetype = 'saas';
       agentConfig.businessSummary = SYSTEM_BUSINESS_SUMMARY;
       agentConfig.brandVoiceDescription = SYSTEM_BRAND_VOICE;
       agentConfig.customDirectives = SYSTEM_DIRECTIVES;
@@ -381,7 +404,7 @@ async function seedSuperAdmin(): Promise<void> {
     } else {
       await AgentConfigModel.create({
         businessId: systemBusinessId,
-        businessArchetype: 'saas',
+        archetype: 'saas',
         businessSummary: SYSTEM_BUSINESS_SUMMARY,
         brandVoiceDescription: SYSTEM_BRAND_VOICE,
         customDirectives: SYSTEM_DIRECTIVES,

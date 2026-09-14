@@ -91,34 +91,34 @@ export function ProductOverrideModal({
         aria-modal="true"
         aria-label="Override product details"
         tabIndex={-1}
-        className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-border bg-surface-container shadow-2xl overflow-hidden"
+        className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-md border border-border bg-surface-container shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-surface-low px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
-              <Edit3 size={18} />
+            <div className="rounded-md border border-border/60 bg-surface-high/40 p-2 text-primary">
+              <Edit3 size={15} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground truncate max-w-xs">
-                  Manual Product Override
+                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate max-w-xs">
+                  Product Details Override
                 </h2>
                 <span className="rounded bg-surface-high border border-border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                   SKU: {product.nativeProductId}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Admin correction for price, inventory, stock status, or misparsed fields.
+              <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                Admin correction for price, inventory, stock status, or descriptions.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Close product override modal"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-high hover:text-foreground cursor-pointer"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
@@ -233,14 +233,14 @@ export function ProductOverrideModal({
             />
           </div>
 
-          <div className="rounded-lg border border-border bg-surface-low p-3 text-[11px] text-muted-foreground space-y-1">
+          <div className="rounded-md border border-border bg-surface-low p-3 text-[11px] text-muted-foreground space-y-1">
             <p className="font-semibold text-foreground flex items-center gap-1.5">
               <RefreshCw size={12} className="text-primary" />
               Source Tier Notice
             </p>
             <p>
               Saving this manual override will set this record to{' '}
-              <strong className="text-primary font-mono">tier4_manual</strong> and immediately invalidate the Redis hot stock cache for live AI voice accuracy.
+              <strong className="text-primary font-mono">tier4_manual</strong> and immediately update the live assistant inventory cache.
             </p>
           </div>
 

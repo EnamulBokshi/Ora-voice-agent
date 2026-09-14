@@ -23,8 +23,6 @@ export const EMBEDDED_SEGMENTS = new Set([
   'conversations',
   'customers',
   'live-desk',
-  'notifications',
-  'orders',
   'profile',
   'usage',
 ]);

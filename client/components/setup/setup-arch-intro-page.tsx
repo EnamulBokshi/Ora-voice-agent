@@ -14,7 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type SetupArchetype, ARCHETYPES } from './setup-section-nav';
+import { ARCHETYPES, normalizeArchetype, type BusinessArchetype } from '@/lib/archetypes';
 import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Per-Archetype Editorial & Image Definitions ──────────────────────────────
@@ -41,7 +41,12 @@ type ArchPageContent = {
   faqs: FaqItem[];
 };
 
-const ARCH_CONTENT: Record<SetupArchetype, ArchPageContent> = {
+/**
+ * Editorial copy exists for the five archetypes the guide shipped with.
+ * Archetypes added later fall back to the general content rather than being
+ * given invented marketing claims.
+ */
+const ARCH_CONTENT: Partial<Record<BusinessArchetype, ArchPageContent>> = {
   ecommerce: {
     iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
     iconTextClass: 'text-foreground',
@@ -162,14 +167,14 @@ const ARCH_CONTENT: Record<SetupArchetype, ArchPageContent> = {
     ],
   },
 
-  agency: {
+  agency_services: {
     iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
     iconTextClass: 'text-foreground',
     heroTitle: 'ORA for Agencies qualifies leads and books clients',
     heroDesc:
       'ORA presents your core service packages, scopes incoming inquiries by timeline and budget, and books discovery calls directly into your calendar — 24/7.',
     cta1Label: 'Set up ORA for Agency',
-    cta1Href: '/setup?archetype=agency&step=persona',
+    cta1Href: '/setup?archetype=agency_services&step=persona',
     heroImageSrc: '/previews/agency-hero.jpg',
     howLabel: 'HOW ORA FOR AGENCIES WORKS',
     rows: [
@@ -346,12 +351,13 @@ const ARCH_CONTENT: Record<SetupArchetype, ArchPageContent> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface SetupArchIntroPageProps {
-  archetype: SetupArchetype;
+  archetype: BusinessArchetype;
 }
 
 export function SetupArchIntroPage({ archetype }: SetupArchIntroPageProps) {
-  const arch = ARCHETYPES.find((a) => a.id === archetype) || ARCHETYPES[0];
-  const content = ARCH_CONTENT[archetype] || ARCH_CONTENT.ecommerce;
+  const resolved = normalizeArchetype(archetype) ?? 'general';
+  const arch = ARCHETYPES.find((a) => a.id === resolved) ?? ARCHETYPES[0];
+  const content = ARCH_CONTENT[resolved] ?? ARCH_CONTENT.general!;
   const { Icon } = arch;
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 

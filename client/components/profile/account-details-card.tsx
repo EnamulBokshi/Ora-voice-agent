@@ -90,18 +90,18 @@ export function AccountDetailsCard({ user, onUserUpdated }: AccountDetailsCardPr
 
         {/* ── User Account Card ── */}
         <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-5">
-          <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-border/40">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
               <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
                 User Account & Credentials
               </h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowPasswordModal(true)}
-                className="px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 rounded-md flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1.5 sm:py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 rounded-md flex items-center gap-1.5 cursor-pointer touch-manipulation"
               >
                 <Key size={11} />
                 Change Password
@@ -111,7 +111,7 @@ export function AccountDetailsCard({ user, onUserUpdated }: AccountDetailsCardPr
                   <button
                     type="button"
                     onClick={() => setIsEditingName(false)}
-                    className="px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 rounded-md cursor-pointer"
+                    className="px-2.5 py-1.5 sm:py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 rounded-md cursor-pointer touch-manipulation"
                   >
                     Cancel
                   </button>
@@ -119,7 +119,7 @@ export function AccountDetailsCard({ user, onUserUpdated }: AccountDetailsCardPr
                     type="button"
                     onClick={handleSaveName}
                     disabled={isSavingName}
-                    className="px-2.5 py-1 text-[12px] font-semibold bg-foreground text-background rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="px-2.5 py-1.5 sm:py-1 text-[12px] font-semibold bg-foreground text-background rounded-md flex items-center gap-1 cursor-pointer disabled:opacity-50 touch-manipulation"
                   >
                     {isSavingName ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
                     Save
@@ -132,7 +132,7 @@ export function AccountDetailsCard({ user, onUserUpdated }: AccountDetailsCardPr
                     setName(user.name);
                     setIsEditingName(true);
                   }}
-                  className="px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 rounded-md flex items-center gap-1.5 cursor-pointer"
+                  className="px-2.5 py-1.5 sm:py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 rounded-md flex items-center gap-1.5 cursor-pointer touch-manipulation"
                 >
                   <Edit2 size={11} />
                   Edit Name
@@ -141,8 +141,8 @@ export function AccountDetailsCard({ user, onUserUpdated }: AccountDetailsCardPr
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/40 pt-1">
-            <div className="py-2 sm:py-0 sm:pr-4 lg:pr-6 space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border/40 rounded-md overflow-hidden border border-border/40">
+            <div className="bg-background p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Full Name
               </span>
@@ -158,21 +158,21 @@ export function AccountDetailsCard({ user, onUserUpdated }: AccountDetailsCardPr
               )}
             </div>
 
-            <div className="py-2 sm:py-0 sm:px-4 lg:px-6 space-y-1">
+            <div className="bg-background p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Email Address
               </span>
               <p className="text-[13.5px] font-mono text-foreground truncate">{user.email}</p>
             </div>
 
-            <div className="py-2 sm:py-0 sm:px-4 lg:px-6 space-y-1">
+            <div className="bg-background p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Store Role
               </span>
               <p className="text-[13.5px] font-mono text-foreground uppercase">{user.role}</p>
             </div>
 
-            <div className="py-2 sm:py-0 sm:pl-4 lg:pl-6 space-y-1">
+            <div className="bg-background p-4 space-y-1">
               <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                 Email Status
               </span>

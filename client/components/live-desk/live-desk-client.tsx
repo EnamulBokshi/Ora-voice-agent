@@ -37,6 +37,7 @@ const USE_DEMO_DATA = DEMO_MODE_ENABLED;
 export function LiveDeskClient() {
   const [paused, setPaused]               = useState(false);
   const [activeSession, setActiveSession] = useState<LiveFeedSession | null>(null);
+  const [mobileTab, setMobileTab]         = useState<'feed' | 'session' | 'telemetry'>('session');
 
   const [stats, setStats]                 = useState<LiveStatsResponse | null>(null);
   const [feed, setFeed]                   = useState<LiveFeedSession[]>([]);
@@ -180,21 +181,64 @@ export function LiveDeskClient() {
         }
       />
 
+      {/* ── Mobile View Tabs (<lg) ── */}
+      <div className="lg:hidden flex items-center border-b border-border/40 bg-surface-lowest flex-shrink-0 px-3 py-2 gap-1.5 overflow-x-auto no-scrollbar">
+        <button
+          type="button"
+          onClick={() => setMobileTab('feed')}
+          className={cn(
+            'flex-1 min-w-[85px] py-1.5 px-2 rounded-md text-[12px] font-medium text-center transition-colors cursor-pointer touch-manipulation',
+            mobileTab === 'feed'
+              ? 'bg-surface-high text-foreground font-semibold border border-border/60 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Shoppers ({feed.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('session')}
+          className={cn(
+            'flex-1 min-w-[85px] py-1.5 px-2 rounded-md text-[12px] font-medium text-center transition-colors cursor-pointer touch-manipulation truncate',
+            mobileTab === 'session'
+              ? 'bg-surface-high text-foreground font-semibold border border-border/60 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Live Chat {activeSession ? `· ${activeSession.name.split(' ')[0]}` : ''}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('telemetry')}
+          className={cn(
+            'flex-1 min-w-[85px] py-1.5 px-2 rounded-md text-[12px] font-medium text-center transition-colors cursor-pointer touch-manipulation',
+            mobileTab === 'telemetry'
+              ? 'bg-surface-high text-foreground font-semibold border border-border/60 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Activity & Health
+        </button>
+      </div>
+
       {/*
-        3-column workspace from lg up; a single scrolling column below that.
-        This was three fixed widths (280 / flex-1 / 250) with no responsive class, so
-        530px of the row was committed before content and the centre transcript column
-        collapsed to nothing on a phone.
+        3-column workspace from lg up; mobile tab switching below that.
       */}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border/40 bg-transparent">
 
         {/* ── Col 1: Active Shoppers Feed ── */}
-        <div className="w-full lg:w-[280px] lg:flex-shrink-0 flex flex-col lg:overflow-hidden bg-transparent">
+        <div className={cn(
+          'w-full lg:w-[280px] lg:flex-shrink-0 flex flex-col min-h-0 lg:overflow-hidden bg-transparent',
+          mobileTab !== 'feed' && 'hidden lg:flex',
+        )}>
           <ActivityFeed
             paused={paused}
             sessions={feed}
             activeSessionId={activeSession?.id}
-            onSelectSession={setActiveSession}
+            onSelectSession={(s) => {
+              setActiveSession(s);
+              setMobileTab('session');
+            }}
           />
           {/* Footer link to Historical Archives */}
           <div className="px-4 py-2.5 border-t border-border/40 flex-shrink-0 bg-transparent">
@@ -209,12 +253,18 @@ export function LiveDeskClient() {
         </div>
 
         {/* ── Col 2: Chat Transcript & Actions ── */}
-        <div className="w-full lg:flex-1 flex flex-col min-w-0 lg:overflow-hidden bg-transparent">
+        <div className={cn(
+          'w-full lg:flex-1 flex flex-col min-w-0 min-h-0 lg:overflow-hidden bg-transparent',
+          mobileTab !== 'session' && 'hidden lg:flex',
+        )}>
           <SessionDetailPanel session={activeSession} />
         </div>
 
         {/* ── Col 3: Right Sidebar — Conversions & Services ── */}
-        <div className="w-full lg:w-[250px] lg:flex-shrink-0 flex flex-col lg:overflow-y-auto no-scrollbar bg-transparent divide-y divide-border/40">
+        <div className={cn(
+          'w-full lg:w-[250px] lg:flex-shrink-0 flex flex-col lg:overflow-y-auto no-scrollbar bg-transparent divide-y divide-border/40',
+          mobileTab !== 'telemetry' && 'hidden lg:flex',
+        )}>
           {/* Live Conversions */}
           <SalesActionsPanel actions={salesActions} />
 

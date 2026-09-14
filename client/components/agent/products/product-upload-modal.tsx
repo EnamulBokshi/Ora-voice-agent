@@ -216,13 +216,13 @@ export function ProductUploadModal({
         aria-modal="true"
         aria-label="Add products to catalog"
         tabIndex={-1}
-        className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-lg border border-border bg-surface-lowest shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+        className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-md border border-border bg-surface-lowest shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
       >
 
         {/* ── Modal Header ── */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-[15px] font-semibold text-foreground">
+            <h2 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
               Import Catalog & Knowledge
             </h2>
             <p className="text-[12px] text-muted-foreground mt-0.5">
@@ -232,7 +232,7 @@ export function ProductUploadModal({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors"
+            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
           >
             <X size={15} />
           </button>

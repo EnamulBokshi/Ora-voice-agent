@@ -1,8 +1,6 @@
 'use client';
 
-import { Pause, Play, Bell, ChevronRight, Search } from 'lucide-react';
-import Link from 'next/link';
-import { AppLink } from '@/components/navigation/app-link';
+import { Pause, Play, ChevronRight, Search } from 'lucide-react';
 
 interface LiveTopBarProps {
   paused: boolean;
@@ -63,19 +61,6 @@ export function LiveTopBar({ paused, onTogglePause }: LiveTopBarProps) {
             </>
           )}
         </button>
-
-        {/* Notifications */}
-        <AppLink
-          href="/notifications"
-          id="live-top-notifications"
-          aria-label="Notifications"
-          className="relative w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high border border-transparent hover:border-border transition-colors"
-        >
-          <Bell size={15} />
-          <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-3.5 rounded-full bg-[color:var(--status-warning)] text-[9px] font-bold text-white flex items-center justify-center px-0.5 leading-none select-none">
-            3
-          </span>
-        </AppLink>
       </div>
     </header>
   );

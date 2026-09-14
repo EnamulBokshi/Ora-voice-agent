@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { Check, ArrowRight, ArrowLeft, ExternalLink, CheckCircle2, ChevronDown, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSetupProgress, type SetupStepId } from '@/hooks/use-setup-progress';
-import { SetupSectionNav, type SetupArchetype, ARCHETYPES } from './setup-section-nav';
+import { SetupSectionNav } from './setup-section-nav';
+import { ARCHETYPES, normalizeArchetype, type BusinessArchetype } from '@/lib/archetypes';
 import { SetupArchIntroPage } from './setup-arch-intro-page';
 import { PersonaPreview } from './previews/persona-preview';
 import { KnowledgePreview } from './previews/knowledge-preview';
@@ -63,7 +64,6 @@ const STEP_CONFIGS: Record<SetupStepId, StepConfig> = {
 };
 
 const ALL_STEP_IDS: SetupStepId[] = ['persona', 'integration', 'knowledge', 'voice_test'];
-const VALID_ARCHETYPES = ['ecommerce', 'saas', 'agency', 'portfolio', 'general'];
 
 import Image from 'next/image';
 import { useAppRouter } from '@/lib/navigation/app-path';
@@ -71,13 +71,16 @@ import { AppLink } from '@/components/navigation/app-link';
 import { ReadOnlyFence } from '@/components/common/read-only-fence';
 import { usePermissions } from '@/hooks/use-permissions';
 
-const ARCHETYPE_IMAGES: Record<SetupArchetype, string> = {
+const ARCHETYPE_IMAGES: Partial<Record<BusinessArchetype, string>> = {
   ecommerce: '/previews/ecom-hero.jpg',
   saas: '/previews/saas-hero.jpg',
-  agency: '/previews/agency-hero.jpg',
+  agency_services: '/previews/agency-hero.jpg',
   portfolio: '/previews/portfolio-hero.jpg',
   general: '/previews/enterprise-hero.jpg',
 };
+
+/** Archetypes added after the guide's hero art was produced fall back here. */
+const FALLBACK_ARCHETYPE_IMAGE = '/previews/enterprise-hero.jpg';
 
 // ─── Setup Hub (Archetype Selection Screen) ──────────────────────────────────
 
@@ -138,7 +141,7 @@ function SetupHub() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-16">
           {ARCHETYPES.map((arch) => {
             const { Icon } = arch;
-            const imgSrc = ARCHETYPE_IMAGES[arch.id];
+            const imgSrc = ARCHETYPE_IMAGES[arch.id] ?? FALLBACK_ARCHETYPE_IMAGE;
 
             return (
               <div
@@ -185,11 +188,7 @@ function SetupHub() {
                         {arch.label}
                       </h3>
                       <p className="text-[12.5px] text-muted-foreground truncate mt-0.5">
-                        {arch.id === 'ecommerce' && 'Physical & digital retail products with cart tools'}
-                        {arch.id === 'saas' && 'Subscription software, API tiers & onboarding flows'}
-                        {arch.id === 'agency' && 'Client consulting, project scoping & lead intake'}
-                        {arch.id === 'portfolio' && 'Creators, studios & personalized client demos'}
-                        {arch.id === 'general' && 'Support desks, documentation & general enterprise'}
+                        {arch.blurb}
                       </p>
                     </div>
                   </div>
@@ -268,8 +267,7 @@ function SetupGuideClientInner() {
   const rawArch = searchParams.get('archetype');
   const rawStep = searchParams.get('step');
 
-  const activeArchetype: SetupArchetype | null =
-    rawArch && VALID_ARCHETYPES.includes(rawArch) ? (rawArch as SetupArchetype) : null;
+  const activeArchetype: BusinessArchetype | null = normalizeArchetype(rawArch);
 
   const activeStep: SetupStepId | null =
     rawStep && ALL_STEP_IDS.includes(rawStep as SetupStepId) ? (rawStep as SetupStepId) : null;
@@ -374,7 +372,7 @@ function SetupGuideClientInner() {
 
           {/* ── Editorial Step Header ── */}
           <div className="border-b border-border/40 pb-5 mb-6">
-            <div className="flex items-center justify-between gap-4 mb-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2.5">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
                   <ArchIcon size={14} className="text-foreground" />
@@ -389,7 +387,7 @@ function SetupGuideClientInner() {
                   type="button"
                   onClick={() => toggleStep(activeStep!)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md border text-[12px] font-medium transition-colors cursor-pointer',
+                    'inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors cursor-pointer touch-manipulation',
                     isCompleted
                       ? 'bg-surface-high border-border/70 text-foreground font-semibold'
                       : 'border-border/60 bg-surface-high/40 text-muted-foreground hover:text-foreground hover:bg-surface-high',
@@ -426,12 +424,12 @@ function SetupGuideClientInner() {
           </div>
 
           {/* ── Step Navigation Footer ── */}
-          <div className="flex items-center justify-between pt-5 border-t border-border/40">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-border/40">
             {prevStep ? (
               <button
                 type="button"
                 onClick={() => router.push(`/setup?archetype=${activeArchetype}&step=${prevStep}`)}
-                className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 h-9 sm:h-8 px-3.5 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer touch-manipulation"
               >
                 <ArrowLeft size={12} />
                 <span>Previous Step</span>
@@ -440,7 +438,7 @@ function SetupGuideClientInner() {
               <button
                 type="button"
                 onClick={() => router.push(`/setup?archetype=${activeArchetype}`)}
-                className="inline-flex items-center gap-2 h-8 px-3.5 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 h-9 sm:h-8 px-3.5 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer touch-manipulation"
               >
                 <ArrowLeft size={12} />
                 <span>Overview</span>

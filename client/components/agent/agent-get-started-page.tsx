@@ -13,7 +13,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type AgentRole } from './agent-section-nav';
+import { type AgentRole } from '@/lib/agent-roles';
 import { AppLink } from '@/components/navigation/app-link';
 
 // ─── Per-Role Editorial & Image Definitions ───────────────────────────────────
@@ -43,7 +43,13 @@ type RolePageContent = {
   faqs: FaqItem[];
 };
 
-const ROLE_CONTENT: Record<AgentRole, RolePageContent> = {
+/**
+ * This whole page is disabled (see lib/disabled-features.ts) and kept only so
+ * it can be restored. The map is therefore partial: roles added after it was
+ * switched off have no editorial copy, and inventing some for a page nobody
+ * sees would be worse than falling back.
+ */
+const ROLE_CONTENT: Partial<Record<AgentRole, RolePageContent>> = {
   prompt: {
     Icon: Sliders,
     iconBgClass: 'bg-surface-high border border-border/60 shadow-sm',
@@ -300,7 +306,7 @@ interface AgentGetStartedPageProps {
 }
 
 export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
-  const content = ROLE_CONTENT[role] || ROLE_CONTENT.voice;
+  const content = ROLE_CONTENT[role] ?? ROLE_CONTENT.voice!;
   const {
     Icon,
     iconBgClass,

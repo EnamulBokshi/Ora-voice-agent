@@ -33,17 +33,17 @@ export function AnalyticsPanel({
       <KpiStrip cards={kpiCards} />
 
       {/* ── 2. Performance Analytics Section ── */}
-      <div className="rounded-md border border-border/50 bg-transparent p-5">
+      <div className="rounded-md border border-border/50 bg-transparent p-4 sm:p-5">
         {/* Section Header with Clean Tab Switcher */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/40 mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-[14px] font-semibold text-foreground tracking-tight">
+            <h2 className="text-[14px] font-semibold text-foreground tracking-tight font-serif">
               Performance Analytics
             </h2>
           </div>
 
           {/* Highly Visible Tab Buttons */}
-          <div className="flex items-center gap-1 p-0.5 rounded-md bg-surface-high border border-border/60">
+          <div className="grid grid-cols-2 sm:flex items-center gap-1 p-0.5 rounded-md bg-surface-high border border-border/60 w-full sm:w-auto">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
@@ -52,7 +52,7 @@ export function AnalyticsPanel({
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'flex items-center gap-2 px-3.5 py-1.5 rounded-[4px] text-[12.5px] font-medium transition-all cursor-pointer',
+                    'flex items-center justify-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-[4px] text-[12px] sm:text-[12.5px] font-medium transition-all cursor-pointer touch-manipulation',
                     isActive
                       ? 'bg-surface-lowest text-foreground font-semibold shadow-xs border border-border/60 dark:text-primary'
                       : 'text-muted-foreground hover:text-foreground',

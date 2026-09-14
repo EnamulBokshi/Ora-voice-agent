@@ -27,20 +27,24 @@ export function KpiStrip({ cards }: KpiStripProps) {
   return (
     <div
       className={cn(
-        'w-full rounded-md border border-border/50 divide-y sm:divide-y-0 sm:divide-x divide-border/50 grid grid-cols-1 sm:grid-cols-2 bg-transparent relative z-10',
+        'w-full rounded-md border border-border/50 bg-border/50 gap-px grid grid-cols-1 sm:grid-cols-2 overflow-hidden relative z-10',
         columns,
       )}
       role="region"
       aria-label="Key store performance metrics"
     >
-      {cards.map((card) => {
+      {cards.map((card, idx) => {
         const trendPositive = card.trend && !card.trend.startsWith('-');
+        const isFifthCardOnTablet = idx === 4 && cards.length === 5;
         return (
           <Link
             key={card.id}
             href={card.href}
             id={`kpi-${card.id}`}
-            className="group px-5 py-4.5 hover:bg-surface-high/30 transition-colors flex flex-col justify-between min-w-0 relative hover:z-20 focus-within:z-20 first:rounded-t-md sm:first:rounded-l-md sm:first:rounded-tr-none last:rounded-b-md sm:last:rounded-r-md sm:last:rounded-bl-none"
+            className={cn(
+              'group bg-background px-4 sm:px-5 py-3.5 sm:py-4.5 hover:bg-surface-high/30 transition-colors flex flex-col justify-between min-w-0 relative',
+              isFifthCardOnTablet && 'sm:max-lg:col-span-2',
+            )}
           >
             {/* Top: Label + Info Tooltip + Icon */}
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -81,8 +85,8 @@ export function KpiStrip({ cards }: KpiStripProps) {
             </div>
 
             {/* Value + Trend */}
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xl sm:text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
                 {card.value}
               </span>
 

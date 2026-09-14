@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsBoolean, IsIn, MaxLength } from 'class-validator';
+import { BUSINESS_ARCHETYPES } from '../../common/constants/archetypes';
 
 export class UpdatePlatformAgentDto {
   @IsOptional()
@@ -6,10 +7,15 @@ export class UpdatePlatformAgentDto {
   @MaxLength(1000)
   brandVoiceDescription?: string;
 
+  /**
+   * Switches which profile the platform agent runs. Like every other tenant,
+   * the platform keeps one profile per archetype; changing this swaps them
+   * rather than rewriting the live one.
+   */
   @IsOptional()
   @IsString()
-  @IsIn(['portfolio', 'agency_services', 'saas', 'ecommerce', 'clinic_appointments', 'consulting', 'general'])
-  businessArchetype?: string;
+  @IsIn(BUSINESS_ARCHETYPES as unknown as string[])
+  archetype?: string;
 
   @IsOptional()
   @IsString()

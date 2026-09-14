@@ -44,8 +44,8 @@ export function InvoiceHistory({ invoices, onResent }: InvoiceHistoryProps) {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[13px]">
+        <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0">
+          <table className="w-full min-w-[500px] text-left border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-border/40 text-muted-foreground uppercase text-[11px] font-mono font-medium tracking-wider">
                 <th className="py-2.5 px-3">Invoice Number</th>
@@ -76,7 +76,7 @@ export function InvoiceHistory({ invoices, onResent }: InvoiceHistoryProps) {
                   <td className="py-3 px-3 text-right">
                     <button
                       onClick={() => handleResend(inv._id)}
-                      className="inline-flex items-center gap-1 text-[11.5px] font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-[11.5px] font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-1 px-2 rounded hover:bg-surface-high/50 touch-manipulation"
                       title="Resend invoice email"
                     >
                       <Download size={12} />

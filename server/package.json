@@ -22,6 +22,7 @@
     "seed:admin:prod": "node dist/scripts/seed-admin.js",
     "seed:dev-store": "ts-node scripts/seed-dev-store.ts",
     "migrate:hash-keys": "ts-node scripts/migrate-hash-secret-keys.ts",
+    "migrate:archetype-profiles": "ts-node scripts/migrate-archetype-profiles.ts",
     "shopify:queue-sync": "ts-node scripts/queue-shopify-sync.ts",
     "shopify:backfill-domain": "ts-node scripts/backfill-shopify-shop-domain.ts"
   },

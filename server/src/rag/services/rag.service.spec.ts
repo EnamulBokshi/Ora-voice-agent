@@ -7,6 +7,7 @@ import { EmbeddingService } from '../../vector/embedding.service';
 import { ProductsService } from '../../products/products.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { Business } from '../../users/schemas/business.schema';
+import { AgentProfileService } from '../../common/agent-profile/agent-profile.service';
 
 describe('RagService', () => {
   let service: RagService;
@@ -16,6 +17,14 @@ describe('RagService', () => {
     moduleRef = await Test.createTestingModule({
       providers: [
         RagService,
+        {
+          provide: AgentProfileService,
+          useValue: {
+            getActiveArchetype: jest.fn().mockResolvedValue('general'),
+            setActiveArchetype: jest.fn().mockResolvedValue('general'),
+            invalidate: jest.fn(),
+          },
+        },
         {
           provide: ConfigService,
           useValue: {

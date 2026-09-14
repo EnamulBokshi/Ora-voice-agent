@@ -304,11 +304,9 @@ export function FloatingOrbWidget() {
     pathname?.startsWith('/live-desk') ||
     pathname?.startsWith('/agent') ||
     pathname?.startsWith('/conversations') ||
-    pathname?.startsWith('/orders') ||
     pathname?.startsWith('/customers') ||
     pathname?.startsWith('/billing') ||
     pathname?.startsWith('/usage') ||
-    pathname?.startsWith('/notifications') ||
     pathname?.startsWith('/profile') ||
     pathname?.startsWith('/verify-otp') ||
     pathname?.startsWith('/reset-password');

@@ -37,7 +37,8 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
     };
     mockAgentConfigService = {
       getConfig: jest.fn().mockResolvedValue({
-        config: { brandVoiceDescription: 'Warm and fast', businessArchetype: 'ecommerce' },
+        activeArchetype: 'ecommerce',
+        config: { brandVoiceDescription: 'Warm and fast' },
         voice: { voiceId: 'Aoede' },
         playbook: {},
       }),
@@ -214,7 +215,8 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
 
     it('should assign General Business Sales Representative persona when business is general and has no products', async () => {
       mockAgentConfigService.getConfig.mockResolvedValue({
-        config: { brandVoiceDescription: 'Warm and professional', businessArchetype: 'general' },
+        activeArchetype: 'general',
+        config: { brandVoiceDescription: 'Warm and professional' },
         voice: { voiceId: 'Aoede' },
         playbook: {},
       });

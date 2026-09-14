@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { KnowledgeService } from './knowledge.service';
 import { KnowledgeBase } from './schemas/knowledge-base.schema';
 import { KnowledgeChunk } from './schemas/knowledge-chunk.schema';
+import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
 
 describe('KnowledgeService', () => {
   let service: KnowledgeService;
@@ -11,6 +12,14 @@ describe('KnowledgeService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KnowledgeService,
+        {
+          provide: AgentProfileService,
+          useValue: {
+            getActiveArchetype: jest.fn().mockResolvedValue('general'),
+            setActiveArchetype: jest.fn().mockResolvedValue('general'),
+            invalidate: jest.fn(),
+          },
+        },
         {
           provide: getModelToken(KnowledgeBase.name),
           useValue: {

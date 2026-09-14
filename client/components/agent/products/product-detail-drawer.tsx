@@ -76,7 +76,7 @@ export function ProductDetailDrawer({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h2 className="text-[14px] font-semibold text-foreground truncate">
+            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate">
               Product Details
             </h2>
             <p className="text-[11px] text-muted-foreground font-mono mt-0.5">

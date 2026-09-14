@@ -38,6 +38,7 @@ import { QuickActionsBar, QuickAction } from './quick-actions-bar';
 import { KpiCardDef } from './kpi-strip';
 import { AppLink } from '@/components/navigation/app-link';
 import { useAppBasePath } from '@/lib/navigation/app-path';
+import { SETUP_GUIDE_ENABLED } from '@/lib/disabled-features';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -230,7 +231,7 @@ export function OverviewClient() {
       trend: stats.revenueTrend,
       tooltip:
         'Total value of orders completed by shoppers who interacted with ORA within 24 hours prior to checkout.',
-      href: `${prefix}/orders`,
+      href: `${prefix}/live-desk`,
     },
     {
       id: 'orders',
@@ -240,7 +241,7 @@ export function OverviewClient() {
       trend: stats.ordersTrend,
       tooltip:
         'Total orders completed after customer received product recommendations, sizing guidance, or support from ORA.',
-      href: `${prefix}/orders`,
+      href: `${prefix}/live-desk`,
     },
     {
       id: 'conversations',
@@ -259,7 +260,7 @@ export function OverviewClient() {
       icon: <Percent size={13} />,
       tooltip:
         'Percentage of shoppers who placed an order after starting a conversation with ORA.',
-      href: `${prefix}/orders`,
+      href: `${prefix}/conversations`,
     },
     {
       id: 'catalog',
@@ -285,7 +286,7 @@ export function OverviewClient() {
     {
       id: 'qa-train',
       icon: <SlidersHorizontal size={16} />,
-      label: 'System Configuration & Catalog',
+      label: 'Agent Configuration & Catalog',
       description: 'Tune voice persona, store return policies, shipping rules, and sync inventory.',
       href: `${prefix}/agent`,
     },
@@ -321,8 +322,10 @@ export function OverviewClient() {
         isRefreshing={refreshing}
       />
 
-      {/* Setup Guide Banner — clear actionable guidance */}
-      {!isAllCompleted && !bannerDismissed && (
+      {/* DISABLED: the Setup Guide banner is switched off with the guide it
+          links to — see lib/disabled-features.ts. Kept in place rather than
+          deleted so a merge that touches it conflicts here. */}
+      {SETUP_GUIDE_ENABLED && !isAllCompleted && !bannerDismissed && (
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-2.5 bg-surface-lowest border-b border-border/50 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-5 h-5 rounded-sm bg-surface-high flex items-center justify-center border border-border/50 text-foreground flex-shrink-0">
