@@ -109,6 +109,7 @@ export async function apiClient<T>(
             currentPath.startsWith('/admin') ||
             currentPath.startsWith('/agent') ||
             currentPath.startsWith('/live-desk') ||
+            currentPath.startsWith('/orders') ||
             currentPath.startsWith('/customers') ||
             currentPath.startsWith('/conversations') ||
             currentPath.startsWith('/billing') ||
@@ -161,6 +162,7 @@ export async function apiClient<T>(
             currentPath.startsWith('/admin') ||
             currentPath.startsWith('/agent') ||
             currentPath.startsWith('/live-desk') ||
+            currentPath.startsWith('/orders') ||
             currentPath.startsWith('/customers') ||
             currentPath.startsWith('/conversations') ||
             currentPath.startsWith('/billing') ||

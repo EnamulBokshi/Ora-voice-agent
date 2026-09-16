@@ -8,6 +8,7 @@ import {
   Radio,
   MessageSquareText,
   Receipt,
+  CreditCard,
   BarChart2,
   Settings,
   SlidersHorizontal,
@@ -18,10 +19,12 @@ import {
   FileText,
   Package,
   Database,
-  UserCheck,
+  ShoppingBag,
+  Users,
   Code,
   ChevronDown,
   ChevronRight,
+  ChevronsUpDown,
   ArrowUpRight,
   Check,
   CheckCircle2,
@@ -126,6 +129,10 @@ export function Sidebar({
   // User Profile
   const [userName, setUserName] = useState<string>('Profile');
   const [userRole, setUserRole] = useState<string>('Owner');
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
   // Which agent roles this business is offered. A business with no catalogue
   // is not shown catalogue navigation.
   const [businessContext, setBusinessContext] = useState<{
@@ -133,16 +140,33 @@ export function Sidebar({
     hasCatalog?: boolean;
   }>({});
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click or Escape
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (archDropdownRef.current && !archDropdownRef.current.contains(e.target as Node)) {
         setArchDropdownOpen(false);
       }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setArchDropdownOpen(false);
+        setProfileMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', keyHandler);
+    };
   }, []);
+
+  useEffect(() => {
+    setProfileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     let active = true;
@@ -150,6 +174,7 @@ export function Sidebar({
       .then((data) => {
         if (active) {
           setUserName(data?.user?.name ?? demoProfile.user.name);
+          setUserEmail(data?.user?.email ?? demoProfile.user.email ?? '');
           const raw = (data?.user as { role?: string })?.role ?? 'owner';
           setUserRole(raw === 'super_admin' ? 'SuperAdmin' : raw[0].toUpperCase() + raw.slice(1));
           setBusinessContext({
@@ -161,6 +186,7 @@ export function Sidebar({
       .catch(() => {
         if (active) {
           setUserName(demoProfile.user.name);
+          setUserEmail(demoProfile.user.email ?? '');
           setUserRole('Owner');
         }
       });
@@ -339,38 +365,25 @@ export function Sidebar({
             </Link>
 
             <Link
-              href="/billing"
-              title="Invoices"
+              href="/orders"
+              title="Orders"
               className={cn(
                 'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
-                pathname.startsWith('/billing') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+                pathname.startsWith('/orders') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
               )}
             >
-              <Receipt size={16} />
+              <ShoppingBag size={16} />
             </Link>
 
             <Link
-              href="/usage"
-              title="Usage"
+              href="/customers"
+              title="Customers"
               className={cn(
                 'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
-                pathname.startsWith('/usage') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+                pathname.startsWith('/customers') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
               )}
             >
-              <BarChart2 size={16} />
-            </Link>
-
-            <div className="h-px bg-border/40 w-6 my-1.5" />
-
-            <Link
-              href="/profile"
-              title="Settings"
-              className={cn(
-                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
-                pathname.startsWith('/profile') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
-              )}
-            >
-              <Settings size={16} />
+              <Users size={16} />
             </Link>
           </div>
         ) : (
@@ -649,8 +662,19 @@ export function Sidebar({
               <span className="truncate flex-1">Conversations</span>
             </Link>
 
-            {/* Customers and Orders are both fully built pages that had no nav entry —
-                reachable only by typing the URL. */}
+            <Link
+              href="/orders"
+              className={cn(
+                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
+                pathname.startsWith('/orders')
+                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+              )}
+            >
+              <ShoppingBag size={15} className={pathname.startsWith('/orders') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <span className="truncate flex-1">Orders</span>
+            </Link>
+
             <Link
               href="/customers"
               className={cn(
@@ -660,89 +684,146 @@ export function Sidebar({
                   : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
               )}
             >
-              <UserCheck size={15} className={pathname.startsWith('/customers') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <Users size={15} className={pathname.startsWith('/customers') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
               <span className="truncate flex-1">Customers</span>
-            </Link>
-
-            {/* ── Section Divider ── */}
-            <div className="h-px bg-border/40 my-2" />
-
-            {/* 6. Invoices */}
-            <Link
-              href="/billing"
-              className={cn(
-                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
-                pathname.startsWith('/billing')
-                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
-              )}
-            >
-              <Receipt size={15} className={pathname.startsWith('/billing') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-              <span className="truncate flex-1">Invoices</span>
-            </Link>
-
-            {/* 7. Usage */}
-            <Link
-              href="/usage"
-              className={cn(
-                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
-                pathname.startsWith('/usage')
-                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
-              )}
-            >
-              <BarChart2 size={15} className={pathname.startsWith('/usage') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-              <span className="truncate flex-1">Usage</span>
-            </Link>
-
-            {/* ── Section Divider ── */}
-            <div className="h-px bg-border/40 my-2" />
-
-            {/* Settings */}
-            <Link
-              href="/profile"
-              className={cn(
-                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
-                pathname.startsWith('/profile')
-                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
-              )}
-            >
-              <Settings size={15} className={pathname.startsWith('/profile') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-              <span className="truncate flex-1">Settings</span>
             </Link>
           </>
         )}
       </nav>
 
-      {/* ── Footer: Profile + Theme ──────────────────────────────────────── */}
-      <div className="p-3 border-t border-border flex-shrink-0 flex items-center justify-between gap-2">
+      {/* ── Footer: Profile Dropdown Menu + Quick Shortcuts ──────── */}
+      <div className="p-2.5 border-t border-border flex-shrink-0 relative" ref={profileMenuRef}>
+        {/* Dropdown Popover */}
+        {profileMenuOpen && (
+          <div
+            role="menu"
+            aria-orientation="vertical"
+            className={cn(
+              'absolute z-50 bg-[#111111] border border-border/80 rounded-xl shadow-2xl p-1.5 space-y-1 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150',
+              collapsed
+                ? 'bottom-2 left-[calc(100%+10px)] w-60'
+                : 'bottom-[calc(100%+8px)] left-2 right-2 min-w-[210px]'
+            )}
+          >
+            {/* User Details Header */}
+            <div className="px-3 py-2.5 border-b border-border/40">
+              <p className="font-semibold text-foreground truncate text-[13px]">
+                {userName}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate font-mono mt-0.5">
+                {userEmail || userRole}
+              </p>
+            </div>
+
+            {/* Menu Links */}
+            <div className="py-1 space-y-0.5">
+              <Link
+                href="/profile"
+                onClick={() => setProfileMenuOpen(false)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] font-medium transition-colors',
+                  pathname.startsWith('/profile')
+                    ? 'bg-surface-high text-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60'
+                )}
+              >
+                <Settings size={15} className="text-muted-foreground" />
+                <span>Settings</span>
+              </Link>
+
+              <Link
+                href="/billing"
+                onClick={() => setProfileMenuOpen(false)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] font-medium transition-colors',
+                  pathname.startsWith('/billing')
+                    ? 'bg-surface-high text-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60'
+                )}
+              >
+                <CreditCard size={15} className="text-muted-foreground" />
+                <span>Billing & Subscription</span>
+              </Link>
+
+              <Link
+                href="/usage"
+                onClick={() => setProfileMenuOpen(false)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] font-medium transition-colors',
+                  pathname.startsWith('/usage')
+                    ? 'bg-surface-high text-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60'
+                )}
+              >
+                <BarChart2 size={15} className="text-muted-foreground" />
+                <span>Usage</span>
+              </Link>
+            </div>
+
+            <div className="h-px bg-border/40 my-1" />
+
+            {/* Log Out option in dropdown */}
+            <div className="pt-0.5">
+              <LogoutButton variant="sidebar" />
+            </div>
+          </div>
+        )}
+
+        {/* Profile Strip: Avatar & Details + Quick Shortcuts */}
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen((prev) => !prev)}
+              title={`${userName} (${userRole})`}
+              aria-label="User profile menu"
+              className={cn(
+                'w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs transition-all cursor-pointer select-none',
+                profileMenuOpen
+                  ? 'bg-surface-high text-foreground ring-2 ring-primary/40'
+                  : 'bg-surface-high/70 hover:bg-surface-high text-foreground border border-border/60'
+              )}
+            >
+              {userName[0]?.toUpperCase() || 'U'}
+            </button>
             <ThemeToggle />
             <LogoutButton variant="icon" />
           </div>
         ) : (
-          <>
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-md bg-surface-high border border-border/60 flex items-center justify-center font-bold text-[11px] text-foreground flex-shrink-0 select-none">
+          <div className="flex items-center justify-between gap-1.5 w-full">
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen((prev) => !prev)}
+              aria-label="User profile menu"
+              className={cn(
+                'flex items-center gap-2 min-w-0 flex-1 p-1.5 rounded-lg text-left transition-colors cursor-pointer group',
+                profileMenuOpen
+                  ? 'bg-surface-high ring-1 ring-border/80'
+                  : 'hover:bg-surface-high/60'
+              )}
+            >
+              <div className="w-8 h-8 rounded-lg bg-surface-high border border-border/60 flex items-center justify-center font-bold text-xs text-foreground flex-shrink-0 select-none">
                 {userName[0]?.toUpperCase() || 'U'}
               </div>
-              <div className="min-w-0">
-                <p className="text-[12.5px] font-semibold text-foreground truncate leading-none mb-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-semibold text-foreground truncate leading-tight">
                   {userName}
                 </p>
-                <p className="text-[10.5px] font-mono text-muted-foreground truncate leading-none">
-                  {userRole}
+                <p className="text-[10px] font-mono text-muted-foreground truncate leading-tight mt-0.5">
+                  {userEmail || userRole}
                 </p>
               </div>
-            </div>
+              <ChevronsUpDown
+                size={13}
+                className="text-muted-foreground group-hover:text-foreground flex-shrink-0 transition-colors ml-0.5"
+              />
+            </button>
 
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <ThemeToggle />
               <LogoutButton variant="icon" />
             </div>
-          </>
+          </div>
         )}
       </div>
     </aside>

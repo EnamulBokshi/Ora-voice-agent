@@ -39,6 +39,7 @@ import { KpiCardDef } from './kpi-strip';
 import { AppLink } from '@/components/navigation/app-link';
 import { useAppBasePath } from '@/lib/navigation/app-path';
 import { SETUP_GUIDE_ENABLED } from '@/lib/disabled-features';
+import { QuickSetupOverviewBanner } from '@/components/quick-setup';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -370,6 +371,9 @@ export function OverviewClient() {
       {/* Main Canvas — Minimized side margins (px-4 sm:px-6) and non-rounded flat layout */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <div className="w-full px-4 sm:px-6 py-5 space-y-6">
+
+          {/* Quick Store Setup Guide Banner */}
+          <QuickSetupOverviewBanner />
 
           {/* Zeros must never be ambiguous: say so when the numbers below are unknown
               rather than failed-and-silent. */}

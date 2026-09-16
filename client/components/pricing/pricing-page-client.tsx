@@ -551,23 +551,7 @@ export function PricingPageClient() {
                           Store connector{plan.limits.connectedStores > 1 ? 's' : ''} (Shopify / WooCommerce)
                         </span>
                       </li>
-                      <li
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '0.65rem',
-                          fontSize: '0.8125rem',
-                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
-                        }}
-                      >
-                        <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
-                        <span>
-                          <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.seats}
-                          </strong>{' '}
-                          Admin & staff dashboard seat{plan.limits.seats > 1 ? 's' : ''}
-                        </span>
-                      </li>
+
                       <li
                         style={{
                           display: 'flex',

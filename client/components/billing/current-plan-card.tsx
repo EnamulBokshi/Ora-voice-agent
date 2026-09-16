@@ -174,9 +174,9 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Operator team seats:</span>
-              <span className="font-medium text-foreground tabular-nums">
-                {usage.seats ?? 1} / {plan ? plan.limits.seats : 1}
+              <span className="text-muted-foreground">AI Voice Engine:</span>
+              <span className="font-medium text-foreground">
+                Active & Ready
               </span>
             </div>
           </div>

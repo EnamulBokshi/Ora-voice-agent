@@ -17,7 +17,6 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
     conversationMinutes: 100,
     ordersPerMonth: 25,
     connectedStores: 1,
-    seats: 3,
   };
 
   const minutesUsed = usage.conversationMinutes ?? 0;
@@ -31,10 +30,6 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
   const storesUsed = usage.connectedStores ?? 0;
   const storesLimit = limits.connectedStores || 1;
   const storesPct = Math.min(100, Math.round((storesUsed / Math.max(1, storesLimit)) * 100));
-
-  const seatsUsed = usage.seats ?? 1;
-  const seatsLimit = limits.seats || 1;
-  const seatsPct = Math.min(100, Math.round((seatsUsed / Math.max(1, seatsLimit)) * 100));
 
   const periodEndFormatted = sub?.currentPeriodEnd
     ? formatDateTime(sub.currentPeriodEnd)
@@ -73,14 +68,6 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
       pct: storesPct,
       remaining: `${Math.max(0, storesLimit - storesUsed)} available`,
     },
-    {
-      label: 'Team Seats',
-      used: seatsUsed,
-      limit: seatsLimit,
-      unit: 'seats',
-      pct: seatsPct,
-      remaining: `${Math.max(0, seatsLimit - seatsUsed)} available`,
-    },
   ];
 
   return (
@@ -99,8 +86,8 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
           </span>
         </div>
 
-        {/* 4-Column Flat Metric Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border/40 rounded-md overflow-hidden border border-border/40">
+        {/* 3-Column Flat Metric Strip */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-border/40 rounded-md overflow-hidden border border-border/40">
           {quotaItems.map((item) => (
             <div key={item.label} className="bg-background p-4 sm:p-5 space-y-3">
               <div className="flex justify-between items-baseline">

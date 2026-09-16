@@ -1,27 +1,25 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import {
-  Search,
-  Copy,
-  Check,
-  Code,
-  ArrowRight,
-  ShoppingBag,
-  Store,
-  Sliders,
-  Layers,
-  HelpCircle,
-  CheckCircle2,
-  Globe,
-  Settings,
-  ShieldCheck,
-  ChevronRight,
-  BookOpen
-} from 'lucide-react';
+import { Search, Copy, Check, ArrowRight, CheckCircle2 } from 'lucide-react';
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Animation helpers ────────────────────────────────────────────────────────
+
+const ANIM_STYLE = `
+@keyframes docs-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.docs-animate {
+  animation: docs-fade-up 0.38s cubic-bezier(0.22,1,0.36,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-animate { animation: none !important; }
+}
+`;
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 interface DocSection {
   id: string;
@@ -37,17 +35,16 @@ interface CodeSnippet {
   code: string;
 }
 
-// ── Minimalist Code Block with Copy & Tabs ───────────────────────────────────
+// ── Code Block ───────────────────────────────────────────────────────────────
 
 function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
   const [activeTab, setActiveTab] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  const currentSnippet = snippets[activeTab] || snippets[0];
+  const current = snippets[activeTab] ?? snippets[0];
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(currentSnippet.code);
+      navigator.clipboard.writeText(current.code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -69,49 +66,44 @@ function CodeBlock({ snippets }: { snippets: CodeSnippet[] }) {
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {currentSnippet.filename && (
+          {current.filename && (
             <span style={{ fontSize: '0.6875rem', fontFamily: 'var(--lp-font-mono)', color: '#71717A' }}>
-              {currentSnippet.filename}
+              {current.filename}
             </span>
           )}
           <button
             type="button"
             className="lp-docs-copy-btn"
             onClick={handleCopy}
-            aria-label="Copy code to clipboard"
+            aria-label="Copy code"
           >
             {copied ? (
-              <>
-                <Check size={12} style={{ color: 'var(--lp-primary)' }} />
-                <span style={{ color: 'var(--lp-primary)' }}>Copied!</span>
-              </>
+              <><Check size={12} style={{ color: 'var(--lp-primary)' }} /><span style={{ color: 'var(--lp-primary)' }}>Copied</span></>
             ) : (
-              <>
-                <Copy size={12} />
-                <span>Copy</span>
-              </>
+              <><Copy size={12} /><span>Copy</span></>
             )}
           </button>
         </div>
       </div>
-      <pre className="lp-docs-code-content">
-        <code>{currentSnippet.code}</code>
-      </pre>
+      <pre className="lp-docs-code-content"><code>{current.code}</code></pre>
     </div>
   );
 }
 
-// ── Merchant-Focused Documentation Component ─────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 export function DocsPageClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [activeSection, setActiveSection] = useState('quickstart');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  // Keyboard shortcut listener (Cmd/Ctrl + K or /)
+  // Keyboard shortcut
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -124,176 +116,158 @@ export function DocsPageClient() {
         searchInputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const sidebarRef = useRef<HTMLElement | null>(null);
+  // Hero mount animation
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.style.animationDelay = '0ms';
+      el.classList.add('docs-animate');
+    });
+  }, []);
 
-  // ── Merchant Setup Documentation Sections ──────────────────────────────────
+  // Section IntersectionObserver animation
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const animatedSections = useRef<Set<string>>(new Set());
+
+  const registerSection = useCallback((id: string, el: HTMLElement | null) => {
+    if (!el) return;
+    sectionRefs.current.set(id, el);
+    if (observerRef.current) observerRef.current.observe(el);
+  }, []);
+
+  useEffect(() => {
+    let staggerIdx = 0;
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = (entry.target as HTMLElement).dataset.sectionId ?? '';
+            if (!animatedSections.current.has(id)) {
+              animatedSections.current.add(id);
+              const delay = staggerIdx * 60;
+              staggerIdx++;
+              (entry.target as HTMLElement).style.animationDelay = `${delay}ms`;
+              entry.target.classList.add('docs-animate');
+              observerRef.current?.unobserve(entry.target);
+            }
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    sectionRefs.current.forEach((el) => observerRef.current?.observe(el));
+    return () => observerRef.current?.disconnect();
+  }, []);
+
+  // ── Documentation Sections ───────────────────────────────────────────────
 
   const docSections: DocSection[] = [
-    // ── 1. Getting Started ──
+    // Getting Started
     {
       id: 'quickstart',
       category: 'Getting Started',
-      title: '3-Step Storefront Quickstart',
-      summary: 'Embed ORA onto your online store and start selling with voice in under 2 minutes.',
+      title: 'Quickstart',
+      summary: 'Embed ORA onto your store in three steps.',
       content: (
         <>
           <p className="lp-docs-p">
-            Adding ORA to your storefront is simple and requires zero programming experience. Follow these three quick steps to launch:
+            No programming experience required. Copy your key, paste one script tag, and connect your store.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', margin: '1.5rem 0' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-              <div
-                style={{
-                  width: '1.75rem',
-                  height: '1.75rem',
-                  borderRadius: '50%',
-                  background: 'var(--lp-dark)',
-                  color: 'var(--lp-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.8125rem',
-                  flexShrink: 0,
-                  marginTop: '0.1rem'
-                }}
-              >
-                1
+            {[
+              {
+                n: 1,
+                heading: 'Get your widget key',
+                body: <>Log in to your <Link href="/dashboard" style={{ color: 'var(--lp-primary)', fontWeight: 600 }}>ORA Dashboard</Link> and copy your <strong>Publishable Widget Key</strong> — it looks like <code>biz_live_xxxx</code>.</>,
+              },
+              {
+                n: 2,
+                heading: 'Paste the embed script',
+                body: <>Add the one-line script right before the closing <code>&lt;/body&gt;</code> tag of your theme or page template.</>,
+              },
+              {
+                n: 3,
+                heading: 'Connect your catalog and go live',
+                body: <>In the dashboard, connect your Shopify store or upload a CSV catalog. The widget will appear on your site immediately.</>,
+              },
+            ].map(({ n, heading, body }) => (
+              <div key={n} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                <div style={{
+                  width: '1.625rem', height: '1.625rem', borderRadius: '50%',
+                  background: 'var(--lp-dark)', color: 'var(--lp-primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 700, fontSize: '0.8rem', flexShrink: 0, marginTop: '0.15rem'
+                }}>
+                  {n}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.2rem' }}>{heading}</h4>
+                  <p className="lp-docs-p" style={{ marginBottom: 0 }}>{body}</p>
+                </div>
               </div>
-              <div>
-                <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
-                  Get Your Storefront Key
-                </h4>
-                <p className="lp-docs-p" style={{ marginBottom: 0 }}>
-                  Log in to your <Link href="/dashboard" style={{ color: '#65A30D', fontWeight: 600, textDecoration: 'underline' }}>ORA Dashboard</Link> and copy your <strong>Publishable Widget Key</strong> (e.g. <code>biz_live_xxxx</code>).
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-              <div
-                style={{
-                  width: '1.75rem',
-                  height: '1.75rem',
-                  borderRadius: '50%',
-                  background: 'var(--lp-dark)',
-                  color: 'var(--lp-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.8125rem',
-                  flexShrink: 0,
-                  marginTop: '0.1rem'
-                }}
-              >
-                2
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
-                  Paste the Embed Script
-                </h4>
-                <p className="lp-docs-p" style={{ marginBottom: 0 }}>
-                  Paste the one-line script right before the closing <code>&lt;/body&gt;</code> tag of your website or theme template.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-              <div
-                style={{
-                  width: '1.75rem',
-                  height: '1.75rem',
-                  borderRadius: '50%',
-                  background: 'var(--lp-dark)',
-                  color: 'var(--lp-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.8125rem',
-                  flexShrink: 0,
-                  marginTop: '0.1rem'
-                }}
-              >
-                3
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
-                  Sync Products &amp; Go Live
-                </h4>
-                <p className="lp-docs-p" style={{ marginBottom: 0 }}>
-                  Connect your store via Shopify or WooCommerce in the dashboard, or upload your product catalog. The voice widget will immediately start guiding shoppers.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
-          <CodeBlock
-            snippets={[
-              {
-                language: 'HTML Embed',
-                filename: 'index.html',
-                code: `<!-- Paste right before the closing </body> tag -->
+          <CodeBlock snippets={[{
+            language: 'HTML',
+            filename: 'index.html',
+            code: `<!-- Paste before the closing </body> tag -->
 <script
   src="https://tryora.live/widget/ora-widget.js"
   data-ora-key="biz_live_your_merchant_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
-</script>`
-              }
-            ]}
-          />
+</script>`,
+          }]} />
         </>
-      )
+      ),
     },
     {
       id: 'embed-snippets',
       category: 'Getting Started',
-      title: 'Universal Storefront Embed Snippets',
-      summary: 'Copy-paste embed code for HTML, Shopify, WooCommerce, Next.js, and Webflow.',
+      title: 'Platform embed snippets',
+      summary: 'Ready-to-paste code for HTML, Shopify, Next.js, Vue, Webflow, and Wix.',
       content: (
         <>
           <p className="lp-docs-p">
-            Choose your website technology below to copy the exact snippet formatted for your platform:
+            Pick your platform and paste the snippet exactly as shown. Replace <code>biz_live_your_merchant_key</code> with your actual key.
           </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'HTML / General',
-                filename: 'index.html',
-                code: `<!-- Universal 1-line script for any website -->
+          <CodeBlock snippets={[
+            {
+              language: 'HTML',
+              filename: 'index.html',
+              code: `<script
+  src="https://tryora.live/widget/ora-widget.js"
+  data-ora-key="biz_live_your_merchant_key"
+  data-ora-api="https://api.tryora.live"
+  data-ora-position="bottom-right"
+  defer>
+</script>`,
+            },
+            {
+              language: 'Shopify',
+              filename: 'layout/theme.liquid',
+              code: `{% comment %} Before </body> in layout/theme.liquid {% endcomment %}
 <script
   src="https://tryora.live/widget/ora-widget.js"
   data-ora-key="biz_live_your_merchant_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
-</script>`
-              },
-              {
-                language: 'Shopify Liquid',
-                filename: 'layout/theme.liquid',
-                code: `{% comment %} Insert before </body> in layout/theme.liquid {% endcomment %}
-<script
-  src="https://tryora.live/widget/ora-widget.js"
-  data-ora-key="biz_live_your_merchant_key"
-  data-ora-api="https://api.tryora.live"
-  data-ora-position="bottom-right"
-  defer>
-</script>`
-              },
-              {
-                language: 'Next.js',
-                filename: 'app/layout.tsx',
-                code: `import Script from 'next/script';
+</script>`,
+            },
+            {
+              language: 'Next.js',
+              filename: 'app/layout.tsx',
+              code: `import Script from 'next/script';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -310,29 +284,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   );
-}`
-              },
-              {
-                language: 'Vue / Nuxt',
-                filename: 'app.vue',
-                code: `<script setup>
+}`,
+            },
+            {
+              language: 'Vue / Nuxt',
+              filename: 'app.vue',
+              code: `<script setup>
 useHead({
-  script: [
-    {
-      src: 'https://tryora.live/widget/ora-widget.js',
-      'data-ora-key': 'biz_live_your_merchant_key',
-      'data-ora-api': 'https://api.tryora.live',
-      'data-ora-position': 'bottom-right',
-      defer: true
-    }
-  ]
+  script: [{
+    src: 'https://tryora.live/widget/ora-widget.js',
+    'data-ora-key': 'biz_live_your_merchant_key',
+    'data-ora-api': 'https://api.tryora.live',
+    'data-ora-position': 'bottom-right',
+    defer: true
+  }]
 });
-</script>`
-              },
-              {
-                language: 'Webflow / Wix',
-                filename: 'Footer Code',
-                code: `<!-- Webflow: Project Settings > Custom Code > Footer Code -->
+</script>`,
+            },
+            {
+              language: 'Webflow / Wix',
+              filename: 'Footer Code',
+              code: `<!-- Webflow: Project Settings > Custom Code > Footer Code -->
 <!-- Wix: Settings > Custom Code > Body - End -->
 <script
   src="https://tryora.live/widget/ora-widget.js"
@@ -340,106 +312,92 @@ useHead({
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
-</script>`
-              }
-            ]}
-          />
+</script>`,
+            },
+          ]} />
         </>
-      )
+      ),
     },
 
-    // ── 2. Store Platforms ──
+    // Store Platforms
     {
       id: 'shopify-setup',
       category: 'Store Platforms',
-      title: 'Shopify Store Integration',
-      summary: 'Add ORA to your Shopify theme in less than 2 minutes.',
+      title: 'Shopify',
+      summary: 'Add ORA to your Shopify theme in a few clicks.',
       content: (
         <>
           <p className="lp-docs-p">
-            Integrating ORA with Shopify takes just a few clicks in your Shopify Admin:
+            You only need to edit one file in your Shopify theme:
           </p>
-
           <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li>From your <strong>Shopify Admin</strong>, navigate to <strong>Online Store</strong> &rarr; <strong>Themes</strong>.</li>
-            <li>On your current live theme, click the <strong>... (Actions)</strong> button and select <strong>Edit Code</strong>.</li>
-            <li>In the left file navigator, find and open <code>layout/theme.liquid</code>.</li>
-            <li>Scroll down to the bottom and paste the ORA embed script directly above the closing <code>&lt;/body&gt;</code> tag.</li>
-            <li>Click <strong>Save</strong> in the top right.</li>
+            <li>In Shopify Admin, go to <strong>Online Store</strong> → <strong>Themes</strong>.</li>
+            <li>Click <strong>⋯ Actions</strong> on your live theme, then <strong>Edit Code</strong>.</li>
+            <li>Open <code>layout/theme.liquid</code> from the left file tree.</li>
+            <li>Paste the ORA embed script directly above the closing <code>&lt;/body&gt;</code> tag.</li>
+            <li>Click <strong>Save</strong>.</li>
           </ol>
-
           <div className="lp-docs-callout tip">
-            <strong>Automatic Catalog Sync:</strong> Once installed, visit your <Link href="/dashboard" style={{ color: '#65A30D', fontWeight: 600, textDecoration: 'underline' }}>ORA Dashboard</Link> to connect your Shopify store. ORA will automatically synchronize your product inventory, prices, and variants.
+            <strong>Catalog connection:</strong> After installing the widget, go to your ORA Dashboard and connect your Shopify store to give ORA access to your product catalog.
           </div>
         </>
-      )
+      ),
     },
     {
       id: 'woocommerce-setup',
       category: 'Store Platforms',
-      title: 'WooCommerce & WordPress Setup',
-      summary: 'Connect your WooCommerce store via theme template or header/footer plugin.',
+      title: 'WooCommerce & WordPress',
+      summary: 'Add ORA via a plugin or by editing your theme template.',
       content: (
         <>
-          <p className="lp-docs-p">
-            You can add ORA to WordPress and WooCommerce using either of these two easy methods:
-          </p>
-
-          <h3 className="lp-docs-h3">Method A: Using a Code Header/Footer Plugin (Recommended)</h3>
+          <h3 className="lp-docs-h3">Method A — Plugin (recommended)</h3>
           <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li>In WordPress Admin, go to <strong>Plugins</strong> &rarr; <strong>Add New</strong>.</li>
-            <li>Search for <strong>&ldquo;WPCode&rdquo;</strong> or <strong>&ldquo;Insert Headers and Footers&rdquo;</strong> and click <strong>Install &amp; Activate</strong>.</li>
-            <li>Go to <strong>Code Snippets</strong> &rarr; <strong>Header &amp; Footer</strong>.</li>
-            <li>Paste your ORA script into the <strong>Footer</strong> box.</li>
-            <li>Click <strong>Save Changes</strong>.</li>
+            <li>In WordPress Admin, go to <strong>Plugins → Add New</strong>.</li>
+            <li>Search for <strong>"WPCode"</strong> or <strong>"Insert Headers and Footers"</strong> and install it.</li>
+            <li>Go to <strong>Code Snippets → Header & Footer</strong>.</li>
+            <li>Paste the ORA script into the <strong>Footer</strong> box and save.</li>
           </ol>
-
-          <h3 className="lp-docs-h3">Method B: Direct Theme Template</h3>
+          <h3 className="lp-docs-h3">Method B — Theme file</h3>
           <p className="lp-docs-p">
-            Open your child theme&apos;s <code>footer.php</code> file and insert the script right before <code>&lt;?php wp_footer(); ?&gt;</code> or the closing <code>&lt;/body&gt;</code> tag.
+            In your child theme's <code>footer.php</code>, paste the script before <code>&lt;?php wp_footer(); ?&gt;</code> or the closing <code>&lt;/body&gt;</code> tag.
           </p>
         </>
-      )
+      ),
     },
     {
-      id: 'webflow-wix-setup',
+      id: 'nocode-setup',
       category: 'Store Platforms',
-      title: 'Webflow, Wix & Framer Guide',
-      summary: 'Embed ORA into no-code builders and custom CMS sites.',
+      title: 'Webflow, Wix & Framer',
+      summary: 'Embed ORA into no-code site builders.',
       content: (
         <>
-          <p className="lp-docs-p">
-            Follow the simple steps below for your specific website builder:
-          </p>
-
           <ul style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li><strong>Webflow:</strong> Open Project Settings &rarr; <strong>Custom Code</strong> &rarr; paste into <strong>Footer Code</strong> &rarr; Save &amp; Publish.</li>
-            <li><strong>Wix:</strong> Open Settings &rarr; <strong>Custom Code</strong> &rarr; click <strong>Add Custom Code</strong> &rarr; paste the script, set placement to <strong>Body - End</strong>, and click Apply.</li>
-            <li><strong>Squarespace:</strong> Go to Settings &rarr; <strong>Advanced</strong> &rarr; <strong>Code Injection</strong> &rarr; paste into <strong>Footer</strong> &rarr; Save.</li>
-            <li><strong>Framer:</strong> Open Site Settings &rarr; <strong>General</strong> &rarr; <strong>Custom Code</strong> &rarr; paste into <strong>End of &lt;body&gt; tag</strong> &rarr; Publish.</li>
+            <li><strong>Webflow:</strong> Project Settings → Custom Code → paste into Footer Code → Save & Publish.</li>
+            <li><strong>Wix:</strong> Settings → Custom Code → Add Custom Code → paste the script, placement: <strong>Body — End</strong>.</li>
+            <li><strong>Squarespace:</strong> Settings → Advanced → Code Injection → Footer → Save.</li>
+            <li><strong>Framer:</strong> Site Settings → General → Custom Code → End of &lt;body&gt; → Publish.</li>
           </ul>
         </>
-      )
+      ),
     },
 
-    // ── 3. Widget Settings ──
+    // Widget Settings
     {
-      id: 'appearance-styling',
+      id: 'widget-attributes',
       category: 'Widget Settings',
-      title: 'Widget Branding, Colors & Placement',
-      summary: 'Customize the appearance of the floating voice orb to match your store brand.',
+      title: 'Widget attributes',
+      summary: 'The full list of data attributes you can set on the script tag.',
       content: (
         <>
           <p className="lp-docs-p">
-            You can customize how the ORA widget looks on your site by simply adding standard HTML attributes to your script tag:
+            All customization is done via <code>data-*</code> attributes on the script tag — no JavaScript required.
           </p>
-
           <div className="lp-docs-table-wrapper">
             <table className="lp-docs-table">
               <thead>
                 <tr>
                   <th>Attribute</th>
-                  <th>Options / Values</th>
+                  <th>Values</th>
                   <th>Default</th>
                   <th>Description</th>
                 </tr>
@@ -449,325 +407,229 @@ useHead({
                   <td><code>data-ora-key</code></td>
                   <td><code>biz_live_xxxx</code></td>
                   <td><em>Required</em></td>
-                  <td>Your store&apos;s unique live widget key from your dashboard.</td>
+                  <td>Your store's publishable widget key from the dashboard.</td>
                 </tr>
                 <tr>
                   <td><code>data-ora-api</code></td>
-                  <td>Your ORA API origin (e.g. <code>https://api.tryora.live</code>)</td>
+                  <td>API origin URL</td>
                   <td><em>Auto-detected</em></td>
-                  <td>Where the widget opens its voice session. Derived from the script origin when omitted.</td>
+                  <td>Where the widget connects. Derived from the script origin when omitted.</td>
                 </tr>
                 <tr>
                   <td><code>data-ora-position</code></td>
                   <td><code>bottom-center</code>, <code>bottom-right</code>, <code>bottom-left</code></td>
                   <td><code>bottom-center</code></td>
-                  <td>Corner of the screen where the floating orb sits.</td>
+                  <td>Corner placement of the floating orb.</td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <h3 className="lp-docs-h3">Example Customization</h3>
-          <CodeBlock
-            snippets={[
-              {
-                language: 'HTML',
-                filename: 'custom-embed.html',
-                code: `<script
+          <CodeBlock snippets={[{
+            language: 'HTML',
+            filename: 'custom-position.html',
+            code: `<script
   src="https://tryora.live/widget/ora-widget.js"
   data-ora-key="biz_live_your_merchant_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
-</script>`
-              }
-            ]}
-          />
+</script>`,
+          }]} />
         </>
-      )
+      ),
     },
     {
       id: 'voice-language',
       category: 'Widget Settings',
-      title: 'Voice Persona & Spoken Language',
-      summary: 'Configure the spoken language and tone of your voice sales assistant.',
+      title: 'Supported languages',
+      summary: 'Languages ORA can understand and respond in.',
       content: (
         <>
           <p className="lp-docs-p">
-            Language is configured per store from your dashboard under{' '}
-            <strong>Agent Settings</strong> — there is no script attribute for it. ORA
-            also follows the shopper: if someone speaks to it in Bengali, it replies in
-            Bengali for the rest of that conversation. Supported languages:
+            Language is configured per store from your dashboard under <strong>Agent Settings</strong>. When a shopper speaks a supported language, ORA responds in that language for the session.
           </p>
-
           <div className="lp-docs-table-wrapper">
             <table className="lp-docs-table">
               <thead>
                 <tr>
                   <th>Language</th>
                   <th>Code</th>
-                  <th>Supported Features</th>
+                  <th>Notes</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td><strong>English (US)</strong></td>
                   <td><code>en-US</code></td>
-                  <td>Real-time voice, catalog search, cart checkout</td>
+                  <td>Full support — voice, catalog search</td>
                 </tr>
                 <tr>
                   <td><strong>English (UK)</strong></td>
                   <td><code>en-GB</code></td>
-                  <td>Real-time voice, catalog search, cart checkout</td>
+                  <td>Full support — voice, catalog search</td>
                 </tr>
                 <tr>
                   <td><strong>Bengali (BD)</strong></td>
                   <td><code>bn-BD</code></td>
-                  <td>Real-time voice, bilingual store queries, bKash</td>
-                </tr>
-                <tr>
-                  <td><strong>Spanish</strong></td>
-                  <td><code>es-ES</code></td>
-                  <td>Real-time voice, catalog search, cart checkout</td>
-                </tr>
-                <tr>
-                  <td><strong>French</strong></td>
-                  <td><code>fr-FR</code></td>
-                  <td>Real-time voice, catalog search, cart checkout</td>
-                </tr>
-                <tr>
-                  <td><strong>German</strong></td>
-                  <td><code>de-DE</code></td>
-                  <td>Real-time voice, catalog search, cart checkout</td>
+                  <td>Full support — voice, bilingual queries, bKash</td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <div className="lp-docs-callout tip">
-            <strong>Voice Persona:</strong> You can choose your preferred voice style (e.g. Friendly, Executive, Energetic) directly from your merchant dashboard settings under <strong>Agent Settings</strong>.
-          </div>
         </>
-      )
+      ),
     },
 
-    // ── 4. Catalog & Knowledge ──
+    // Catalog & Knowledge
     {
       id: 'catalog-sync',
       category: 'Catalog & Knowledge',
-      title: 'Product Catalog Synchronization',
-      summary: 'How ORA learns your products, pricing, and live inventory levels.',
+      title: 'Product catalog',
+      summary: 'How ORA learns your products and stays up to date.',
       content: (
         <>
           <p className="lp-docs-p">
-            ORA stays synchronized with your store catalog in real time so it always recommends available items at current prices:
+            ORA answers product questions based on your catalog. Keep it updated so recommendations are accurate.
           </p>
-
           <ul style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li><strong>Live Price &amp; Stock Check:</strong> When a customer asks about a product, ORA checks live availability before answering.</li>
-            <li><strong>Low-Stock Urgency Hints:</strong> When an item has 5 or fewer units left in stock, ORA naturally informs the shopper so they don&apos;t miss out.</li>
-            <li><strong>Product Variants:</strong> ORA understands sizes, colors, and variant options, guiding shoppers to select the exact item they want.</li>
+            <li><strong>Shopify:</strong> Connect your store in the dashboard. ORA reads your product catalog, prices, and variants.</li>
+            <li><strong>CSV upload:</strong> For other platforms, upload a product CSV from the dashboard. Changes take effect immediately.</li>
+            <li><strong>Product variants:</strong> ORA understands sizes, colors, and other variant options when they are present in your catalog.</li>
           </ul>
-
-          <h3 className="lp-docs-h3">Bulk CSV Catalog Upload</h3>
-          <p className="lp-docs-p">
-            If you don&apos;t use Shopify or WooCommerce, you can upload your product catalog as a CSV in your ORA dashboard with these standard column headers:
-          </p>
-
-          <CodeBlock
-            snippets={[
-              {
-                language: 'CSV',
-                filename: 'products.csv',
-                code: `id,title,description,price,stock,category,tags
-KB-01,Obsidian Desk Mat,Water-resistant micro-woven cloth with non-slip base,29.99,150,Accessories,"desk mat, waterproof, gaming"
-KB-02,Mechanical Keyboard 75%,Hot-swappable switches with Bluetooth and 2.4GHz,119.00,24,Keyboards,"wireless, mechanical, RGB"
-KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.00,4,Mice,"lightweight, wireless, ergonomic"`
-              }
-            ]}
-          />
+          <h3 className="lp-docs-h3">CSV format</h3>
+          <p className="lp-docs-p">Use these column headers when uploading a catalog manually:</p>
+          <CodeBlock snippets={[{
+            language: 'CSV',
+            filename: 'products.csv',
+            code: `id,title,description,price,stock,category,tags
+KB-01,Obsidian Desk Mat,Water-resistant micro-woven cloth with non-slip base,29.99,150,Accessories,"desk mat, waterproof"
+KB-02,Mechanical Keyboard 75%,Hot-swappable switches with Bluetooth and 2.4GHz,119.00,24,Keyboards,"wireless, mechanical"
+KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.00,12,Mice,"lightweight, wireless"`,
+          }]} />
         </>
-      )
+      ),
     },
     {
-      id: 'store-policies-faqs',
+      id: 'store-policies',
       category: 'Catalog & Knowledge',
-      title: 'Store Policies & FAQ Knowledge',
+      title: 'Store policies & FAQs',
       summary: 'Teach ORA your shipping rules, return policy, and store details.',
       content: (
         <>
           <p className="lp-docs-p">
-            Shoppers frequently ask about shipping times, returns, warranties, and store locations. You can add your store policies directly in the ORA dashboard:
+            You can add store policies directly in the ORA dashboard. Shoppers frequently ask about shipping, returns, and contact details — these answers come from what you write there.
           </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', margin: '1.25rem 0' }}>
-            <div style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
-              <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>📦 Shipping &amp; Delivery</h4>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>Delivery times, free shipping thresholds, and tracking.</p>
-            </div>
-            <div style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
-              <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>🔄 Returns &amp; Refunds</h4>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>Return window (e.g. 30 days), conditions, and refund process.</p>
-            </div>
-            <div style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
-              <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>🏢 Store Information</h4>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>Business hours, contact email/phone, and physical location.</p>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem', margin: '1.25rem 0' }}>
+            {[
+              { label: 'Shipping & delivery', desc: 'Estimated times, free shipping thresholds, and tracking.' },
+              { label: 'Returns & refunds', desc: 'Return window, conditions, and refund process.' },
+              { label: 'Store information', desc: 'Business hours, contact email, and physical address.' },
+            ].map(({ label, desc }) => (
+              <div key={label} style={{ padding: '1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-lg)' }}>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>{label}</h4>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5, margin: 0 }}>{desc}</p>
+              </div>
+            ))}
           </div>
-
           <div className="lp-docs-callout tip">
-            <strong>Smart Domain Guardrail:</strong> ORA is programmed to answer questions exclusively about your store, products, policies, and voice sales assistance. Off-topic questions (e.g. trivia or cartoons) are politely redirected back to your store.
+            ORA stays on-topic. If a shopper asks something unrelated to your store, it redirects the conversation back to your products and policies.
           </div>
         </>
-      )
+      ),
     },
 
-    // ── 5. Testing & Launch ──
+    // Testing & Launch
     {
-      id: 'testing-verification',
+      id: 'pre-launch',
       category: 'Testing & Launch',
-      title: 'Pre-Launch Verification Checklist',
-      summary: 'Verify your voice assistant before announcing to customers.',
+      title: 'Pre-launch checklist',
+      summary: 'Verify the widget is working before announcing it to customers.',
       content: (
         <>
-          <p className="lp-docs-p">
-            Before launching to your customers, run through this quick 2-minute verification checklist:
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1.25rem 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
-              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
-                <strong>Orb Placement:</strong> The floating orb appears in the corner on both desktop and mobile screens.
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
-              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
-                <strong>Microphone &amp; Audio:</strong> Clicking the orb requests microphone permission and speaks a clear greeting.
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
-              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
-                <strong>Product Accuracy:</strong> Asking &ldquo;What products do you recommend?&rdquo; returns items from your actual store catalog.
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
-              <CheckCircle2 size={18} style={{ color: '#65A30D', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
-                <strong>Cart &amp; Checkout:</strong> Saying &ldquo;Add this to my cart&rdquo; correctly updates your cart or opens the checkout link.
-              </span>
-            </div>
+          <p className="lp-docs-p">Run through these checks after installing the widget:</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', margin: '1.25rem 0' }}>
+            {[
+              { label: 'Orb placement', desc: 'The floating orb appears in the correct corner on both desktop and mobile.' },
+              { label: 'Microphone prompt', desc: 'Clicking the orb requests microphone permission and ORA speaks a greeting.' },
+              { label: 'Product accuracy', desc: 'Asking "What products do you have?" returns items from your actual catalog.' },
+            ].map(({ label, desc }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-md)' }}>
+                <CheckCircle2 size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
+                <span style={{ fontSize: '0.875rem', color: 'var(--lp-text-primary)' }}>
+                  <strong>{label}:</strong> {desc}
+                </span>
+              </div>
+            ))}
           </div>
         </>
-      )
+      ),
     },
     {
-      id: 'troubleshooting-faqs',
+      id: 'troubleshooting',
       category: 'Testing & Launch',
-      title: 'Troubleshooting & Common Questions',
-      summary: 'Quick solutions to common setup and permission questions.',
+      title: 'Troubleshooting',
+      summary: 'Quick fixes for the most common setup issues.',
       content: (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
-            <div>
-              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>
-                Why isn&apos;t the floating orb appearing on my site?
-              </h4>
-              <p className="lp-docs-p" style={{ marginBottom: 0 }}>
-                1. Make sure you replaced <code>biz_live_your_merchant_key</code> with your actual key from the dashboard.<br />
-                2. Check that the <code>&lt;script&gt;</code> tag is placed before the closing <code>&lt;/body&gt;</code> tag.<br />
-                3. Clear your browser cache or try an incognito window.
-              </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '0.5rem' }}>
+          {[
+            {
+              q: "The floating orb isn't appearing.",
+              a: <>Make sure you replaced <code>biz_live_your_merchant_key</code> with your actual key from the dashboard. Check the <code>&lt;script&gt;</code> tag is placed before <code>&lt;/body&gt;</code>. Try a hard refresh or incognito window.</>,
+            },
+            {
+              q: "The microphone isn't turning on.",
+              a: "Browsers require an HTTPS connection to access the microphone. Make sure your site has a valid SSL certificate. If you previously blocked mic access, click the lock icon in your address bar and allow it.",
+            },
+            {
+              q: "ORA doesn't know about my products.",
+              a: "Check that your store is connected in the dashboard, or that your CSV catalog has been uploaded. Product queries only work after the catalog is synced.",
+            },
+          ].map(({ q, a }, i) => (
+            <div key={i} style={i > 0 ? { borderTop: '1px solid var(--lp-border)', paddingTop: '1.5rem' } : undefined}>
+              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>{q}</h4>
+              <p className="lp-docs-p" style={{ marginBottom: 0 }}>{a}</p>
             </div>
-
-            <div style={{ borderTop: '1px solid var(--lp-border-light)', paddingTop: '1.25rem' }}>
-              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>
-                Why is the microphone not turning on?
-              </h4>
-              <p className="lp-docs-p" style={{ marginBottom: 0 }}>
-                Modern browsers require a secure <strong>HTTPS connection</strong> to access the microphone. Make sure your website has an active SSL certificate (https://). If you previously blocked microphone access, click the lock icon next to your URL bar to allow permissions.
-              </p>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--lp-border-light)', paddingTop: '1.25rem' }}>
-              <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--lp-text-primary)', marginBottom: '0.35rem' }}>
-                How quickly do price and product changes update?
-              </h4>
-              <p className="lp-docs-p" style={{ marginBottom: 0 }}>
-                For stores connected via Shopify or WooCommerce, updates sync automatically in real time. For manual CSV uploads, changes take effect immediately upon uploading in your dashboard.
-              </p>
-            </div>
-          </div>
-        </>
-      )
-    }
+          ))}
+        </div>
+      ),
+    },
   ];
 
-  // Group sections by category
+  // Group & filter
   const categories = useMemo(() => {
     const map = new Map<string, DocSection[]>();
     docSections.forEach((sec) => {
-      if (!map.has(sec.category)) {
-        map.set(sec.category, []);
-      }
+      if (!map.has(sec.category)) map.set(sec.category, []);
       map.get(sec.category)!.push(sec);
     });
-    return Array.from(map.entries()).map(([category, sections]) => ({
-      category,
-      sections
-    }));
-  }, [docSections]);
+    return Array.from(map.entries()).map(([category, sections]) => ({ category, sections }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const allCategoryNames = useMemo(() => {
-    return ['All', ...categories.map((c) => c.category)];
-  }, [categories]);
+  const allCategoryNames = useMemo(() => ['All', ...categories.map((c) => c.category)], [categories]);
 
-  // Filter sections by search query and category
   const filteredSections = useMemo(() => {
     let list = docSections;
-    if (selectedCategory !== 'All') {
-      list = list.filter((sec) => sec.category === selectedCategory);
-    }
+    if (selectedCategory !== 'All') list = list.filter((s) => s.category === selectedCategory);
     if (!searchQuery.trim()) return list;
-
     const q = searchQuery.toLowerCase();
-    return list.filter(
-      (sec) =>
-        sec.title.toLowerCase().includes(q) ||
-        sec.category.toLowerCase().includes(q) ||
-        sec.summary.toLowerCase().includes(q)
-    );
-  }, [searchQuery, selectedCategory, docSections]);
+    return list.filter((s) => s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q) || s.summary.toLowerCase().includes(q));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedCategory]);
 
-  // Dynamic Scroll Spy: Track which section is currently in view
+  // Scroll spy
   useEffect(() => {
     let ticking = false;
-
-    const handleScroll = () => {
+    const onScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          const scrollPos = window.scrollY + 140; // Offset for fixed navbar & section headers
+          const scrollPos = window.scrollY + 140;
           const sections = filteredSections
-            .map((sec) => {
-              const el = document.getElementById(sec.id);
-              return el ? { id: sec.id, top: el.offsetTop } : null;
-            })
+            .map((s) => { const el = document.getElementById(s.id); return el ? { id: s.id, top: el.offsetTop } : null; })
             .filter(Boolean) as { id: string; top: number }[];
-
           if (sections.length > 0) {
             let current = sections[0].id;
-            for (let i = 0; i < sections.length; i++) {
-              if (sections[i].top <= scrollPos) {
-                current = sections[i].id;
-              } else {
-                break;
-              }
-            }
+            for (const s of sections) { if (s.top <= scrollPos) current = s.id; else break; }
             setActiveSection(current);
           }
           ticking = false;
@@ -775,24 +637,20 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
         ticking = true;
       }
     };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    // Initial check
-    handleScroll();
-
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
   }, [filteredSections]);
 
-  // Keep the active sidebar item in view as the user scrolls
+  // Sidebar active item scroll-into-view
   useEffect(() => {
-    if (sidebarRef.current) {
-      const activeEl = sidebarRef.current.querySelector('.lp-docs-nav-link.active') as HTMLElement | null;
-      if (activeEl) {
-        const sidebar = sidebarRef.current;
-        const activeTop = activeEl.offsetTop - sidebar.offsetTop;
-        if (activeTop < sidebar.scrollTop || activeTop > sidebar.scrollTop + sidebar.clientHeight - 60) {
-          sidebar.scrollTo({ top: Math.max(0, activeTop - 40), behavior: 'smooth' });
-        }
+    if (!sidebarRef.current) return;
+    const active = sidebarRef.current.querySelector('.lp-docs-nav-link.active') as HTMLElement | null;
+    if (active) {
+      const sidebar = sidebarRef.current;
+      const top = active.offsetTop - sidebar.offsetTop;
+      if (top < sidebar.scrollTop || top > sidebar.scrollTop + sidebar.clientHeight - 60) {
+        sidebar.scrollTo({ top: Math.max(0, top - 40), behavior: 'smooth' });
       }
     }
   }, [activeSection]);
@@ -800,8 +658,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
-      const yOffset = -90; // Fixed navbar height offset
-      const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      const y = el.getBoundingClientRect().top + window.pageYOffset - 90;
       window.scrollTo({ top: y, behavior: 'smooth' });
       setActiveSection(id);
     }
@@ -809,68 +666,50 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
 
   return (
     <div className="lp-docs-root">
-      {/* ── Header ── */}
-      <section className="lp-docs-hero" style={{ textAlign: 'center' }}>
-        <div className="lp-container" style={{ maxWidth: '48rem', margin: '0 auto', textAlign: 'center' }}>
-          {/* Section label */}
-          <div className="lp-section-label" style={{ marginBottom: '1.25rem', justifyContent: 'center' }}>
-            <div className="lp-section-label-line" />
-            <span className="lp-section-label-text">Storefront Setup &amp; Integration Guide</span>
-            <div className="lp-section-label-line" />
-          </div>
+      <style>{ANIM_STYLE}</style>
 
+      {/* Hero */}
+      <section className="lp-docs-hero" style={{ textAlign: 'center' }}>
+        <div
+          ref={heroRef}
+          className="lp-container"
+          style={{ maxWidth: '48rem', margin: '0 auto', opacity: 0 }}
+        >
+          <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lp-text-tertiary)', marginBottom: '1rem' }}>
+            Setup & Integration Guide
+          </p>
           <h1
-            className="lp-display lp-text-gradient"
-            style={{
-              fontSize: 'clamp(2.25rem, 5vw, 3.5rem)',
-              lineHeight: 1.15,
-              marginBottom: '1rem',
-              letterSpacing: '-0.025em',
-              textAlign: 'center'
-            }}
+            className="lp-display"
+            style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.15, marginBottom: '0.875rem', letterSpacing: '-0.025em', color: 'var(--lp-text-primary)' }}
           >
-            Set Up ORA on Your Store
+            Set up ORA on your store
           </h1>
-          <p
-            style={{
-              fontSize: '1.0625rem',
-              color: 'var(--lp-text-secondary)',
-              maxWidth: '42rem',
-              lineHeight: 1.7,
-              margin: '0 auto',
-              textAlign: 'center'
-            }}
-          >
-            Integrate autonomous voice sales in under 2 minutes. Follow our step-by-step guides for Shopify, WooCommerce, Next.js, and custom websites.
+          <p style={{ fontSize: '1rem', color: 'var(--lp-text-secondary)', maxWidth: '38rem', lineHeight: 1.65, margin: '0 auto 2rem' }}>
+            Step-by-step guides for adding ORA to Shopify, WooCommerce, Next.js, and any custom site.
           </p>
 
-          {/* Quick Search */}
+          {/* Search */}
           <div className="lp-docs-search-wrapper">
-            <Search className="lp-docs-search-icon" size={18} />
+            <Search className="lp-docs-search-icon" size={16} />
             <input
               ref={searchInputRef}
               type="text"
               className="lp-docs-search-input"
-              placeholder="Search setup guides, platforms, or widget settings... (⌘K)"
+              placeholder="Search guides… (⌘K)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search documentation"
             />
             {searchQuery ? (
-              <button
-                type="button"
-                className="lp-docs-search-clear-btn"
-                onClick={() => setSearchQuery('')}
-                aria-label="Clear search"
-              >
-                ✕ Clear
+              <button type="button" className="lp-docs-search-clear-btn" onClick={() => setSearchQuery('')} aria-label="Clear search">
+                Clear
               </button>
             ) : (
-              <div className="lp-docs-search-shortcut">⌘K / /</div>
+              <div className="lp-docs-search-shortcut">⌘K</div>
             )}
           </div>
 
-          {/* Category Filter Pills */}
+          {/* Category pills */}
           <div className="lp-docs-cat-pills">
             {allCategoryNames.map((cat) => (
               <button
@@ -886,7 +725,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
         </div>
       </section>
 
-      {/* ── Mobile Category Floating Selector ── */}
+      {/* Mobile select */}
       <div className="lp-docs-mobile-bar">
         <select
           className="lp-docs-mobile-select"
@@ -894,28 +733,31 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
           onChange={(e) => scrollToSection(e.target.value)}
           aria-label="Jump to section"
         >
-          {docSections.map((sec) => (
-            <option key={sec.id} value={sec.id}>
-              {sec.category}: {sec.title}
-            </option>
+          {docSections.map((s) => (
+            <option key={s.id} value={s.id}>{s.category}: {s.title}</option>
           ))}
         </select>
       </div>
 
-      {/* ── Main Docs Layout ── */}
+      {/* Layout */}
       <div className="lp-container">
         <div className="lp-docs-layout">
-          {/* ── Sticky Sidebar ── */}
+
+          {/* Sidebar */}
           <aside className="lp-docs-sidebar" ref={sidebarRef} aria-label="Documentation navigation">
-            {categories.map(({ category, sections }) => (
+            {categories.map(({ category, sections }, catIdx) => (
               <div key={category}>
                 <div className="lp-docs-category-title">
                   <span>{category}</span>
                   <span className="lp-docs-category-count">{sections.length}</span>
                 </div>
                 <ul className="lp-docs-nav-list">
-                  {sections.map((sec) => (
-                    <li key={sec.id}>
+                  {sections.map((sec, secIdx) => (
+                    <li
+                      key={sec.id}
+                      className="docs-animate"
+                      style={{ animationDelay: `${(catIdx * 4 + secIdx) * 35}ms`, opacity: 0 }}
+                    >
                       <button
                         type="button"
                         className={`lp-docs-nav-link ${activeSection === sec.id ? 'active' : ''}`}
@@ -925,7 +767,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
                           {sec.title}
                         </span>
                         {activeSection === sec.id && (
-                          <span style={{ fontSize: '0.75rem', color: '#65A30D', flexShrink: 0 }}>●</span>
+                          <span style={{ fontSize: '0.5rem', color: 'var(--lp-primary)', flexShrink: 0 }}>●</span>
                         )}
                       </button>
                     </li>
@@ -935,35 +777,21 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
             ))}
           </aside>
 
-          {/* ── Main Content Canvas ── */}
+          {/* Content */}
           <main className="lp-docs-content">
             {filteredSections.length === 0 ? (
-              <div
-                style={{
-                  padding: '4rem 2rem',
-                  background: 'var(--lp-bg-white)',
-                  border: '1px solid var(--lp-border)',
-                  borderRadius: 'var(--lp-radius-xl)',
-                  textAlign: 'center'
-                }}
-              >
-                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔍</div>
-                <h3 className="lp-docs-h3" style={{ justifyContent: 'center', marginTop: 0 }}>
-                  No matching guide found
-                </h3>
-                <p className="lp-docs-p" style={{ maxWidth: '28rem', margin: '0 auto 1.5rem' }}>
-                  No setup guide found matching &ldquo;{searchQuery}&rdquo; in category &ldquo;{selectedCategory}&rdquo;.
+              <div style={{ padding: '4rem 2rem', background: 'var(--lp-bg-white)', border: '1px solid var(--lp-border)', borderRadius: 'var(--lp-radius-xl)', textAlign: 'center' }}>
+                <h3 className="lp-docs-h3" style={{ justifyContent: 'center', marginTop: 0 }}>No guides found</h3>
+                <p className="lp-docs-p" style={{ maxWidth: '26rem', margin: '0 auto 1.5rem' }}>
+                  Nothing matched &ldquo;{searchQuery}&rdquo;{selectedCategory !== 'All' ? ` in ${selectedCategory}` : ''}.
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategory('All');
-                  }}
+                  onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }}
                   className="lp-btn-secondary"
                   style={{ fontSize: '0.8125rem', padding: '0.5rem 1.25rem' }}
                 >
-                  Reset filters
+                  Clear filters
                 </button>
               </div>
             ) : (
@@ -971,21 +799,19 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
                 <article
                   key={sec.id}
                   id={sec.id}
+                  data-section-id={sec.id}
+                  ref={(el) => registerSection(sec.id, el)}
                   className="lp-docs-section"
+                  style={{ opacity: 0 }}
                 >
                   <div className="lp-docs-section-header">
-                    <div className="lp-docs-section-category">
-                      <span>{sec.category}</span>
-                    </div>
+                    <div className="lp-docs-section-category"><span>{sec.category}</span></div>
                     <h2 className="lp-docs-h2">{sec.title}</h2>
                     <p style={{ fontSize: '1rem', color: 'var(--lp-text-secondary)', lineHeight: 1.65 }}>
                       {sec.summary}
                     </p>
                   </div>
-
-                  <div style={{ marginTop: '1.5rem' }}>
-                    {sec.content}
-                  </div>
+                  <div style={{ marginTop: '1.5rem' }}>{sec.content}</div>
                 </article>
               ))
             )}

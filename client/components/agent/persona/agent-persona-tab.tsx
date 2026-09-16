@@ -564,8 +564,8 @@ export function AgentPersonaTab() {
               Business Type
             </h2>
           </div>
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            Active: <span className="text-primary font-semibold tracking-normal capitalize">{getArchetype(activeArchetype)?.label ?? activeArchetype}</span>
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            Active: <span className="bg-[#C8F031] text-[#111111] font-bold px-2.5 py-0.5 rounded-full text-[11px] tracking-normal capitalize">{getArchetype(activeArchetype)?.label ?? activeArchetype}</span>
           </span>
         </div>
 
@@ -586,7 +586,7 @@ export function AgentPersonaTab() {
                 className={cn(
                   'w-full min-w-0 flex items-center justify-center px-2 sm:px-3 py-2 sm:py-2.5 min-h-[40px] rounded-md border text-[11.5px] sm:text-[12px] font-medium transition-all cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60 text-center touch-manipulation',
                   isSelected
-                    ? 'border-primary bg-primary/15 text-primary font-semibold ring-1 ring-primary/25 shadow-xs'
+                    ? 'bg-[#C8F031] text-[#111111] font-bold border-[#C8F031] shadow-xs'
                     : 'border-border/60 bg-surface-lowest/60 text-muted-foreground hover:text-foreground hover:bg-surface-high/50',
                 )}
               >

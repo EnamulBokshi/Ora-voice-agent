@@ -74,6 +74,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/setup') ||
     pathname.startsWith('/agent') ||
     pathname.startsWith('/live-desk') ||
+    pathname.startsWith('/orders') ||
     pathname.startsWith('/customers') ||
     pathname.startsWith('/conversations') ||
     pathname.startsWith('/billing') ||

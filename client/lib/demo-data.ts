@@ -551,7 +551,7 @@ export const demoPlans: Plan[] = [
     priceBdtPaisa: 550000,
     billingInterval: 'monthly',
     limits: { conversationMinutes: 2000, ordersPerMonth: 500, connectedStores: 3, seats: 5 },
-    features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', '5 team seats', 'Full vector search'],
+    features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', 'Full vector search'],
     isActive: true,
   },
   {
@@ -562,7 +562,7 @@ export const demoPlans: Plan[] = [
     priceBdtPaisa: 2200000,
     billingInterval: 'monthly',
     limits: { conversationMinutes: 100000, ordersPerMonth: 100000, connectedStores: 99, seats: 99 },
-    features: ['Unlimited conversation minutes', 'Unlimited orders', 'Unlimited store connectors', 'Unlimited seats', 'Priority support'],
+    features: ['Unlimited conversation minutes', 'Unlimited orders', 'Unlimited store connectors', 'Priority support'],
     isActive: true,
   },
 ];

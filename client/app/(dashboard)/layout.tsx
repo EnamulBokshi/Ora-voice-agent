@@ -7,6 +7,7 @@ import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { DashboardGuard } from '@/components/dashboard/dashboard-guard';
+import { QuickSetupModal, QuickSetupCornerDock } from '@/components/quick-setup';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -90,6 +91,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Page content is responsible for its own TopHeader and scroll area */}
           <main className="flex-1 flex flex-col min-w-0 overflow-hidden">{children}</main>
         </div>
+
+        {/* Global Quick Setup Onboarding Modal and Floating Corner Dock */}
+        <QuickSetupModal />
+        <QuickSetupCornerDock />
       </div>
     </DashboardGuard>
   );

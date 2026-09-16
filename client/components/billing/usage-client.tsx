@@ -77,20 +77,18 @@ function UsageClientContent() {
 
         {errorBanner}
 
-        {/* ── Editorial Header (Matching ORA Agent & Setup pages) ── */}
+        {/* ── Page Header: Title and Icon in one row, concise subheading ── */}
         <div className="border-b border-border/40 pb-5">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2.5 mb-1">
             <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
-              <BarChart2 size={14} className="text-foreground" />
+              <BarChart2 size={15} className="text-foreground" />
             </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+              Usage
+            </h1>
           </div>
-
-          <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
-            Usage & Quota Limits
-          </h1>
-
-          <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
-            Monitor real-time voice conversation minutes, checkout orders influenced, and provisioned storefront capacity.
+          <p className="text-xs sm:text-[13px] text-muted-foreground">
+            Monitor real-time voice minutes, order capacity, and tier limits.
           </p>
         </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
-import { Loader2, Receipt } from 'lucide-react';
+import { Loader2, CreditCard } from 'lucide-react';
 import { getSubscriptionApi } from '@/services/billing-service';
 import { getInvoicesApi } from '@/services/invoices-service';
 import { demoSubscription, demoInvoices } from '@/lib/demo-data';
@@ -61,7 +61,7 @@ function BillingClientContent() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading invoices & plan…</span>
+          <span className="text-sm font-medium">Loading billing & plan…</span>
         </div>
       </div>
     );
@@ -97,20 +97,18 @@ function BillingClientContent() {
 
         {errorBanner}
 
-        {/* ── Editorial Header (Matching ORA Agent & Setup pages) ── */}
+        {/* ── Page Header: Title and Icon in one row, concise subheading ── */}
         <div className="border-b border-border/40 pb-5">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2.5 mb-1">
             <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
-              <Receipt size={14} className="text-foreground" />
+              <CreditCard size={15} className="text-foreground" />
             </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+              Billing & Subscription
+            </h1>
           </div>
-
-          <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
-            Invoices & Subscription
-          </h1>
-
-          <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
-            Manage your active store subscription, view pricing tiers, and access downloadable tax receipts.
+          <p className="text-xs sm:text-[13px] text-muted-foreground">
+            Manage your subscription plan, payment methods, and invoices.
           </p>
         </div>
 
@@ -129,7 +127,7 @@ function BillingClientContent() {
 
 export function BillingClient() {
   return (
-    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Invoices…</div>}>
+    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Billing…</div>}>
       <BillingClientContent />
     </Suspense>
   );

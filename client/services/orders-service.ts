@@ -27,6 +27,7 @@ export interface Order {
   totalAmount: number;
   currency: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'canceled';
+  source?: 'ora_agent' | 'merchant_platform';
   shippingAddress?: ShippingAddress;
   createdAt: string;
   updatedAt: string;
