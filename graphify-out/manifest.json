@@ -516,9 +516,9 @@
     "semantic_hash": ""
   },
   "client/components/dashboard/sidebar.tsx": {
-    "mtime": 1789565577.7505097,
-    "seen": 1789565686.519889,
-    "ast_hash": "04158fe41c15f7a3724e78d2a4b2833d",
+    "mtime": 1789565708.9791284,
+    "seen": 1789565815.0779407,
+    "ast_hash": "e882ee8c7af1898a96bd68ee8badb8f2",
     "semantic_hash": ""
   },
   "client/components/dashboard/theme-toggle.tsx": {
