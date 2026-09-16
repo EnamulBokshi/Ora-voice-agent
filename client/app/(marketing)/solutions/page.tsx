@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'WooCommerce cart recovery bot',
     'conversational commerce API',
     'headless voice commerce',
-    'bKash e-commerce voice checkout',
+    'bKash subscription & billing',
     'multimodal AI sales agent',
     'ORA solutions',
   ],
@@ -54,7 +54,7 @@ const solutions = [
     features: [
       'Lightweight web component embed that does not slow down WordPress page load',
       'Direct REST API connector for live WooCommerce product catalogs and variable SKUs',
-      'Automated coupon generation tailored to shopper intent during active voice calls',
+      'Dynamic intent detection and real-time product recommendations during voice sessions',
       'Native support for Cash on Delivery (COD), Stripe, and local payment methods',
     ],
     ctaText: 'Setup WooCommerce',
@@ -98,7 +98,7 @@ const solutions = [
     title: 'Bangladesh & Local Payment Optimization',
     subtitle: 'Native bKash tokenized checkout agreements and bilingual English & Bengali speech.',
     stats: 'Instant',
-    statsLabel: 'bKash wallet checkout completed directly inside the voice conversation',
+    statsLabel: 'Fast tokenized subscription payments and bilingual voice assistance',
     features: [
       'Native bKash Tokenized Checkout agreement integration with BullMQ background renewals',
       'Multimodal bilingual voice understanding: fluidly answers shoppers in Bangla and English',

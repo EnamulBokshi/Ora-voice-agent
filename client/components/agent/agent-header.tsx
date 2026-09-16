@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Mic, FileText, Package, Database, Radio } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { AppLink } from '@/components/navigation/app-link';
@@ -39,7 +38,7 @@ export function AgentHeader({ activeSection, totalDocs = 0 }: AgentHeaderProps) 
             {meta.icon}
             {meta.title}
           </span>
-          <span className="text-[10px] text-muted-foreground font-mono">· Store Assistant</span>
+          <span className="text-[10px] text-muted-foreground">· Store Assistant</span>
         </div>
         <h1 className="text-xl font-bold text-foreground tracking-tight">
           {meta.title}

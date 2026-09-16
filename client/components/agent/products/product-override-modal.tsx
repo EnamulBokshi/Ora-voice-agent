@@ -101,10 +101,10 @@ export function ProductOverrideModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate max-w-xs">
+                <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight truncate max-w-xs">
                   Product Details Override
                 </h2>
-                <span className="rounded bg-surface-high border border-border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                <span className="rounded bg-surface-high border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground tabular-nums">
                   SKU: {product.nativeProductId}
                 </span>
               </div>
@@ -155,7 +155,7 @@ export function ProductOverrideModal({
                 min="0"
                 value={price}
                 onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none tabular-nums"
                 required
               />
             </div>
@@ -169,7 +169,7 @@ export function ProductOverrideModal({
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
                 placeholder="USD / BDT / EUR"
-                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono uppercase text-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs uppercase text-foreground focus:border-primary focus:outline-none"
                 required
               />
             </div>
@@ -185,7 +185,7 @@ export function ProductOverrideModal({
                 min="0"
                 value={stockQuantity}
                 onChange={(e) => setStockQuantity(parseInt(e.target.value, 10) || 0)}
-                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface-low px-3.5 py-2 text-xs text-foreground focus:border-primary focus:outline-none tabular-nums"
                 required
               />
             </div>
@@ -240,7 +240,7 @@ export function ProductOverrideModal({
             </p>
             <p>
               Saving this manual override will set this record to{' '}
-              <strong className="text-primary font-mono">tier4_manual</strong> and immediately update the live assistant inventory cache.
+              <code className="rounded bg-surface-high border border-border px-1 py-0.5 font-mono text-[11px] text-primary">tier4_manual</code> and immediately update the live assistant inventory cache.
             </p>
           </div>
 

@@ -104,10 +104,10 @@ export function AgentHub() {
 
         {/* ── Hub Hero Header (Same as Setup Hub) ── */}
         <div className="mb-8 sm:mb-10 text-center max-w-2xl mx-auto">
-          <p className="text-[11.5px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+          <p className="text-[11.5px] font-medium uppercase tracking-widest text-muted-foreground mb-3">
             Configuration · All Sections
           </p>
-          <h1 className="text-[26px] sm:text-[34px] lg:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] font-serif mb-3.5">
+          <h1 className="text-[26px] sm:text-[34px] lg:text-[40px] font-semibold text-foreground tracking-tight leading-[1.15] mb-3.5">
             Configure one AI sales agent for your entire store
           </h1>
           <p className="text-[13.5px] sm:text-[14.5px] text-muted-foreground leading-relaxed">
@@ -159,7 +159,7 @@ export function AgentHub() {
 
                   {/* Category Pill */}
                   <div className="absolute top-3 left-3">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-foreground font-semibold px-2.5 py-1 rounded-sm bg-background/90 backdrop-blur-md border border-border/60 shadow-xs">
+                    <span className="text-[11px] uppercase tracking-wider text-foreground font-semibold px-2.5 py-1 rounded-sm bg-background/90 backdrop-blur-md border border-border/60 shadow-xs">
                       {role.category}
                     </span>
                   </div>
@@ -206,7 +206,7 @@ export function AgentHub() {
           <div className="mb-16">
             <div className="flex items-center gap-2 mb-6">
               <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-              <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
                 Deploy to your storefront
               </p>
               <div className="h-px bg-border/40 flex-1 ml-2" />
@@ -219,7 +219,7 @@ export function AgentHub() {
         <div className="pt-10 border-t border-border/40 max-w-3xl mx-auto">
           <div className="flex items-center gap-2 mb-6">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
               Frequently Asked Questions
             </p>
             <div className="h-px bg-border/40 flex-1 ml-2" />

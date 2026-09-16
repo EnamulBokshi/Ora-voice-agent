@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'e-commerce automation',
     'Shopify voice assistant',
     'WooCommerce sales bot',
-    'bKash automated checkout',
+    'bKash subscription billing',
     'conversational commerce',
     'real-time voice AI',
     'abandoned cart recovery',

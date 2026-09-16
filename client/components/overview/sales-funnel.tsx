@@ -31,7 +31,7 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
         </span>
         <div className="flex items-center gap-2 text-[12px] sm:text-[12.5px]">
           <span className="text-muted-foreground">Overall conversion rate:</span>
-          <span className="font-semibold text-foreground dark:text-primary font-mono tabular-nums text-[13px] sm:text-[14px]">
+          <span className="font-semibold text-foreground dark:text-primary tabular-nums text-[13px] sm:text-[14px]">
             {overallConversion}%
           </span>
         </div>
@@ -43,12 +43,12 @@ export function SalesFunnel({ funnel, overallConversion = 0 }: SalesFunnelProps)
           <div key={step.label} className="space-y-2">
             <div className="flex justify-between items-center text-[13px]">
               <div className="flex items-center gap-2.5">
-                <span className="text-[11px] font-mono font-bold text-muted-foreground px-2 py-0.5 rounded-none bg-surface-high border border-border/40">
+                <span className="text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-none bg-surface-high border border-border/40 tabular-nums">
                   {String(idx + 1).padStart(2, '0')}
                 </span>
                 <span className="text-foreground font-medium">{step.label}</span>
               </div>
-              <div className="flex items-center gap-2 font-mono text-[12.5px]">
+              <div className="flex items-center gap-2 tabular-nums text-[12.5px]">
                 <span className="text-foreground font-semibold tabular-nums">
                   {step.count.toLocaleString()}
                 </span>

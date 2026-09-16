@@ -39,7 +39,7 @@ export function QuickActionsBar({ actions }: QuickActionsBarProps) {
                 {action.icon}
               </span>
               <div className="min-w-0">
-                <p className="text-[14px] font-medium text-foreground font-serif tracking-tight leading-snug">
+                <p className="text-[14px] font-medium text-foreground tracking-tight leading-snug">
                   {action.label}
                 </p>
                 <p className="text-[12.5px] text-muted-foreground mt-0.5 leading-snug">

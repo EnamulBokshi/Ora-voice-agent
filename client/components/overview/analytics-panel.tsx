@@ -37,7 +37,7 @@ export function AnalyticsPanel({
         {/* Section Header with Clean Tab Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/40 mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-[14px] font-semibold text-foreground tracking-tight font-serif">
+            <h2 className="text-[14px] font-semibold text-foreground tracking-tight">
               Performance Analytics
             </h2>
           </div>

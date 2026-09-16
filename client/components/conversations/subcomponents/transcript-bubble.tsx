@@ -31,7 +31,7 @@ export function TranscriptBubble({ message: msg, customerName }: TranscriptBubbl
       )}
     >
       {/* Sender Name & Timestamp */}
-      <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span
           className={cn(
             'font-medium',

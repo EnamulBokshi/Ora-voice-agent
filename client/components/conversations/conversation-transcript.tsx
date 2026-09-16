@@ -59,7 +59,7 @@ export function ConversationTranscript({
       </div>
 
       {/* ── Bottom Session Info Bar ── */}
-      <div className="px-5 py-2.5 border-t border-border/40 bg-transparent flex items-center justify-between text-[11px] font-mono text-muted-foreground shrink-0">
+      <div className="px-5 py-2.5 border-t border-border/40 bg-transparent flex items-center justify-between text-[11px] text-muted-foreground shrink-0 tabular-nums">
         <span>Session ID: {conversation.sessionRef}</span>
         <span>
           {conversation.transcript.length} {conversation.transcript.length === 1 ? 'message' : 'messages'}

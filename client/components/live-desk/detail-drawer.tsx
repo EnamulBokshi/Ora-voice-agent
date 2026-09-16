@@ -87,7 +87,7 @@ export function DetailDrawer({ open, session, onClose }: DetailDrawerProps) {
               <h3 id="drawer-shopper-name" className="text-sm font-semibold text-foreground truncate">
                 {s?.name ?? 'Customer Session'}
               </h3>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
                 <span>{s?.sessionId ?? '#SES-LIVE'}</span>
                 <span>·</span>
                 <span className="capitalize">{s?.channel ?? 'Store Widget'}</span>

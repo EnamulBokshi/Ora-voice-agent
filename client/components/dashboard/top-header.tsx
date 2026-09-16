@@ -52,7 +52,7 @@ export function TopHeader({
             <span className="text-border text-sm">/</span>
           </>
         )}
-        <h1 className="text-[14px] sm:text-[15px] font-semibold font-serif text-foreground tracking-tight truncate">
+        <h1 className="text-[14px] sm:text-[15px] font-semibold text-foreground tracking-tight truncate">
           {title}
         </h1>
         {badge && <div className="shrink-0">{badge}</div>}

@@ -81,10 +81,10 @@ export function KnowledgeFeedList({
       <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
           <Database size={15} className="text-primary flex-shrink-0" />
-          <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+          <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
             Knowledge Base
           </h2>
-          <span className="text-[11px] font-mono text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground tabular-nums">
             ({safeDocs.length})
           </span>
         </div>
@@ -97,7 +97,7 @@ export function KnowledgeFeedList({
             placeholder="Search docs…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-36 sm:w-44 rounded-md border border-border/60 bg-surface-high/30 pl-7 pr-2 py-1 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none transition-all font-mono"
+            className="w-36 sm:w-44 rounded-md border border-border/60 bg-surface-high/30 pl-7 pr-2 py-1 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none transition-all"
           />
         </div>
       </div>
@@ -122,7 +122,7 @@ export function KnowledgeFeedList({
             >
               {tab.label}
               {count > 0 && (
-                <span className={`ml-1.5 text-[10.5px] font-mono ${isActive ? 'text-foreground' : 'text-muted-foreground/60'}`}>
+                <span className={`ml-1.5 text-[10.5px] tabular-nums ${isActive ? 'text-foreground' : 'text-muted-foreground/60'}`}>
                   {count}
                 </span>
               )}
@@ -135,12 +135,12 @@ export function KnowledgeFeedList({
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
           <Loader2 size={16} className="animate-spin" />
-          <span className="text-[12px] font-mono">Loading…</span>
+          <span className="text-[12px]">Loading…</span>
         </div>
       ) : filteredDocs.length === 0 ? (
         <div className="py-12 text-center select-none">
           <Database size={20} className="mx-auto text-muted-foreground/30 mb-2" />
-          <p className="text-[12.5px] font-medium text-foreground font-serif">No documents</p>
+          <p className="text-[12.5px] font-medium text-foreground">No documents</p>
           <p className="text-[11.5px] text-muted-foreground mt-0.5">
             {searchQuery || selectedCategory !== 'all'
               ? 'Nothing matched your filter.'
@@ -167,11 +167,11 @@ export function KnowledgeFeedList({
                     <p className="text-[13px] font-medium text-foreground truncate">
                       {doc.title}
                     </p>
-                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       {meta.label}
                       {source === 'voice_feed' ? ' · Voice' : source === 'document_upload' ? ' · Upload' : source === 'text_feed' ? ' · Manual' : ''}
                       {doc.updatedAt && (
-                        <> · {new Date(doc.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</>
+                        <span className="tabular-nums"> · {new Date(doc.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                       )}
                     </p>
                   </div>

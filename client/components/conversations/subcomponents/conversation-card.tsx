@@ -31,7 +31,7 @@ export function ConversationCard({ item, isSelected, onSelect }: ConversationCar
           </span>
         </div>
 
-        <div className="text-[10.5px] font-mono text-muted-foreground shrink-0">
+        <div className="text-[10.5px] text-muted-foreground shrink-0">
           <span className="tabular-nums">{item.lastMessageTime}</span>
         </div>
       </div>

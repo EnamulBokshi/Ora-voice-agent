@@ -22,7 +22,7 @@ function EmptyState() {
     <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center select-none bg-transparent">
       <MessageSquare size={20} className="text-muted-foreground/40" />
       <div>
-        <p className="text-[13.5px] font-medium text-foreground font-serif">No active session selected</p>
+        <p className="text-[13.5px] font-medium text-foreground">No active session selected</p>
         <p className="text-[12px] text-muted-foreground/70 mt-0.5">
           Select a customer from the left list to view their live conversation.
         </p>
@@ -89,7 +89,7 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
     try {
       await closeLiveSessionApi(session.id);
       setEnded(true);
-      setActionNotice('Session ended. The voice call has been closed.');
+      setActionNotice('Session ended. The voice session has been closed.');
     } catch {
       setActionNotice('Failed to end session. Try again.');
     } finally {
@@ -108,14 +108,14 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-[13.5px] sm:text-[14.5px] font-semibold text-foreground font-serif tracking-tight truncate">
+              <h2 className="text-[13.5px] sm:text-[14.5px] font-semibold text-foreground tracking-tight truncate">
                 {session.name}
               </h2>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] sm:text-[11.5px] font-mono text-muted-foreground shrink-0">
+        <div className="flex items-center gap-2 text-[11px] sm:text-[11.5px] text-muted-foreground tabular-nums shrink-0">
           <span>{session.time}</span>
         </div>
       </div>
@@ -134,7 +134,7 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
               )}
             >
               {/* Sender Name & Timestamp */}
-              <div className="flex items-center gap-1.5 text-[10.5px] sm:text-[11px] font-mono text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[10.5px] sm:text-[11px] text-muted-foreground">
                 <span className={cn('font-medium', isCustomer ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
                   {isCustomer ? session.name : 'ORA'}
                 </span>
@@ -158,7 +158,7 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
         })}
 
         {actionNotice && (
-          <div className="p-2 rounded-md border border-border/60 bg-surface-high/30 text-[11px] sm:text-[11.5px] font-mono text-foreground flex items-center gap-1.5 self-center">
+          <div className="p-2 rounded-md border border-border/60 bg-surface-high/30 text-[11px] sm:text-[11.5px] text-foreground flex items-center gap-1.5 self-center">
             <CheckCircle2 size={12} className="text-foreground dark:text-[#C8F031]" />
             <span>{actionNotice}</span>
           </div>
@@ -168,7 +168,7 @@ export function SessionDetailPanel({ session }: SessionDetailPanelProps) {
       {/* ── Action Bar (bottom) — only real actions ── */}
       <div className="p-3 sm:p-3.5 bg-transparent border-t border-border/40 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="text-[11px] sm:text-[11.5px] font-mono text-muted-foreground">
+          <div className="text-[11px] sm:text-[11.5px] text-muted-foreground">
             <span>Operator actions apply to this session.</span>
           </div>
 

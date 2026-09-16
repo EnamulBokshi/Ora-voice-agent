@@ -36,7 +36,7 @@ export function LiveTopBar({ paused, onTogglePause }: LiveTopBarProps) {
           aria-label="Search live activity"
           className="w-full h-8 pl-7 pr-12 rounded-md border border-border bg-surface-low text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
         />
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono bg-surface-high px-1 py-0.5 rounded border border-border">
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-surface-high px-1 py-0.5 rounded border border-border">
           ⌘K
         </span>
       </div>

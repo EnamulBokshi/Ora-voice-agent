@@ -1,16 +1,16 @@
-# Graph Report - ora  (2026-09-14)
+# Graph Report - ora  (2026-09-15)
 
 ## Corpus Check
-- 714 files · ~1,264,615 words
+- 716 files · ~1,261,923 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6927 nodes · 14621 edges · 379 communities (300 shown, 79 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 512 edges (avg confidence: 0.81)
+- 6918 nodes · 14653 edges · 382 communities (307 shown, 75 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 520 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `4f955047`
+- Built from commit: `c7c4ede0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -18,13 +18,13 @@
 - BkashProvider
 - product-catalog-table.tsx
 - billing.service.ts
-- widget.84e5bd7e39cd.js
+- widget.242e2c584aa8.js
 - auth-service.ts
-- widget.e730bacb0d53.js
+- widget.e5d887bf82e3.js
 - cn
 - knowledge-service.ts
 - live-browser.js
-- business.schema.ts
+- admin.service.ts
 - resumeSession
 - Roles
 - Common Pitfalls and Solutions
@@ -33,59 +33,59 @@
 - setLiveState
 - conversations-client.tsx
 - GeminiLiveClient
-- apiClient
+- live-desk-client.tsx
 - invoices.service.ts
 - Voice AI Engine Development - Detailed Guide
 - (marketing)/page.tsx
 - UserInputService
 - agent-client.tsx
-- agent-config.schema.ts
-- demo-data.ts
+- AdminService
+- dashboard-service.ts
 - email-templates.ts
 - modern-screenshot.umd.js
-- rag.service.ts
-- users.controller.ts
-- BusinessController
+- BusinessCredentialsUtil
+- UsersController
+- VoiceProxyGateway
 - ORA — Monorepo Agent Rules & Engineering Workflow (Architecture v5 Aligned)
 - compilerOptions
 - dependencies
 - ORA Monorepo Build State & Implementation Tracker (v1 Aligned)
-- ingestion.module.ts
+- sitemap-crawler.service.ts
 - product-discovery-and-ingestion-analysis.md
 - IngestionController
 - compilerOptions
 - Voice AI Engine Development Skill
 - agent-persona-tab.tsx
 - tsconfig.scripts.json
-- ai-tools.executor.ts
+- DomainException
 - el
 - initPageChat
 - navbar.tsx
-- customers-service.ts
+- customers-client.tsx
 - scripts/tsconfig.json
-- BillingController
+- BillingService
 - ORA Machine & Partner API — Developer Integration Guide
 - notifications.service.ts
-- .getClient
+- AiToolsExecutor
 - OAuthController
 - components.json
 - 3. Deep-Dive: The 6 Critical DOM & Voice Agent Corner Cases
-- ShopifyProvider
+- shopify.provider.ts
 - VoiceComponentFactory
-- BillingService
+- .getClient
 - DomTelemetryDto
 - CustomersService
 - dependencies
-- widget.e3d1ab74d823.js
+- user-input.controller.ts
 - opengraph-image.tsx
 - widget.latest.js
 - devDependencies
 - Server Engineering Standards & AI Coding Rules (`server/`)
 - LiveDeskService
-- OrderStatus
+- OrdersController
 - UpdateAgentConfigDto
 - 🚫 Non-Negotiable Directives
-- .bootstrapSession
+- voice-session.controller.ts
 - 🟡 Significant Improvements
 - ApiClientService
 - Provider Comparison Guide
@@ -94,24 +94,24 @@
 - 🚀 ORA Production Deployment & Dockerization Guide
 - ✦ ORA Voice AI — Official Merchant Owner Manual & Actionable Guide
 - widget.js
-- Scopes
+- JwtPayloadUser
 - dropdown-menu (Radix `DropdownMenu` → Base UI `Menu`)
 - main.ts
 - dropdown-menu (Radix `DropdownMenu` → Base UI `Menu`)
 - AdminController
-- docs/page.tsx
+- DashboardService
 - ORA User-Input API (OAuth 2.0 Client Credentials)
 - jest
 - seed-admin.ts
-- gemini-voice.service.ts
+- RedisService
 - FileIngestionService
-- admin-service.ts
-- widget.b2dbccd7b1eb.js
+- apiClient
+- integration-preview.tsx
 - ProductsService
 - scripts
 - voice-feed-tab.tsx
 - 🚀 Core Directives & Standards
-- auth/page.tsx
+- Operate mode depth (and Read notes)
 - 10. Billing, Plans & Payments
 - server/package.json
 - exclude
@@ -121,31 +121,31 @@
 - BaseWorker
 - AdminUserQueryDto
 - toolbar
-- CreateOrderDto
+- ai-tools.executor.ts
 - 2. Architectural Mismatches & Technical Fixes
 - UpdateAdminUserDto
 - server/README.md
-- DomainException
+- BusinessDocument
 - ORA — Final Architecture (v6)
 - devDependencies
 - CreatePlatformUserDto
 - 11. Widget Delivery & Injection Architecture
 - nest-cli.json
-- knowledge.service.ts
+- CreateApiClientDto
 - Param
 - 🎨 Design System — ORA Violet / Cyan Palette
-- JwtPayloadUser
+- CurrentUser
 - scripts
-- UpdatePlatformAgentDto
+- doctor.md
 - sitemap.ts
 - select
-- plan-limit.guard.ts
-- product-upload-modal.tsx
+- knowledge.service.ts
+- billing-service.ts
 - UpdateSessionLimitDto
 - onlyBuiltDependencies
 - 2. System Layers
 - select
-- read-only-fence.tsx
+- SessionTimerService
 - client/package.json
 - PCMRecorderProcessor
 - 4. Ingestion Architecture
@@ -160,8 +160,8 @@
 - FileUploadDto
 - ORA Machine API — Shopify Store & App Integration Guide
 - (marketing)/layout.tsx
-- ProviderSubscriptionRef
-- index.ts
+- .revokeClient
+- shopify-session-provider.tsx
 - 4. Proposed Changes — Backend
 - rules/graphify.md
 - workflows/graphify.md
@@ -176,9 +176,9 @@
 - csv-parse
 - deploy.sh
 - ejs
-- dual-auth.guard.ts
+- ApiScope
 - Stage 1 — Local, no Shopify account
-- ShopifyConnectorService
+- .constructor
 - eslint-plugin-prettier
 - globals
 - ioredis
@@ -190,29 +190,29 @@
 - handleManualEditActivity
 - @nestjs/common
 - seed-admin-docker.sh
-- user-input.controller.ts
+- demo-data.ts
 - @nestjs/mongoose
 - @nestjs/passport
-- DashboardService
+- InvoicesController
 - @nestjs/schematics
 - @nestjs/testing
 - Shopify Embedded App — Implementation Record
-- pricing/page.tsx
+- agent-header.tsx
 - @types/jsdom
 - multi_provider_factory_template.py
-- StripeProvider
+- usage-tracking.service.ts
 - rxjs
-- CreateApiClientDto
-- integration-preview.tsx
+- ReadabilityExtractor
+- .batchSync
 - prettier
 - Voice Knowledge Auto-Categorization Plan: Universal Business Generalization & Zero-Friction Ingestion
 - Responsive Design
-- DualAuthGuard
-- solutions-section.tsx
+- SubscriptionStatus
+- ApiKeyGuard
 - @types/bcrypt
-- ShopifyComplianceService
+- shopify-plan-gate.tsx
 - @types/cookie-parser
-- archetype-capabilities.ts
+- gemini-voice.service.ts
 - @types/jest
 - IngestVoiceTranscriptDto
 - Per-component notes
@@ -227,17 +227,16 @@
 - The Toolkit
 - jest
 - complete_voice_engine.py
-- Operate mode depth (and Read notes)
-- ShopifySyncProcessor
-- BillingSchedulerService
+- auth.controller.ts
+- ingestion.controller.spec.ts
+- AdminUserActionDto
 - resolveLiveInjectionAnchor
 - @types/multer
-- RedisService
-- doctor.md
+- shopify.service.ts
+- EntitlementModule
 - createLiveBrowserSessionState
 - PiiRedactor
-- seed-dev-store.ts
-- migrate-hash-secret-keys.ts
+- DualAuthGuard
 - Commands
 - onAnnotDown
 - Commands
@@ -265,9 +264,8 @@
 - CLAUDE.md
 - alert-dialog
 - Tools
-- auth.controller.ts
+- AuthController
 - eslint-config-prettier
-- AdminService
 - toast
 - popover
 - shadcn/ui
@@ -382,94 +380,98 @@
 - pdf-parse
 - resend
 - turndown
+- JsonLdExtractor
 - @types/node
 - @types/ws
 - typescript
+- SitemapDiscoveryService
+- PlatformSnifferService
+- PassiveIngestDto
 
 ## God Nodes (most connected - your core abstractions)
 1. `DomainException` - 130 edges
 2. `cn()` - 125 edges
-3. `apiClient()` - 109 edges
+3. `apiClient()` - 110 edges
 4. `JwtPayloadUser` - 98 edges
 5. `CurrentUser` - 92 edges
-6. `RedisService` - 91 edges
+6. `RedisService` - 92 edges
 7. `Business` - 80 edges
 8. `BusinessDocument` - 76 edges
 9. `Roles()` - 56 edges
-10. `ProductsService` - 54 edges
+10. `ProductsService` - 56 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `enableInlineEdit()` --indirect_call--> `own()`  [INFERRED]
   .agents/skills/impeccable/scripts/live-browser.js → .agents/skills/impeccable/scripts/live-browser-dom.js
 - `layoutFlowChildren()` --indirect_call--> `pickable()`  [INFERRED]
   .agents/skills/impeccable/scripts/live-browser.js → .agents/skills/impeccable/scripts/live-browser-dom.js
+- `checkAdminAccess()` --calls--> `getMeApi()`  [EXTRACTED]
+  client/components/admin/admin-guard.tsx → client/services/auth-service.ts
 - `AgentGetStartedPage()` --calls--> `cn()`  [EXTRACTED]
   client/components/agent/agent-get-started-page.tsx → client/lib/utils.ts
 - `LivingOrbCanvas()` --calls--> `cn()`  [EXTRACTED]
   client/components/orb/living-orb.tsx → client/lib/utils.ts
-- `SetupStepCard()` --calls--> `cn()`  [EXTRACTED]
-  client/components/setup/setup-step-card.tsx → client/lib/utils.ts
 
 ## Import Cycles
 - 3-file cycle: `server/src/ai-voice/ai-voice.module.ts -> server/src/orders/orders.module.ts -> server/src/users/users.module.ts -> server/src/ai-voice/ai-voice.module.ts`
 - 3-file cycle: `server/src/agent-config/agent-config.service.ts -> server/src/ai-voice/gemini-voice.service.ts -> server/src/ai-voice/tools/ai-tools.executor.ts -> server/src/agent-config/agent-config.service.ts`
-- 4-file cycle: `server/src/ai-voice/ai-voice.module.ts -> server/src/orders/orders.module.ts -> server/src/notifications/notifications.module.ts -> server/src/users/users.module.ts -> server/src/ai-voice/ai-voice.module.ts`
 - 4-file cycle: `server/src/ai-voice/ai-voice.module.ts -> server/src/billing/billing.module.ts -> server/src/auth/auth.module.ts -> server/src/users/users.module.ts -> server/src/ai-voice/ai-voice.module.ts`
+- 4-file cycle: `server/src/ai-voice/ai-voice.module.ts -> server/src/orders/orders.module.ts -> server/src/notifications/notifications.module.ts -> server/src/users/users.module.ts -> server/src/ai-voice/ai-voice.module.ts`
 - 5-file cycle: `server/src/ai-voice/ai-voice.module.ts -> server/src/products/products.module.ts -> server/src/api-access/api-access.module.ts -> server/src/auth/auth.module.ts -> server/src/users/users.module.ts -> server/src/ai-voice/ai-voice.module.ts`
 
-## Communities (379 total, 79 thin omitted)
+## Communities (382 total, 75 thin omitted)
 
 ### Community 1 - "product-catalog-table.tsx"
-Cohesion: 0.08
-Nodes (37): ProductDetailsFeedTab(), ProductDetailsFeedTabProps, AVAILABILITY_STATUS, ProductCatalogTable(), ProductCatalogTableProps, SOURCE_LABELS, AVAILABILITY_CONFIG, ProductDetailDrawer() (+29 more)
+Cohesion: 0.06
+Nodes (51): ProductDetailsFeedTab(), ProductDetailsFeedTabProps, AVAILABILITY_STATUS, ProductCatalogTable(), ProductCatalogTableProps, SOURCE_LABELS, AVAILABILITY_CONFIG, ProductDetailDrawer() (+43 more)
 
 ### Community 2 - "billing.service.ts"
-Cohesion: 0.03
-Nodes (79): BootstrapRateLimitGuard, Injectable, InjectModel, OnboardingEmailPayload, OnboardingEmailService, Injectable, Inject, InjectModel (+71 more)
+Cohesion: 0.09
+Nodes (34): SubscribeDto, IsEnum, IsNotEmpty, IsOptional, PaymentTransaction, PaymentTransactionDocument, PaymentTransactionSchema, TransactionStatus (+26 more)
 
-### Community 3 - "widget.84e5bd7e39cd.js"
-Cohesion: 0.10
-Nodes (51): armCardAutoDismiss(), armIdleTimer(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelIdleTimer(), clearSessionNotice(), disconnectVoice() (+43 more)
+### Community 3 - "widget.242e2c584aa8.js"
+Cohesion: 0.08
+Nodes (65): armCardAutoDismiss(), armConnectWatchdog(), armIdleTimer(), armPlaybackWatchdog(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelConnectWatchdog() (+57 more)
 
 ### Community 4 - "auth-service.ts"
-Cohesion: 0.07
-Nodes (54): AdminGuardProps, MerchantCredentialsCard(), MerchantCredentialsCardProps, PLATFORMS, PlatformTab, AuthHeader(), AuthHeaderProps, ForgotPasswordForm() (+46 more)
+Cohesion: 0.05
+Nodes (58): metadata, metadata, metadata, AdminGuardProps, MerchantCredentialsCard(), MerchantCredentialsCardProps, PLATFORMS, PlatformTab (+50 more)
 
-### Community 5 - "widget.e730bacb0d53.js"
-Cohesion: 0.10
-Nodes (51): armCardAutoDismiss(), armIdleTimer(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelIdleTimer(), clearSessionNotice(), disconnectVoice() (+43 more)
+### Community 5 - "widget.e5d887bf82e3.js"
+Cohesion: 0.08
+Nodes (65): armCardAutoDismiss(), armConnectWatchdog(), armIdleTimer(), armPlaybackWatchdog(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelConnectWatchdog() (+57 more)
 
 ### Community 6 - "cn"
-Cohesion: 0.03
-Nodes (77): DashboardLayout(), DashboardLayoutProps, inter, jetbrainsMono, metadata, newsreader, RootLayout(), spaceGrotesk (+69 more)
+Cohesion: 0.04
+Nodes (64): DashboardLayout(), DashboardLayoutProps, inter, jetbrainsMono, metadata, newsreader, RootLayout(), spaceGrotesk (+56 more)
 
 ### Community 7 - "knowledge-service.ts"
-Cohesion: 0.10
-Nodes (32): FEED_CATEGORY_META, FeedTab, FeedTabId, KnowledgeCategoryOption, CATEGORY_TABS, KnowledgeFeedList(), KnowledgeFeedListProps, KnowledgeChunkModal() (+24 more)
+Cohesion: 0.07
+Nodes (44): DOCUMENT_CATEGORIES, DocumentsFeedTab(), DocumentsFeedTabProps, FEED_CATEGORY_META, FeedTab, FeedTabId, KNOWLEDGE_CATEGORIES, KnowledgeCategoryOption (+36 more)
 
 ### Community 8 - "live-browser.js"
 Cohesion: 0.03
 Nodes (123): addManualContextText(), applyGlobalBarLabelState(), applyPlaceholderSizingStyles(), bindEditBadgeProxy(), bufferToBase64(), buildCollapsible(), buildColorModels(), buildInsertPlaceholderSnapshotFromDom() (+115 more)
 
-### Community 9 - "business.schema.ts"
-Cohesion: 0.06
-Nodes (70): InjectConnection, InjectModel, ALLOWED_UPLOAD_EXTENSIONS, InjectModel, ConversationsService, Injectable, InjectModel, Conversation (+62 more)
+### Community 9 - "admin.service.ts"
+Cohesion: 0.10
+Nodes (37): InjectConnection, AdminModule, Module, InjectModel, IdentityVerificationUtil, Conversation, ConversationDocument, ConversationSchema (+29 more)
 
 ### Community 10 - "resumeSession"
 Cohesion: 0.06
 Nodes (87): applyParamDefaults(), applyParamValue(), applyPlaceholderDimensions(), applySavedSessionMeta(), clampVariantIndex(), clearHandled(), closedClipPath(), closeTunePopover() (+79 more)
 
 ### Community 11 - "Roles"
-Cohesion: 0.17
-Nodes (20): RFC-6749, NO_SUBSCRIPTION_REQUIRED_KEY, NoSubscriptionRequired(), Roles(), ROLES_KEY, JwtAuthGuard, Injectable, RolesGuard (+12 more)
+Cohesion: 0.16
+Nodes (23): RFC-6749, NO_SUBSCRIPTION_REQUIRED_KEY, NoSubscriptionRequired(), Roles(), ROLES_KEY, SECRET_KEY_SCOPES, JwtAuthGuard, Injectable (+15 more)
 
 ### Community 12 - "Common Pitfalls and Solutions"
 Cohesion: 0.04
 Nodes (48): 1. Audio Jumping/Cutting Off, 2. Echo/Feedback Loop, 3. Interrupts Not Working, 4. Memory Leaks from Unclosed Streams, 5. Conversation History Not Updating, 6. WebSocket Connection Drops, 7. High Latency / Slow Responses, 8. Audio Quality Issues (+40 more)
 
 ### Community 13 - "app.module.ts"
-Cohesion: 0.05
-Nodes (62): AdminModule, Module, AgentConfigModule, Module, AiVoiceModule, Module, Controller, VoiceSessionController (+54 more)
+Cohesion: 0.07
+Nodes (53): AgentConfigModule, Module, AiVoiceModule, Module, ApiAccessModule, Module, AppModule, Module (+45 more)
 
 ### Community 14 - "ORA Monorepo API Documentation (v1 Aligned)"
 Cohesion: 0.05
@@ -480,64 +482,64 @@ Cohesion: 0.08
 Nodes (71): abortSvelteComponentInjection(), applyEditing(), beginNewLiveConfiguration(), cancelEditing(), cancelEditingToPicking(), cancelInsertConfigure(), cleanup(), cleanupAcceptedSession() (+63 more)
 
 ### Community 16 - "conversations-client.tsx"
-Cohesion: 0.09
+Cohesion: 0.08
 Nodes (33): metadata, metadata, formatSessionRef(), mapApiConversationToUi(), mapApiMessagesToUi(), ConversationListPanel(), ConversationListPanelProps, ConversationTranscript() (+25 more)
 
 ### Community 17 - "GeminiLiveClient"
 Cohesion: 0.11
 Nodes (9): ANCHOR_ROUTE_FALLBACKS, FloatingOrbWidget(), getApiBase(), NAVIGABLE_ROUTES, OrbFluidWaveProps, SECTION_LABELS, VoiceState, GeminiLiveClient (+1 more)
 
-### Community 18 - "apiClient"
-Cohesion: 0.06
-Nodes (54): metadata, metadata, ActivityFeed(), ActivityFeedProps, DetailDrawerProps, LiveDeskClient(), DEFAULT_SERVICES, OraStatusPanel() (+46 more)
+### Community 18 - "live-desk-client.tsx"
+Cohesion: 0.09
+Nodes (35): metadata, metadata, TopHeader(), TopHeaderProps, ActivityFeed(), ActivityFeedProps, DetailDrawerProps, LiveDeskClient() (+27 more)
 
 ### Community 19 - "invoices.service.ts"
-Cohesion: 0.12
-Nodes (24): InvoicesService, Injectable, InjectModel, InvoiceCounter, InvoiceCounterDocument, InvoiceCounterSchema, Prop, Schema (+16 more)
+Cohesion: 0.11
+Nodes (26): InvoicesModule, Module, InvoicesService, Injectable, InjectModel, InvoiceCounter, InvoiceCounterDocument, InvoiceCounterSchema (+18 more)
 
 ### Community 20 - "Voice AI Engine Development - Detailed Guide"
 Cohesion: 0.05
 Nodes (41): 1. Audio Jumping/Cutting Off, 1. Error Handling, 1. Producer-Consumer with Queues, 1. Transcriber (Audio → Text), 1. Unit Test Workers in Isolation, 2. Agent (Text → Response), 2. Echo/Feedback Loop, 2. Graceful Shutdown (+33 more)
 
 ### Community 21 - "(marketing)/page.tsx"
-Cohesion: 0.14
-Nodes (10): CtaSection(), docs, DocsSection(), FeaturesSection(), HeroSection(), HeroVoiceCta(), stats, StatsSection() (+2 more)
+Cohesion: 0.06
+Nodes (27): metadata, metadata, metadata, solutions, CodeSnippet, DocSection, DocsPageClient(), CtaSection() (+19 more)
 
 ### Community 22 - "UserInputService"
 Cohesion: 0.14
 Nodes (13): Body, Controller, Get, HttpCode, Post, Query, Req, UploadedFile (+5 more)
 
 ### Community 23 - "agent-client.tsx"
-Cohesion: 0.05
-Nodes (50): metadata, metadata, metadata, metadata, metadata, metadata, AdminGuard(), checkAdminAccess() (+42 more)
+Cohesion: 0.06
+Nodes (38): metadata, metadata, metadata, AgentClient(), AgentClientContent(), AgentGetStartedPage(), AgentGetStartedPageProps, FaqItem (+30 more)
 
-### Community 24 - "agent-config.schema.ts"
-Cohesion: 0.15
-Nodes (17): AgentConfigService, Inject, Injectable, InjectModel, Optional, AgentConfig, AgentConfigDocument, AgentConfigSchema (+9 more)
+### Community 24 - "AdminService"
+Cohesion: 0.08
+Nodes (33): AdminService, Injectable, IsBoolean, IsIn, IsOptional, IsString, MaxLength, UpdatePlatformAgentDto (+25 more)
 
-### Community 25 - "demo-data.ts"
-Cohesion: 0.05
-Nodes (58): BkashCallbackContent(), metadata, metadata, metadata, metadata, ShopifyAppHomePage(), metadata, BillingClient() (+50 more)
+### Community 25 - "dashboard-service.ts"
+Cohesion: 0.13
+Nodes (15): DashboardStatsResponse, FunnelStep, getFunnelAnalyticsApi(), getRevenueAnalyticsApi(), RevenueDataPoint, RevenueTimeseries, createOrderApi(), CreateOrderPayload (+7 more)
 
 ### Community 26 - "email-templates.ts"
-Cohesion: 0.13
-Nodes (23): CongratulationsEmailData, ForgotPasswordData, getFallbackHtml(), getTemplatePath(), ORA_EMAIL_THEME, OtpEmailData, renderCongratulationsTemplate(), renderEjsTemplate() (+15 more)
+Cohesion: 0.12
+Nodes (24): Optional, CongratulationsEmailData, ForgotPasswordData, getFallbackHtml(), getTemplatePath(), ORA_EMAIL_THEME, OtpEmailData, renderCongratulationsTemplate() (+16 more)
 
 ### Community 27 - "modern-screenshot.umd.js"
 Cohesion: 0.09
 Nodes (55): ae(), be(), bt(), Ce(), s(), Ct(), de(), dt() (+47 more)
 
-### Community 28 - "rag.service.ts"
-Cohesion: 0.11
-Nodes (19): Inject, InjectModel, Optional, FallbackTier, EmbeddingResult, EmbeddingService, Injectable, Optional (+11 more)
+### Community 28 - "BusinessCredentialsUtil"
+Cohesion: 0.19
+Nodes (7): dryRun, ENCRYPTED_FIELDS, envPath, migrate(), businessDoc(), BusinessCredentialsUtil, EncryptionUtil
 
-### Community 29 - "users.controller.ts"
-Cohesion: 0.12
+### Community 29 - "UsersController"
+Cohesion: 0.10
 Nodes (15): ChangePasswordDto, IsNotEmpty, IsString, MinLength, IsOptional, IsString, MinLength, UpdateProfileDto (+7 more)
 
-### Community 30 - "BusinessController"
-Cohesion: 0.13
-Nodes (16): BusinessController, Body, Controller, Delete, Get, HttpCode, Inject, Optional (+8 more)
+### Community 30 - "VoiceProxyGateway"
+Cohesion: 0.08
+Nodes (21): Injectable, VoiceProxyGateway, BusinessController, Body, Controller, Delete, Get, HttpCode (+13 more)
 
 ### Community 31 - "ORA — Monorepo Agent Rules & Engineering Workflow (Architecture v5 Aligned)"
 Cohesion: 0.07
@@ -555,17 +557,17 @@ Nodes (31): bcrypt, cheerio, class-transformer, class-validator, cookie-parser, 
 Cohesion: 0.07
 Nodes (28): Implemented Components, Implemented Components, Implemented Components, Implemented Components, Implemented Components, Implemented Components, Implemented Components & RAG Engine Fixes, Implemented Components & Security Hardening (+20 more)
 
-### Community 35 - "ingestion.module.ts"
-Cohesion: 0.06
-Nodes (29): JsonLdExtractor, Injectable, ReadabilityExtractor, Injectable, PlatformFastPathService, Injectable, PlatformSnifferService, Injectable (+21 more)
+### Community 35 - "sitemap-crawler.service.ts"
+Cohesion: 0.29
+Nodes (10): HTML_CRAWL_QUEUE, FAQ_PATTERNS, POLICY_PATTERNS, PRODUCT_PATTERNS, CrawlJobData, CrawlUrlJobData, ExtractedKnowledgeDoc, PlatformType (+2 more)
 
 ### Community 36 - "product-discovery-and-ingestion-analysis.md"
 Cohesion: 0.07
 Nodes (28): 1. Executive Summary, 1. Next.js SPA Client-Side Routing Blackhole, 1. SPA Route Interception (Next.js / Inertia / Vue), 2. Client-Side Rendered DOM Extraction, 2. Localhost & Custom Domain API Base Misconfiguration, 2. Root Cause Analysis (Technical Breakdown), 3. Client-Side Catalog Listing Harvester, 3. Comparison Matrix: Platform Behaviors (+20 more)
 
 ### Community 37 - "IngestionController"
-Cohesion: 0.10
-Nodes (25): FeedIngestDto, IsNotEmpty, IsOptional, IsString, IsUrl, ManualIngestDto, IsNotEmpty, IsObject (+17 more)
+Cohesion: 0.12
+Nodes (19): FeedIngestDto, IsNotEmpty, IsOptional, IsString, IsUrl, ManualIngestDto, IsNotEmpty, IsObject (+11 more)
 
 ### Community 38 - "compilerOptions"
 Cohesion: 0.07
@@ -583,9 +585,9 @@ Nodes (47): AgentPersonaTab(), PRESET_TEMPLATES, PresetTemplate, PersonaPreview(
 Cohesion: 0.14
 Nodes (13): scripts/seed-admin.ts, compilerOptions, outDir, rootDir, skipLibCheck, types, exclude, extends (+5 more)
 
-### Community 42 - "ai-tools.executor.ts"
-Cohesion: 0.13
-Nodes (17): EventsService, Injectable, InjectModel, EventType, AUTHORITY_ESCALATION_FLAGGED, CART_UPDATED, INVENTORY_WARNING, ORDER_PLACED (+9 more)
+### Community 42 - "DomainException"
+Cohesion: 0.12
+Nodes (4): AuthService, Injectable, DomainException, AdminUserDocument
 
 ### Community 43 - "el"
 Cohesion: 0.07
@@ -596,35 +598,35 @@ Cohesion: 0.08
 Nodes (53): armPageChatForTyping(), attachSteerFocusDebug(), attachSteerFocusGuard(), buildSteerProcessingDots(), buildSteerQueueHint(), clearSteerAwaitTimer(), clearSteerFocusRecoverTimer(), collapsePageChat() (+45 more)
 
 ### Community 45 - "navbar.tsx"
-Cohesion: 0.19
-Nodes (8): metadata, AdminLayoutShell(), AdminLayoutShellProps, adminNavItems, AdminSidebar(), AdminSidebarProps, NavItem, ThemeToggle()
+Cohesion: 0.11
+Nodes (16): metadata, AdminGuard(), checkAdminAccess(), AdminLayoutShell(), AdminLayoutShellProps, adminNavItems, AdminSidebar(), AdminSidebarProps (+8 more)
 
-### Community 46 - "customers-service.ts"
-Cohesion: 0.17
-Nodes (14): metadata, CustomerDetailPanel(), CustomerDetailPanelProps, CustomersClient(), CustomersHeader(), CustomersTable(), CustomersTableProps, createCustomerApi() (+6 more)
+### Community 46 - "customers-client.tsx"
+Cohesion: 0.12
+Nodes (29): AddCustomerModal(), AddCustomerModalProps, CustomerDetailPanel(), CustomerDetailPanelProps, DetailTab, CustomerSegment, CustomersFilterBar(), CustomersFilterBarProps (+21 more)
 
 ### Community 47 - "scripts/tsconfig.json"
 Cohesion: 0.14
 Nodes (13): seed-admin.ts, compilerOptions, outDir, rootDir, skipLibCheck, types, exclude, extends (+5 more)
 
-### Community 48 - "BillingController"
-Cohesion: 0.22
-Nodes (9): BillingController, Body, Controller, Get, Headers, HttpCode, Post, Req (+1 more)
+### Community 48 - "BillingService"
+Cohesion: 0.09
+Nodes (13): BillingController, Body, Controller, Get, Headers, HttpCode, Post, Req (+5 more)
 
 ### Community 49 - "ORA Machine & Partner API — Developer Integration Guide"
 Cohesion: 0.07
 Nodes (28): 1. Quick Start & Authentication, 2.1 Batch Sync Products (Primary Shopify Method), 2.2 Create Single Product, 2.3 List / Search Products, 2.4 Get Product by ID, 2.5 Update / Override Product, 2.6 Delete Product, 2. Products API (Shopify / ERP Catalog Sync) (+20 more)
 
 ### Community 50 - "notifications.service.ts"
-Cohesion: 0.06
-Nodes (39): IsBooleanString, IsNumberString, CreateNotificationDto, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString (+31 more)
+Cohesion: 0.05
+Nodes (37): IsBooleanString, IsNumberString, CreateNotificationDto, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString (+29 more)
 
-### Community 51 - ".getClient"
-Cohesion: 0.08
-Nodes (8): normalizeGeminiVoice(), withToolTimeout(), AiToolsExecutor, Injectable, InjectModel, Optional, RagService, Injectable
+### Community 51 - "AiToolsExecutor"
+Cohesion: 0.14
+Nodes (3): AiToolsExecutor, Injectable, InjectModel
 
 ### Community 52 - "OAuthController"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (12): TokenRequestDto, RFC-6749, IsIn, IsNotEmpty, IsOptional, IsString, OAuthController, Body (+4 more)
 
 ### Community 53 - "components.json"
@@ -635,37 +637,41 @@ Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent 
 Cohesion: 0.09
 Nodes (21): 1. Executive Summary & Problem Statement, 1. Mandatory Store & Platform Disclosure at Onboarding, 2. Analysis of the Three Tooling Strategies, 2. Sitemap & Routing Information Architecture (Navigation Unlocking), 3. API Documentation & OpenAPI Schema Ingestion (Custom Tool Unlocking), 3. Deep-Dive: The 6 Critical DOM & Voice Agent Corner Cases, 4. Granular Tool Permission Toggles (Agent Control Center), 4. Handling Non-E-Commerce & Zero-API Businesses (+13 more)
 
-### Community 55 - "ShopifyProvider"
-Cohesion: 0.16
-Nodes (7): CustomerBillingDetails, normalizeChargeId(), ShopifyProvider, Injectable, Get, Query, Res
+### Community 55 - "shopify.provider.ts"
+Cohesion: 0.09
+Nodes (13): ChargeResult, CustomerBillingDetails, PaymentProvider, ProviderSubscriptionRef, normalizeChargeId(), ShopifyProvider, ShopifySubscriptionDetails, ShopifySubscriptionResult (+5 more)
 
 ### Community 56 - "VoiceComponentFactory"
 Cohesion: 0.11
 Nodes (14): Any, Create LLM agent based on configuration Args: config: Configuration dict with…, Create TTS synthesizer based on configuration Args: config: Configuration dict…, Create Deepgram transcriber, Create AssemblyAI transcriber, Create Azure Speech transcriber, Create Google Gemini agent, Create Anthropic Claude agent (+6 more)
 
+### Community 57 - ".getClient"
+Cohesion: 0.17
+Nodes (3): EntitlementService, Injectable, InjectModel
+
 ### Community 58 - "DomTelemetryDto"
-Cohesion: 0.23
+Cohesion: 0.20
 Nodes (13): CardItemDto, ContactChannelsDto, DomTelemetryDto, HeadingItemDto, ProductTelemetryDto, IsArray, IsNotEmpty, IsNumber (+5 more)
 
 ### Community 59 - "CustomersService"
-Cohesion: 0.06
-Nodes (23): migrate(), businessDoc(), BusinessCredentialsUtil, EncryptionUtil, IdentityVerificationUtil, CustomersController, Body, Controller (+15 more)
+Cohesion: 0.09
+Nodes (18): CustomersController, Body, Controller, Get, Param, Patch, Post, Query (+10 more)
 
 ### Community 60 - "dependencies"
 Cohesion: 0.09
 Nodes (23): @base-ui/react, class-variance-authority, dependencies, @base-ui/react, class-variance-authority, lucide-react, next, next-themes (+15 more)
 
-### Community 61 - "widget.e3d1ab74d823.js"
-Cohesion: 0.10
-Nodes (50): armCardAutoDismiss(), armIdleTimer(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelIdleTimer(), clearSessionNotice(), disconnectVoice() (+42 more)
+### Community 61 - "user-input.controller.ts"
+Cohesion: 0.14
+Nodes (13): SubmitDocumentDto, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, SubmitPromptDto (+5 more)
 
 ### Community 62 - "opengraph-image.tsx"
 Cohesion: 0.33
 Nodes (4): alt, contentType, runtime, size
 
 ### Community 63 - "widget.latest.js"
-Cohesion: 0.10
-Nodes (51): armCardAutoDismiss(), armIdleTimer(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelIdleTimer(), clearSessionNotice(), disconnectVoice() (+43 more)
+Cohesion: 0.08
+Nodes (65): armCardAutoDismiss(), armConnectWatchdog(), armIdleTimer(), armPlaybackWatchdog(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelConnectWatchdog() (+57 more)
 
 ### Community 64 - "devDependencies"
 Cohesion: 0.10
@@ -679,29 +685,29 @@ Nodes (20): 1. Tech Stack & Module Conventions, 2.1 AdminUser Authentication (Da
 Cohesion: 0.12
 Nodes (10): LiveDeskController, Controller, Get, HttpCode, Param, Post, Query, UseGuards (+2 more)
 
-### Community 67 - "OrderStatus"
-Cohesion: 0.08
-Nodes (23): IsEnum, IsObject, IsOptional, UpdateOrderDto, IsEnum, IsNotEmpty, UpdateOrderStatusDto, OrdersController (+15 more)
+### Community 67 - "OrdersController"
+Cohesion: 0.14
+Nodes (13): IsEnum, IsNotEmpty, UpdateOrderStatusDto, OrdersController, Body, Controller, Get, HttpCode (+5 more)
 
 ### Community 68 - "UpdateAgentConfigDto"
-Cohesion: 0.11
-Nodes (18): AgentConfigController, Body, Controller, Patch, Post, UseGuards, SwitchArchetypeDto, IsIn (+10 more)
+Cohesion: 0.09
+Nodes (19): AgentConfigController, Body, Controller, Get, Patch, Post, UseGuards, SwitchArchetypeDto (+11 more)
 
 ### Community 69 - "🚫 Non-Negotiable Directives"
 Cohesion: 0.11
 Nodes (18): 1. Next.js 16+ Architecture Basis (`proxy.ts` mandatory), 2. Server Components First (No `"use client"` in `page.tsx`), 3. Component-Based Architecture & File Separation, 4. Service & Action Organization, 5. API Response Handling & Envelope Unwrapping, 6. Client State vs Server State, 7. Widget Embed & Delivery Architecture (v5 Section 11), 8. Marketing / Landing Page Conventions (+10 more)
 
-### Community 70 - ".bootstrapSession"
-Cohesion: 0.20
-Nodes (9): BootstrapVoiceSessionDto, IsNotEmpty, IsOptional, IsString, Body, HttpCode, Post, Req (+1 more)
+### Community 70 - "voice-session.controller.ts"
+Cohesion: 0.17
+Nodes (11): BootstrapVoiceSessionDto, IsNotEmpty, IsOptional, IsString, Body, Controller, HttpCode, Post (+3 more)
 
 ### Community 71 - "🟡 Significant Improvements"
 Cohesion: 0.11
 Nodes (18): 10. RAG Result Cache Doesn't Invalidate on Product Changes, 11. Knowledge Chunking Is Character-Based, Not Semantic, 12. No `isEmbedded` Flag for Knowledge Chunks, 13. Feed Parser Uses Regex for XML, 14. No Product Image Extraction in DOM Strategy D, 1. Tier 1 Webhooks Never Trigger Vector Embedding, 2. Product Deletion Doesn't Clean Up Vector Index, 3. Brute-Force Vector Search Won't Scale (+10 more)
 
 ### Community 72 - "ApiClientService"
-Cohesion: 0.14
-Nodes (8): ApiClientService, Injectable, InjectModel, OAuthScopesGuard, Injectable, OAuthService, Injectable, ApiClientDocument
+Cohesion: 0.15
+Nodes (7): ApiClientService, Injectable, InjectModel, OAuthScopesGuard, Injectable, OAuthService, Injectable
 
 ### Community 73 - "Provider Comparison Guide"
 Cohesion: 0.08
@@ -724,32 +730,32 @@ Cohesion: 0.11
 Nodes (17): 1-Click Sync from Website URL, 1. System Architecture Overview, 2. Stage 1: Ingesting Your Store Intelligence, 3. Stage 2: Training Your AI Voice & Sales Persona, 4. Stage 3: Embedding the 1-Line Storefront Widget, 5. Stage 4: Testing in the Dashboard Sandbox, 6. Stage 5: Live Desk, Conversions & Self-Healing Sync, 7. Agency & Service Provider Playbook (+9 more)
 
 ### Community 78 - "widget.js"
-Cohesion: 0.10
-Nodes (51): armCardAutoDismiss(), armIdleTimer(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelIdleTimer(), clearSessionNotice(), disconnectVoice() (+43 more)
+Cohesion: 0.08
+Nodes (65): armCardAutoDismiss(), armConnectWatchdog(), armIdleTimer(), armPlaybackWatchdog(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelConnectWatchdog() (+57 more)
 
-### Community 79 - "Scopes"
-Cohesion: 0.22
-Nodes (12): Scopes(), ProductsController, Body, Controller, Delete, Get, HttpCode, Param (+4 more)
+### Community 79 - "JwtPayloadUser"
+Cohesion: 0.16
+Nodes (18): Scopes(), JwtPayloadUser, IsEnum, IsNumber, IsOptional, Min, VerifyLiveDto, ProductsController (+10 more)
 
 ### Community 80 - "dropdown-menu (Radix `DropdownMenu` → Base UI `Menu`)"
 Cohesion: 0.04
 Nodes (48): Arrow / Item / Group / Label / CheckboxItem / RadioGroup / RadioItem / ItemIndicator / Separator / Sub / SubTrigger / SubContent, Arrow → Menu.Arrow, Base UI only, data attributes, CSS variables, Base UI only props worth knowing (Menu), Base UI only props worth knowing (NavigationMenu), CheckboxItem → Menu.CheckboxItem, Content → ContextMenu.Portal > Positioner > Popup, Content → Menu.Portal > Menu.Positioner > Menu.Popup (+40 more)
 
 ### Community 81 - "main.ts"
-Cohesion: 0.16
-Nodes (9): Catch, AppModule, Module, AllExceptionsFilter, ErrorEnvelope, SuccessEnvelope, TransformInterceptor, Injectable (+1 more)
+Cohesion: 0.23
+Nodes (7): Catch, AllExceptionsFilter, ErrorEnvelope, SuccessEnvelope, TransformInterceptor, Injectable, bootstrap()
 
 ### Community 82 - "dropdown-menu (Radix `DropdownMenu` → Base UI `Menu`)"
 Cohesion: 0.04
 Nodes (48): Arrow / Item / Group / Label / CheckboxItem / RadioGroup / RadioItem / ItemIndicator / Separator / Sub / SubTrigger / SubContent, Arrow → Menu.Arrow, Base UI only, data attributes, CSS variables, Base UI only props worth knowing (Menu), Base UI only props worth knowing (NavigationMenu), CheckboxItem → Menu.CheckboxItem, Content → ContextMenu.Portal > Positioner > Popup, Content → Menu.Portal > Menu.Positioner > Menu.Popup (+40 more)
 
 ### Community 83 - "AdminController"
-Cohesion: 0.17
+Cohesion: 0.13
 Nodes (5): AdminController, Controller, Get, Query, UseGuards
 
-### Community 84 - "docs/page.tsx"
-Cohesion: 0.16
-Nodes (9): metadata, metadata, solutions, CodeSnippet, DocSection, DocsPageClient(), footerSections, MarketingFooter() (+1 more)
+### Community 84 - "DashboardService"
+Cohesion: 0.22
+Nodes (7): DashboardController, Controller, Get, Query, UseGuards, DashboardService, Injectable
 
 ### Community 85 - "ORA User-Input API (OAuth 2.0 Client Credentials)"
 Cohesion: 0.11
@@ -763,37 +769,37 @@ Nodes (15): js, json, /node_modules/(?!(@exodus|html-encoding-sniffer)/), **/*.(
 Cohesion: 0.11
 Nodes (16): adminEmail, adminName, adminPassword, AdminRole, ADMIN, OWNER, STAFF, SUPER_ADMIN (+8 more)
 
-### Community 88 - "gemini-voice.service.ts"
-Cohesion: 0.05
-Nodes (41): GeminiVoiceService, GeminiVoiceSessionControls, GeminiVoiceSessionOptions, LEGACY_VOICE_MAP, TRAINING_TOOL_NAMES, Injectable, VALID_GEMINI_VOICES, VoiceSessionMode (+33 more)
+### Community 88 - "RedisService"
+Cohesion: 0.08
+Nodes (27): GeminiVoiceSessionControls, BootstrapRateLimitGuard, Injectable, InjectModel, ClientBrowsingContext, ProxySession, AgentProfileModule, Global (+19 more)
 
-### Community 90 - "admin-service.ts"
+### Community 90 - "apiClient"
 Cohesion: 0.05
-Nodes (69): metadata, AdminUserDetailPageProps, metadata, AdminHeader(), AdminHeaderProps, AdminMerchantsView(), AdminOverviewView(), AdminPlatformAgentCard() (+61 more)
+Nodes (68): metadata, AdminUserDetailPageProps, metadata, AdminHeader(), AdminHeaderProps, AdminMerchantsView(), AdminOverviewView(), AdminPlatformAgentCard() (+60 more)
 
-### Community 91 - "widget.b2dbccd7b1eb.js"
-Cohesion: 0.11
-Nodes (47): armCardAutoDismiss(), armIdleTimer(), arrayBufferToBase64(), base64ToFloat32Array(), cancelCardAutoDismiss(), cancelIdleTimer(), clearSessionNotice(), disconnectVoice() (+39 more)
+### Community 91 - "integration-preview.tsx"
+Cohesion: 0.21
+Nodes (12): IntegrationPreview(), IntegrationPreviewProps, PLATFORMS, PlatformTab, SnippetFormat, WidgetPosition, neverChanges(), serverUrlSnapshot() (+4 more)
 
 ### Community 92 - "ProductsService"
-Cohesion: 0.05
-Nodes (55): FeedParserService, Injectable, FIELD_ALIASES, IngestionSummary, BatchSyncProductsDto, IsArray, IsEnum, IsNotEmpty (+47 more)
+Cohesion: 0.04
+Nodes (70): FIELD_ALIASES, IngestionSummary, InjectModel, Optional, InjectModel, Optional, BatchSyncProductsDto, IsArray (+62 more)
 
 ### Community 93 - "scripts"
 Cohesion: 0.10
 Nodes (20): scripts, build, format, lint, migrate:archetype-profiles, migrate:hash-keys, seed:admin, seed:admin:prod (+12 more)
 
 ### Community 94 - "voice-feed-tab.tsx"
-Cohesion: 0.09
-Nodes (29): CATEGORY_OPTIONS, CategoryOption, DOC_TYPE_META, SessionStatus, TargetCategory, TranscriptEntry, VoiceFeedTab(), VoiceFeedTabProps (+21 more)
+Cohesion: 0.06
+Nodes (41): metadata, CATEGORY_OPTIONS, CategoryOption, DOC_TYPE_META, SessionStatus, TargetCategory, TranscriptEntry, VoiceFeedTab() (+33 more)
 
 ### Community 95 - "🚀 Core Directives & Standards"
 Cohesion: 0.15
 Nodes (12): 1. Next.js 16+ Modern Standards, 2. Strict Server Component Separation (No `"use client"` in `page.tsx`), 3. Component-Based Architecture & Strict Code Separation, 4. Service & Action Organization (`services/` & `actions/`), 5. Centralized Auth & Access Control (`proxy.ts`), 6. Widget Embed & Delivery Standards (ORA Architecture v5 - Section 11), 7. Maximum Reusability & Clean Architecture, 8. Type Safety & Code Quality (+4 more)
 
-### Community 96 - "auth/page.tsx"
-Cohesion: 0.23
-Nodes (4): metadata, AuthBackground(), AuthCard(), AuthHeroSection()
+### Community 96 - "Operate mode depth (and Read notes)"
+Cohesion: 0.22
+Nodes (9): Color, Components, Layout, Motion, Operate mode depth (and Read notes), Product constraints, Product permissions, The product slop test (+1 more)
 
 ### Community 97 - "10. Billing, Plans & Payments"
 Cohesion: 0.15
@@ -827,9 +833,9 @@ Nodes (8): AdminUserQueryDto, IsIn, IsNumber, IsOptional, IsString, Max, Min, Ty
 Cohesion: 0.04
 Nodes (46): accordion, Accordion.Content → Accordion.Panel, Accordion.Header → Accordion.Header, Accordion.Item → Accordion.Item, Accordion.Root → Accordion.Root, Accordion.Trigger → Accordion.Trigger, Base UI only props worth knowing, Base UI only props worth knowing (+38 more)
 
-### Community 106 - "CreateOrderDto"
-Cohesion: 0.21
-Nodes (11): CreateOrderDto, OrderItemDto, IsArray, IsEnum, IsNotEmpty, IsNumber, IsObject, IsOptional (+3 more)
+### Community 106 - "ai-tools.executor.ts"
+Cohesion: 0.05
+Nodes (42): InjectModel, Optional, EventsService, Injectable, InjectModel, EventType, AUTHORITY_ESCALATION_FLAGGED, CART_UPDATED (+34 more)
 
 ### Community 107 - "2. Architectural Mismatches & Technical Fixes"
 Cohesion: 0.20
@@ -843,9 +849,9 @@ Nodes (7): IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength, UpdateAd
 Cohesion: 0.20
 Nodes (9): Compile and run the project, Deployment, Description, License, Project setup, Resources, Run tests, Stay in touch (+1 more)
 
-### Community 110 - "DomainException"
-Cohesion: 0.04
-Nodes (20): InjectModel, Optional, InjectModel, DomainException, ShopifyTokenService, Injectable, InjectModel, InjectModel (+12 more)
+### Community 110 - "BusinessDocument"
+Cohesion: 0.06
+Nodes (17): InjectModel, InjectModel, ShopifyTokenService, Injectable, InjectModel, ShopifyOAuthError, Get, Query (+9 more)
 
 ### Community 111 - "ORA — Final Architecture (v6)"
 Cohesion: 0.22
@@ -856,8 +862,8 @@ Cohesion: 0.22
 Nodes (9): devDependencies, eslint, ts-loader, tsconfig-paths, @types/ejs, eslint, ts-loader, tsconfig-paths (+1 more)
 
 ### Community 113 - "CreatePlatformUserDto"
-Cohesion: 0.25
-Nodes (7): CreatePlatformUserDto, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength
+Cohesion: 0.22
+Nodes (8): Post, CreatePlatformUserDto, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength
 
 ### Community 115 - "11. Widget Delivery & Injection Architecture"
 Cohesion: 0.25
@@ -867,29 +873,29 @@ Nodes (8): 11.1 Why this needs its own section, 11.2 Two-Stage Loader Pattern, 1
 Cohesion: 0.25
 Nodes (7): collection, compilerOptions, assets, deleteOutDir, entryFile, $schema, sourceRoot
 
-### Community 117 - "knowledge.service.ts"
-Cohesion: 0.05
-Nodes (51): AgentProfileService, Injectable, InjectModel, BUSINESS_ARCHETYPES, BusinessArchetype, DEFAULT_ARCHETYPE, isBusinessArchetype(), LEGACY_ARCHETYPE_ALIASES (+43 more)
+### Community 117 - "CreateApiClientDto"
+Cohesion: 0.22
+Nodes (8): CreateApiClientDto, ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength
 
 ### Community 118 - "Param"
-Cohesion: 0.21
+Cohesion: 0.20
 Nodes (3): Body, Param, Patch
 
 ### Community 119 - "🎨 Design System — ORA Violet / Cyan Palette"
 Cohesion: 0.29
 Nodes (6): Color Tokens, 🎨 Design System — ORA Violet / Cyan Palette, 🚫 Non-Negotiable Directives, Palette Usage Rules, Project Architecture & Always-On Coding Rules, Surface Elevation Scale (Dark Mode)
 
-### Community 120 - "JwtPayloadUser"
-Cohesion: 0.06
-Nodes (36): Header, Get, Delete, Get, Param, UseGuards, CurrentUser, JwtPayloadUser (+28 more)
+### Community 120 - "CurrentUser"
+Cohesion: 0.09
+Nodes (23): CurrentUser, Get, HttpCode, Param, Post, Query, IsBoolean, IsOptional (+15 more)
 
 ### Community 121 - "scripts"
 Cohesion: 0.20
 Nodes (10): scripts, build, dev, format, lint, prebuild, predev, start (+2 more)
 
-### Community 122 - "UpdatePlatformAgentDto"
-Cohesion: 0.22
-Nodes (6): IsBoolean, IsIn, IsOptional, IsString, MaxLength, UpdatePlatformAgentDto
+### Community 122 - "doctor.md"
+Cohesion: 0.25
+Nodes (7): Monorepo notes, Opting out of the boot check, Step 1: Run the pass, Step 2: Act by severity, Step 3: Deprecated fields are binding, Step 4: Do not overclaim on truth drift, What this owns, and what it does not
 
 ### Community 123 - "sitemap.ts"
 Cohesion: 0.67
@@ -899,13 +905,13 @@ Nodes (3): KNOWLEDGE_FILES, publicFileLastModified(), sitemap()
 Cohesion: 0.04
 Nodes (44): Base UI only props worth knowing (checkbox), Base UI only props worth knowing (radio-group), Base UI only props worth knowing (select), Base UI only props worth knowing (slider), Base UI only props worth knowing (switch), checkbox, Checkbox.Indicator → Checkbox.Indicator, Checkbox.Root → Checkbox.Root (+36 more)
 
-### Community 125 - "plan-limit.guard.ts"
-Cohesion: 0.29
-Nodes (3): METERED_METRIC_KEY, PlanLimitGuard, Injectable
+### Community 125 - "knowledge.service.ts"
+Cohesion: 0.04
+Nodes (60): ALLOWED_UPLOAD_EXTENSIONS, InjectModel, ConversationsService, Injectable, InjectModel, ConversationChannel, API, WIDGET_CHAT (+52 more)
 
-### Community 126 - "product-upload-modal.tsx"
-Cohesion: 0.22
-Nodes (15): ProductUploadModal(), ProductUploadModalProps, TABS, crawlStoreApi(), ingestFeedApi(), manualIngestApi(), uploadProductFileApi(), batchSyncProductsApi() (+7 more)
+### Community 126 - "billing-service.ts"
+Cohesion: 0.11
+Nodes (26): BkashCallbackContent(), CurrentPlanCard(), CurrentPlanCardProps, PlanComparisonGrid(), PlanComparisonGridProps, UsageDashboard(), UsageDashboardProps, RecentOrder (+18 more)
 
 ### Community 127 - "UpdateSessionLimitDto"
 Cohesion: 0.33
@@ -923,9 +929,9 @@ Nodes (6): 2.1 Widget (Browser, on Merchant's Site), 2.2 Gateway Layer, 2.3 Core
 Cohesion: 0.04
 Nodes (44): Base UI only props worth knowing (checkbox), Base UI only props worth knowing (radio-group), Base UI only props worth knowing (select), Base UI only props worth knowing (slider), Base UI only props worth knowing (switch), checkbox, Checkbox.Indicator → Checkbox.Indicator, Checkbox.Root → Checkbox.Root (+36 more)
 
-### Community 131 - "read-only-fence.tsx"
-Cohesion: 0.19
-Nodes (12): DOCUMENT_CATEGORIES, DocumentsFeedTab(), DocumentsFeedTabProps, KNOWLEDGE_CATEGORIES, TextFeedTab(), TextFeedTabProps, ReadOnlyContext, ReadOnlyFence() (+4 more)
+### Community 131 - "SessionTimerService"
+Cohesion: 0.07
+Nodes (18): METERED_METRIC_KEY, PlanLimitGuard, Injectable, ConversationGateway, ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway (+10 more)
 
 ### Community 132 - "client/package.json"
 Cohesion: 0.40
@@ -943,13 +949,9 @@ Nodes (5): 8.1 State Management, 8.2 Security, 8.3 Scaling, 8.4 Tech Stack, 8. C
 Cohesion: 0.08
 Nodes (22): Assess Adaptation Challenge, Implement & Verify, 1. Accessibility (VoiceOver / TalkBack), 2. Performance, 3. Appearance & Theming, 4. Platform Conformance (CRITICAL), 5. Adaptivity, Diagnostic Scan (+14 more)
 
-### Community 137 - ".executeUserAction"
-Cohesion: 0.18
-Nodes (6): Delete, Post, Req, AdminUserActionDto, IsIn, IsNotEmpty
-
 ### Community 138 - "setup-guide-client.tsx"
-Cohesion: 0.05
-Nodes (60): metadata, AGENT_ROLES, AgentHub(), AgentRoleCard, FAQS, TopHeader(), TopHeaderProps, AppLink() (+52 more)
+Cohesion: 0.06
+Nodes (54): metadata, AGENT_ROLES, AgentHub(), AgentRoleCard, FAQS, ReadOnlyFence(), DashboardGuard(), checkAccess() (+46 more)
 
 ### Community 139 - "Next.js template"
 Cohesion: 0.50
@@ -975,13 +977,13 @@ Nodes (3): FileUploadDto, IsOptional, IsString
 Cohesion: 0.05
 Nodes (38): 1. Authentication & Security Architecture, 2. Shopify to ORA Data Mapping, 3.1 Batch Catalog Sync (Primary Shopify Sync Method), 3.2 Create Single Product, 3.3 List / Search Products, 3.4 Get Product by ID, 3.5 Update / Override Product, 3.6 Live Price & Stock Reconciliation (+30 more)
 
-### Community 146 - "ProviderSubscriptionRef"
-Cohesion: 0.17
-Nodes (4): ChargeResult, PaymentProvider, ProviderSubscriptionRef, ShopifySubscriptionResult
+### Community 146 - ".revokeClient"
+Cohesion: 0.25
+Nodes (4): Delete, Get, Param, UseGuards
 
-### Community 147 - "index.ts"
-Cohesion: 0.10
-Nodes (18): getSessionStrategy(), isShopifyContext(), shopifyStrategy, webStrategy, getShopifySession(), isEmbedded(), OraSessionError, requestSession() (+10 more)
+### Community 147 - "shopify-session-provider.tsx"
+Cohesion: 0.09
+Nodes (22): metadata, ShopifySessionContext, ShopifySessionContextType, ShopifySessionProvider(), getSessionStrategy(), isShopifyContext(), shopifyStrategy, webStrategy (+14 more)
 
 ### Community 148 - "4. Proposed Changes — Backend"
 Cohesion: 0.06
@@ -999,61 +1001,57 @@ Nodes (15): ConversationWithInterrupts, example_interrupt_scenario(), Interrupti
 Cohesion: 0.06
 Nodes (29): Apply at system scale, Audit before choosing, Choose a strategy, Contrast and perception, Live-mode signature params, Verify, Visitor mode, Cleanup (+21 more)
 
-### Community 164 - "dual-auth.guard.ts"
-Cohesion: 0.14
-Nodes (19): SCOPES_KEY, ClientTokenPayload, MACHINE_TOKEN_AUDIENCE, RFC-6749, ApiClient, ApiClientSchema, ApiClientStatus, ACTIVE (+11 more)
+### Community 164 - "ApiScope"
+Cohesion: 0.16
+Nodes (18): SCOPES_KEY, ClientTokenPayload, MACHINE_TOKEN_AUDIENCE, RFC-6749, ApiClient, ApiClientDocument, ApiClientSchema, ApiClientStatus (+10 more)
 
 ### Community 165 - "Stage 1 — Local, no Shopify account"
 Cohesion: 0.07
 Nodes (29): 1.10 The install path, 1.1 Mint a session token, 1.2 Exchange it — and confirm the paywall holds, 1.3 Now entitle the store and repeat, 1.4 A non-Shopify tenant must be unaffected, 1.5 The storefront widget is gated too, 1.6 Rejection cases, 1.7 CORS (+21 more)
 
-### Community 166 - "ShopifyConnectorService"
-Cohesion: 0.10
-Nodes (12): InjectModel, ManualConnectorService, Injectable, InjectModel, ShopifyConnectorService, Injectable, Injectable, InjectModel (+4 more)
+### Community 166 - ".constructor"
+Cohesion: 0.29
+Nodes (4): OnboardingEmailService, Injectable, Inject, InjectModel
 
 ### Community 170 - "showToast"
 Cohesion: 0.11
 Nodes (26): abandonForeignSession(), applyOriginalAttrsToSvelteAnchor(), commitAcceptedSvelteComponentToDom(), componentModuleCandidates(), describeMountFailure(), detectDevServerBase(), discardOrphanedSession(), dismissToast() (+18 more)
 
 ### Community 171 - "ShopifyController"
-Cohesion: 0.24
-Nodes (9): ShopifyController, Body, Controller, Headers, HttpCode, Param, Post, Req (+1 more)
+Cohesion: 0.17
+Nodes (11): ShopifyComplianceService, Injectable, ShopifyController, Body, Controller, Headers, HttpCode, Param (+3 more)
 
 ### Community 175 - "handleManualEditActivity"
 Cohesion: 0.16
 Nodes (26): clearStoredManualApplyState(), fetchPendingCount(), handleManualEditActivity(), hasTextRows(), hidePendingApplyDock(), manualApplyLoadingText(), manualApplyStateKey(), manualEditEventForCurrentPage() (+18 more)
 
-### Community 178 - "user-input.controller.ts"
-Cohesion: 0.14
-Nodes (13): SubmitDocumentDto, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, SubmitPromptDto (+5 more)
+### Community 178 - "demo-data.ts"
+Cohesion: 0.08
+Nodes (29): metadata, metadata, metadata, metadata, BillingClient(), BillingClientContent(), InvoiceHistory(), InvoiceHistoryProps (+21 more)
 
-### Community 181 - "DashboardService"
-Cohesion: 0.22
-Nodes (7): DashboardController, Controller, Get, Query, UseGuards, DashboardService, Injectable
+### Community 181 - "InvoicesController"
+Cohesion: 0.17
+Nodes (9): Header, InvoicesController, Controller, Get, HttpCode, Param, Post, Query (+1 more)
 
 ### Community 184 - "Shopify Embedded App — Implementation Record"
 Cohesion: 0.07
 Nodes (26): A doc error this exposed, Compliance webhooks, CORS, CORS: credentials off, origins open, Deployment wiring (2026-09-10, after reading the VPS config), Embedded app build verification (2026-09-10), Embedded frontend — `packages/shopify-app/`, Expected local diff after a build (+18 more)
 
-### Community 185 - "pricing/page.tsx"
-Cohesion: 0.28
-Nodes (6): metadata, JsonLd(), JsonLdProps, oraFaqSchema, oraOrganizationSchema, oraSoftwareSchema
+### Community 185 - "agent-header.tsx"
+Cohesion: 0.43
+Nodes (5): AgentHeader(), AgentHeaderProps, SECTION_HEADERS, Button(), buttonVariants
 
 ### Community 187 - "multi_provider_factory_template.py"
 Cohesion: 0.12
 Nodes (15): example_usage(), Template: Multi-Provider Factory Use this template to create a factory that…, # TODO: Implement Deepgram transcriber, # TODO: Implement AssemblyAI transcriber, # TODO: Implement Azure transcriber, # TODO: Implement Google transcriber, # TODO: Implement OpenAI agent, # TODO: Implement Gemini agent (+7 more)
 
-### Community 188 - "StripeProvider"
-Cohesion: 0.25
-Nodes (3): StripeProvider, Injectable, InjectModel
+### Community 188 - "usage-tracking.service.ts"
+Cohesion: 0.09
+Nodes (24): CostBreakdown, CostCalculatorService, Injectable, UsageMetricsPayload, DailyUsageSummary, DailyUsageSummaryDocument, DailyUsageSummarySchema, Prop (+16 more)
 
-### Community 190 - "CreateApiClientDto"
-Cohesion: 0.22
-Nodes (8): CreateApiClientDto, ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength
-
-### Community 191 - "integration-preview.tsx"
-Cohesion: 0.21
-Nodes (12): IntegrationPreview(), IntegrationPreviewProps, PLATFORMS, PlatformTab, SnippetFormat, WidgetPosition, neverChanges(), serverUrlSnapshot() (+4 more)
+### Community 190 - "ReadabilityExtractor"
+Cohesion: 0.20
+Nodes (5): ReadabilityExtractor, Injectable, SitemapCrawlerProcessor, Processor, DiscoveredUrlKind
 
 ### Community 193 - "Voice Knowledge Auto-Categorization Plan: Universal Business Generalization & Zero-Friction Ingestion"
 Cohesion: 0.07
@@ -1063,13 +1061,21 @@ Nodes (26): 1. Executive Summary & Vision, 1. No Upfront Category Selector, 2. I
 Cohesion: 0.08
 Nodes (25): Assess Adaptation Challenge, Breakpoints: Content-Driven, Content Adaptation, Desktop Adaptation (Mobile → Desktop), Detect Input Method, Not Just Screen Size, Email Adaptation (Web → Email), Implement Adaptations, Layout Adaptation Patterns (+17 more)
 
-### Community 196 - "solutions-section.tsx"
-Cohesion: 0.50
-Nodes (3): platforms, SolutionsSection(), STATUS
+### Community 195 - "SubscriptionStatus"
+Cohesion: 0.33
+Nodes (6): SubscriptionStatus, ACTIVE, CANCELED, PAST_DUE, SUSPENDED, TRIALING
 
-### Community 200 - "archetype-capabilities.ts"
-Cohesion: 0.16
-Nodes (13): getToolsForArchetype(), ORA_TOOL_DECLARATIONS, AgentCapability, AgentCapabilityContext, BASE_TOOL_NAMES, COMMERCE_ARCHETYPE, COMMERCE_TOOL_NAMES, NON_COMMERCE_ARCHETYPES (+5 more)
+### Community 196 - "ApiKeyGuard"
+Cohesion: 0.40
+Nodes (3): ApiKeyGuard, Injectable, InjectModel
+
+### Community 198 - "shopify-plan-gate.tsx"
+Cohesion: 0.26
+Nodes (9): metadata, ShopifyAppHomePage(), BILLING_ROLES, formatInterval(), formatPrice(), HIDDEN_PLAN_IDS, ShopifyPlanGate(), useShopifySession() (+1 more)
+
+### Community 200 - "gemini-voice.service.ts"
+Cohesion: 0.07
+Nodes (30): AgentConfigService, Injectable, GeminiVoiceService, GeminiVoiceSessionOptions, LEGACY_VOICE_MAP, normalizeGeminiVoice(), TRAINING_TOOL_NAMES, Injectable (+22 more)
 
 ### Community 202 - "IngestVoiceTranscriptDto"
 Cohesion: 0.20
@@ -1107,33 +1113,37 @@ Nodes (20): Animate complex properties, Assess What "Extraordinary" Means Here, 
 Cohesion: 0.17
 Nodes (9): AgentResponse, GeminiAgent, Example: Complete Voice AI Engine Implementation This example demonstrates a…, Process audio chunk and generate transcription, LLM-powered conversational agent using Google Gemini, Process transcription and generate response, Generate streaming response from LLM, # IMPORTANT: Buffer entire response before yielding (+1 more)
 
-### Community 217 - "Operate mode depth (and Read notes)"
-Cohesion: 0.22
-Nodes (9): Color, Components, Layout, Motion, Operate mode depth (and Read notes), Product constraints, Product permissions, The product slop test (+1 more)
+### Community 217 - "auth.controller.ts"
+Cohesion: 0.07
+Nodes (25): Length, ForgotPasswordDto, IsEmail, IsNotEmpty, LoginDto, IsEmail, IsNotEmpty, IsString (+17 more)
+
+### Community 218 - "ingestion.controller.spec.ts"
+Cohesion: 0.05
+Nodes (24): InjectModel, DomSemanticStructurerService, Injectable, FeedParserService, Injectable, ManualConnectorService, Injectable, InjectModel (+16 more)
+
+### Community 219 - "AdminUserActionDto"
+Cohesion: 0.50
+Nodes (3): AdminUserActionDto, IsIn, IsNotEmpty
 
 ### Community 220 - "resolveLiveInjectionAnchor"
 Cohesion: 0.16
 Nodes (19): buildSvelteExpressionTextMap(), buildSveltePropValuesFromLiveElement(), buildSveltePropValuesV2(), cloneWithoutElements(), collectTextNodes(), collectVisibleTexts(), cssEscapeIdent(), elementMatchesOriginalMarkup() (+11 more)
 
-### Community 222 - "RedisService"
-Cohesion: 0.06
-Nodes (40): bcrypt, AuthService, AuthTokens, Injectable, Optional, JwtStrategy, Injectable, ApiKeyGuard (+32 more)
+### Community 222 - "shopify.service.ts"
+Cohesion: 0.08
+Nodes (33): bcrypt, AuthTokens, OnboardingEmailPayload, JwtStrategy, Injectable, ShopifyRefreshedTokens, shopifyTokenServiceDouble(), shopifyTokenServiceProvider() (+25 more)
 
-### Community 223 - "doctor.md"
-Cohesion: 0.25
-Nodes (7): Monorepo notes, Opting out of the boot check, Step 1: Run the pass, Step 2: Act by severity, Step 3: Deprecated fields are binding, Step 4: Do not overclaim on truth drift, What this owns, and what it does not
+### Community 223 - "EntitlementModule"
+Cohesion: 0.67
+Nodes (3): EntitlementModule, Global, Module
 
 ### Community 224 - "createLiveBrowserSessionState"
 Cohesion: 0.21
 Nodes (15): createLiveBrowserSessionState(), clearHandled(), clearScrollY(), clearSession(), isHandled(), loadSession(), markHandled(), nextCheckpointRevision() (+7 more)
 
-### Community 226 - "seed-dev-store.ts"
-Cohesion: 0.40
-Nodes (4): BusinessMongooseSchema, envPath, IBusiness, seedDevStore()
-
-### Community 227 - "migrate-hash-secret-keys.ts"
-Cohesion: 0.50
-Nodes (3): dryRun, ENCRYPTED_FIELDS, envPath
+### Community 226 - "DualAuthGuard"
+Cohesion: 0.15
+Nodes (7): BusinessMongooseSchema, envPath, IBusiness, seedDevStore(), DualAuthGuard, Injectable, ApiKeyUtil
 
 ### Community 228 - "Commands"
 Cohesion: 0.12
@@ -1239,9 +1249,9 @@ Nodes (12): Action → (no primitive), alert-dialog, Base UI only props worth kn
 Cohesion: 0.17
 Nodes (11): Configuring Registries, Setup, `shadcn:get_add_command_for_items`, `shadcn:get_audit_checklist`, `shadcn:get_item_examples_from_registries`, `shadcn:get_project_registries`, `shadcn:list_items_in_registries`, shadcn MCP Server (+3 more)
 
-### Community 255 - "auth.controller.ts"
-Cohesion: 0.07
-Nodes (35): Length, AuthController, Body, Controller, Get, HttpCode, Post, Query (+27 more)
+### Community 255 - "AuthController"
+Cohesion: 0.24
+Nodes (10): AuthController, Body, Controller, Get, HttpCode, Post, Query, Req (+2 more)
 
 ### Community 258 - "toast"
 Cohesion: 0.18
@@ -1583,25 +1593,41 @@ Nodes (4): KNOWN_ARCHETYPES, LEGACY_ALIASES, main(), resolveArchetype()
 Cohesion: 0.50
 Nodes (3): LLMProvider, Abstract base class for LLM providers, Generate response from messages
 
+### Community 377 - "JsonLdExtractor"
+Cohesion: 0.42
+Nodes (3): JsonLdExtractor, Injectable, ExtractedProduct
+
+### Community 382 - "SitemapDiscoveryService"
+Cohesion: 0.27
+Nodes (3): SitemapDiscoveryService, Injectable, DiscoveredUrl
+
+### Community 383 - "PlatformSnifferService"
+Cohesion: 0.36
+Nodes (3): PlatformSnifferService, Injectable, PlatformDetectionResult
+
+### Community 385 - "PassiveIngestDto"
+Cohesion: 0.25
+Nodes (6): PassiveIngestDto, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString
+
 ## Knowledge Gaps
 - **2354 isolated node(s):** `MockTranscription`, `metadata`, `metadata`, `metadata`, `metadata` (+2349 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **79 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **75 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `bcrypt` connect `RedisService` to `server/package.json`?**
-  _High betweenness centrality (0.010) - this node is a cross-community bridge._
-- **Why does `onlyBuiltDependencies` connect `server/package.json` to `RedisService`?**
-  _High betweenness centrality (0.010) - this node is a cross-community bridge._
+- **Why does `bcrypt` connect `shopify.service.ts` to `server/package.json`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+- **Why does `onlyBuiltDependencies` connect `server/package.json` to `shopify.service.ts`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **What connects `MockTranscription`, `metadata`, `metadata` to the rest of the system?**
   _2354 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `product-catalog-table.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.08194905869324474 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06440677966101695 - nodes in this community are weakly interconnected._
 - **Should `billing.service.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.034453781512605045 - nodes in this community are weakly interconnected._
-- **Should `widget.84e5bd7e39cd.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.09796806966618288 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09131205673758866 - nodes in this community are weakly interconnected._
+- **Should `widget.242e2c584aa8.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.07989464442493416 - nodes in this community are weakly interconnected._
 - **Should `auth-service.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.07002012072434607 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05355276907001045 - nodes in this community are weakly interconnected._

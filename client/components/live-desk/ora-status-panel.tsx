@@ -23,11 +23,11 @@ export function OraStatusPanel({ health }: OraStatusPanelProps) {
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between bg-transparent">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h3 className="text-[12px] font-mono font-semibold uppercase tracking-wider text-foreground">
+          <h3 className="text-[12px] font-semibold uppercase tracking-wider text-foreground">
             Service Health
           </h3>
         </div>
-        <span className="text-[10.5px] font-mono text-muted-foreground">
+        <span className="text-[10.5px] text-muted-foreground uppercase tracking-wider">
           {isAllOnline ? 'OPERATIONAL' : 'DEGRADED'}
         </span>
       </div>
@@ -37,7 +37,7 @@ export function OraStatusPanel({ health }: OraStatusPanelProps) {
         {services.slice(0, 4).map((svc) => (
           <li key={svc.name} className="flex justify-between items-center text-[12px]">
             <span className="text-muted-foreground">{svc.name}</span>
-            <div className="flex items-center gap-2 font-mono">
+            <div className="flex items-center gap-2 tabular-nums">
               <span className="text-[10.5px] text-muted-foreground/80">{svc.latency}</span>
               <span className="inline-flex items-center gap-1 text-[11px] text-foreground font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />

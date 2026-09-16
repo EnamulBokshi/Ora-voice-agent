@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               >
                 <Menu size={16} />
               </button>
-              <span className="text-[13px] font-semibold text-foreground tracking-tight font-serif">ORA</span>
+              <span className="text-[13px] font-semibold text-foreground tracking-tight">ORA</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[color:var(--status-online)]" title="System operational" />

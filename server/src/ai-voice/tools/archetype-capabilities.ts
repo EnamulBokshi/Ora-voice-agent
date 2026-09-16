@@ -44,8 +44,6 @@ export const COMMERCE_TOOL_NAMES = [
   'find_products',
   'get_product_details',
   'add_to_cart',
-  'place_order',
-  'redirect_to_checkout',
   'navigate_to_page',
   'search_knowledge_base',
   'get_store_policy',
@@ -126,10 +124,6 @@ export const TOOL_USAGE_HINTS: Record<string, string> = {
     '   - get_product_details: When the visitor asks for specific details or a full description of an item.',
   add_to_cart:
     '   - add_to_cart: When the visitor asks to add an item to their cart.',
-  place_order:
-    '   - place_order: When the visitor explicitly asks to buy or place an order.',
-  redirect_to_checkout:
-    '   - redirect_to_checkout: When the visitor asks to check out or complete their order.',
   capture_sales_lead:
     '   - capture_sales_lead: When the visitor shares their name, email, phone, or requirements for follow-up.',
   search_knowledge_base:

@@ -37,7 +37,7 @@ export function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
     <div className="overflow-x-auto no-scrollbar">
       <table className="w-full text-[12.5px] border-collapse">
         <thead>
-          <tr className="border-b border-border/40 text-muted-foreground text-[11px] font-mono uppercase tracking-wider">
+          <tr className="border-b border-border/40 text-muted-foreground text-[11px] uppercase tracking-wider">
             <th className="py-2.5 px-2 text-left font-medium">Order ID</th>
             <th className="py-2.5 px-2 text-left font-medium">Status</th>
             <th className="py-2.5 px-2 text-right font-medium">Amount</th>
@@ -52,7 +52,7 @@ export function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                 key={order._id}
                 className="hover:bg-surface-high/30 transition-colors"
               >
-                <td className="py-3 px-2 font-mono text-foreground font-medium text-[12px]">
+                <td className="py-3 px-2 text-foreground font-medium text-[12px] tabular-nums">
                   {order.orderNumber}
                 </td>
                 <td className="py-3 px-2">
@@ -61,10 +61,10 @@ export function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                     <span className={sc.text}>{sc.label}</span>
                   </span>
                 </td>
-                <td className="py-3 px-2 text-right tabular-nums text-foreground font-semibold font-mono text-[12px]">
+                <td className="py-3 px-2 text-right tabular-nums text-foreground font-semibold text-[12px]">
                   {formatCurrency(order.totalAmount, order.currency)}
                 </td>
-                <td className="py-3 px-2 text-right text-muted-foreground font-mono text-[11px] whitespace-nowrap">
+                <td className="py-3 px-2 text-right text-muted-foreground text-[11px] whitespace-nowrap tabular-nums">
                   {formatDateTime(order.createdAt)}
                 </td>
               </tr>

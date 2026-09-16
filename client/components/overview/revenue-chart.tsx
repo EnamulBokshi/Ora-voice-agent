@@ -82,12 +82,12 @@ export function RevenueChart({
             Total Attributed Revenue
           </span>
           <div className="flex items-baseline gap-2.5">
-            <span className="text-xl sm:text-[26px] font-semibold font-serif tabular-nums text-foreground">
+            <span className="text-xl sm:text-[26px] font-semibold tabular-nums text-foreground">
               {formatCurrency(displayRevenue)}
             </span>
             <span
               className={cn(
-                'text-[12px] font-semibold font-mono flex items-center gap-0.5',
+                'text-[12px] font-semibold tabular-nums flex items-center gap-0.5',
                 isPos
                   ? 'text-foreground dark:text-primary'
                   : 'text-red-500 dark:text-red-400',
@@ -204,7 +204,7 @@ export function RevenueChart({
         )}
 
         {/* X-axis Labels */}
-        <div className="flex justify-between text-[11.5px] text-muted-foreground/80 font-mono pt-3 px-1 border-t border-border/20">
+        <div className="flex justify-between text-[11.5px] text-muted-foreground/80 tabular-nums pt-3 px-1 border-t border-border/20">
           {activeData.map((d, i) => (
             <span key={i}>{d.label}</span>
           ))}

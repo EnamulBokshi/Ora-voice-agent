@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { ArrowRight, Radio } from 'lucide-react';
 import { AppLink } from '@/components/navigation/app-link';
 
@@ -44,7 +43,7 @@ export function StatusStrip({
               type="button"
               onClick={onToggleWidget}
               disabled={isTogglingWidget}
-              className={`ml-1 text-[11px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer touch-manipulation ${
+              className={`ml-1 text-[11px] font-medium px-2 py-0.5 rounded border transition-colors cursor-pointer touch-manipulation ${
                 isWidgetActive
                   ? 'border-border/60 text-muted-foreground hover:text-foreground hover:bg-surface-high'
                   : 'border-emerald-500/40 text-emerald-400 dark:text-primary bg-emerald-500/10 hover:bg-emerald-500/20'
@@ -58,15 +57,15 @@ export function StatusStrip({
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
-        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[11.5px] sm:text-[12px]">
-          <span className="font-semibold text-foreground">{voiceSessions}</span>
-          <span>live calls</span>
+        <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px] sm:text-[12px]">
+          <span className="font-semibold text-foreground tabular-nums">{voiceSessions}</span>
+          <span>live sessions</span>
         </div>
 
         <span className="text-border/60 hidden sm:inline">·</span>
 
-        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[11.5px] sm:text-[12px]">
-          <span className="font-semibold text-foreground">{productsCount.toLocaleString()}</span>
+        <div className="flex items-center gap-1.5 text-muted-foreground text-[11.5px] sm:text-[12px]">
+          <span className="font-semibold text-foreground tabular-nums">{productsCount.toLocaleString()}</span>
           <span>products</span>
         </div>
       </div>

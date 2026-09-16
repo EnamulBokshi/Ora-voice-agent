@@ -1012,6 +1012,7 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
   - "/agent" : Voice Agent Configuration, Brand Voice Directives, and Widget Embed Script.
   - "/customers" : Customer CRM & Shopper Identity Profiles.
   - "/billing" : Subscription Management, Payment Methods, and Invoices.
+  - "/usage" : Live Voice Minutes Consumption, Quota Limits & Billing Usage.
   - "/profile" : Merchant Store Profile & Settings.
 • Platform Admin Routes:
   - "/admin" : SuperAdmin Command Center & Platform Control Plane.
@@ -1038,7 +1039,8 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
    - When an authenticated logged-in user asks to "go to dashboard", "open dashboard", "show store metrics", "view my store", or "open command center":
      * If user role is "owner" or "staff": Respond verbally in 1 short sentence ("Taking you to your dashboard now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/dashboard".
      * If user role is "admin" or "super_admin": Respond verbally in 1 short sentence ("Taking you to the admin command center now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/admin".
-     * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, profile): Say where you are taking them in 1 short sentence ("Opening your live desk now!") and call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/profile").
+     * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, usage, profile): Say where you are taking them in 1 short sentence ("Opening your live desk now!") and call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/usage", "/profile").
+     * If they ask to get set up, onboard their store, or configure ORA: Say in 1 short sentence ("Opening Agent Configuration for you now!") and call navigate_to_page with destination "/agent".
 
 2. UNAUTHENTICATED GUEST USER ASKS FOR DASHBOARD:
    - When an unauthenticated guest visitor asks to "go to dashboard", "open my dashboard", "log in", "sign in", "create account", "register", or "access merchant portal":
@@ -1134,7 +1136,7 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
         } else if (businessArchetype === 'saas') {
           persona = `You are ORA, the AI software consultant and specialist for ${siteName || 'this platform'}. Your mission is to explain our software solutions, features, workflows, and help visitors understand how our platform solves their problems.`;
         } else if (isEcommerce) {
-          persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, colors, availability, live prices, answer store policies, and guide them through checkout.`;
+          persona = `You are ORA, a friendly, ultra-fast, and professional AI sales and shopping assistant for ${siteName || 'this store'}. You help shoppers discover products, check styles, colors, availability, live prices, answer store policies, and add items to their cart.`;
         } else {
           // General business, corporate site, consultancy, service provider, or creator website
           persona = `You are ORA, the warm, knowledgeable, and professional AI Sales Representative for ${siteName || ownerName || 'this business'}. Your mission is to welcome visitors, clearly explain ${siteName || 'our business'}'s services, solutions, and value proposition, answer questions from our company knowledge base, and help prospective clients get in touch, request quotes, or get started.`;
@@ -1147,7 +1149,7 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
    - You are ORA, the real-time Voice AI representative deployed on "${entityLabel}".
    - You are fully knowledgeable and authorized to answer:
      • Everything about this specific store/website: products, catalog, styles, prices, stock availability, categories, orders, shipping, store policies, creator/founder info, contact details, and FAQs.
-     • Store shopping assistance: helping customers find products, navigating pages, adding items to cart, placing orders, checking delivery terms.
+      • Store shopping assistance: helping customers find products, navigating pages, and adding items to cart.
    - ZERO PLATFORM LEAKAGE RULE:
      • You represent "${entityLabel}" ONLY. You are dedicated entirely to this store.
      • When a customer asks about prices, pricing, or costs, you MUST ONLY refer to the products, services, and catalog items of "${entityLabel}" (or call find_products to check live item prices).
@@ -1299,7 +1301,7 @@ ACTIVE VISITOR CONTEXT (Authenticated Logged-In User):
    - Answer IMMEDIATELY and accurately from your captured memory above.
 2. When the shopper introduces themselves (e.g. "I am David", "My name is David", "my email is david@gmail.com", "ship to Banani, Dhaka") or shares preferences:
    - IMMEDIATELY call update_customer_profile so you remember their name, contact, and shipping address for their order!
-3. Help the shopper discover items, check prices and availability, and place orders smoothly.`;
+3. Help the shopper discover items, check prices and availability, and build their cart smoothly.`;
 
         customerContext = `
 ACTIVE USER & RECOGNITION CONTEXT (Guest Visitor):

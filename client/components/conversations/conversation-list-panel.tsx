@@ -29,9 +29,9 @@ export function ConversationListPanel({
   const completedCount = conversations.filter((c) => c.status === 'completed').length;
 
   const tabs: { id: 'all' | 'active' | 'completed'; label: string; count: number }[] = [
-    { id: 'all',       label: 'All Calls',    count: allCount },
-    { id: 'active',    label: 'Live Active',  count: activeCount },
-    { id: 'completed', label: 'Archived',     count: completedCount },
+    { id: 'all',       label: 'All Conversations', count: allCount },
+    { id: 'active',    label: 'Live Active',       count: activeCount },
+    { id: 'completed', label: 'Archived',          count: completedCount },
   ];
 
   return (
@@ -45,8 +45,8 @@ export function ConversationListPanel({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search voice calls…"
-            className="w-full bg-surface-high/40 border border-border/60 rounded-md py-1.5 pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors font-mono"
+            placeholder="Search conversations…"
+            className="w-full bg-surface-high/40 border border-border/60 rounded-md py-1.5 pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground transition-colors"
           />
           {searchQuery && (
             <button
@@ -74,7 +74,7 @@ export function ConversationListPanel({
                 )}
               >
                 <span>{t.label}</span>
-                <span className="text-[10.5px] font-mono text-muted-foreground/70">
+                <span className="text-[10.5px] text-muted-foreground/70 tabular-nums">
                   {t.count}
                 </span>
               </button>
@@ -83,11 +83,11 @@ export function ConversationListPanel({
         </div>
       </div>
 
-      {/* ── Voice Call Rows List ── */}
+      {/* ── Conversation Rows List ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar divide-y divide-border/30 bg-transparent">
         {conversations.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground px-4">
-            <p className="font-medium text-foreground">No voice calls match</p>
+            <p className="font-medium text-foreground">No conversations match</p>
             <p className="text-[11.5px] text-muted-foreground/70 mt-1">
               Try adjusting your search query or filter.
             </p>

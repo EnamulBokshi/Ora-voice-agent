@@ -29,7 +29,7 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, Database, ArrowRight, ExternalLink, Sliders, PhoneCall, SlidersHorizontal, MessageSquare, Code2 } from 'lucide-react';
+import { Mic, FileText, Package, Database, ArrowRight, ExternalLink, Sliders, SlidersHorizontal, MessageSquare, Code2, PhoneCall } from 'lucide-react';
 import { IntegrationPreview } from '@/components/setup/previews/integration-preview';
 import Link from 'next/link';
 import { AppLink } from '@/components/navigation/app-link';
@@ -214,13 +214,13 @@ function AgentClientContent() {
             description="Talk to your agent exactly as a shopper would to preview storefront responses."
             previewSrc="/previews/agent-voice-role.jpg"
             previewAlt="Testing the ORA voice agent"
-            howLabel="Live test call"
+            howLabel="Live voice test"
             ctaNodes={
               <button
                 onClick={() => setIsVoiceModalOpen(true)}
                 className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
               >
-                Start test call <ArrowRight size={10} />
+                Start voice test <ArrowRight size={10} />
               </button>
             }
           >
@@ -228,10 +228,10 @@ function AgentClientContent() {
               <div className="max-w-2xl space-y-5">
                 <div className="rounded-md border border-border/50 p-6">
                   <div className="flex items-start gap-3">
-                    <PhoneCall size={16} className="text-foreground mt-0.5 flex-shrink-0" />
+                    <Mic size={16} className="text-primary mt-0.5 flex-shrink-0" />
                     <div className="min-w-0">
-                      <h3 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
-                        Start a live test call
+                      <h3 className="text-[13.5px] font-semibold text-foreground tracking-tight">
+                        Test your voice agent
                       </h3>
                       <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
                         This uses the same agent voice, persona, and knowledge base your
@@ -241,7 +241,7 @@ function AgentClientContent() {
                         onClick={() => setIsVoiceModalOpen(true)}
                         className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
                       >
-                        <Mic size={12} /> Start test call
+                        <Mic size={12} /> Start voice test
                       </button>
                     </div>
                   </div>
@@ -250,7 +250,7 @@ function AgentClientContent() {
                 <div className="rounded-md border border-border/50 p-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-border/40">
                     <MessageSquare size={13} className="text-foreground" />
-                    <span className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                    <span className="text-[13.5px] font-semibold text-foreground tracking-tight">
                       What to ask
                     </span>
                   </div>
@@ -265,7 +265,7 @@ function AgentClientContent() {
                 <div className="rounded-md border border-border/50 p-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-border/40">
                     <SlidersHorizontal size={13} className="text-foreground" />
-                    <span className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                    <span className="text-[13.5px] font-semibold text-foreground tracking-tight">
                       Updating answers
                     </span>
                   </div>

@@ -15,11 +15,11 @@ export function VoiceSessionsPanel({ sessions }: VoiceSessionsPanelProps) {
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between bg-transparent">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h3 className="text-[12px] font-mono font-semibold uppercase tracking-wider text-foreground">
-            Active Calls
+          <h3 className="text-[12px] font-semibold uppercase tracking-wider text-foreground">
+            Active Voice Sessions
           </h3>
         </div>
-        <span className="text-[10.5px] font-mono text-muted-foreground">
+        <span className="text-[10.5px] text-muted-foreground tabular-nums">
           {activeCount}
         </span>
       </div>
@@ -27,7 +27,7 @@ export function VoiceSessionsPanel({ sessions }: VoiceSessionsPanelProps) {
       {/* Sessions list */}
       {!sessions || sessions.length === 0 ? (
         <div className="p-4 text-center text-xs text-muted-foreground">
-          No calls active
+          No active voice sessions
         </div>
       ) : (
         <ul className="p-3 space-y-2 bg-transparent">
@@ -46,7 +46,7 @@ export function VoiceSessionsPanel({ sessions }: VoiceSessionsPanelProps) {
                 </div>
               </div>
 
-              <div className="text-[10.5px] font-mono text-muted-foreground tabular-nums flex-shrink-0">
+              <div className="text-[10.5px] text-muted-foreground tabular-nums flex-shrink-0">
                 {s.duration}
               </div>
             </li>

@@ -397,7 +397,7 @@ export function AdminOverviewView() {
                   <div className="pt-0.5">
                     <MetricDisplay value={`${voicePct}%`} size="md" className="text-primary" />
                   </div>
-                  <p className="text-xs text-muted-foreground tabular-nums">{voiceTotal.toLocaleString()} calls</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">{voiceTotal.toLocaleString()} voice sessions</p>
                 </div>
 
                 <div className="rounded-xl bg-surface-high border border-border/60 p-3.5 space-y-1.5">

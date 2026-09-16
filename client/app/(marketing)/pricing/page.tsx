@@ -8,7 +8,7 @@ import { JsonLd, oraSoftwareSchema } from '@/components/marketing/json-ld';
 export const metadata: Metadata = {
   title: 'Pricing & Subscription Plans | ORA AI Sales Assistant',
   description:
-    'Choose your ORA AI subscription plan. Multimodal 24/7 conversational voice agent with live product catalog intelligence and automated checkout.',
+    'Choose your ORA AI subscription plan. Multimodal 24/7 conversational voice agent with live product catalog intelligence and conversational shopping assistance.',
   alternates: {
     canonical: 'https://tryora.live/pricing',
   },

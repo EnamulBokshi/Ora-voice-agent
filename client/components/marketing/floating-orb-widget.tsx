@@ -1104,7 +1104,7 @@ export function FloatingOrbWidget() {
                   className="lp-orb-island-btn stop"
                   onClick={handleStop}
                   aria-label="End conversation"
-                  title="End Call"
+                  title="End Session"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                     <rect x="5" y="5" width="14" height="14" rx="2.5" />

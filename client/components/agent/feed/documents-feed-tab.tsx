@@ -108,7 +108,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
       <div className="flex items-center justify-between pb-4 border-b border-border/40">
         <div className="flex items-center gap-2">
           <FileText size={15} className="text-primary flex-shrink-0" />
-          <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+          <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
             Documents & Policies
           </h2>
         </div>
@@ -145,7 +145,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         {/* ── Row: Category + Title ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Category
             </label>
             <select
@@ -159,7 +159,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Title <span className="normal-case font-normal">(optional)</span>
             </label>
             <input
@@ -167,7 +167,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
               value={docTitle}
               onChange={(e) => setDocTitle(e.target.value)}
               placeholder="Auto-filled from file name"
-              className="w-full rounded-md border border-border/60 bg-surface-high/30 px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground focus:outline-none font-mono text-xs"
+              className="w-full rounded-md border border-border/60 bg-surface-high/30 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-foreground focus:outline-none"
             />
           </div>
         </div>
@@ -179,7 +179,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
               <label className="flex flex-col items-center justify-center h-32 rounded-md border border-dashed border-border/60 bg-surface-high/20 cursor-pointer hover:border-foreground/40 hover:bg-surface-high/40 transition-colors text-center px-4">
                 <UploadCloud size={20} className="text-muted-foreground mb-2" />
                 <span className="text-[13px] text-foreground font-medium">Drop file or click to browse</span>
-                <span className="text-[11px] font-mono text-muted-foreground mt-0.5">PDF, TXT, MD, CSV</span>
+                <span className="text-[11px] text-muted-foreground mt-0.5">PDF, TXT, MD, CSV</span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -192,7 +192,7 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
               <div className="flex items-center justify-between py-3 px-4 rounded-md border border-border/60 bg-surface-high/30">
                 <div>
                   <p className="text-[13px] font-medium text-foreground">{selectedFile.name}</p>
-                  <p className="text-[11px] font-mono text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground tabular-nums">
                     {(selectedFile.size / 1024).toFixed(1)} KB
                   </p>
                 </div>
@@ -209,10 +209,10 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
         ) : (
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                 Document Text
               </label>
-              <span className="text-[11px] text-muted-foreground/60 font-mono">
+              <span className="text-[11px] text-muted-foreground/60 tabular-nums">
                 {textContent.length} chars
               </span>
             </div>
@@ -221,25 +221,25 @@ export function DocumentsFeedTab({ onFed }: DocumentsFeedTabProps) {
               onChange={(e) => setTextContent(e.target.value)}
               rows={8}
               placeholder={activeCategory.placeholder}
-              className="w-full rounded-md border border-border/60 bg-surface-high/20 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-foreground focus:outline-none resize-none font-mono"
+              className="w-full rounded-md border border-border/60 bg-surface-high/20 p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-foreground focus:outline-none resize-none"
             />
           </div>
         )}
 
         {/* ── Error ── */}
         {error && (
-          <p className="text-[12px] text-red-400 font-mono">{error}</p>
+          <p className="text-[12px] text-red-400">{error}</p>
         )}
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between pt-2 border-t border-border/40">
           {savedMessage ? (
-            <span className="flex items-center gap-1.5 text-[12px] text-foreground font-mono">
+            <span className="flex items-center gap-1.5 text-[12px] text-foreground">
               <CheckCircle2 size={13} className="text-[color:var(--status-online)]" />
               {savedMessage}
             </span>
           ) : (
-            <span className="text-[11px] font-mono text-muted-foreground/60">
+            <span className="text-[11px] text-muted-foreground/60">
               PDF, TXT, MD, CSV supported
             </span>
           )}

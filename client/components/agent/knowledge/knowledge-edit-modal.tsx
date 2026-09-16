@@ -84,7 +84,7 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
               <Edit3 size={15} />
             </div>
             <div>
-              <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+              <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
                 Edit Knowledge Document
               </h2>
               <p className="text-[11.5px] text-muted-foreground mt-0.5">
@@ -146,7 +146,7 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
               <label className="text-xs font-semibold text-foreground">
                 Document Content
               </label>
-              <span className="text-[11px] text-muted-foreground font-mono">
+              <span className="text-[11px] text-muted-foreground tabular-nums">
                 {content.length} characters
               </span>
             </div>
@@ -155,7 +155,7 @@ export function KnowledgeEditModal({ doc, isOpen, onClose, onUpdated }: Knowledg
               onChange={(e) => setContent(e.target.value)}
               rows={9}
               placeholder="Enter full document rules, policy details, guidelines, or FAQ text..."
-              className="w-full rounded-md border border-border bg-surface-low p-3.5 text-xs font-mono leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none resize-none"
+              className="w-full rounded-md border border-border bg-surface-low p-3.5 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-foreground/40 focus:outline-none resize-none"
               required
             />
           </div>

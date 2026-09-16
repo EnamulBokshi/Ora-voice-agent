@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, Settings2 } from 'lucide-react';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { TopHeader } from '@/components/dashboard/top-header';
 import { ActivityFeed } from './activity-feed';
@@ -132,7 +131,7 @@ export function LiveDeskClient() {
         badge={
           // Reflects the polling state. This was hardcoded to "Live" with a green dot
           // and stayed that way after the merchant hit Pause.
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none font-mono">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-none text-[10.5px] font-bold tracking-wider uppercase bg-surface-high text-foreground border border-border/60 select-none">
             <span
               className={cn(
                 'w-1.5 h-1.5 rounded-none',
@@ -145,12 +144,9 @@ export function LiveDeskClient() {
         actions={
           <div className="flex items-center gap-4 text-[12px]">
             {/* Inline live metrics — voice agent only */}
-            <div className="hidden md:flex items-center gap-3 text-muted-foreground font-mono text-[11.5px]">
-              {/* An em dash when telemetry is unavailable. These used to default to 2 and 5,
-                  so a failed stats call asserted "2 live voice calls · 5 orders assisted"
-                  on a real-time monitoring surface. */}
+            <div className="hidden md:flex items-center gap-3 text-muted-foreground text-[11.5px] tabular-nums">
               <span>
-                <strong className="font-semibold text-foreground">{stats?.activeVoiceCalls ?? '—'}</strong> live voice calls
+                <strong className="font-semibold text-foreground">{stats?.activeVoiceCalls ?? '—'}</strong> active voice sessions
               </span>
               <span className="text-border">·</span>
               <span>
@@ -268,7 +264,7 @@ export function LiveDeskClient() {
           {/* Live Conversions */}
           <SalesActionsPanel actions={salesActions} />
 
-          {/* Active Voice Calls */}
+          {/* Active Voice Sessions */}
           <VoiceSessionsPanel sessions={voiceSessions} />
 
           {/* System Services Health */}

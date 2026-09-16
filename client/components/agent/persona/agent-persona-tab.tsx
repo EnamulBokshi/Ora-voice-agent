@@ -400,7 +400,7 @@ export function AgentPersonaTab() {
     return (
       <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        <span className="text-xs font-mono">Loading persona settings...</span>
+        <span className="text-xs">Loading persona settings...</span>
       </div>
     );
   }
@@ -411,10 +411,10 @@ export function AgentPersonaTab() {
       <div className="sticky top-0 z-20 -mt-2 mb-5 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2.5 sm:py-3 bg-background/95 backdrop-blur-md border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2 h-2 rounded-[2px] bg-primary flex-shrink-0" />
-          <span className="text-[11.5px] font-mono uppercase tracking-wider text-muted-foreground truncate">
-            <span className="text-foreground font-semibold font-mono tracking-normal">{currentLangObj.name}</span>
+          <span className="text-[11.5px] uppercase tracking-wider text-muted-foreground truncate">
+            <span className="text-foreground font-semibold tracking-normal">{currentLangObj.name}</span>
             {' · '}
-            <span className="text-foreground font-semibold font-mono tracking-normal">
+            <span className="text-foreground font-semibold tracking-normal">
               {getArchetype(activeArchetype)?.label ?? activeArchetype}
             </span>
           </span>
@@ -461,14 +461,14 @@ export function AgentPersonaTab() {
 
       {/* Feedback Alerts */}
       {successMsg && (
-        <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 text-primary rounded-md text-xs font-mono">
+        <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 text-primary rounded-md text-xs">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-xs font-mono">
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-xs">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -490,10 +490,10 @@ export function AgentPersonaTab() {
                   <Store size={14} />
                 </div>
                 <div className="min-w-0">
-                  <h3 id="switch-archetype-title" className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate">
+                  <h3 id="switch-archetype-title" className="text-[13.5px] font-semibold text-foreground tracking-tight truncate">
                     Switch to {getArchetype(pendingArchetype)?.label ?? pendingArchetype}?
                   </h3>
-                  <p className="text-[11px] font-mono text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     Preset configuration switch
                   </p>
                 </div>
@@ -516,11 +516,11 @@ export function AgentPersonaTab() {
             {/* Diff breakdown */}
             <div className="rounded-md border border-border/50 bg-surface-high/20 p-3 space-y-2 text-[12px]">
               <div className="flex items-start gap-2">
-                <span className="text-[10.5px] font-mono uppercase tracking-wider text-muted-foreground shrink-0 w-24">Starts Fresh</span>
+                <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground shrink-0 w-24">Starts Fresh</span>
                 <span className="text-foreground/90 leading-snug">Persona, system prompt, greeting, and language</span>
               </div>
               <div className="flex items-start gap-2 pt-1.5 border-t border-border/30">
-                <span className="text-[10.5px] font-mono uppercase tracking-wider text-muted-foreground shrink-0 w-24">Carries Over</span>
+                <span className="text-[10.5px] uppercase tracking-wider text-muted-foreground shrink-0 w-24">Carries Over</span>
                 <span className="text-foreground/90 leading-snug">Store connection, policies, and product catalog</span>
               </div>
             </div>
@@ -560,12 +560,12 @@ export function AgentPersonaTab() {
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <Store className="h-4 w-4 text-primary" />
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
               Business Type
             </h2>
           </div>
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-            Active: <span className="text-primary font-semibold font-mono tracking-normal capitalize">{getArchetype(activeArchetype)?.label ?? activeArchetype}</span>
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Active: <span className="text-primary font-semibold tracking-normal capitalize">{getArchetype(activeArchetype)?.label ?? activeArchetype}</span>
           </span>
         </div>
 
@@ -608,12 +608,12 @@ export function AgentPersonaTab() {
             <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <Languages className="h-4 w-4 text-primary" />
-                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
                   Language
                 </h2>
               </div>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                Active: <span className="text-primary font-semibold font-mono tracking-normal">{currentLangObj.name}</span>
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                Active: <span className="text-primary font-semibold tracking-normal">{currentLangObj.name}</span>
               </span>
             </div>
 
@@ -671,7 +671,7 @@ export function AgentPersonaTab() {
                             <span className="text-muted-foreground text-[11px]">({lang.nativeName})</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground opacity-80">{lang.region}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground opacity-80">{lang.region}</span>
                             {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
                           </div>
                         </button>
@@ -689,7 +689,7 @@ export function AgentPersonaTab() {
               <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-border/40">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4 text-primary" />
-                  <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                  <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
                     Persona
                   </h2>
                 </div>
@@ -709,7 +709,7 @@ export function AgentPersonaTab() {
 
               {/* Brand Voice */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground block">
                   Brand Voice
                 </label>
                 <input
@@ -723,7 +723,7 @@ export function AgentPersonaTab() {
 
               {/* Store Overview */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                <label className="text-[11px] uppercase tracking-wider text-muted-foreground block">
                   Store Overview
                 </label>
                 <textarea
@@ -747,7 +747,7 @@ export function AgentPersonaTab() {
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" />
-                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+                <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
                   Instructions
                 </h2>
               </div>
@@ -806,16 +806,16 @@ export function AgentPersonaTab() {
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   placeholder={`• Help customers find products, sizes, and colors.\n• Mention promo code "SAVE10" at checkout.\n• Answer shipping and return policy questions accurately.`}
-                  className="w-full px-3 py-2 bg-surface-lowest border border-border/60 rounded-md text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground leading-relaxed resize-y"
+                  className="w-full px-3 py-2 bg-surface-lowest border border-border/60 rounded-md text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground leading-relaxed resize-y"
                 />
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Anchors:</span>
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Anchors:</span>
                   {['#products', '#pricing', '#shipping', '#checkout', '#contact'].map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => setSystemPrompt((prev) => `${prev} ${tag}`.trim())}
-                      className="px-2 py-0.5 rounded-md border border-border/50 bg-surface-high/30 hover:bg-surface-high text-[10.5px] font-mono text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                      className="px-2 py-0.5 rounded-md border border-border/50 bg-surface-high/30 hover:bg-surface-high text-[10.5px] text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                     >
                       {tag}
                     </button>
@@ -847,7 +847,7 @@ export function AgentPersonaTab() {
                   value={avoidances}
                   onChange={(e) => setAvoidances(e.target.value)}
                   placeholder={`• Never mention competitors.\n• Never offer unverified discounts.\n• Stay focused on store products and policies.`}
-                  className="w-full px-3 py-2 bg-surface-lowest border border-destructive/30 focus:border-destructive/60 rounded-md text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-destructive leading-relaxed resize-y"
+                  className="w-full px-3 py-2 bg-surface-lowest border border-destructive/30 focus:border-destructive/60 rounded-md text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-destructive leading-relaxed resize-y"
                 />
               </div>
             )}
@@ -861,7 +861,7 @@ export function AgentPersonaTab() {
                   value={customDirectives}
                   onChange={(e) => setCustomDirectives(e.target.value)}
                   placeholder={`• Free shipping above $50.\n• 7-day returns on unworn items.`}
-                  className="w-full px-3 py-2 bg-surface-lowest border border-border/60 rounded-md text-[12px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground leading-relaxed resize-y"
+                  className="w-full px-3 py-2 bg-surface-lowest border border-border/60 rounded-md text-[12px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground leading-relaxed resize-y"
                 />
               </div>
             )}

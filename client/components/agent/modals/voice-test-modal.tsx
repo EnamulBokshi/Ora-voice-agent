@@ -124,7 +124,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
 
     setStatus('idle');
     setAudioLevel(0);
-    addTranscript('system', 'Call ended.');
+    addTranscript('system', 'Session ended.');
   }, [addTranscript]);
 
   // Clean up on unmount or close
@@ -208,8 +208,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
       await client.start();
     } catch (err: any) {
       setStatus('error');
-      setErrorMessage(err.message || 'Failed to start voice call');
-      addTranscript('system', `Error starting call: ${err.message}`);
+      setErrorMessage(err.message || 'Failed to start voice session');
+      addTranscript('system', `Error starting session: ${err.message}`);
     }
   };
 
@@ -335,10 +335,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               <Radio size={15} className="text-primary" />
             </div>
             <div className="min-w-0">
-              <h2 id="voice-test-modal-title" className="text-[14px] sm:text-[15px] font-semibold text-foreground font-serif tracking-tight truncate">
+              <h2 id="voice-test-modal-title" className="text-[14px] sm:text-[15px] font-semibold text-foreground tracking-tight truncate">
                 Test Voice Assistant
               </h2>
-              <p className="text-[11px] font-mono text-muted-foreground truncate">
+              <p className="text-[11px] text-muted-foreground truncate">
                 Real-time storefront voice conversation session
               </p>
             </div>
@@ -430,7 +430,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
 
             <div className="flex items-center gap-2 flex-shrink-0">
               {latencyMs !== null && (
-                <span className="text-[10px] sm:text-[11px] font-mono text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-1.5 sm:px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold">
+                <span className="text-[10px] sm:text-[11px] text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-1.5 sm:px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold tabular-nums">
                   {latencyMs}ms RTT
                 </span>
               )}
@@ -453,20 +453,19 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               <>
                 <button
                   onClick={toggleMute}
-                  className={`p-2 sm:p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 border transition-all cursor-pointer ${
                     isMuted
-                      ? 'bg-red-500/20 border-red-500/40 text-red-500 dark:text-red-400'
-                      : 'bg-surface-high border-border/80 text-foreground hover:bg-surface-highest'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-surface-container text-foreground border-border hover:bg-surface-high'
                   }`}
-                  title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-                  aria-label={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
-                  {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                  {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
+                  <span>{isMuted ? 'Unmute' : 'Mute'}</span>
                 </button>
 
                 <button
                   onClick={stopSession}
-                  className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white active:scale-[0.98] transition-all shadow-md cursor-pointer"
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white transition-all shadow-md cursor-pointer"
                 >
                   <Square size={14} fill="currentColor" />
                   <span>End Test</span>
@@ -481,7 +480,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   onClick={() => setActiveTab('transcript')}
-                  className={`text-[10.5px] sm:text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     activeTab === 'transcript'
                       ? 'bg-surface-high text-foreground border border-border/60'
                       : 'text-muted-foreground hover:text-foreground'
@@ -492,7 +491,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                 </button>
                 <button
                   onClick={() => setActiveTab('memory')}
-                  className={`text-[10.5px] sm:text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                     activeTab === 'memory'
                       ? 'bg-surface-high text-foreground border border-border/60'
                       : 'text-muted-foreground hover:text-foreground'
@@ -503,7 +502,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                 </button>
               </div>
 
-              <span className="text-[10px] sm:text-[11px] text-muted-foreground/70 font-mono truncate max-w-[100px] sm:max-w-none">
+              <span className="text-[10px] sm:text-[11px] text-muted-foreground/70 tabular-nums truncate max-w-[100px] sm:max-w-none">
                 {sessionId}
               </span>
             </div>
@@ -517,7 +516,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                 ) : (
                   transcripts.map((item) => (
                     <div key={item.id} className="flex items-start gap-1.5 sm:gap-2 leading-relaxed">
-                      <span className="text-[9.5px] sm:text-[10px] text-muted-foreground/60 font-mono mt-0.5 flex-shrink-0">
+                      <span className="text-[9.5px] sm:text-[10px] text-muted-foreground/60 tabular-nums mt-0.5 flex-shrink-0">
                         [{item.timestamp}]
                       </span>
                       {item.sender === 'user' ? (
@@ -529,7 +528,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                           <Radio size={11} className="text-primary" /> ORA:
                         </span>
                       ) : (
-                        <span className="text-muted-foreground font-mono text-[11px] flex-shrink-0">⚡</span>
+                        <span className="text-muted-foreground text-[11px] flex-shrink-0">⚡</span>
                       )}
                       <span
                         className={`break-words flex-1 ${
@@ -548,7 +547,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                 <div ref={transcriptEndRef} />
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-2.5 pr-1 text-[11px] sm:text-[12px] font-mono min-h-0 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-2.5 pr-1 text-[11px] sm:text-[12px] min-h-0 custom-scrollbar">
                 {/* Identity Block */}
                 <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
                   <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
@@ -556,7 +555,7 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-muted-foreground text-[11px]">
                     <div>User: <span className="text-foreground">Authenticated Merchant Owner</span></div>
-                    <div className="truncate">Key: <span className="text-foreground font-mono">{publishableKey ? `${publishableKey.slice(0, 14)}...` : 'Active'}</span></div>
+                    <div className="truncate">Key: <span className="text-foreground tabular-nums">{publishableKey ? `${publishableKey.slice(0, 14)}...` : 'Active'}</span></div>
                   </div>
                 </div>
 

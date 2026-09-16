@@ -651,15 +651,14 @@ export class AiToolsExecutor {
 
 
   private async handleRedirectToCheckout(businessId: string, sessionId: string) {
-    const frontendUrl =
-      this.configService?.get<string>('FRONTEND_URL') ||
-      (this.configService?.get<string>('NODE_ENV') === 'production'
-        ? 'https://tryora.live'
-        : 'http://localhost:3000');
     return {
       success: true,
-      checkoutUrl: `${frontendUrl}/checkout?sessionId=${sessionId}&biz=${businessId}`,
-      message: 'Redirecting customer to storefront checkout page.',
+      message: 'Directing customer to storefront cart to complete checkout.',
+      action: {
+        type: 'navigate',
+        destination: '/cart',
+        reason: 'Proceed to store cart and checkout',
+      },
     };
   }
 
@@ -946,6 +945,13 @@ export class AiToolsExecutor {
         cleanDest = '/auth?mode=login';
       } else if (cleanDest === '/home' || cleanDest === '/landing') {
         cleanDest = '/';
+      } else if (cleanDest === '/setup' || cleanDest.startsWith('/setup?') || cleanDest.startsWith('/setup/')) {
+        // Setup guide was consolidated into Agent Configuration
+        cleanDest = '/agent';
+      } else if (cleanDest === '/invoices' || cleanDest === '/subscription') {
+        cleanDest = '/billing';
+      } else if (cleanDest === '/settings') {
+        cleanDest = '/profile';
       } else if (cleanDest === '#pricing' || cleanDest === '#plans' || cleanDest === '/plans') {
         // Pricing is its own route; there is no pricing section on the landing
         // page, so scrolling to it would silently do nothing.
@@ -978,6 +984,7 @@ export class AiToolsExecutor {
         '/agent',
         '/customers',
         '/billing',
+        '/usage',
         '/profile',
         '/admin',
         '/solutions',
@@ -1126,26 +1133,26 @@ export class AiToolsExecutor {
 
   private async handleGetIntegrationGuide(businessId: string, args: Record<string, any>) {
     const platform = (args.platform || 'html').toLowerCase();
+    const frontendUrl =
+      this.configService?.get<string>('FRONTEND_URL') ||
+      (this.configService?.get<string>('NODE_ENV') === 'production'
+        ? 'https://tryora.live'
+        : 'http://localhost:3000');
+    const apiUrl =
+      this.configService?.get<string>('BACKEND_URL') ||
+      (this.configService?.get<string>('NODE_ENV') === 'production'
+        ? 'https://tryora.live'
+        : 'http://localhost:5000');
 
     let guideMarkdown = '';
     if (platform.includes('shopify')) {
-      guideMarkdown = `### Shopify Integration in 60 Seconds\n1. Open your Shopify Admin -> Online Store -> Themes -> Edit code.\n2. In \`theme.liquid\`, right before \`</head>\`, paste:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n3. Click Save! ORA immediately ingests your products via passive telemetry and mounts the live voice agent.`;
+      guideMarkdown = `### Shopify Integration in 60 Seconds\n1. Open your Shopify Admin -> Online Store -> Themes -> Edit code.\n2. In \`theme.liquid\`, right before \`</head>\`, paste:\n\`\`\`html\n<script src="${frontendUrl}/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n3. Click Save! ORA immediately ingests your products via passive telemetry and mounts the live voice agent.`;
     } else if (platform.includes('woo') || platform.includes('wordpress')) {
-      guideMarkdown = `### WooCommerce Integration\n1. Install the ORA WooCommerce Plugin or add the snippet to \`header.php\`:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n2. Set up WooCommerce REST API keys in your ORA dashboard for instant order placement.`;
+      guideMarkdown = `### WooCommerce Integration\n1. Add the ORA embed snippet to your theme's \`header.php\` before \`</head>\`:\n\`\`\`html\n<script src="${frontendUrl}/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n2. ORA will automatically synchronize your product catalog and live inventory.`;
     } else if (platform.includes('next') || platform.includes('react')) {
-      const frontendUrl =
-        this.configService?.get<string>('FRONTEND_URL') ||
-        (this.configService?.get<string>('NODE_ENV') === 'production'
-          ? 'https://tryora.live'
-          : 'http://localhost:3000');
-      const apiUrl =
-        this.configService?.get<string>('BACKEND_URL') ||
-        (this.configService?.get<string>('NODE_ENV') === 'production'
-          ? 'https://tryora.live'
-          : 'http://localhost:5000');
       guideMarkdown = `### Next.js & React Integration\nIn your root \`app/layout.tsx\`:\n\`\`\`tsx\nimport Script from 'next/script';\n\n<Script\n  src="${frontendUrl}/widget/ora-widget.js"\n  data-ora-key="YOUR_PUBLISHABLE_KEY"\n  data-ora-api="${apiUrl}"\n  strategy="afterInteractive"\n/>\n\`\`\`\nORA automatically handles SPA route changes and hydration!`;
     } else {
-      guideMarkdown = `### Universal HTML Integration\nAdd this single line anywhere in your HTML before \`</body>\`:\n\`\`\`html\n<script src="https://cdn.ora.ai/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\nORA auto-scrapes your headings, projects, products, and contact info in real-time.`;
+      guideMarkdown = `### Universal HTML Integration\nAdd this single line anywhere in your HTML before \`</body>\`:\n\`\`\`html\n<script src="${frontendUrl}/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\nORA auto-scrapes your headings, projects, products, and contact info in real-time.`;
     }
 
     return {

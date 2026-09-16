@@ -40,7 +40,7 @@ export function RecentConversationsTable({ conversations }: RecentConversationsT
     <div className="overflow-x-auto no-scrollbar">
       <table className="w-full text-[12.5px] border-collapse">
         <thead>
-          <tr className="border-b border-border/40 text-muted-foreground text-[11px] font-mono uppercase tracking-wider">
+          <tr className="border-b border-border/40 text-muted-foreground text-[11px] uppercase tracking-wider">
             <th className="py-2.5 px-2 text-left font-medium">Session ID</th>
             <th className="py-2.5 px-2 text-left font-medium">Channel</th>
             <th className="py-2.5 px-2 text-left font-medium">Status</th>
@@ -55,7 +55,7 @@ export function RecentConversationsTable({ conversations }: RecentConversationsT
                 key={conv._id}
                 className="hover:bg-surface-high/30 transition-colors"
               >
-                <td className="py-3 px-2 font-mono text-[12px] text-foreground font-medium">
+                <td className="py-3 px-2 text-[12px] text-foreground font-medium tabular-nums">
                   {conv.sessionId.slice(0, 12)}…
                 </td>
                 <td className="py-3 px-2 text-[12px] text-muted-foreground capitalize">
@@ -69,7 +69,7 @@ export function RecentConversationsTable({ conversations }: RecentConversationsT
                     <span className={cs.text}>{cs.label}</span>
                   </span>
                 </td>
-                <td className="py-3 px-2 text-right text-muted-foreground font-mono text-[11px] whitespace-nowrap">
+                <td className="py-3 px-2 text-right text-muted-foreground text-[11px] whitespace-nowrap tabular-nums">
                   {formatDateTime(conv.lastActivityAt || conv.createdAt)}
                 </td>
               </tr>

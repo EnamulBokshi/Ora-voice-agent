@@ -130,7 +130,7 @@ export function ConversationsClient() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading voice calls…</span>
+          <span className="text-sm font-medium">Loading conversations…</span>
         </div>
       </div>
     );

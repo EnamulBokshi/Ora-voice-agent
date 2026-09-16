@@ -280,7 +280,7 @@ export function OverviewClient() {
       id: 'qa-live',
       icon: <Radio size={16} />,
       label: 'Live Store Desk',
-      description: 'Listen to active customer calls, view live cart additions, and intervene in real time.',
+      description: 'Listen to active customer sessions, view live cart additions, and intervene in real time.',
       href: `${prefix}/live-desk`,
     },
     {

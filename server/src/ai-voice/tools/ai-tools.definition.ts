@@ -57,29 +57,6 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
-    name: 'place_order',
-    description:
-      'Complete order placement for all items currently in the customer shopping cart (Tier 1 integrated merchants).',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        shippingAddress: {
-          type: 'STRING',
-          description: 'Optional customer shipping address.',
-        },
-      },
-    },
-  },
-  {
-    name: 'redirect_to_checkout',
-    description:
-      'Generate a direct link to the merchant storefront checkout page (Tier 2-4 merchants).',
-    parameters: {
-      type: 'OBJECT',
-      properties: {},
-    },
-  },
-  {
     name: 'search_knowledge_base',
     description:
       'Search external knowledge base for specific technical or company documentation NOT already present in your preloaded memory. If the information is in memory, answer immediately without calling this tool.',

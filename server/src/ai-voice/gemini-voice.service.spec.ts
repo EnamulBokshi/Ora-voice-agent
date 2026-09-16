@@ -123,7 +123,7 @@ describe('GeminiVoiceService - Context Boundary & Zero-Leak Isolation', () => {
       expect(toolNames).toContain('find_products');
       expect(toolNames).toContain('get_product_details');
       expect(toolNames).toContain('add_to_cart');
-      expect(toolNames).toContain('place_order');
+      expect(toolNames).not.toContain('place_order');
     });
   });
 

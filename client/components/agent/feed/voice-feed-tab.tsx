@@ -346,11 +346,11 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
         <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <Layers size={14} className="text-primary flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
               Target Category
             </h2>
           </div>
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
             {selectedCategory === 'all' ? 'Auto-Sorting Active' : 'Category Selected'}
           </span>
         </div>
@@ -469,7 +469,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
         {/* Dynamic Status Display */}
         <div className="relative z-10 mt-1 max-w-md">
-          <p className="text-[12px] font-medium text-muted-foreground font-mono">
+          <p className="text-[12px] font-medium text-muted-foreground">
             {status === 'speaking'
               ? 'ORA speaking...'
               : status === 'listening'
@@ -520,7 +520,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
         )}
 
         {errorMessage && (
-          <div className="relative z-10 mt-3 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md font-mono">
+          <div className="relative z-10 mt-3 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md">
             {errorMessage}
           </div>
         )}
@@ -547,10 +547,10 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
               onChange={(e) => setManualNoteText(e.target.value)}
               placeholder={`Paste or type store info here to index under ${activeCategoryMeta.label}...\ne.g. Orders placed before 2 PM ship same day via Express Delivery.`}
               rows={3}
-              className="w-full p-2.5 text-xs rounded-md bg-surface-low border border-border/60 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-foreground leading-relaxed resize-y font-mono"
+              className="w-full p-2.5 text-xs rounded-md bg-surface-low border border-border/60 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-foreground leading-relaxed resize-y"
             />
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
                 Category: <strong className="text-foreground">{activeCategoryMeta.label}</strong>
               </span>
               <button
@@ -572,11 +572,11 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
         <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <AudioLines size={14} className="text-primary flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
               Session Transcript
             </h2>
             {transcripts.length > 0 && (
-              <span className="text-[11px] font-mono text-muted-foreground">({transcripts.length})</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">({transcripts.length})</span>
             )}
           </div>
 
@@ -604,7 +604,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
               <button
                 type="button"
                 onClick={() => setTranscripts([])}
-                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors px-2 py-1 cursor-pointer font-mono"
+                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors px-2 py-1 cursor-pointer"
               >
                 <Trash2 size={11} />
                 Clear
@@ -627,7 +627,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
               if (entry.sender === 'system') {
                 return (
                   <div key={entry.id} className="text-center my-1.5">
-                    <span className="inline-block px-2.5 py-0.5 rounded-[3px] text-[10px] font-mono bg-surface-low border border-border/40 text-muted-foreground">
+                    <span className="inline-block px-2.5 py-0.5 rounded-[3px] text-[10px] bg-surface-low border border-border/40 text-muted-foreground">
                       {entry.text}
                     </span>
                   </div>
@@ -644,7 +644,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                     isUser ? 'self-end items-end ml-auto' : 'self-start items-start',
                   )}
                 >
-                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <span className={cn('font-medium', isUser ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
                       {isUser ? 'You (Merchant)' : 'ORA (Learning Assistant)'}
                     </span>
@@ -675,12 +675,12 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
           <div className="flex items-center justify-between pb-3 border-b border-border/40">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-              <span className="text-[13px] font-semibold text-foreground font-serif">
+              <span className="text-[13px] font-semibold text-foreground">
                 Organised into Knowledge Base
               </span>
             </div>
             {organiseResult?.saved && organiseResult.saved.length > 0 && (
-              <span className="text-[11px] font-mono text-emerald-500 font-semibold flex items-center gap-1">
+              <span className="text-[11px] text-emerald-500 font-semibold flex items-center gap-1 tabular-nums">
                 <CheckCircle2 size={12} /> {organiseResult.saved.length} {organiseResult.saved.length === 1 ? 'entry indexed' : 'entries indexed'}
               </span>
             )}
@@ -717,7 +717,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                         <div className="flex items-center gap-2 mb-1">
                           <span
                             className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-mono font-medium border',
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-medium border',
                               meta.badgeClass,
                             )}
                           >
@@ -725,7 +725,7 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                             {meta.label}
                           </span>
 
-                          <span className="text-[10px] font-mono text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             {entry.action === 'created' && (
                               <span className="text-emerald-500 font-semibold">• New Entry</span>
                             )}
@@ -744,14 +744,14 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                       </div>
 
                       <div className="flex flex-col items-end flex-shrink-0">
-                        <span className="text-[10.5px] font-mono text-muted-foreground/80">
+                        <span className="text-[10.5px] text-muted-foreground/80 tabular-nums">
                           {Math.round(entry.confidence * 100)}% confidence
                         </span>
                       </div>
                     </div>
 
                     {entry.chunksCount && (
-                      <p className="text-[11px] font-mono text-muted-foreground/70">
+                      <p className="text-[11px] text-muted-foreground/70 tabular-nums">
                         Created {entry.chunksCount} indexed knowledge {entry.chunksCount === 1 ? 'section' : 'sections'}
                       </p>
                     )}

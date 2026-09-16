@@ -76,10 +76,10 @@ export function ProductDetailDrawer({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate">
+            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight truncate">
               Product Details
             </h2>
-            <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+            <p className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
               SKU: {product.nativeProductId}
             </p>
           </div>
@@ -108,10 +108,10 @@ export function ProductDetailDrawer({
             </h3>
 
             <div className="flex items-baseline gap-2 pt-1">
-              <span className="text-xl font-bold text-foreground font-mono">
+              <span className="text-xl font-bold text-foreground tabular-nums">
                 {product.currency} {product.price.toFixed(2)}
               </span>
-              <span className="text-[12px] text-muted-foreground">
+              <span className="text-[12px] text-muted-foreground tabular-nums">
                 ({product.stockQuantity} in stock)
               </span>
             </div>
@@ -125,13 +125,13 @@ export function ProductDetailDrawer({
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-md bg-surface-high/50 border border-border/60">
                 <span className="text-[11px] text-muted-foreground block">Recommended</span>
-                <p className="text-base font-semibold text-foreground mt-0.5 font-mono">
+                <p className="text-base font-semibold text-foreground mt-0.5 tabular-nums">
                   {product.timesRecommendedByAgent ?? 0}
                 </p>
               </div>
               <div className="p-3 rounded-md bg-surface-high/50 border border-border/60">
                 <span className="text-[11px] text-muted-foreground block">Upsold</span>
-                <p className="text-base font-semibold text-foreground mt-0.5 font-mono">
+                <p className="text-base font-semibold text-foreground mt-0.5 tabular-nums">
                   {product.timesUpsold ?? 0}
                 </p>
               </div>
@@ -157,7 +157,7 @@ export function ProductDetailDrawer({
               {product.lastVerifiedAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Last verified</span>
-                  <span className="text-muted-foreground font-mono text-[11px]">
+                  <span className="text-muted-foreground text-[11px] tabular-nums">
                     {new Date(product.lastVerifiedAt).toLocaleDateString()}
                   </span>
                 </div>
@@ -187,10 +187,10 @@ export function ProductDetailDrawer({
                 {Object.entries(product.attributes).map(([key, value]) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between font-mono"
+                    className="flex items-center justify-between text-[12px]"
                   >
                     <span className="text-muted-foreground">{key}:</span>
-                    <span className="text-foreground">
+                    <span className="text-foreground tabular-nums">
                       {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                     </span>
                   </div>

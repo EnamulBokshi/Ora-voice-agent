@@ -222,7 +222,7 @@ export function ProductUploadModal({
         {/* ── Modal Header ── */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-[14px] font-semibold text-foreground font-serif tracking-tight">
+            <h2 className="text-[14px] font-semibold text-foreground tracking-tight">
               Import Catalog & Knowledge
             </h2>
             <p className="text-[12px] text-muted-foreground mt-0.5">
@@ -280,7 +280,7 @@ export function ProductUploadModal({
                     onChange={(e) => setWebsiteDomain(e.target.value)}
                     placeholder="https://mystore.com or store.myshopify.com"
                     disabled={isCrawling}
-                    className="w-full rounded-md border border-border bg-transparent pl-9 pr-3 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none font-mono"
+                    className="w-full rounded-md border border-border bg-transparent pl-9 pr-3 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
                     required
                   />
                 </div>
@@ -303,7 +303,7 @@ export function ProductUploadModal({
                       <CheckCircle2 size={14} className="text-emerald-400" />
                       Sync Completed
                     </span>
-                    <span className="text-[11px] font-mono text-muted-foreground uppercase">
+                    <span className="text-[11px] text-muted-foreground uppercase">
                       {crawlResult.platform}
                     </span>
                   </div>
@@ -311,11 +311,11 @@ export function ProductUploadModal({
                   <div className="grid grid-cols-2 gap-2 text-center text-[12px]">
                     <div className="p-2 rounded bg-surface-lowest border border-border">
                       <span className="text-muted-foreground block text-[11px]">Products</span>
-                      <span className="font-semibold text-foreground font-mono">{crawlResult.productsIngested}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{crawlResult.productsIngested}</span>
                     </div>
                     <div className="p-2 rounded bg-surface-lowest border border-border">
                       <span className="text-muted-foreground block text-[11px]">Policies</span>
-                      <span className="font-semibold text-foreground font-mono">{crawlResult.knowledgeDocsIngested}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{crawlResult.knowledgeDocsIngested}</span>
                     </div>
                   </div>
                 </div>
@@ -370,11 +370,11 @@ export function ProductUploadModal({
                   <div className="grid grid-cols-2 gap-2 text-center text-[12px]">
                     <div className="p-2 rounded bg-surface-lowest border border-border">
                       <span className="text-muted-foreground block text-[11px]">Total Parsed</span>
-                      <span className="font-semibold text-foreground font-mono">{uploadSummary.totalParsed}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{uploadSummary.totalParsed}</span>
                     </div>
                     <div className="p-2 rounded bg-surface-lowest border border-border">
                       <span className="text-muted-foreground block text-[11px]">Synced to Catalog</span>
-                      <span className="font-semibold text-foreground font-mono">{uploadSummary.ingested}</span>
+                      <span className="font-semibold text-foreground tabular-nums">{uploadSummary.ingested}</span>
                     </div>
                   </div>
                 </div>
@@ -405,7 +405,7 @@ export function ProductUploadModal({
                   value={feedUrl}
                   onChange={(e) => setFeedUrl(e.target.value)}
                   placeholder="https://example.com/feeds/products.xml"
-                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-[12.5px] font-mono text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
+                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:border-foreground/30 focus:outline-none"
                   required
                 />
               </div>
@@ -450,7 +450,7 @@ export function ProductUploadModal({
                     value={manualSku}
                     onChange={(e) => setManualSku(e.target.value)}
                     placeholder="e.g. SKU-10024"
-                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-mono text-foreground focus:border-foreground/30 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] text-foreground focus:border-foreground/30 focus:outline-none"
                     required
                   />
                 </div>
@@ -493,7 +493,7 @@ export function ProductUploadModal({
                     min="0"
                     value={manualPrice}
                     onChange={(e) => setManualPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-mono text-foreground focus:border-foreground/30 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] text-foreground focus:border-foreground/30 focus:outline-none tabular-nums"
                     required
                   />
                 </div>
@@ -506,7 +506,7 @@ export function ProductUploadModal({
                     min="0"
                     value={manualStock}
                     onChange={(e) => setManualStock(parseInt(e.target.value, 10) || 0)}
-                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-mono text-foreground focus:border-foreground/30 focus:outline-none"
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-1.5 text-[12.5px] text-foreground focus:border-foreground/30 focus:outline-none tabular-nums"
                     required
                   />
                 </div>
@@ -579,7 +579,7 @@ export function ProductUploadModal({
                 <div className="p-3.5 rounded-md border border-border space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-foreground">Shopify Webhook</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">HMAC</span>
+                    <span className="text-[11px] text-muted-foreground uppercase font-medium">HMAC</span>
                   </div>
                   <div className="font-mono text-[11px] text-muted-foreground bg-surface-high/50 p-2 rounded select-all break-all">
                     https://ora.hypecorps.com/api/v1/ingestion/webhooks/shopify
@@ -593,7 +593,7 @@ export function ProductUploadModal({
                 <div className="p-3.5 rounded-md border border-border space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-foreground">WooCommerce Webhook</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">Signature</span>
+                    <span className="text-[11px] text-muted-foreground uppercase font-medium">Signature</span>
                   </div>
                   <div className="font-mono text-[11px] text-muted-foreground bg-surface-high/50 p-2 rounded select-all break-all">
                     https://ora.hypecorps.com/api/v1/ingestion/webhooks/woocommerce

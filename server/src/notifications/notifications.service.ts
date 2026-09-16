@@ -223,7 +223,7 @@ export class NotificationsService {
       },
       {
         businessId: businessObjId,
-        title: 'Voice Call Session Completed',
+        title: 'Voice Session Completed',
         message: 'Shopper finished a 2m 14s voice interaction inquiring about product specifications.',
         category: NotificationCategory.SALES,
         severity: NotificationSeverity.INFO,

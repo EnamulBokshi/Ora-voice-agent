@@ -42,7 +42,7 @@ export function AgentSectionLayout({
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
                 {iconNode}
               </div>
-              <h1 className="text-[22px] sm:text-[26px] font-semibold text-foreground font-serif tracking-tight leading-[1.2]">
+              <h1 className="text-[22px] sm:text-[26px] font-semibold text-foreground tracking-tight leading-[1.2]">
                 {title}
               </h1>
             </div>
@@ -79,7 +79,7 @@ export function AgentSectionLayout({
       {howLabel && (
         <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 flex-shrink-0 border-b border-border/20 bg-surface-lowest/20">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
             {howLabel}
           </p>
         </div>

@@ -49,7 +49,7 @@ export function KpiStrip({ cards }: KpiStripProps) {
             {/* Top: Label + Info Tooltip + Icon */}
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-mono font-medium uppercase tracking-widest text-muted-foreground truncate">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">
                   {card.label}
                 </span>
                 {card.tooltip && (
@@ -86,14 +86,14 @@ export function KpiStrip({ cards }: KpiStripProps) {
 
             {/* Value + Trend */}
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-xl sm:text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
+              <span className="text-xl sm:text-2xl lg:text-[28px] font-semibold text-foreground tabular-nums leading-none tracking-tight">
                 {card.value}
               </span>
 
               {card.trend && (
                 <span
                   className={cn(
-                    'inline-flex items-center gap-0.5 text-[11.5px] font-mono font-medium',
+                    'inline-flex items-center gap-0.5 text-[11.5px] font-medium tabular-nums',
                     trendPositive
                       ? 'text-foreground dark:text-primary'
                       : 'text-red-500 dark:text-red-400',

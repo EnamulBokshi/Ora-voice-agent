@@ -235,11 +235,11 @@ export function MerchantCredentialsCard({
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-md border border-border/80 bg-surface-high/30">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h3 className="text-[13.5px] font-semibold text-foreground font-serif">
+                <h3 className="text-[13.5px] font-semibold text-foreground">
                   Storefront Deployment Status
                 </h3>
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-medium border ${
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-medium border ${
                     widgetActive
                       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-[#C8F031]'
                       : 'border-border/60 bg-surface-high/60 text-muted-foreground'
@@ -301,7 +301,7 @@ export function MerchantCredentialsCard({
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-center gap-2 flex-1 max-w-lg border border-border rounded-md px-3 py-2 bg-surface-high">
                 <Key size={13} className="text-muted-foreground shrink-0" />
-                <span className="font-mono text-[12.5px] text-foreground truncate flex-1 select-all font-medium">
+                <span className="text-[12.5px] text-foreground truncate flex-1 select-all font-medium tabular-nums">
                   {publishableKey}
                 </span>
                 <button

@@ -338,7 +338,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
             </div>
 
             {/* Display Title in Editorial Serif */}
-            <h1 className="text-[28px] lg:text-[32px] font-semibold text-foreground tracking-tight leading-[1.2] font-serif">
+            <h1 className="text-[28px] lg:text-[32px] font-semibold text-foreground tracking-tight leading-[1.2]">
               {heroTitle}
             </h1>
 
@@ -381,7 +381,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
         {/* ── 2. SECTION DIVIDER: HOW IT WORKS ── */}
         <div className="flex items-center gap-2 mb-6">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <p className="text-[10.5px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+          <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
             {howLabel}
           </p>
         </div>
@@ -406,10 +406,10 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
 
               {/* Right Column: Editorial Step Info (7 cols) */}
               <div className="md:col-span-7 flex flex-col gap-2 pl-0 md:pl-2">
-                <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground/80">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/80">
                   {row.stepLabel}
                 </p>
-                <h2 className="text-[22px] font-semibold text-foreground tracking-tight leading-snug font-serif">
+                <h2 className="text-[22px] font-semibold text-foreground tracking-tight leading-snug">
                   {row.title}
                 </h2>
                 <p className="text-[14px] text-muted-foreground leading-relaxed max-w-xl">
@@ -423,7 +423,7 @@ export function AgentGetStartedPage({ role }: AgentGetStartedPageProps) {
         {/* ── 4. FREQUENTLY ASKED QUESTIONS (INTERCOM ACCORDION STYLE) ── */}
         <div className="flex items-center gap-2 mb-6">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground dark:text-[#C8F031]">
             Frequently Asked Questions
           </p>
         </div>

@@ -183,11 +183,11 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
         <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3.5">
           <div className="flex items-center gap-2">
             <Package size={15} className="text-primary flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
               Product Catalog
             </h2>
           </div>
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums">
             {pagination.total} {pagination.total === 1 ? 'item' : 'items'}
           </span>
         </div>
@@ -263,12 +263,12 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   setSearchQuery(e.target.value);
                   setPagination((p) => ({ ...p, page: 1 }));
                 }}
-                className="w-full rounded-md border border-border/60 bg-surface-high/30 pl-8 pr-3 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none font-mono"
+                className="w-full rounded-md border border-border/60 bg-surface-high/30 pl-8 pr-3 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 font-mono text-[11.5px]">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 text-[12px]">
             {categories.length > 0 && (
               <select
                 value={selectedCategory}
@@ -302,7 +302,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse">
             <thead>
-              <tr className="border-b border-border/40 text-muted-foreground text-[11px] font-mono font-medium uppercase tracking-wider">
+              <tr className="border-b border-border/40 text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
                 <th className="py-2.5 px-3 font-medium">Product</th>
                 <th className="py-2.5 px-3 font-medium">Category</th>
                 <th className="py-2.5 px-3 font-medium">Price</th>
@@ -318,7 +318,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   <td colSpan={7} className="py-16 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                      <span className="text-[12px] font-mono">Loading catalog...</span>
+                      <span className="text-[12px]">Loading catalog...</span>
                     </div>
                   </td>
                 </tr>
@@ -327,7 +327,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                   <td colSpan={7} className="py-16 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto py-6">
                       <Package size={22} className="text-muted-foreground/30 mb-1" />
-                      <p className="font-semibold text-foreground text-[13px] font-serif">No products found</p>
+                      <p className="font-semibold text-foreground text-[13px]">No products found</p>
                       <p className="text-[12px] text-muted-foreground">
                         {searchQuery || selectedCategory !== 'all' || selectedAvailability !== 'all'
                           ? 'No products matched your search or filters.'
@@ -378,7 +378,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                           >
                             {prod.name}
                           </button>
-                          <span className="font-mono text-[11px] text-muted-foreground">
+                          <span className="text-[11px] text-muted-foreground tabular-nums">
                             {prod.nativeProductId}
                           </span>
                         </div>
@@ -390,7 +390,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                       </td>
 
                       {/* Price */}
-                      <td className="py-3 px-3 font-mono font-medium text-foreground tabular-nums">
+                      <td className="py-3 px-3 font-medium text-foreground tabular-nums">
                         {prod.currency} {prod.price.toFixed(2)}
                       </td>
 
@@ -401,7 +401,7 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                           <span className={status.text}>
                             {status.label}
                             {prod.stockQuantity !== undefined && (
-                              <span className="text-muted-foreground font-mono ml-1 text-[11px]">
+                              <span className="text-muted-foreground ml-1 text-[11px] tabular-nums">
                                 ({prod.stockQuantity})
                               </span>
                             )}
@@ -410,12 +410,12 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
                       </td>
 
                       {/* Source */}
-                      <td className="py-3 px-3 text-[11.5px] font-mono text-muted-foreground">
+                      <td className="py-3 px-3 text-[11.5px] text-muted-foreground">
                         {source}
                       </td>
 
                       {/* Recommendations / Activity */}
-                      <td className="py-3 px-3 font-mono text-[12px] text-muted-foreground tabular-nums">
+                      <td className="py-3 px-3 text-[12px] text-muted-foreground tabular-nums">
                         <span>
                           {prod.timesRecommendedByAgent ?? 0}
                           <span className="text-muted-foreground/40 mx-1">/</span>
@@ -466,10 +466,10 @@ export function ProductCatalogTable({ onFed }: ProductCatalogTableProps = {}) {
         </div>
 
         {/* ── Pagination Footer ── */}
-        <div className="flex items-center justify-between border-t border-border/40 pt-3 text-[12px] text-muted-foreground font-mono">
+        <div className="flex items-center justify-between border-t border-border/40 pt-3 text-[12px] text-muted-foreground">
           <div>
-            Showing <span className="font-medium text-foreground">{products.length}</span> of{' '}
-            <span className="font-medium text-foreground">{pagination.total}</span> products
+            Showing <span className="font-medium text-foreground tabular-nums">{products.length}</span> of{' '}
+            <span className="font-medium text-foreground tabular-nums">{pagination.total}</span> products
           </div>
 
           <div className="flex items-center gap-2">

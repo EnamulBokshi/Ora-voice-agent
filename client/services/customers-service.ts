@@ -41,3 +41,12 @@ export async function updateCustomerApi(
     body: JSON.stringify(payload),
   });
 }
+
+export async function shopperErasureApi(
+  id: string,
+): Promise<{ success: boolean; message: string }> {
+  return apiClient<{ success: boolean; message: string }>(`/customers/${id}/erasure`, {
+    method: 'POST',
+  });
+}
+

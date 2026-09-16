@@ -25,11 +25,11 @@ export function SalesActionsPanel({ actions }: SalesActionsPanelProps) {
       <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between bg-transparent">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h3 className="text-[12px] font-mono font-semibold uppercase tracking-wider text-foreground">
+          <h3 className="text-[12px] font-semibold uppercase tracking-wider text-foreground">
             Live Conversions
           </h3>
         </div>
-        <span className="text-[10.5px] font-mono text-muted-foreground">
+        <span className="text-[10.5px] text-muted-foreground uppercase tracking-wider">
           TOTAL
         </span>
       </div>
@@ -43,7 +43,7 @@ export function SalesActionsPanel({ actions }: SalesActionsPanelProps) {
             <div key={action.label} className="space-y-1.5">
               <div className="flex justify-between items-center text-[12px]">
                 <span className="text-muted-foreground">{action.label}</span>
-                <div className="flex items-center gap-1.5 font-mono">
+                <div className="flex items-center gap-1.5 tabular-nums">
                   <span className="text-foreground font-semibold tabular-nums text-[12.5px]">
                     {action.count}
                   </span>

@@ -64,10 +64,10 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight truncate max-w-md">
+                <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight truncate max-w-md">
                   {doc.title}
                 </h2>
-                <span className="rounded bg-surface-high border border-border px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground uppercase">
+                <span className="rounded bg-surface-high border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground uppercase">
                   {doc.docType}
                 </span>
               </div>
@@ -90,7 +90,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
               <Loader2 size={20} className="animate-spin text-primary" />
-              <p className="text-xs font-mono">Loading document sections...</p>
+              <p className="text-xs">Loading document sections...</p>
             </div>
           ) : error ? (
             <div className="flex items-center gap-2 rounded-md border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-400">
@@ -106,9 +106,9 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                 <span>
-                  Total Sections: <strong className="text-foreground">{chunks.length}</strong>
+                  Total Sections: <strong className="text-foreground tabular-nums">{chunks.length}</strong>
                 </span>
-                <span className="text-[11px] font-mono text-muted-foreground">Ready for customer search</span>
+                <span className="text-[11px] text-muted-foreground">Ready for customer search</span>
               </div>
 
               {chunks.map((chunk, index) => (
@@ -118,10 +118,10 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-mono font-semibold text-primary">
+                      <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-semibold text-primary tabular-nums">
                         Section #{chunk.chunkIndex ?? index}
                       </span>
-                      <span className="text-[11px] text-muted-foreground font-mono">
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
                         {chunk.text.length} chars
                       </span>
                     </div>
@@ -145,7 +145,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
                     </button>
                   </div>
 
-                  <p className="rounded-md bg-surface-highest/50 border border-border/50 p-3 text-xs leading-relaxed text-foreground font-mono whitespace-pre-wrap select-text">
+                  <p className="rounded-md bg-surface-highest/50 border border-border/50 p-3 text-xs leading-relaxed text-foreground whitespace-pre-wrap select-text">
                     {chunk.text}
                   </p>
                 </div>
@@ -156,7 +156,7 @@ export function KnowledgeChunkModal({ doc, isOpen, onClose }: KnowledgeChunkModa
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border bg-surface-low px-6 py-3.5">
-          <span className="text-[11px] text-muted-foreground font-mono">
+          <span className="text-[11px] text-muted-foreground tabular-nums">
             Document ID: {doc._id}
           </span>
           <button
