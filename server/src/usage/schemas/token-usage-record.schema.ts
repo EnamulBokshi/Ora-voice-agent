@@ -64,4 +64,3 @@ export const TokenUsageRecordSchema = SchemaFactory.createForClass(TokenUsageRec
 
 TokenUsageRecordSchema.index({ businessId: 1, createdAt: -1 });
 TokenUsageRecordSchema.index({ createdAt: -1 });
-TokenUsageRecordSchema.index({ sessionId: 1 });

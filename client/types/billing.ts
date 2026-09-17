@@ -51,6 +51,7 @@ export interface SubscribePayload {
   provider?: 'stripe' | 'bkash';
   billingProvider?: 'stripe' | 'bkash';
   paymentMethodId?: string;
+  couponCode?: string;
 }
 
 export interface SubscribeResponseData {

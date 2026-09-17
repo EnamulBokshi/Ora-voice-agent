@@ -61,7 +61,7 @@ function BillingClientContent() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading billing & plan…</span>
+          <span className="text-sm font-medium">Loading billing…</span>
         </div>
       </div>
     );
@@ -104,11 +104,11 @@ function BillingClientContent() {
               <CreditCard size={15} className="text-foreground" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              Billing & Subscription
+              Billing
             </h1>
           </div>
           <p className="text-xs sm:text-[13px] text-muted-foreground">
-            Manage your subscription plan, payment methods, and invoices.
+            Manage your plan, quotas, and invoices.
           </p>
         </div>
 

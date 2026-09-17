@@ -22,7 +22,7 @@ export function BillingHeader() {
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          Subscription & Plans
+          Subscription
         </Link>
         <Link
           href="/billing?tab=usage"
@@ -33,7 +33,7 @@ export function BillingHeader() {
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          Usage & Quotas
+          Usage
         </Link>
       </div>
     </div>

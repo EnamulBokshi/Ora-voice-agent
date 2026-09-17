@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Loader2, ArrowRight } from 'lucide-react';
-import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
+import { Check, Loader2, ArrowRight, Tag, X } from 'lucide-react';
+import { getBillingPlansApi, subscribePlanApi, validateCouponApi } from '@/services/billing-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
 import { formatCurrency } from '@/lib/format';
@@ -18,6 +18,18 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
   const [loading, setLoading] = useState(true);
   const [subscribingId, setSubscribingId] = useState<string | null>(null);
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountType: string;
+    discountValue: number;
+    effectivePercentage: number;
+    message: string;
+  } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
   useEffect(() => {
     getBillingPlansApi()
       .then((plans) => setPlans(plans && plans.length > 0 ? plans : demoPlans))
@@ -25,10 +37,51 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
       .finally(() => setLoading(false));
   }, []);
 
+  const handleApplyCoupon = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanCode = couponCode.trim().toUpperCase();
+    if (!cleanCode) return;
+
+    setCouponLoading(true);
+    setCouponError(null);
+
+    // Validate against the first paid plan or starter
+    const targetPlan = plans.find((p) => p.planId !== 'free') || plans[0];
+    try {
+      const res = await validateCouponApi(cleanCode, targetPlan?.planId || 'starter', 'USD');
+      if (res.valid) {
+        setAppliedCoupon({
+          code: res.code,
+          discountType: res.discountType,
+          discountValue: res.discountValue,
+          effectivePercentage: res.effectivePercentage,
+          message: res.message,
+        });
+        setCouponError(null);
+      } else {
+        setCouponError(res.message || 'Coupon code is invalid or expired.');
+      }
+    } catch (err: any) {
+      setCouponError(err?.message || 'Invalid coupon code.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError(null);
+  };
+
   const handleSubscribe = async (plan: Plan) => {
     setSubscribingId(plan._id);
     try {
-      const result = await subscribePlanApi({ planId: plan.planId, provider: 'stripe' });
+      const result = await subscribePlanApi({
+        planId: plan.planId,
+        provider: 'stripe',
+        couponCode: appliedCoupon?.code,
+      });
       if (result.requiresRedirect && result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
@@ -59,17 +112,63 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
 
   return (
     <div className="rounded-lg border border-border/50 bg-surface-lowest p-5 sm:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-[2px] bg-primary flex-shrink-0" />
-          <h2 className="text-sm font-semibold text-foreground tracking-tight">
-            Available Subscription Tiers
-          </h2>
+      {/* Header & Coupon Promo Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/40">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-[2px] bg-primary flex-shrink-0" />
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
+              Plans
+            </h2>
+          </div>
+          <span className="text-[11.5px] text-muted-foreground">
+            USD & BDT supported
+          </span>
         </div>
-        <span className="text-[11px] font-mono text-muted-foreground">
-          Stripe (USD) & bKash (BDT) supported
-        </span>
+
+        {/* Coupon Code Input or Active Chip */}
+        <div>
+          {appliedCoupon ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-xs text-primary font-medium">
+              <Tag size={13} />
+              <span>
+                Code <strong>{appliedCoupon.code}</strong> applied ({appliedCoupon.message})
+              </span>
+              <button
+                type="button"
+                onClick={handleRemoveCoupon}
+                className="hover:text-destructive text-primary/70 transition-colors p-0.5"
+                title="Remove coupon"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleApplyCoupon} className="flex items-center gap-1.5">
+              <div className="relative">
+                <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Coupon code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="pl-8 pr-2.5 py-1.5 text-xs rounded-lg bg-surface-high border border-border text-foreground font-mono placeholder:font-sans placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary w-44"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={couponLoading || !couponCode.trim()}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-surface-high border border-border text-foreground hover:bg-surface-bright transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+              >
+                {couponLoading && <Loader2 size={12} className="animate-spin" />}
+                Apply
+              </button>
+            </form>
+          )}
+          {couponError && (
+            <p className="text-[11px] text-destructive mt-1 font-medium">{couponError}</p>
+          )}
+        </div>
       </div>
 
       {/* Responsive Cards Grid with Balanced Spacing & Padding */}
@@ -95,18 +194,34 @@ export function PlanComparisonGrid({ currentPlanId, onSubscribed }: PlanComparis
                     {plan.name}
                   </h3>
                   {isCurrent && (
-                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/25 font-semibold">
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/25 font-semibold">
                       Current
                     </span>
                   )}
                 </div>
 
                 {/* Price Display */}
-                <div className="mb-5 flex items-baseline">
-                  <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums tracking-tight">
-                    {formatCurrency(plan.priceUsdCents / 100, 'USD')}
-                  </span>
-                  <span className="text-xs text-muted-foreground ml-1.5 font-medium">/ mo</span>
+                <div className="mb-5 flex items-baseline flex-wrap gap-2">
+                  {appliedCoupon && plan.priceUsdCents > 0 ? (
+                    <>
+                      <span className="text-base text-muted-foreground line-through tabular-nums">
+                        {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-bold text-primary tabular-nums tracking-tight leading-none">
+                        {formatCurrency(
+                          appliedCoupon.discountType === 'percentage'
+                            ? Math.max(0, (plan.priceUsdCents / 100) * (1 - appliedCoupon.discountValue / 100))
+                            : Math.max(0, (plan.priceUsdCents / 100) - (appliedCoupon.discountValue / 100)),
+                          'USD',
+                        )}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums tracking-tight leading-none">
+                      {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground font-medium ml-1">/ mo</span>
                 </div>
 
                 {/* Limits & Feature Checklist */}

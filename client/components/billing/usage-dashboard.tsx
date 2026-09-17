@@ -77,12 +77,12 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
-              Active Resource Quota Utilization
+            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
+              Usage & Quotas
             </h2>
           </div>
-          <span className="text-[11.5px] font-mono text-muted-foreground">
-            {sub?.status === 'active' ? `Renews on ${periodEndFormatted}` : 'Active Free Tier'}
+          <span className="text-[11.5px] text-muted-foreground">
+            {sub?.status === 'active' ? `Renews ${periodEndFormatted}` : 'Free tier'}
           </span>
         </div>
 
@@ -91,16 +91,16 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
           {quotaItems.map((item) => (
             <div key={item.label} className="bg-background p-4 sm:p-5 space-y-3">
               <div className="flex justify-between items-baseline">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">
                   {item.label}
                 </span>
-                <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
+                <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
                   {item.pct}%
                 </span>
               </div>
 
               <div>
-                <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
+                <span className="text-2xl lg:text-[28px] font-bold text-foreground tabular-nums leading-none tracking-tight">
                   {item.used.toLocaleString()}
                 </span>
                 <span className="text-xs text-muted-foreground ml-1">
@@ -118,7 +118,7 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
                     style={{ width: `${item.pct}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-muted-foreground/80 font-mono">
+                <p className="text-[11px] text-muted-foreground/80 tabular-nums">
                   {item.remaining}
                 </p>
               </div>
@@ -132,23 +132,23 @@ export function UsageDashboard({ subscription }: UsageDashboardProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-3.5 border-b border-border/40">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-            <h3 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
-              Daily Voice & Order Activity
+            <h3 className="text-[13.5px] font-semibold text-foreground tracking-tight">
+              Daily Activity
             </h3>
           </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            Trailing 7-Day Window
+          <span className="text-[11px] text-muted-foreground">
+            Last 7 days
           </span>
         </div>
 
         <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0">
           <table className="w-full min-w-[480px] text-left border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-border/40 text-muted-foreground uppercase text-[11px] font-mono font-medium tracking-wider">
+              <tr className="border-b border-border/40 text-muted-foreground uppercase text-[11px] font-medium tracking-wider">
                 <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3 text-right">Voice Sessions</th>
-                <th className="py-2.5 px-3 text-right">Minutes Consumed</th>
-                <th className="py-2.5 px-3 text-right">Orders Assisted</th>
+                <th className="py-2.5 px-3 text-right">Sessions</th>
+                <th className="py-2.5 px-3 text-right">Minutes</th>
+                <th className="py-2.5 px-3 text-right">Orders</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30 text-foreground">

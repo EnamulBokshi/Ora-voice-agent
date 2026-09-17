@@ -15,13 +15,17 @@ export class Plan {
     type: String,
     required: true,
     unique: true,
-    enum: Object.values(PlanId),
     index: true,
+    trim: true,
+    lowercase: true,
   })
-  planId: PlanId;
+  planId: string;
 
   @Prop({ required: true, trim: true })
   name: string;
+
+  @Prop({ trim: true, default: '' })
+  description?: string;
 
   @Prop({ type: Number, required: true })
   priceUsdCents: number;
@@ -61,6 +65,15 @@ export class Plan {
    */
   @Prop({ type: Number, default: 0 })
   trialDays: number;
+
+  @Prop({ trim: true, default: '' })
+  badge?: string;
+
+  @Prop({ type: Number, default: 0 })
+  sortOrder: number;
+
+  @Prop({ type: Boolean, default: false })
+  isCustom: boolean;
 
   @Prop({ default: true, index: true })
   isActive: boolean;

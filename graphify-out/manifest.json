@@ -30,8 +30,8 @@
     "semantic_hash": ""
   },
   "client/app/(dashboard)/layout.tsx": {
-    "mtime": 1789560910.6936164,
-    "seen": 1789561046.5369327,
+    "mtime": 1789624132.616943,
+    "seen": 1789630948.238399,
     "ast_hash": "7e78f185a9569cd4e2b4561998a4d5c9",
     "semantic_hash": ""
   },
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "client/components/admin/admin-sidebar.tsx": {
-    "mtime": 1788522945.8791823,
-    "seen": 1788865626.9302409,
-    "ast_hash": "483a5f4d89251ee10b04a2594b52b620",
+    "mtime": 1789634488.554521,
+    "seen": 1789635010.1237893,
+    "ast_hash": "7e0af9f79883e38be7e28bdaa0b75bbe",
     "semantic_hash": ""
   },
   "client/components/admin/admin-system-view.tsx": {
@@ -324,8 +324,8 @@
     "semantic_hash": ""
   },
   "client/components/agent/persona/agent-persona-tab.tsx": {
-    "mtime": 1789565532.608333,
-    "seen": 1789565686.5053678,
+    "mtime": 1789624132.6189802,
+    "seen": 1789630948.2528827,
     "ast_hash": "c3f1a75a7492217a5dc711c636de1de5",
     "semantic_hash": ""
   },
@@ -414,45 +414,45 @@
     "semantic_hash": ""
   },
   "client/components/billing/billing-client.tsx": {
-    "mtime": 1789564820.711989,
-    "seen": 1789564916.4782073,
-    "ast_hash": "9886d336bb06a5658980745ade7263d7",
+    "mtime": 1789639034.7304044,
+    "seen": 1789639434.644452,
+    "ast_hash": "b498d4f95b7fd50a90e2784e14d8fc90",
     "semantic_hash": ""
   },
   "client/components/billing/billing-header.tsx": {
-    "mtime": 1788250800.9273388,
-    "seen": 1788255633.0875497,
-    "ast_hash": "6c31e0c993b729673025e6c8a3f97c98",
+    "mtime": 1789639040.945049,
+    "seen": 1789639434.6444626,
+    "ast_hash": "02c2edfefb68fb0d4aaa857c0635ca0f",
     "semantic_hash": ""
   },
   "client/components/billing/current-plan-card.tsx": {
-    "mtime": 1789565249.3052452,
-    "seen": 1789565426.8143857,
-    "ast_hash": "b80161f000e70f90b40d647769b5c22a",
+    "mtime": 1789639055.0003636,
+    "seen": 1789639434.6444678,
+    "ast_hash": "643414074f327a8e9aa1bb8899ce9926",
     "semantic_hash": ""
   },
   "client/components/billing/invoice-history.tsx": {
-    "mtime": 1789557074.7931008,
-    "seen": 1789561046.5495784,
-    "ast_hash": "4b3aa30379fbc8ef9b2344ece9546acc",
+    "mtime": 1789639095.0737076,
+    "seen": 1789639434.6444733,
+    "ast_hash": "338e277561f2c313adad869a5ccf9d6f",
     "semantic_hash": ""
   },
   "client/components/billing/plan-comparison-grid.tsx": {
-    "mtime": 1789564984.7423027,
-    "seen": 1789565085.4026492,
-    "ast_hash": "34bf3aff42d338739af319ce6d10d7df",
+    "mtime": 1789639108.9171095,
+    "seen": 1789639434.6444786,
+    "ast_hash": "79b6214dd9a76f33bdf7cf527c4d19a0",
     "semantic_hash": ""
   },
   "client/components/billing/usage-client.tsx": {
-    "mtime": 1789564601.1227405,
-    "seen": 1789564761.5465236,
-    "ast_hash": "6073c31b4b92295c44214e8c50e6ff24",
+    "mtime": 1789639065.8229868,
+    "seen": 1789639434.644487,
+    "ast_hash": "20ff835f275e7034d0420364671418d4",
     "semantic_hash": ""
   },
   "client/components/billing/usage-dashboard.tsx": {
-    "mtime": 1789565281.1663468,
-    "seen": 1789565426.8155074,
-    "ast_hash": "369cff73a145e6bd6db6cccd303fd158",
+    "mtime": 1789639083.2436874,
+    "seen": 1789639434.6444943,
+    "ast_hash": "efa6add8f010af7dd99aa74cd4e36f29",
     "semantic_hash": ""
   },
   "client/components/conversations/conversation-adapter.ts": {
@@ -516,8 +516,8 @@
     "semantic_hash": ""
   },
   "client/components/dashboard/sidebar.tsx": {
-    "mtime": 1789565708.9791284,
-    "seen": 1789565815.0779407,
+    "mtime": 1789624132.6236956,
+    "seen": 1789630948.2582479,
     "ast_hash": "e882ee8c7af1898a96bd68ee8badb8f2",
     "semantic_hash": ""
   },
@@ -534,9 +534,9 @@
     "semantic_hash": ""
   },
   "client/components/docs/docs-page-client.tsx": {
-    "mtime": 1789563050.614006,
-    "seen": 1789563924.0559988,
-    "ast_hash": "ced403f97f110fb9ca832f0ed4d9ce85",
+    "mtime": 1789624132.6256962,
+    "seen": 1789630948.2586398,
+    "ast_hash": "05bf995283b9359f06c22536884c9fb8",
     "semantic_hash": ""
   },
   "client/components/live-desk/activity-feed.tsx": {
@@ -606,8 +606,8 @@
     "semantic_hash": ""
   },
   "client/components/marketing/floating-orb-widget.tsx": {
-    "mtime": 1789564372.8313258,
-    "seen": 1789564506.868832,
+    "mtime": 1789624132.6269176,
+    "seen": 1789630948.2608495,
     "ast_hash": "0ab6246c324fe729e11142b530e5a66d",
     "semantic_hash": ""
   },
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "client/components/overview/overview-client.tsx": {
-    "mtime": 1789560934.301767,
-    "seen": 1789561046.5547218,
+    "mtime": 1789624132.628919,
+    "seen": 1789630948.2637975,
     "ast_hash": "e53a126b18f0f3901a484c70d70a6b0d",
     "semantic_hash": ""
   },
@@ -732,8 +732,8 @@
     "semantic_hash": ""
   },
   "client/components/pricing/pricing-page-client.tsx": {
-    "mtime": 1789565294.7019646,
-    "seen": 1789565426.8348503,
+    "mtime": 1789624132.629918,
+    "seen": 1789630948.2657168,
     "ast_hash": "11e50acc35b3b37e7b4e8719f0dd138d",
     "semantic_hash": ""
   },
@@ -756,8 +756,8 @@
     "semantic_hash": ""
   },
   "client/components/profile/profile-header.tsx": {
-    "mtime": 1789564617.7695117,
-    "seen": 1789564761.572749,
+    "mtime": 1789624132.629918,
+    "seen": 1789630948.2665403,
     "ast_hash": "143393aeca7542d74b41c3c8e0bf492d",
     "semantic_hash": ""
   },
@@ -876,8 +876,8 @@
     "semantic_hash": ""
   },
   "client/lib/api-client.ts": {
-    "mtime": 1789564364.882524,
-    "seen": 1789564506.888107,
+    "mtime": 1789624132.6349232,
+    "seen": 1789630948.2725685,
     "ast_hash": "515a34722ca75792bd0f96d939f18fcd",
     "semantic_hash": ""
   },
@@ -894,8 +894,8 @@
     "semantic_hash": ""
   },
   "client/lib/demo-data.ts": {
-    "mtime": 1789565322.4550602,
-    "seen": 1789565426.85173,
+    "mtime": 1789624132.6359236,
+    "seen": 1789630948.273124,
     "ast_hash": "b6ee0523782cf0d6aeef0b0365b32b56",
     "semantic_hash": ""
   },
@@ -936,8 +936,8 @@
     "semantic_hash": ""
   },
   "client/proxy.ts": {
-    "mtime": 1789564350.2029965,
-    "seen": 1789564506.8927593,
+    "mtime": 1789624132.636924,
+    "seen": 1789630948.2761073,
     "ast_hash": "7927d37a00ae06fedb1578988b0b8496",
     "semantic_hash": ""
   },
@@ -948,8 +948,8 @@
     "semantic_hash": ""
   },
   "client/public/widget/latest.json": {
-    "mtime": 1789564100.0269377,
-    "seen": 1789564506.893031,
+    "mtime": 1789636289.7131047,
+    "seen": 1789636614.6448267,
     "ast_hash": "2ae30485a0bd5da78c613262b3791f69",
     "semantic_hash": ""
   },
@@ -984,9 +984,9 @@
     "semantic_hash": ""
   },
   "client/services/billing-service.ts": {
-    "mtime": 1789556701.7061205,
-    "seen": 1789561046.5601048,
-    "ast_hash": "bac5fc1d7da688cda03f1662416e0a67",
+    "mtime": 1789634474.896837,
+    "seen": 1789635010.167316,
+    "ast_hash": "e9788662a21547e5588c523f9a057bed",
     "semantic_hash": ""
   },
   "client/services/business-service.ts": {
@@ -1038,8 +1038,8 @@
     "semantic_hash": ""
   },
   "client/services/orders-service.ts": {
-    "mtime": 1789563703.1438382,
-    "seen": 1789563924.0796874,
+    "mtime": 1789624132.638923,
+    "seen": 1789630948.2795913,
     "ast_hash": "6479eb4df6ff53e5f42655d5e155ae65",
     "semantic_hash": ""
   },
@@ -1080,9 +1080,9 @@
     "semantic_hash": ""
   },
   "client/types/billing.ts": {
-    "mtime": 1789556701.7139058,
-    "seen": 1789561046.563135,
-    "ast_hash": "d0c34d99bd8dde092155bf6f46895716",
+    "mtime": 1789634466.2484076,
+    "seen": 1789635010.1735284,
+    "ast_hash": "364a0a7f70213e77560f20de327686ee",
     "semantic_hash": ""
   },
   "client/types/conversation.ts": {
@@ -1404,15 +1404,15 @@
     "semantic_hash": ""
   },
   "server/src/billing/billing.controller.ts": {
-    "mtime": 1789556703.001268,
-    "seen": 1789561046.5761101,
-    "ast_hash": "73c724543c438a162dc6cbdba13e709b",
+    "mtime": 1789630604.3865132,
+    "seen": 1789630948.300448,
+    "ast_hash": "c85a78ef83c6e05f4e38f6844a85c503",
     "semantic_hash": ""
   },
   "server/src/billing/billing.module.ts": {
-    "mtime": 1789556703.0029924,
-    "seen": 1789561046.576113,
-    "ast_hash": "0b8907fe058e07403594a9c48b935a64",
+    "mtime": 1789630617.1611562,
+    "seen": 1789630948.3004506,
+    "ast_hash": "214a43b86a2796c57bedc3b554261d22",
     "semantic_hash": ""
   },
   "server/src/billing/billing.service.spec.ts": {
@@ -1422,15 +1422,15 @@
     "semantic_hash": ""
   },
   "server/src/billing/billing.service.ts": {
-    "mtime": 1789556703.0112598,
-    "seen": 1789561046.5761178,
-    "ast_hash": "4de69f64527823b62fdf9fcee3a80bff",
+    "mtime": 1789630823.9852717,
+    "seen": 1789630948.3006418,
+    "ast_hash": "76597c07dd79e1dea547d65385fd471f",
     "semantic_hash": ""
   },
   "server/src/billing/dto/subscribe.dto.ts": {
-    "mtime": 1788250763.8621044,
-    "seen": 1788255633.0878627,
-    "ast_hash": "2d067e822623d617ebed7ad6319dd073",
+    "mtime": 1789630469.8868575,
+    "seen": 1789630948.3006544,
+    "ast_hash": "032f895b435f6e4f9779cff66ce40aeb",
     "semantic_hash": ""
   },
   "server/src/billing/providers/bkash.provider.spec.ts": {
@@ -1464,15 +1464,15 @@
     "semantic_hash": ""
   },
   "server/src/billing/schemas/plan.schema.ts": {
-    "mtime": 1789556703.165757,
-    "seen": 1789561046.5773208,
-    "ast_hash": "886cb121ec3045cef63040bd07e20235",
+    "mtime": 1789630404.9381626,
+    "seen": 1789630948.3023481,
+    "ast_hash": "cdb805689eccd7921232755706c92ca8",
     "semantic_hash": ""
   },
   "server/src/billing/schemas/subscription.schema.ts": {
-    "mtime": 1789556703.1728823,
-    "seen": 1789561046.5773232,
-    "ast_hash": "29342de60824d1adfdf357e706f3c434",
+    "mtime": 1789630417.4073431,
+    "seen": 1789630948.3023503,
+    "ast_hash": "51262a081a013eb0aec45b154751f665",
     "semantic_hash": ""
   },
   "server/src/billing/services/billing-scheduler.service.ts": {
@@ -2814,9 +2814,9 @@
     "semantic_hash": ""
   },
   "server/src/usage/schemas/token-usage-record.schema.ts": {
-    "mtime": 1789035854.092795,
-    "seen": 1789291131.9930763,
-    "ast_hash": "428574ea132cf2fe0fd6ef35f1ed3497",
+    "mtime": 1789638537.0267227,
+    "seen": 1789639434.9331887,
+    "ast_hash": "e9abff18e9c530484c7069ba197075d2",
     "semantic_hash": ""
   },
   "server/src/usage/usage-tracking.service.ts": {
@@ -3300,8 +3300,8 @@
     "semantic_hash": ""
   },
   "client/public/widget/widget.latest.js": {
-    "mtime": 1789564100.0259328,
-    "seen": 1789564506.8937974,
+    "mtime": 1789636289.71211,
+    "seen": 1789636614.6474516,
     "ast_hash": "6e81337f804046a5e49a716937f8b146",
     "semantic_hash": ""
   },
@@ -4542,8 +4542,8 @@
     "semantic_hash": ""
   },
   "client/public/widget/v2/widget.242e2c584aa8.js": {
-    "mtime": 1789564100.0259328,
-    "seen": 1789564506.8935401,
+    "mtime": 1789636289.7019694,
+    "seen": 1789636614.6465871,
     "ast_hash": "6e81337f804046a5e49a716937f8b146",
     "semantic_hash": ""
   },
@@ -4560,69 +4560,249 @@
     "semantic_hash": ""
   },
   "client/components/quick-setup/index.ts": {
-    "mtime": 1789560890.449493,
-    "seen": 1789561046.5556905,
-    "ast_hash": "65d07f3f968e4d1385296283aaea7840",
+    "mtime": 1789624132.630917,
+    "seen": 1789630948.2667522,
+    "ast_hash": "a8e3810a11d244f4fd650b74eaef8f92",
     "semantic_hash": ""
   },
   "client/components/quick-setup/quick-setup-corner-dock.tsx": {
-    "mtime": 1789561460.4363997,
-    "seen": 1789563924.0647147,
-    "ast_hash": "b5861ae1ee416f6aaef76061f370a9a1",
+    "mtime": 1789624132.630917,
+    "seen": 1789630948.266755,
+    "ast_hash": "fb266980c05e0412261dc2d48dc07e6b",
     "semantic_hash": ""
   },
   "client/components/quick-setup/quick-setup-modal.tsx": {
-    "mtime": 1789562017.8798249,
-    "seen": 1789563924.0647173,
-    "ast_hash": "0a2630348e4b6d2994b602b1f85b671e",
+    "mtime": 1789624132.6319177,
+    "seen": 1789630948.266757,
+    "ast_hash": "3e299d2da761fa2af4deb6550d9d15ae",
     "semantic_hash": ""
   },
   "client/components/quick-setup/quick-setup-overview-banner.tsx": {
-    "mtime": 1789561484.0956533,
-    "seen": 1789563924.0647213,
-    "ast_hash": "23b87b794b883d35f53bc8267e1b3522",
+    "mtime": 1789624132.632929,
+    "seen": 1789630948.266759,
+    "ast_hash": "c021033c193eb071060d6dda0cfbb277",
     "semantic_hash": ""
   },
   "client/components/quick-setup/quick-setup-types.ts": {
-    "mtime": 1789562042.431793,
-    "seen": 1789563924.0647242,
-    "ast_hash": "09fabe9354e3c0f3e49084726c084dd3",
+    "mtime": 1789624132.632929,
+    "seen": 1789630948.2667613,
+    "ast_hash": "e4a71be5dac7327b0bee1220fdd79392",
     "semantic_hash": ""
   },
   "client/hooks/use-quick-setup.ts": {
-    "mtime": 1789562637.9105875,
-    "seen": 1789563924.0704865,
-    "ast_hash": "7d41367f82358c14131515c094b74763",
+    "mtime": 1789624132.633922,
+    "seen": 1789630948.2721865,
+    "ast_hash": "91c787a467f32302bd9911b22b7233cc",
     "semantic_hash": ""
   },
   "client/app/(dashboard)/orders/page.tsx": {
-    "mtime": 1789563218.0955234,
-    "seen": 1789563924.0331748,
-    "ast_hash": "d0646c4b96712b5004be6f197aecb1c8",
+    "mtime": 1789624132.6179461,
+    "seen": 1789630948.2387228,
+    "ast_hash": "ff0769c2550821a6489ccb0889b6ba64",
     "semantic_hash": ""
   },
   "client/components/orders/orders-client.tsx": {
-    "mtime": 1789563846.8063982,
-    "seen": 1789563924.0609338,
-    "ast_hash": "ff61e947abfebac360143d274c224559",
+    "mtime": 1789624132.62792,
+    "seen": 1789630948.263194,
+    "ast_hash": "56b4fa325939b6cab807fc9dfdd8e1a0",
     "semantic_hash": ""
   },
   "client/app/(dashboard)/customers/page.tsx": {
-    "mtime": 1789564283.956673,
-    "seen": 1789564506.8259864,
-    "ast_hash": "049d715caa9d107c2fa42bf3678055ba",
+    "mtime": 1789624132.6158676,
+    "seen": 1789630948.2379909,
+    "ast_hash": "35f0fe9fddbcf2e1c31649840d33c3cc",
     "semantic_hash": ""
   },
   "client/components/customers/customers-client.tsx": {
-    "mtime": 1789564299.7213604,
-    "seen": 1789564506.8643858,
-    "ast_hash": "8aa00667984b7cdd44bf109523171fa2",
+    "mtime": 1789624132.6229458,
+    "seen": 1789630948.2578514,
+    "ast_hash": "c8e0a90eb58bf89d3bf22cf9edf428a8",
     "semantic_hash": ""
   },
   "client/services/customers-service.ts": {
-    "mtime": 1789564278.3654323,
-    "seen": 1789564506.8956165,
-    "ast_hash": "1f31dbd22c907d3559ef7d4f237a9fa0",
+    "mtime": 1789624132.6379237,
+    "seen": 1789630948.2782857,
+    "ast_hash": "4896e08e1d5e386af4be24ea9925c7f9",
+    "semantic_hash": ""
+  },
+  "server/src/billing/admin-billing.controller.ts": {
+    "mtime": 1789630591.582095,
+    "seen": 1789630948.3004444,
+    "ast_hash": "7c5764705846c34c7ff629dbebd2eb07",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/create-coupon.dto.ts": {
+    "mtime": 1789630445.476714,
+    "seen": 1789630948.3006444,
+    "ast_hash": "44b2b372fd5086152d7995917dc00048",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/create-plan.dto.ts": {
+    "mtime": 1789630423.8029027,
+    "seen": 1789630948.300647,
+    "ast_hash": "9543b24013ff864d877aa4928feb1dbd",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/query-coupons.dto.ts": {
+    "mtime": 1789630454.8465586,
+    "seen": 1789630948.30065,
+    "ast_hash": "4cd81d932581c185a8617c866d7260ec",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/query-subscriptions.dto.ts": {
+    "mtime": 1789630432.85975,
+    "seen": 1789630948.300652,
+    "ast_hash": "2bf2722b8b4553cf08a8aa3fe1d177ec",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/update-coupon.dto.ts": {
+    "mtime": 1789630450.068945,
+    "seen": 1789630948.300656,
+    "ast_hash": "263a7db278a4e64814301f8298b251e6",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/update-plan.dto.ts": {
+    "mtime": 1789630428.1109414,
+    "seen": 1789630948.3006582,
+    "ast_hash": "0ecb440416b853b3f479d5f7601b8c59",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/update-subscription-admin.dto.ts": {
+    "mtime": 1789630438.9246128,
+    "seen": 1789630948.3006601,
+    "ast_hash": "2ea8ef33614c3c2cfe6307de60985fca",
+    "semantic_hash": ""
+  },
+  "server/src/billing/dto/validate-coupon.dto.ts": {
+    "mtime": 1789630460.7962449,
+    "seen": 1789630948.3006623,
+    "ast_hash": "c49128d580dd7f64e91eceeb3dbf6d90",
+    "semantic_hash": ""
+  },
+  "server/src/billing/schemas/coupon-redemption.schema.ts": {
+    "mtime": 1789630395.2864974,
+    "seen": 1789630948.3021445,
+    "ast_hash": "b53788a1341cb40fb0e770265f53ce20",
+    "semantic_hash": ""
+  },
+  "server/src/billing/schemas/coupon.schema.ts": {
+    "mtime": 1789630388.934394,
+    "seen": 1789630948.3021472,
+    "ast_hash": "a20bab868705f6276f54f813cf1a5547",
+    "semantic_hash": ""
+  },
+  "server/src/billing/services/billing-management.service.spec.ts": {
+    "mtime": 1789630684.6606421,
+    "seen": 1789630948.302353,
+    "ast_hash": "bc35269c484a3e54f3bb593173f46a2c",
+    "semantic_hash": ""
+  },
+  "server/src/billing/services/billing-management.service.ts": {
+    "mtime": 1789630792.2883923,
+    "seen": 1789630948.3023553,
+    "ast_hash": "dc89f2305079e4b4299afa55dabecf0d",
+    "semantic_hash": ""
+  },
+  "server/src/billing/services/coupon.service.spec.ts": {
+    "mtime": 1789630662.362019,
+    "seen": 1789630948.3025556,
+    "ast_hash": "5d2978fd52c1b8814b7cd79fc154509e",
+    "semantic_hash": ""
+  },
+  "server/src/billing/services/coupon.service.ts": {
+    "mtime": 1789630770.1309988,
+    "seen": 1789630948.3025599,
+    "ast_hash": "0714dfc734d33899a0a6e3fba08a3309",
+    "semantic_hash": ""
+  },
+  "server/src/billing/utils/discount-calculator.util.spec.ts": {
+    "mtime": 1789630366.2244692,
+    "seen": 1789630948.3025622,
+    "ast_hash": "434a1d4e3ac253d56e369db2871fdc2c",
+    "semantic_hash": ""
+  },
+  "server/src/billing/utils/discount-calculator.util.ts": {
+    "mtime": 1789630359.5657568,
+    "seen": 1789630948.3025644,
+    "ast_hash": "f4f0c39336140deda297bac6d79b41a3",
+    "semantic_hash": ""
+  },
+  "server/src/common/dto/pagination-query.dto.ts": {
+    "mtime": 1789630347.239135,
+    "seen": 1789630948.3039632,
+    "ast_hash": "6dfb200ef85b2537668322725b9d7115",
+    "semantic_hash": ""
+  },
+  "server/src/common/utils/pagination.util.ts": {
+    "mtime": 1789630353.205384,
+    "seen": 1789630948.310236,
+    "ast_hash": "69c4f7ea8b1e9a6631a800c4076029bd",
+    "semantic_hash": ""
+  },
+  "client/app/admin/billing/page.tsx": {
+    "mtime": 1789634691.1182353,
+    "seen": 1789635010.114201,
+    "ast_hash": "6c250414bcbc52fc2f374c5cadd6721b",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/admin-billing-view.tsx": {
+    "mtime": 1789639126.9863,
+    "seen": 1789639434.6207774,
+    "ast_hash": "e38e788575eaf11ffa88bfce092f11e2",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/coupon-modal.tsx": {
+    "mtime": 1789639249.7589884,
+    "seen": 1789639434.6208353,
+    "ast_hash": "6667cd8c42f610b9b498aabb794e9b45",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/coupon-redemptions-drawer.tsx": {
+    "mtime": 1789639266.288944,
+    "seen": 1789639434.62085,
+    "ast_hash": "1feefef30c3534ee64751fd98cbf3d68",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/coupons-tab.tsx": {
+    "mtime": 1789639217.5922122,
+    "seen": 1789639434.6208856,
+    "ast_hash": "c27d60db196c06f7643dc1540da17652",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/plan-modal.tsx": {
+    "mtime": 1789639199.00935,
+    "seen": 1789639434.6208913,
+    "ast_hash": "e6d91a15232d55b014abe450a0f42703",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/plans-tab.tsx": {
+    "mtime": 1789639163.633953,
+    "seen": 1789639434.6208973,
+    "ast_hash": "be5c31b0043aca4bc99cc92e5cb48fc7",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/subscription-drawer.tsx": {
+    "mtime": 1789638916.4153845,
+    "seen": 1789639434.620903,
+    "ast_hash": "4e8420d34d173ca78a06265026f1e1c8",
+    "semantic_hash": ""
+  },
+  "client/components/admin/billing/subscriptions-tab.tsx": {
+    "mtime": 1789639142.3430314,
+    "seen": 1789639434.6209087,
+    "ast_hash": "c8af4fc273c329e9dc0dac86f68b907f",
+    "semantic_hash": ""
+  },
+  "client/services/admin-billing-service.ts": {
+    "mtime": 1789634454.2083025,
+    "seen": 1789635010.166693,
+    "ast_hash": "0a33dd43711d25789965a98dcf1891f4",
+    "semantic_hash": ""
+  },
+  "client/types/admin-billing.ts": {
+    "mtime": 1789634440.5016346,
+    "seen": 1789635010.172907,
+    "ast_hash": "55c4f878972378e9397c4d253fb7b26e",
     "semantic_hash": ""
   }
 }

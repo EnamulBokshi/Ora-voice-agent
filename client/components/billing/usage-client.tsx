@@ -43,7 +43,7 @@ function UsageClientContent() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading usage quotas…</span>
+          <span className="text-sm font-medium">Loading usage…</span>
         </div>
       </div>
     );
@@ -58,6 +58,8 @@ function UsageClientContent() {
     },
   };
 
+  // Shown above the content rather than replacing it: a stale plan with a visible
+  // warning is more useful to a merchant than a blank screen.
   const errorBanner = error ? (
     <div className="flex items-start justify-between gap-4 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3">
       <p className="text-[12.5px] text-foreground">{error}</p>
@@ -88,7 +90,7 @@ function UsageClientContent() {
             </h1>
           </div>
           <p className="text-xs sm:text-[13px] text-muted-foreground">
-            Monitor real-time voice minutes, order capacity, and tier limits.
+            Track voice minutes, orders, and plan limits.
           </p>
         </div>
 

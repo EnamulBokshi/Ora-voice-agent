@@ -3,11 +3,15 @@ import { PlanId } from '../schemas/plan.schema';
 import { BillingProvider } from '../schemas/subscription.schema';
 
 export class SubscribeDto {
-  @IsEnum(PlanId)
+  @IsString()
   @IsNotEmpty()
-  planId: PlanId;
+  planId: string;
 
   @IsOptional()
   @IsEnum(BillingProvider)
   billingProvider?: BillingProvider = BillingProvider.STRIPE;
+
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }

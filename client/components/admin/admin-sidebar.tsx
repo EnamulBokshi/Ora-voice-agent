@@ -9,6 +9,7 @@ import {
   Users,
   Radio,
   Coins,
+  CreditCard,
   Server,
   PanelLeftClose,
   PanelLeftOpen,
@@ -35,6 +36,7 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
   { id: 'overview', label: 'Platform Overview', href: '/admin', icon: <LayoutDashboard size={16} /> },
   { id: 'merchants', label: 'Merchants & Stores', href: '/admin/merchants', icon: <Store size={16} /> },
+  { id: 'billing', label: 'Subscriptions & Billing', href: '/admin/billing', icon: <CreditCard size={16} /> },
   { id: 'token-usage', label: 'Token & Cost OpEx', href: '/admin/token-usage', icon: <Coins size={16} /> },
   { id: 'users', label: 'Users & RBAC', href: '/admin/users', icon: <Users size={16} /> },
   { id: 'voice-monitor', label: 'AI Voice Monitor', href: '/admin/voice-monitor', icon: <Radio size={16} /> },

@@ -63,6 +63,27 @@ export class Subscription {
 
   @Prop({ default: false })
   cancelAtPeriodEnd: boolean;
+
+  @Prop({
+    type: {
+      couponId: { type: MongooseSchema.Types.ObjectId, ref: 'Coupon' },
+      code: { type: String, uppercase: true, trim: true },
+      discountType: { type: String },
+      discountAmount: { type: Number },
+      appliedAt: { type: Date, default: Date.now },
+    },
+    default: null,
+  })
+  appliedCoupon?: {
+    couponId?: MongooseSchema.Types.ObjectId;
+    code: string;
+    discountType: string;
+    discountAmount: number;
+    appliedAt: Date;
+  } | null;
+
+  @Prop({ trim: true, default: '' })
+  adminNotes?: string;
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);

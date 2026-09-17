@@ -65,8 +65,8 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
-            Active Plan & Billing Cycle
+          <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
+            Current Plan
           </h2>
         </div>
         {sub && sub.status !== 'canceled' && (
@@ -115,11 +115,11 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
         {/* Col 1: Plan & Price */}
         <div className="py-2 md:py-0 md:pr-6 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[16px] font-semibold text-foreground font-serif">
+            <span className="text-[16px] font-semibold text-foreground">
               {plan ? plan.name : 'Free Tier'}
             </span>
             {sub && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-foreground uppercase">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
                 {sub.status.replace('_', ' ')}
               </span>
@@ -127,7 +127,7 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
           </div>
           {plan && (
             <div className="text-[13px] text-muted-foreground">
-              <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
+              <span className="text-2xl lg:text-[28px] font-bold text-foreground tabular-nums leading-none tracking-tight">
                 {formatCurrency(plan.priceUsdCents / 100, 'USD')}
               </span>
               <span> / month · {providerName}</span>
@@ -136,24 +136,24 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
           <p className="text-[11.5px] text-muted-foreground pt-1">
             {sub?.currentPeriodStart && sub?.currentPeriodEnd
               ? `Cycle: ${formatDateTime(sub.currentPeriodStart)} – ${formatDateTime(sub.currentPeriodEnd)}`
-              : 'Active free store quota tier.'}
+              : 'Free tier.'}
           </p>
         </div>
 
         {/* Col 2: Usage this period */}
         <div className="py-3 md:py-0 md:px-6 space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
-            Usage This Period
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">
+            Usage
           </span>
           <div className="space-y-2 text-[12.5px]">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Voice conversation minutes:</span>
+              <span className="text-muted-foreground">Voice minutes:</span>
               <span className="font-medium text-foreground tabular-nums">
                 {usage.conversationMinutes.toLocaleString()} / {plan ? plan.limits.conversationMinutes.toLocaleString() : '100'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Assisted checkout orders:</span>
+              <span className="text-muted-foreground">Orders:</span>
               <span className="font-medium text-foreground tabular-nums">
                 {usage.ordersPerMonth.toLocaleString()} / {plan ? plan.limits.ordersPerMonth.toLocaleString() : '25'}
               </span>
@@ -163,20 +163,20 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
 
         {/* Col 3: Quotas & Capacity */}
         <div className="py-3 md:py-0 md:pl-6 space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
-            Provisioned Capacity
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">
+            Capacity
           </span>
           <div className="space-y-2 text-[12.5px]">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Connected storefronts:</span>
+              <span className="text-muted-foreground">Stores:</span>
               <span className="font-medium text-foreground tabular-nums">
                 {usage.connectedStores ?? 1} / {plan ? plan.limits.connectedStores : 1}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">AI Voice Engine:</span>
+              <span className="text-muted-foreground">Voice engine:</span>
               <span className="font-medium text-foreground">
-                Active & Ready
+                Active
               </span>
             </div>
           </div>

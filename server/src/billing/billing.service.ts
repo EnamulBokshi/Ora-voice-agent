@@ -1,6 +1,6 @@
-import { Injectable, OnModuleInit, HttpStatus, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, OnModuleInit, HttpStatus, Logger, Inject, Optional, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Plan, PlanDocument, PlanId } from './schemas/plan.schema';
@@ -27,6 +27,7 @@ import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
 import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
 import { EntitlementService } from '../common/entitlement/entitlement.service';
+import { CouponService } from './services/coupon.service';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -52,6 +53,8 @@ export class BillingService implements OnModuleInit {
     @Inject(forwardRef(() => OnboardingEmailService))
     private readonly onboardingEmailService: OnboardingEmailService,
     private readonly entitlementService: EntitlementService,
+    @Optional()
+    private readonly couponService?: CouponService,
   ) {}
 
   async onModuleInit() {
@@ -144,26 +147,60 @@ export class BillingService implements OnModuleInit {
       }
     }
 
-    // 1. Handle Free Tier Subscription (0 cost — instant activation)
-    if (dto.planId === PlanId.FREE || (plan.priceUsdCents === 0 && plan.priceBdtPaisa === 0)) {
+    // Validate coupon code if supplied
+    let couponValidation: any = null;
+    if (dto.couponCode && this.couponService) {
+      couponValidation = await this.couponService.validateCoupon(
+        dto.couponCode,
+        dto.planId,
+        businessId,
+        dto.billingProvider === BillingProvider.BKASH ? 'BDT' : 'USD',
+      );
+    }
+
+    // 1. Handle Free Tier Subscription or 100% Discounted Coupon (0 cost — instant activation)
+    const isFreePlan = dto.planId === PlanId.FREE || (plan.priceUsdCents === 0 && plan.priceBdtPaisa === 0);
+    const isFullyDiscounted = couponValidation && couponValidation.finalAmount === 0;
+
+    if (isFreePlan || isFullyDiscounted) {
       const periodStart = new Date();
       const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+      const updateSet: Record<string, any> = {
+        planId: dto.planId,
+        billingProvider: dto.billingProvider || BillingProvider.STRIPE,
+        providerRef: isFullyDiscounted ? `coupon_${couponValidation.code}` : 'free_tier',
+        status: SubscriptionStatus.ACTIVE,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: false,
+      };
+
+      if (couponValidation) {
+        updateSet.appliedCoupon = {
+          couponId: new Types.ObjectId(couponValidation.couponId),
+          code: couponValidation.code,
+          discountType: couponValidation.discountType,
+          discountAmount: couponValidation.discountAmount,
+          appliedAt: new Date(),
+        };
+      }
+
       const sub = await this.subscriptionModel.findOneAndUpdate(
         { businessId: bId },
-        {
-          $set: {
-            planId: PlanId.FREE,
-            billingProvider: BillingProvider.STRIPE,
-            providerRef: 'free_tier',
-            status: SubscriptionStatus.ACTIVE,
-            currentPeriodStart: periodStart,
-            currentPeriodEnd: periodEnd,
-            cancelAtPeriodEnd: false,
-          },
-        },
+        { $set: updateSet },
         { upsert: true, returnDocument: 'after' },
       ).exec();
+
+      if (couponValidation && this.couponService) {
+        await this.couponService.redeemCoupon({
+          code: couponValidation.code,
+          planId: dto.planId,
+          businessId,
+          subscriptionId: sub._id.toString(),
+          currency: couponValidation.currency,
+        });
+      }
 
       // Activate business & generate key if needed
       const business = await this.businessModel.findById(bId).exec();
@@ -176,13 +213,7 @@ export class BillingService implements OnModuleInit {
         await business.save();
       }
 
-      // Upgrade subscriber role from 'user' to 'owner'.
-      //
-      // Scoped to USER on purpose. This used to promote every account in the
-      // tenant that was not a SUPER_ADMIN, so activating a plan handed OWNER
-      // rights — billing, secret key, connector config — to every staff member
-      // the tenant had. Shopify tenants provision non-owner staff as STAFF,
-      // and a promotion here would undo that on the first charge.
+      // Upgrade subscriber role from 'user' to 'owner'
       await this.adminUserModel.updateMany(
         { businessId: bId, role: AdminRole.USER },
         { $set: { role: AdminRole.OWNER } },
@@ -194,7 +225,9 @@ export class BillingService implements OnModuleInit {
       return {
         requiresRedirect: false,
         subscription: sub,
-        message: 'Free tier activated successfully.',
+        message: isFullyDiscounted
+          ? `Plan '${plan.name}' activated with 100% discount coupon '${couponValidation.code}'.`
+          : 'Free tier activated successfully.',
       };
     }
 
@@ -250,21 +283,45 @@ export class BillingService implements OnModuleInit {
     const periodStart = new Date();
     const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+    const chargeAmountUsd = couponValidation
+      ? couponValidation.finalAmount / 100
+      : plan.priceUsdCents / 100;
+
+    const subUpdate: Record<string, any> = {
+      planId: dto.planId,
+      billingProvider: BillingProvider.STRIPE,
+      providerRef: subRef.providerRef,
+      status: SubscriptionStatus.ACTIVE,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+    };
+
+    if (couponValidation) {
+      subUpdate.appliedCoupon = {
+        couponId: new Types.ObjectId(couponValidation.couponId),
+        code: couponValidation.code,
+        discountType: couponValidation.discountType,
+        discountAmount: couponValidation.discountAmount,
+        appliedAt: new Date(),
+      };
+    }
+
     const sub = await this.subscriptionModel.findOneAndUpdate(
       { businessId: bId },
-      {
-        $set: {
-          planId: dto.planId,
-          billingProvider: BillingProvider.STRIPE,
-          providerRef: subRef.providerRef,
-          status: SubscriptionStatus.ACTIVE,
-          currentPeriodStart: periodStart,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: false,
-        },
-      },
+      { $set: subUpdate },
       { upsert: true, returnDocument: 'after' },
     ).exec();
+
+    if (couponValidation && this.couponService) {
+      await this.couponService.redeemCoupon({
+        code: couponValidation.code,
+        planId: dto.planId,
+        businessId,
+        subscriptionId: sub._id.toString(),
+        currency: couponValidation.currency,
+      });
+    }
 
     // Record append-only PaymentTransaction
     const transaction = await new this.transactionModel({
@@ -272,7 +329,7 @@ export class BillingService implements OnModuleInit {
       subscriptionId: sub._id as any,
       billingProvider: BillingProvider.STRIPE,
       providerTransactionId: subRef.subscriptionId,
-      amount: plan.priceUsdCents / 100,
+      amount: chargeAmountUsd,
       currency: 'USD',
       status: TransactionStatus.SUCCEEDED,
       billingPeriodStart: periodStart,
@@ -283,8 +340,8 @@ export class BillingService implements OnModuleInit {
       businessId,
       subscriptionId: sub._id.toString(),
       transactionId: transaction._id.toString(),
-      amountUsdCents: plan.priceUsdCents,
-      amountBdtPaisa: plan.priceBdtPaisa,
+      amountUsdCents: Math.round(chargeAmountUsd * 100),
+      amountBdtPaisa: couponValidation && couponValidation.currency === 'BDT' ? couponValidation.finalAmount : plan.priceBdtPaisa,
       currency: 'USD',
     });
 
@@ -313,7 +370,38 @@ export class BillingService implements OnModuleInit {
       subscription: sub,
       transaction,
       invoice,
-      message: 'Subscription activated in sandbox development mode.',
+      message: couponValidation
+        ? `Subscription activated in sandbox mode with coupon '${couponValidation.code}' (${couponValidation.effectivePercentage}% off).`
+        : 'Subscription activated in sandbox development mode.',
+    };
+  }
+
+  /**
+   * Retrieves merchant tenant's own billing transaction and subscription history.
+   */
+  async getTenantBillingHistory(businessId: string, page: number = 1, limit: number = 15) {
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 15));
+    const skip = (safePage - 1) * safeLimit;
+
+    const bId = businessId as any;
+    const [total, transactions, invoices, subscription] = await Promise.all([
+      this.transactionModel.countDocuments({ businessId: bId } as any).exec(),
+      this.transactionModel.find({ businessId: bId } as any).sort({ createdAt: -1 }).skip(skip).limit(safeLimit).lean().exec(),
+      this.invoicesService.findAll(businessId, safePage, safeLimit),
+      this.subscriptionModel.findOne({ businessId: bId } as any).lean().exec(),
+    ]);
+
+    return {
+      subscription,
+      transactions,
+      invoices,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit) || 1,
+      },
     };
   }
 
