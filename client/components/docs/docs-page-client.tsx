@@ -324,22 +324,33 @@ useHead({
       id: 'shopify-setup',
       category: 'Store Platforms',
       title: 'Shopify',
-      summary: 'Add ORA to your Shopify theme in a few clicks.',
+      summary: 'Install the ORA Shopify App in under 60 seconds with zero code editing.',
       content: (
         <>
+          <h3 className="lp-docs-h3">Method A — ORA Shopify App (Recommended & Zero Code)</h3>
           <p className="lp-docs-p">
-            You only need to edit one file in your Shopify theme:
+            You do not need to touch any code or edit <code>theme.liquid</code>. Simply install the official ORA app and enable the native Theme App Embed:
           </p>
           <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li>In Shopify Admin, go to <strong>Online Store</strong> → <strong>Themes</strong>.</li>
-            <li>Click <strong>⋯ Actions</strong> on your live theme, then <strong>Edit Code</strong>.</li>
-            <li>Open <code>layout/theme.liquid</code> from the left file tree.</li>
-            <li>Paste the ORA embed script directly above the closing <code>&lt;/body&gt;</code> tag.</li>
-            <li>Click <strong>Save</strong>.</li>
+            <li>Install the <strong>ORA Voice AI</strong> app from the Shopify App Store or connect your store in the ORA dashboard under <strong>Agent Configuration → Sync Catalog</strong>.</li>
+            <li>In Shopify Admin, navigate to <strong>Online Store</strong> → <strong>Themes</strong> and click <strong>Customize</strong>.</li>
+            <li>In the left sidebar, click the <strong>App embeds</strong> icon (or click &ldquo;Enable in Theme&rdquo; in the ORA Shopify app).</li>
+            <li>Toggle the <strong>ORA Voice Widget</strong> switch to <strong>ON</strong>.</li>
+            <li>Click <strong>Save</strong> in the top-right corner. The voice agent and live product catalog sync are instantly active!</li>
           </ol>
           <div className="lp-docs-callout tip">
-            <strong>Catalog connection:</strong> After installing the widget, go to your ORA Dashboard and connect your Shopify store to give ORA access to your product catalog.
+            <strong>Zero Code:</strong> The Shopify App automatically provisions your publishable widget key and syncs your products, inventory, and variants. No theme files are modified.
           </div>
+
+          <h3 className="lp-docs-h3" style={{ marginTop: '2rem' }}>Method B — Manual Script Embed (Optional)</h3>
+          <p className="lp-docs-p">
+            If you are running a custom or headless theme without App Embeds, you can manually paste the embed snippet:
+          </p>
+          <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
+            <li>In Shopify Admin, go to <strong>Online Store</strong> → <strong>Themes</strong> → <strong>⋯ Actions</strong> → <strong>Edit Code</strong>.</li>
+            <li>Open <code>layout/theme.liquid</code>.</li>
+            <li>Paste your ORA embed script right before the closing <code>&lt;/body&gt;</code> tag and click <strong>Save</strong>.</li>
+          </ol>
         </>
       ),
     },
@@ -655,14 +666,71 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
     }
   }, [activeSection]);
 
-  const scrollToSection = (id: string) => {
+  const scrollToSection = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (el) {
       const y = el.getBoundingClientRect().top + window.pageYOffset - 90;
       window.scrollTo({ top: y, behavior: 'smooth' });
       setActiveSection(id);
     }
-  };
+  }, []);
+
+  // Listen for hash changes or programmatic docs-scroll-to events from the voice widget
+  useEffect(() => {
+    const handleTargetScroll = (rawId: string) => {
+      if (!rawId) return;
+      const cleanId = rawId.replace(/^#/, '').toLowerCase().trim();
+      const aliasMap: Record<string, string> = {
+        shopify: 'shopify-setup',
+        woocommerce: 'woocommerce-setup',
+        woo: 'woocommerce-setup',
+        nocode: 'nocode-setup',
+        attributes: 'widget-attributes',
+        voice: 'voice-language',
+        catalog: 'catalog-sync',
+        policies: 'store-policies',
+        policy: 'store-policies',
+        snippets: 'embed-snippets',
+        embed: 'embed-snippets',
+        launch: 'pre-launch',
+        checklist: 'pre-launch',
+        troubleshoot: 'troubleshooting',
+      };
+      const targetId = aliasMap[cleanId] || cleanId;
+      const sectionExists = docSections.some((s) => s.id === targetId);
+      if (sectionExists) {
+        setSelectedCategory('All');
+        setSearchQuery('');
+        setTimeout(() => {
+          scrollToSection(targetId);
+        }, 100);
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.location.hash) {
+      handleTargetScroll(window.location.hash);
+    }
+
+    const onHashChange = () => {
+      if (typeof window !== 'undefined' && window.location.hash) {
+        handleTargetScroll(window.location.hash);
+      }
+    };
+
+    const onCustomScroll = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        handleTargetScroll(customEvent.detail);
+      }
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    window.addEventListener('docs-scroll-to', onCustomScroll);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('docs-scroll-to', onCustomScroll);
+    };
+  }, [docSections, scrollToSection]);
 
   return (
     <div className="lp-docs-root">

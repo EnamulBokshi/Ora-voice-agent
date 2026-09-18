@@ -48,7 +48,7 @@ export function QuickSetupOverviewBanner() {
 
   return (
     <div
-      className="rounded-lg border border-border/60 bg-surface-lowest px-4 py-3.5 mb-6 flex flex-col gap-3 animate-in fade-in duration-200"
+      className="rounded-lg border border-border/80 dark:border-border/60 bg-card dark:bg-surface-lowest px-4 py-3.5 mb-6 flex flex-col gap-3 shadow-xs dark:shadow-none animate-in fade-in duration-200"
       aria-label="Store setup guide"
     >
       {/* ── Top row ── */}
@@ -84,7 +84,7 @@ export function QuickSetupOverviewBanner() {
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss"
-            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-surface-high transition-colors cursor-pointer"
           >
             <X size={13} />
           </button>
@@ -92,9 +92,9 @@ export function QuickSetupOverviewBanner() {
       </div>
 
       {/* ── Progress bar ── */}
-      <div className="w-full h-px bg-border/50 relative">
+      <div className="w-full h-1 bg-muted dark:bg-border/50 rounded-full overflow-hidden relative">
         <div
-          className="absolute top-0 left-0 h-full bg-primary transition-all duration-500"
+          className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -115,7 +115,7 @@ export function QuickSetupOverviewBanner() {
                   ? 'text-muted-foreground/60 line-through'
                   : isNext
                   ? 'bg-primary/10 text-foreground font-medium border border-primary/30'
-                  : 'text-muted-foreground hover:text-foreground',
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-surface-high/50',
               )}
             >
               {isDone ? (

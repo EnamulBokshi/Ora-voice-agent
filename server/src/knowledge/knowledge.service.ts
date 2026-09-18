@@ -624,9 +624,13 @@ export class KnowledgeService {
     confidence: number;
     action: 'created' | 'updated' | 'unchanged';
   }> {
+    // Scoped to the active profile like every other knowledge lookup: without
+    // it a merchant who switched archetypes overwrites the previous profile's
+    // document instead of creating one under the profile they are feeding.
     const existing = await this.knowledgeBaseModel
       .findOne({
         businessId: businessId as any,
+        archetype: await this.agentProfileService.getActiveArchetype(businessId),
         docType: entry.docType,
         title: entry.title,
       })

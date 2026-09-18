@@ -79,11 +79,12 @@ Copy your unique widget code snippet from **Dashboard &rarr; Agent Credentials**
 
 ### Installation by Platform:
 
-#### Shopify:
-1. In Shopify Admin, go to **Online Store &rarr; Themes**.
-2. Click **... &rarr; Edit Code**.
-3. Open `layout/theme.liquid` and paste the snippet directly before the closing `</head>` or `</body>` tag.
-4. Click **Save**.
+#### Shopify (Recommended — Zero Code):
+1. Install the official **ORA Voice AI** app from the Shopify App Store (or connect your store under **Agent Configuration → Sync Catalog** in your ORA dashboard).
+2. In Shopify Admin, go to **Online Store &rarr; Themes &rarr; Customize**.
+3. In the left panel, click **App embeds** and toggle **ORA Voice Widget** to **ON**.
+4. Click **Save**. Your product catalog syncs automatically and the voice assistant is live. No code editing or Liquid changes needed!
+*(Optional manual embed for custom/headless stores: paste the script tag into `layout/theme.liquid` before `</body>`).*
 
 #### WordPress / WooCommerce:
 1. In WordPress Admin, install the free plugin **"WPCode"** or **"Insert Headers and Footers"**.

@@ -302,21 +302,12 @@ export class RagService {
             score: 0.75,
             metadata: { docTitle: doc.title, docType: doc.docType },
           }));
-        } else {
-          // If query was broad or no direct keyword match, provide top knowledge docs
-          const allDocs = await this.knowledgeService.findAll(businessId, undefined, undefined, {
-            limit: 3,
-          });
-          if (allDocs?.items && allDocs.items.length > 0) {
-            vectorResults = allDocs.items.map((doc: any) => ({
-              entityId: doc._id.toString(),
-              entityType: EntityType.KNOWLEDGE_CHUNK,
-              text: `# ${doc.title}\n${doc.content}`,
-              score: 0.65,
-              metadata: { docTitle: doc.title, docType: doc.docType },
-            }));
-          }
         }
+        // No vector match and no keyword match means this tenant has nothing
+        // on the topic. Returning the most recently updated documents instead
+        // would hand the voice agent unrelated text as though it were
+        // retrieved evidence, and the agent answers from what it is given. An
+        // empty result is what lets it say it does not know.
       } catch (err: any) {
         this.logger.warn(`Knowledge fallback search failed: ${err.message}`);
       }

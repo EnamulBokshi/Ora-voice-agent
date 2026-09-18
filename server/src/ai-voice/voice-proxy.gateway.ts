@@ -644,6 +644,13 @@ export class VoiceProxyGateway {
     const sessionModeParam = parsedUrl.query.sessionMode as string;
     const sessionMode: 'customer' | 'training' = sessionModeParam === 'training' ? 'training' : 'customer';
     const silentMode = parsedUrl.query.silentMode === 'true';
+    /**
+     * Only a client that actually runs a noise gate may claim this, and only the
+     * storefront widget does. Absence means ungated, which is the safe default:
+     * a client wrongly treated as ungated gets slower turn detection, while one
+     * wrongly treated as gated has room noise read as speech.
+     */
+    const clientGatesAudio = parsedUrl.query.gatedAudio === 'true';
 
     const initialClientContext = {
       currentPath: currentPathParam,
@@ -969,6 +976,7 @@ export class VoiceProxyGateway {
         clientContext: initialClientContext,
         authenticatedUser,
         sessionMode,
+        clientGatesAudio,
 
         // Google → client: audio response
         onAudioData: (base64AudioPcm) => {

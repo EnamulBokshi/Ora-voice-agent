@@ -3120,8 +3120,13 @@
       const custPayload = resolveCustomerPayload();
       const curPath = (typeof window !== 'undefined' && window.location.pathname) ? window.location.pathname : '/';
       const curTitle = (typeof document !== 'undefined' && document.title) ? document.title : '';
+      // Declares that the noise gate above runs before anything is transmitted, so
+      // the server can use its fast turn-detection profile. Only a client with a
+      // gate may send this: without one the server's HIGH start sensitivity reads
+      // room noise as speech. Remove the gate and this flag goes with it.
       let wsUri = wsBase + '/ws/voice' +
         '?publishableKey=' + encodeURIComponent(publishableKey) +
+        '&gatedAudio=true' +
         '&sessionId=' + encodeURIComponent(sessionId) +
         '&deviceId=' + encodeURIComponent(custPayload.deviceId) +
         '&currentPath=' + encodeURIComponent(curPath) +

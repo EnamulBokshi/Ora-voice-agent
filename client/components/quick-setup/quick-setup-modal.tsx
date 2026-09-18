@@ -102,12 +102,12 @@ export function QuickSetupModal() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="qs-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
     >
-      <div className="relative w-full max-w-2xl flex flex-col rounded-xl border border-border/50 bg-[#0A0A0A] shadow-2xl overflow-hidden max-h-[90vh]">
+      <div className="relative w-full max-w-2xl flex flex-col rounded-xl border border-border/80 dark:border-border/50 bg-card text-card-foreground shadow-2xl overflow-hidden max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/40 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 dark:border-border/40 bg-muted/30 dark:bg-transparent flex-shrink-0">
           <div className="flex items-center gap-3">
             {/* step dots */}
             <div className="flex items-center gap-1">
@@ -119,7 +119,7 @@ export function QuickSetupModal() {
                   title={s.title}
                   className={cn(
                     'h-[3px] rounded-full transition-all duration-200 focus-visible:outline-none',
-                    s.id === activeStep ? 'w-5 bg-primary' : stepsState[s.id] ? 'w-3 bg-primary/35' : 'w-3 bg-surface-bright',
+                    s.id === activeStep ? 'w-5 bg-primary' : stepsState[s.id] ? 'w-3 bg-primary/40' : 'w-3 bg-muted-foreground/25 dark:bg-surface-bright',
                   )}
                 />
               ))}
@@ -131,7 +131,7 @@ export function QuickSetupModal() {
           <button
             onClick={dismissModal}
             aria-label="Close"
-            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-surface-high transition-colors cursor-pointer"
           >
             <X size={14} />
           </button>
@@ -161,7 +161,7 @@ export function QuickSetupModal() {
                 onChange={(e) => updateFormFields({ storeName: e.target.value })}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleContinue(); }}
                 placeholder="Your store or brand name"
-                className="w-full h-10 px-3.5 rounded-lg border border-border/70 bg-surface-container text-foreground text-sm placeholder:text-muted-foreground/40 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors"
+                className="w-full h-10 px-3.5 rounded-lg border border-border/80 dark:border-border/70 bg-surface-lowest/70 dark:bg-surface-container text-foreground text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors"
               />
             )}
 
@@ -179,7 +179,7 @@ export function QuickSetupModal() {
                         'w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-left transition-all cursor-pointer',
                         selected
                           ? 'border-primary/50 bg-primary/5 text-foreground'
-                          : 'border-border/50 hover:border-border/80 text-muted-foreground hover:text-foreground',
+                          : 'border-border/60 hover:border-border dark:border-border/50 dark:hover:border-border/80 hover:bg-muted/50 dark:hover:bg-surface-high/50 text-muted-foreground hover:text-foreground',
                       )}
                     >
                       <span className="text-sm font-medium">{arch.label}</span>
@@ -201,7 +201,7 @@ export function QuickSetupModal() {
                   onChange={(e) => updateFormFields({ storeDomain: e.target.value })}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleContinue(); }}
                   placeholder="yourdomain.com"
-                  className="w-full h-10 px-3.5 rounded-lg border border-border/70 bg-surface-container text-foreground text-sm placeholder:text-muted-foreground/40 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors"
+                  className="w-full h-10 px-3.5 rounded-lg border border-border/80 dark:border-border/70 bg-surface-lowest/70 dark:bg-surface-container text-foreground text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors"
                 />
                 {formData.storeDomain && (
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
@@ -222,7 +222,7 @@ export function QuickSetupModal() {
                   value={formData.businessSummary}
                   onChange={(e) => updateFormFields({ businessSummary: e.target.value })}
                   placeholder="What do you sell, and who is it for?"
-                  className="w-full p-3.5 rounded-lg border border-border/70 bg-surface-container text-foreground text-sm leading-relaxed placeholder:text-muted-foreground/40 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors resize-none"
+                  className="w-full p-3.5 rounded-lg border border-border/80 dark:border-border/70 bg-surface-lowest/70 dark:bg-surface-container text-foreground text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors resize-none"
                 />
                 <button
                   type="button"
@@ -249,7 +249,7 @@ export function QuickSetupModal() {
                           'w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-left transition-all cursor-pointer',
                           selected
                             ? 'border-primary/50 bg-primary/5 text-foreground'
-                            : 'border-border/50 hover:border-border/80 text-muted-foreground hover:text-foreground',
+                            : 'border-border/60 hover:border-border dark:border-border/50 dark:hover:border-border/80 hover:bg-muted/50 dark:hover:bg-surface-high/50 text-muted-foreground hover:text-foreground',
                         )}
                       >
                         <div>
@@ -272,7 +272,7 @@ export function QuickSetupModal() {
                     value={formData.systemPrompt}
                     onChange={(e) => updateFormFields({ systemPrompt: e.target.value })}
                     placeholder="e.g. Always mention our 30-day return policy"
-                    className="w-full p-3.5 rounded-lg border border-border/70 bg-surface-container text-foreground text-sm leading-relaxed placeholder:text-muted-foreground/40 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors resize-none"
+                    className="w-full p-3.5 rounded-lg border border-border/80 dark:border-border/70 bg-surface-lowest/70 dark:bg-surface-container text-foreground text-sm leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary/25 outline-none transition-colors resize-none"
                   />
                 </div>
               </div>
@@ -285,14 +285,14 @@ export function QuickSetupModal() {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3.5 border-t border-border/40 flex items-center justify-between flex-shrink-0">
+        <div className="px-5 py-3.5 border-t border-border/60 dark:border-border/40 bg-muted/20 dark:bg-transparent flex items-center justify-between flex-shrink-0">
           <div>
             {currentStepIndex > 0 && (
               <button
                 type="button"
                 onClick={handleBack}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2 rounded hover:bg-surface-high cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2 rounded hover:bg-muted dark:hover:bg-surface-high cursor-pointer"
               >
                 <ArrowLeft size={12} />
                 Back
@@ -313,7 +313,7 @@ export function QuickSetupModal() {
               type="button"
               onClick={handleContinue}
               disabled={saving}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
             >
               {saving ? 'Saving…' : isLastStep ? 'Done' : 'Continue'}
               {!saving && <ArrowRight size={12} />}

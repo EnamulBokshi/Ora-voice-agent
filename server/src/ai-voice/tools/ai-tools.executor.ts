@@ -948,6 +948,57 @@ export class AiToolsExecutor {
       } else if (cleanDest === '/setup' || cleanDest.startsWith('/setup?') || cleanDest.startsWith('/setup/')) {
         // Setup guide was consolidated into Agent Configuration
         cleanDest = '/agent';
+      } else if (cleanDest === 'open_quick_setup' || cleanDest === '/open_quick_setup' || cleanDest === '/quick-setup' || cleanDest === '/onboarding') {
+        // Quick Setup is launched from Agent Configuration — redirect there and ORA will verbally guide
+        cleanDest = '/agent';
+      } else if (
+        cleanDest === '/agent/prompt' ||
+        cleanDest === '/agent/persona' ||
+        cleanDest === '/agent/system-prompt' ||
+        cleanDest === 'agent?role=prompt' ||
+        cleanDest === 'agent?role=persona'
+      ) {
+        cleanDest = '/agent?role=prompt';
+      } else if (
+        cleanDest === '/agent/voice' ||
+        cleanDest === '/agent/voice-feed' ||
+        cleanDest === '/agent/talk' ||
+        cleanDest === 'agent?role=voice'
+      ) {
+        cleanDest = '/agent?role=voice';
+      } else if (
+        cleanDest === '/agent/documents' ||
+        cleanDest === '/agent/docs' ||
+        cleanDest === '/agent/files' ||
+        cleanDest === '/agent/upload' ||
+        cleanDest === 'agent?role=documents' ||
+        // legacy/hallucinated routes
+        cleanDest === '/agent/tools' ||
+        cleanDest === '/agent/capabilities' ||
+        cleanDest === 'agent?role=tools'
+      ) {
+        cleanDest = '/agent?role=documents';
+      } else if (
+        cleanDest === '/agent/products' ||
+        cleanDest === '/agent/catalog' ||
+        cleanDest === '/agent/sync' ||
+        cleanDest === 'agent?role=products' ||
+        // legacy/hallucinated routes
+        cleanDest === '/agent/playbook' ||
+        cleanDest === '/agent/sales' ||
+        cleanDest === 'agent?role=playbook'
+      ) {
+        cleanDest = '/agent?role=products';
+      } else if (
+        cleanDest === '/agent/script' ||
+        cleanDest === '/agent/embed' ||
+        cleanDest === '/agent/widget' ||
+        cleanDest === '/agent/install' ||
+        cleanDest === 'agent?role=script' ||
+        // legacy/hallucinated routes
+        cleanDest === 'agent?role=widget'
+      ) {
+        cleanDest = '/agent?role=script';
       } else if (cleanDest === '/invoices' || cleanDest === '/subscription') {
         cleanDest = '/billing';
       } else if (cleanDest === '/settings') {
@@ -967,10 +1018,46 @@ export class AiToolsExecutor {
         cleanDest === '/manuals' ||
         cleanDest === '/guide' ||
         cleanDest === '/guides' ||
-        cleanDest === '/documentation' ||
-        cleanDest === '#docs'
+        cleanDest === '/documentation'
       ) {
         cleanDest = '/docs';
+      }
+
+      if (cleanDest.startsWith('/docs#') || cleanDest.startsWith('#')) {
+        const docAnchorMap: Record<string, string> = {
+          '#shopify': '#shopify-setup',
+          '#shopify-setup': '#shopify-setup',
+          '#woocommerce': '#woocommerce-setup',
+          '#woocommerce-setup': '#woocommerce-setup',
+          '#woo': '#woocommerce-setup',
+          '#embed': '#embed-snippets',
+          '#embed-snippets': '#embed-snippets',
+          '#snippets': '#embed-snippets',
+          '#nocode': '#nocode-setup',
+          '#nocode-setup': '#nocode-setup',
+          '#attributes': '#widget-attributes',
+          '#widget-attributes': '#widget-attributes',
+          '#voice': '#voice-language',
+          '#voice-language': '#voice-language',
+          '#catalog': '#catalog-sync',
+          '#catalog-sync': '#catalog-sync',
+          '#policies': '#store-policies',
+          '#store-policies': '#store-policies',
+          '#checklist': '#pre-launch',
+          '#pre-launch': '#pre-launch',
+          '#launch': '#pre-launch',
+          '#troubleshoot': '#troubleshooting',
+          '#troubleshooting': '#troubleshooting',
+          '#quickstart': '#quickstart',
+        };
+        const hashIdx = cleanDest.indexOf('#');
+        if (hashIdx !== -1) {
+          const prefix = cleanDest.substring(0, hashIdx);
+          const rawHash = cleanDest.substring(hashIdx).toLowerCase();
+          if (docAnchorMap[rawHash]) {
+            cleanDest = `${prefix}${docAnchorMap[rawHash]}`;
+          }
+        }
       }
 
       const ALLOWED_TARGETS = [
@@ -995,10 +1082,25 @@ export class AiToolsExecutor {
         '#stats',
         '#testimonials',
         '#cta',
+        '#quickstart',
+        '#embed-snippets',
+        '#shopify-setup',
+        '#woocommerce-setup',
+        '#nocode-setup',
+        '#widget-attributes',
+        '#voice-language',
+        '#catalog-sync',
+        '#store-policies',
+        '#pre-launch',
+        '#troubleshooting',
       ];
 
       const isValid = ALLOWED_TARGETS.some(
-        (t) => cleanDest === t || cleanDest.startsWith(`${t}?`) || cleanDest.startsWith(`${t}/`),
+        (t) =>
+          cleanDest === t ||
+          cleanDest.startsWith(`${t}?`) ||
+          cleanDest.startsWith(`${t}/`) ||
+          cleanDest.startsWith(`${t}#`),
       );
 
       if (!isValid) {
@@ -1146,7 +1248,11 @@ export class AiToolsExecutor {
 
     let guideMarkdown = '';
     if (platform.includes('shopify')) {
-      guideMarkdown = `### Shopify Integration in 60 Seconds\n1. Open your Shopify Admin -> Online Store -> Themes -> Edit code.\n2. In \`theme.liquid\`, right before \`</head>\`, paste:\n\`\`\`html\n<script src="${frontendUrl}/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n3. Click Save! ORA immediately ingests your products via passive telemetry and mounts the live voice agent.`;
+      guideMarkdown = `### Shopify Integration in 60 Seconds (Zero Code)
+1. Install the official ORA Voice AI app on Shopify (or connect your store in your ORA dashboard).
+2. In Shopify Admin, navigate to Online Store -> Themes -> Customize -> App embeds.
+3. Toggle "ORA Voice Widget" to ON and click Save!
+Your product catalog and inventory synchronize automatically, and the voice agent is live. No code editing or modifying theme.liquid is required!`;
     } else if (platform.includes('woo') || platform.includes('wordpress')) {
       guideMarkdown = `### WooCommerce Integration\n1. Add the ORA embed snippet to your theme's \`header.php\` before \`</head>\`:\n\`\`\`html\n<script src="${frontendUrl}/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\n2. ORA will automatically synchronize your product catalog and live inventory.`;
     } else if (platform.includes('next') || platform.includes('react')) {
@@ -1155,13 +1261,19 @@ export class AiToolsExecutor {
       guideMarkdown = `### Universal HTML Integration\nAdd this single line anywhere in your HTML before \`</body>\`:\n\`\`\`html\n<script src="${frontendUrl}/widget/ora-widget.js" data-ora-key="YOUR_PUBLISHABLE_KEY" async></script>\n\`\`\`\nORA auto-scrapes your headings, projects, products, and contact info in real-time.`;
     }
 
+    const destination = platform.includes('shopify')
+      ? '/docs#shopify-setup'
+      : platform.includes('woo') || platform.includes('wordpress')
+      ? '/docs#woocommerce-setup'
+      : '/docs';
+
     return {
       success: true,
       platform,
       guide: guideMarkdown,
       action: {
         type: 'navigate',
-        destination: '/docs',
+        destination,
         reason: 'View complete documentation and SDK references',
       },
     };

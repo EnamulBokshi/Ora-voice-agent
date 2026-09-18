@@ -370,11 +370,36 @@ export function FloatingOrbWidget() {
       const id = rawDest.replace(/^#/, '').trim();
       if (!id) return;
 
+      // If we are on /docs, dispatch custom event so DocsPageClient un-filters categories and scrolls
+      if (pathname === '/docs' && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('docs-scroll-to', { detail: id }));
+      }
+
       let attempt = 0;
 
       function tryScroll() {
+        const docAliases: Record<string, string> = {
+          shopify: 'shopify-setup',
+          woocommerce: 'woocommerce-setup',
+          woo: 'woocommerce-setup',
+          nocode: 'nocode-setup',
+          attributes: 'widget-attributes',
+          voice: 'voice-language',
+          catalog: 'catalog-sync',
+          policies: 'store-policies',
+          policy: 'store-policies',
+          snippets: 'embed-snippets',
+          embed: 'embed-snippets',
+          launch: 'pre-launch',
+          checklist: 'pre-launch',
+          troubleshoot: 'troubleshooting',
+        };
+        const resolvedId = docAliases[id.toLowerCase()] || id;
+
         const el =
-          document.getElementById(id) || document.getElementById(id.toLowerCase());
+          document.getElementById(id) ||
+          document.getElementById(id.toLowerCase()) ||
+          document.getElementById(resolvedId);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           return;
@@ -393,7 +418,21 @@ export function FloatingOrbWidget() {
           router.push(route);
           return;
         }
-        if (pathname !== '/') router.push(`/#${id}`);
+
+        // CRITICAL: Only fall back to landing page if the anchor actually exists on the landing page!
+        // Never kick the visitor back to the home page for a non-landing-page anchor.
+        const LANDING_PAGE_ANCHORS = new Set([
+          'hero',
+          'features',
+          'solutions',
+          'docs',
+          'stats',
+          'testimonials',
+          'cta',
+        ]);
+        if (pathname !== '/' && LANDING_PAGE_ANCHORS.has(id.toLowerCase())) {
+          router.push(`/#${id}`);
+        }
       }
 
       tryScroll();
@@ -698,13 +737,29 @@ export function FloatingOrbWidget() {
             if (dest.startsWith('#')) {
               goToAnchor(dest);
             } else if (dest.startsWith('/')) {
-              if (typeof window !== 'undefined') {
-                const currentFull = window.location.pathname + window.location.search;
-                if (currentFull !== dest) {
-                  try {
-                    router.prefetch(dest);
-                  } catch {}
-                  router.push(dest);
+              if (dest.includes('#')) {
+                const [pathPart, hashPart] = dest.split('#');
+                if (typeof window !== 'undefined') {
+                  const currentPath = window.location.pathname;
+                  if (pathPart && pathPart !== currentPath) {
+                    try {
+                      router.prefetch(pathPart);
+                    } catch {}
+                    router.push(dest);
+                    setTimeout(() => goToAnchor(hashPart), 350);
+                  } else {
+                    goToAnchor(hashPart);
+                  }
+                }
+              } else {
+                if (typeof window !== 'undefined') {
+                  const currentFull = window.location.pathname + window.location.search;
+                  if (currentFull !== dest) {
+                    try {
+                      router.prefetch(dest);
+                    } catch {}
+                    router.push(dest);
+                  }
                 }
               }
             }

@@ -20,6 +20,15 @@ import { EncryptionUtil } from '../common/utils/encryption.util';
 // Map of supported Gemini Live voices & fallback mapper for legacy OpenAI voice names
 const VALID_GEMINI_VOICES = new Set(['Aoede', 'Fenrir', 'Kore', 'Puck', 'Charon']);
 
+/**
+ * How much of each preloaded knowledge document is shown in the system
+ * instruction. Enough for the model to recognise which topics it holds, short
+ * enough that ten documents do not crowd out the rest of the prompt. Documents
+ * longer than this are marked truncated so the model searches instead of
+ * answering from the preview.
+ */
+const KNOWLEDGE_SNIPPET_CHARS = 300;
+
 // ── Gemini Live input activity detection (noise robustness) ──────────────────
 /**
  * HIGH so Gemini opens a turn on a normal speech onset rather than demanding a
@@ -79,6 +88,35 @@ const SPEECH_PREFIX_PADDING_MS = 200;
  * ~1s is Gemini's own end-of-speech decision plus generation and is not tunable here.
  */
 const SPEECH_SILENCE_DURATION_MS = 250;
+
+/**
+ * Detection settings for a client that does NOT gate its own audio.
+ *
+ * Everything above this point is tuned for the storefront widget, which rejects
+ * room noise before it transmits. The dashboard client has no such gate and
+ * sends every captured frame, so the settings above met raw room audio there: a
+ * fan or a keyboard cleared HIGH start sensitivity, opened a turn, and in
+ * training mode ORA answered the room.
+ *
+ * The fix belongs here rather than in the browser. A client-side gate that
+ * misjudges the room stops the microphone working at all, which is a worse
+ * failure than a slow reply — and these surfaces are training and testing,
+ * where nobody is counting milliseconds.
+ *
+ * LOW start demands a pronounced onset, which is what rejects the room.
+ * prefixPaddingMs is raised to cover the later detection that implies. LOW end
+ * and the longer silence window stop a mid-sentence pause being read as the end
+ * of a turn. Nothing here can mute anyone: the audio still streams, Gemini just
+ * declines to call it speech.
+ *
+ * There is no hang risk from the longer window either. That constraint binds
+ * the widget, whose gate stops sending audio after its hangover elapses; an
+ * ungated client keeps feeding real silence for as long as Gemini needs it.
+ */
+const UNGATED_START_OF_SPEECH_SENSITIVITY = 'START_SENSITIVITY_LOW';
+const UNGATED_END_OF_SPEECH_SENSITIVITY = 'END_SENSITIVITY_LOW';
+const UNGATED_SPEECH_PREFIX_PADDING_MS = 300;
+const UNGATED_SPEECH_SILENCE_DURATION_MS = 800;
 
 /**
  * Hang guard for a single tool call.
@@ -167,6 +205,15 @@ export interface GeminiVoiceSessionOptions {
   sessionId: string;
   /** Defaults to 'customer'. Only an authenticated owner may open 'training'. */
   sessionMode?: VoiceSessionMode;
+  /**
+   * Whether this client rejects room noise before it sends audio.
+   *
+   * The storefront widget does and declares it; the dashboard client does not
+   * and cannot claim it. Defaults to false, so a client that says nothing is
+   * treated as ungated — the safe direction, because the cost of guessing wrong
+   * that way is a slower reply rather than a session that hears nothing.
+   */
+  clientGatesAudio?: boolean;
   customerId?: string;
   deviceId?: string;
   authenticatedUser?: {
@@ -566,21 +613,30 @@ export class GeminiVoiceService {
             inputAudioTranscription: {},
             outputAudioTranscription: {},
             // ── Input activity detection (noise robustness) ──────────────────────
-            // Left unset, Gemini's automatic VAD runs on defaults tuned for a quiet
-            // room: a TV, traffic or a nearby conversation reads as the customer
-            // speaking and barges in on ORA mid-answer.
+            // Which profile applies depends on the client, because the two clients
+            // hand this detector very different audio.
             //
-            // HIGH start sensitivity opens a turn on a normal speech onset; the
-            // widget's own noise gate upstream is what keeps non-speech out, so this
-            // detector only has to segment turns. prefixPaddingMs keeps the first
-            // syllable, and HIGH end sensitivity commits quickly once they stop.
+            // A gated client (the storefront widget) has already removed the room,
+            // so this detector only has to segment turns: HIGH start opens on a
+            // normal speech onset, HIGH end commits quickly once they stop, and the
+            // short silence window keeps replies fast on the surface that converts.
+            //
+            // An ungated client sends the room as well, so the same settings would
+            // treat noise as speech. See the UNGATED_* constants above.
             realtimeInputConfig: {
-              automaticActivityDetection: {
-                startOfSpeechSensitivity: START_OF_SPEECH_SENSITIVITY,
-                endOfSpeechSensitivity: END_OF_SPEECH_SENSITIVITY,
-                prefixPaddingMs: SPEECH_PREFIX_PADDING_MS,
-                silenceDurationMs: SPEECH_SILENCE_DURATION_MS,
-              },
+              automaticActivityDetection: options.clientGatesAudio
+                ? {
+                    startOfSpeechSensitivity: START_OF_SPEECH_SENSITIVITY,
+                    endOfSpeechSensitivity: END_OF_SPEECH_SENSITIVITY,
+                    prefixPaddingMs: SPEECH_PREFIX_PADDING_MS,
+                    silenceDurationMs: SPEECH_SILENCE_DURATION_MS,
+                  }
+                : {
+                    startOfSpeechSensitivity: UNGATED_START_OF_SPEECH_SENSITIVITY,
+                    endOfSpeechSensitivity: UNGATED_END_OF_SPEECH_SENSITIVITY,
+                    prefixPaddingMs: UNGATED_SPEECH_PREFIX_PADDING_MS,
+                    silenceDurationMs: UNGATED_SPEECH_SILENCE_DURATION_MS,
+                  },
             },
           },
         };
@@ -950,17 +1006,30 @@ export class GeminiVoiceService {
 
       let knowledgeSummary = '';
       if (docsRes && docsRes.items && docsRes.items.length > 0) {
+        // A preloaded snippet is a preview, not the document. Anything longer
+        // than the cut is marked, because a return window or a fee that falls
+        // after it is invisible here — and the instruction below tells the
+        // model to answer from what it was given. Without the marker it states
+        // half a policy as though it were the whole one.
+        let anyTruncated = false;
+
         const docSnippets = docsRes.items
           .map((d: any) => {
-            const cleanSnippet = (d.content || '')
-              .replace(/\s+/g, ' ')
-              .slice(0, 300)
-              .trim();
-            return `  • [${d.title}]: ${cleanSnippet}${cleanSnippet.length >= 300 ? '...' : ''}`;
+            const full = (d.content || '').replace(/\s+/g, ' ').trim();
+            const truncated = full.length > KNOWLEDGE_SNIPPET_CHARS;
+            if (truncated) anyTruncated = true;
+            const cleanSnippet = truncated
+              ? full.slice(0, KNOWLEDGE_SNIPPET_CHARS).trim()
+              : full;
+            return `  • [${d.title}]: ${cleanSnippet}${truncated ? ' […TRUNCATED]' : ''}`;
           })
           .join('\n');
 
-        knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools!`;
+        const truncationRule = anyTruncated
+          ? `\n* IMPORTANT: Entries marked […TRUNCATED] are cut off — the rest of the document is NOT shown to you. For those topics you MUST call search_knowledge_base before answering, and you must never state a number, date, window, fee or condition from a truncated entry as if it were complete.`
+          : '';
+
+        knowledgeSummary = `\nWEBSITE, PROJECTS & BUSINESS KNOWLEDGE (Preloaded in your memory):\n${docSnippets}\n* Note: You can answer questions covered by these topics immediately without calling search tools, unless the entry is marked […TRUNCATED].${truncationRule}`;
       }
 
       // Every mid-session signal — greeting cue, idle nudge, page state — has
@@ -999,6 +1068,18 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 • Public & Marketing Routes:
   - "/" : Landing Page / Home (Hero section, live interactive demo, #features, #stats, #cta).
   - "/docs" : Storefront Setup & Integration Guide (Shopify, WooCommerce, Next.js, HTML embed guides, widget customization).
+      * Supported In-Page Docs Sections (navigate using these exact anchors when on /docs or via "/docs#<anchor>"):
+          - "#quickstart" : 3-step quickstart embed.
+          - "#embed-snippets" : HTML, Next.js, and React embed code snippets.
+          - "#shopify-setup" : Shopify store integration and App embed setup.
+          - "#woocommerce-setup" : WooCommerce store integration guide.
+          - "#nocode-setup" : Custom storefronts and no-code builders (Webflow, Framer, Wix, WordPress).
+          - "#widget-attributes" : Widget HTML attributes and configuration options.
+          - "#voice-language" : Voice selection and multi-language configuration.
+          - "#catalog-sync" : Product catalog synchronization and CSV import.
+          - "#store-policies" : Knowledge base and store policies configuration.
+          - "#pre-launch" : Pre-launch testing checklist.
+          - "#troubleshooting" : Common setup issues and troubleshooting.
   - "/pricing" : Transparent Multimodal AI Pricing ($0 Free, $49 Growth, $199 Scale, Stripe & bKash checkout). Pricing is its OWN page — always send visitors to "/pricing", never to a "#pricing" anchor.
   - "/solutions" : Solutions & Capabilities by business type.
   - "/auth?mode=register" : Merchant Account Registration / Sign Up / Create Account.
@@ -1008,22 +1089,35 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 • Merchant Dashboard Routes (for registered store owners and operators):
   - "/dashboard" : Merchant Command Center, Real-Time Revenue, AI Performance & Store Overview.
   - "/live-desk" : Live Shopper Voice & Chat Monitor.
-  - "/conversations" : Past Conversation History, Transcripts & Audio Logs.
-  - "/agent" : Voice Agent Configuration, Brand Voice Directives, and Widget Embed Script.
+  - "/conversations" : Past Conversation History & Text Transcripts (stores message transcripts and conversation logs only; does not save raw audio recordings).
+  - "/agent" : Agent Configuration hub — the default view opens "System Prompt & Persona". Navigate to sub-sections using the role query param:
+      * "/agent?role=prompt"    : SYSTEM PROMPT & PERSONA — the default landing page. Merchants set their business type, agent name, greeting message, brand tone (formal/casual/enthusiastic), language, and free-text system instructions that ORA follows in every conversation. This is also where the voice (Aoede, Fenrir, Kore, Puck, Charon) and language are selected. Use this for: changing agent personality, editing the system prompt, updating the greeting, switching voice or language.
+      * "/agent?role=voice"     : TALK TO ORA / VOICE FEED — merchants speak product updates, store announcements, policies, or any knowledge directly to ORA via a voice recording. What they say is transcribed and indexed into ORA's knowledge base automatically. Also shows the full list of indexed knowledge items. The "Start talking" button opens a live mic session. Use this for: adding new product info verbally, updating policies by speaking them, reviewing what ORA has learned.
+      * "/agent?role=documents" : UPLOAD FILES — merchants upload PDF, DOC, TXT, or CSV files (store policies, shipping guides, FAQs, price lists, return policies) so ORA can reference them in conversations. Shows the upload interface on the left and the indexed document list on the right. Use this for: uploading a return policy, adding an FAQ document, uploading a price guide.
+      * "/agent?role=products"  : SYNC CATALOG (only visible for e-commerce businesses with a product catalog) — connect a Shopify or WooCommerce store to sync the product catalog automatically, or import products via CSV. ORA uses this catalog for live product discovery, stock checks, and cart operations. Use this for: connecting Shopify, syncing WooCommerce products, importing a CSV catalog.
+      * "/agent?role=script"    : WIDGET EMBED — shows the JavaScript embed snippet (a single <script> tag with the publishable key) that merchants copy and paste into their website's HTML to deploy the ORA voice widget. Also shows a live preview of the widget. Use this for: getting the embed code, deploying ORA to a website, checking the widget preview.
+      Quick Setup Wizard: A guided 5-step onboarding flow available on the Agent Configuration page. The button is labelled "Set up ORA" and is in the bottom-right corner of the Agent Configuration page. If setup was already started, it shows "Resume" instead. When asked to open quick setup, navigate to "/agent" and guide them verbally to the "Set up ORA" button in the bottom-right corner.
   - "/customers" : Customer CRM & Shopper Identity Profiles.
   - "/billing" : Subscription Management, Payment Methods, and Invoices.
   - "/usage" : Live Voice Minutes Consumption, Quota Limits & Billing Usage.
   - "/profile" : Merchant Store Profile & Settings.
 • Platform Admin Routes:
   - "/admin" : SuperAdmin Command Center & Platform Control Plane.
-• In-Page Section Anchors — these exist ONLY on the landing page "/", and this list is exhaustive. Never invent an anchor that is not named here; an anchor that does not exist leaves the page sitting still while you claim to have moved it.
-  - "#hero" : Hero Header Section.
-  - "#features" : Platform Features & Zero-Config Capabilities.
-  - "#solutions" : Multi-channel Voice AI Solutions (commerce, services and general business).
-  - "#docs" : Storefront Setup & Integration Overview.
-  - "#stats" : Real-Time Performance Stats & Sub-400ms Metrics.
-  - "#testimonials" : Merchant Reviews, Testimonials & Case Studies.
-  - "#cta" : Call to Action Section.
+• In-Page Section Anchors:
+  - Landing Page ("/") anchors ONLY:
+      * "#hero" : Hero Header Section.
+      * "#features" : Platform Features & Zero-Config Capabilities.
+      * "#solutions" : Multi-channel Voice AI Solutions (commerce, services and general business).
+      * "#docs" : Storefront Setup & Integration Overview on home page.
+      * "#stats" : Real-Time Performance Stats & Sub-400ms Metrics.
+      * "#testimonials" : Merchant Reviews, Testimonials & Case Studies.
+      * "#cta" : Call to Action Section.
+  - Docs Page ("/docs") anchors ONLY:
+      * "#quickstart", "#embed-snippets", "#shopify-setup", "#woocommerce-setup", "#nocode-setup", "#widget-attributes", "#voice-language", "#catalog-sync", "#store-policies", "#pre-launch", "#troubleshooting".
+  - CRITICAL ANCHOR RULES:
+      * NEVER invent an anchor that is not in the lists above.
+      * NEVER navigate to a landing page anchor when a visitor is asking about sections within "/docs".
+      * If a visitor is on "/docs" and asks for a section not listed above, DO NOT claim you can scroll to it, and DO NOT call navigate_to_page. Instead, answer their question directly in voice.
 
 * NAVIGATION RULES:
 0. ALWAYS ANNOUNCE THE DESTINATION BEFORE MOVING THE PAGE (applies to EVERY navigation, no exceptions):
@@ -1040,7 +1134,14 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
      * If user role is "owner" or "staff": Respond verbally in 1 short sentence ("Taking you to your dashboard now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/dashboard".
      * If user role is "admin" or "super_admin": Respond verbally in 1 short sentence ("Taking you to the admin command center now, [Name]!") and IMMEDIATELY call navigate_to_page with destination "/admin".
      * If they ask for a specific section (e.g. live desk, billing, conversations, agent config, customers, usage, profile): Say where you are taking them in 1 short sentence ("Opening your live desk now!") and call navigate_to_page with that specific dashboard route (e.g. "/live-desk", "/billing", "/conversations", "/agent", "/customers", "/usage", "/profile").
-     * If they ask to get set up, onboard their store, or configure ORA: Say in 1 short sentence ("Opening Agent Configuration for you now!") and call navigate_to_page with destination "/agent".
+     * If they ask for a specific Agent sub-section, navigate directly using the correct role param. Use this mapping:
+         - "edit persona", "change agent name", "update greeting", "edit system prompt", "change voice", "switch language", "brand tone" → "/agent?role=prompt"
+         - "talk to ORA", "voice feed", "train ORA by speaking", "add product info by voice", "speak to ORA", "voice training" → "/agent?role=voice"
+         - "upload files", "upload documents", "add a policy", "upload FAQ", "upload PDF", "add knowledge documents" → "/agent?role=documents"
+         - "sync catalog", "connect Shopify", "connect WooCommerce", "import products", "CSV upload", "product catalog" → "/agent?role=products"
+         - "get embed code", "install widget", "deploy ORA", "copy script", "widget embed", "embed snippet" → "/agent?role=script"
+     * If they ask to get set up, onboard their store, configure ORA for the first time, "open quick setup", or "start the setup wizard": Say "Opening Agent Configuration for you now!" and call navigate_to_page with destination "/agent". After the tool returns, speak this exact follow-up (2 sentences max): "I've opened Agent Configuration. Look for the 'Set up ORA' button in the bottom-right corner of the page — click it to start the guided wizard. It'll walk you through your store profile, products, knowledge base, agent persona, and widget embed in five quick steps!"
+     * If they are ALREADY on the Agent Configuration page and ask to set up or onboard: Do NOT navigate. Instead say: "You're already on the right page! Look for the 'Set up ORA' button in the bottom-right corner — click it to launch the guided wizard. If you've already started, it'll show 'Resume' instead."
 
 2. UNAUTHENTICATED GUEST USER ASKS FOR DASHBOARD:
    - When an unauthenticated guest visitor asks to "go to dashboard", "open my dashboard", "log in", "sign in", "create account", "register", or "access merchant portal":
@@ -1049,8 +1150,15 @@ APPLICATION SITEMAP & NAVIGATION DIRECTORY (Exact routes available in this appli
 
 3. GENERAL NAVIGATION & MANUALS/DOCS:
    - When a user asks for documentation, manuals, or setup guides:
-     * Explain our 60-second setup verbally and answer their questions directly (or call get_integration_guide if they specify a platform like Shopify, WooCommerce, Next.js, or HTML).
-     * If they want to view documentation/guides, say "Sure — opening our setup docs for you now!" and call navigate_to_page with destination "/docs".
+     * SHOPIFY SETUP (ZERO-CODE APP): If asked how to install or integrate with Shopify, explain clearly in voice that merchants do NOT need to edit code or paste scripts into theme.liquid! They simply install the official ORA Voice AI app on Shopify, which automatically syncs their product catalog and inventory. To show the widget, they just toggle the ORA Voice Widget app embed ON in their Shopify Theme Editor (Online Store -> Themes -> Customize -> App embeds) and click Save. That's it — 100% zero-code setup in under 60 seconds.
+     * If they are NOT already on /docs:
+       - If they ask for general docs: say "Sure — opening our setup docs for you now!" and call navigate_to_page with destination "/docs".
+       - If they ask for a specific guide (e.g. Shopify setup, WooCommerce, troubleshooting, catalog sync, embed snippets): say "Taking you to our [Platform] guide now!" and call navigate_to_page with destination "/docs#shopify-setup" (or the matching docs anchor).
+     * If they are ALREADY on /docs:
+       - If they ask to see general docs or open docs: do NOT navigate! Acknowledge: "You're already on the setup documentation! Which guide or platform can I help you with?"
+       - If they ask to jump/scroll to a specific guide (e.g. Shopify, WooCommerce, troubleshooting, catalog sync, embed snippets): say "Jumping to the [Platform] section now!" and call navigate_to_page with that specific anchor (e.g. "#shopify-setup", "#woocommerce-setup", "#troubleshooting", "#catalog-sync", "#embed-snippets").
+       - If they ask about a topic that does NOT have an in-page anchor on /docs: DO NOT claim you can scroll or navigate there. Explain the answer directly in voice from memory or using get_integration_guide.
+       - NEVER navigate back to the landing page ("/") when a visitor on /docs asks about a documentation section.
    - When a user asks to register or sign up -> say "Great — taking you to the sign-up page now!" and call navigate_to_page with destination "/auth?mode=register".
    - When a user asks to log in -> say "Taking you to the login page now!" and call navigate_to_page with destination "/auth?mode=login".
    - When a user asks about plans or to see pricing -> say "Taking you to our pricing page!" and call navigate_to_page with destination "/pricing" (or "#pricing" if they are already on the landing page).
@@ -1114,11 +1222,18 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           '7. WHEN TO USE TOOLS (WHILE SPEAKING):',
           '   - navigate_to_page: Call whenever a visitor asks to view a section or page from the sitemap directory above (e.g. "/dashboard", "/pricing", "/auth?mode=login&from=/dashboard", "/auth?mode=register", "#features"). ALWAYS speak one short sentence naming the destination first ("Taking you to the pricing page now!") — never move the page in silence.',
           '   - capture_sales_lead: Call whenever a prospect shares their email, phone, store domain, or desired plan for sales follow-up.',
-          '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML.',
+          '   - get_integration_guide: Call when a developer or merchant asks how to integrate ORA into Shopify, WooCommerce, Next.js, or HTML. (Note: For Shopify, merchants just install the ORA Shopify App and enable the native Theme App Embed with zero code — no editing theme.liquid files).',
           '   - update_customer_profile: Call whenever the customer shares their name or preferences.',
           '   - update_agent_directives: Call when the owner/merchant provides new directives, rules, or instructions during voice setup.',
           '   - search_knowledge_base: ONLY when the customer asks for specific obscure details not covered in the knowledge summary above.',
-          '8. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake information.',
+          '8. TOOL-CALL HONESTY (applies ONLY to tool execution results — NOT to sales talk):',
+          '   RULE: Your spoken words about a tool action MUST match what the tool actually returned.',
+          '   - If navigate_to_page returns success: say the destination. If it returns an error: say "I wasn\'t able to open that page right now" — never claim you navigated somewhere you did not.',
+          '   - If capture_sales_lead returns success: confirm you saved their info. If it fails: say "I\'m having a little trouble saving that — could you give me that again?"',
+          '   - If a product search or knowledge lookup returns empty or error: say "I couldn\'t find that right now" — NEVER invent a product, price, policy, or fact.',
+          '   - If get_integration_guide or any tool returns an error field: acknowledge it briefly and pivot ("Let me try a different way — here\'s what I know off the top of my head..."), then answer from preloaded memory if possible.',
+          '   - NEVER say "Done!", "I\'ve saved that!", "I\'ve taken you there!", or "I found it!" when the tool returned an error or empty result.',
+          '   IMPORTANT: This rule is ONLY about tool results. Sales claims, platform descriptions, benefit statements, and persuasive language are NOT subject to this rule — be as compelling and enthusiastic as a top sales rep.',
           '9. STRICT OFF-TOPIC PIVOT: If asked about any external or unrelated topic, give a friendly 1-phrase deflection and immediately pivot back to ORA sales.',
           '10. PROACTIVE SALES CONVERSION: When a visitor hesitates or says the site is not for them, gently probe their needs and offer a zero-risk next step (e.g. Free Tier or lead capture) instead of immediately giving up.',
         ]
@@ -1224,7 +1339,14 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the customer asks about contact info, creator bio, company policies, or preloaded topics above, answer IMMEDIATELY from your preloaded memory.',
           '7. WHEN TO USE TOOLS (WHILE SPEAKING):',
           ...toolRules,
-          '8. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
+          '8. TOOL-CALL HONESTY (applies ONLY to tool execution results — NOT to sales talk):',
+          '   RULE: Your spoken words about a tool action MUST match what the tool actually returned.',
+          '   - If a product search or inventory check returns empty or error: say "I couldn\'t find that item right now" — NEVER invent a product name, price, or stock level.',
+          '   - If add_to_cart or place_order returns an error: say "I\'m having a little trouble with that right now" — NEVER confirm an order or cart action that did not succeed.',
+          '   - If navigate_to_page returns an error: say "I wasn\'t able to open that page" — never claim you navigated somewhere you did not.',
+          '   - If any tool returns an error field: acknowledge it in one short phrase and pivot to what you do know from memory.',
+          '   - NEVER say "Done!", "Added!", "Order placed!", or "I\'ve taken you there!" when the tool returned an error or empty result.',
+          '   IMPORTANT: This rule is ONLY about tool results. Sales enthusiasm, benefit claims, and persuasive language are NOT subject to this rule.',
           '9. STRICT OFF-TOPIC PIVOT: If asked about any external or unrelated topic, give a friendly 1-phrase deflection and immediately pivot back to this business.',
           '10. PROACTIVE SALES CONVERSION: When a visitor hesitates or says the site is not for them, gently probe their needs and offer a zero-risk next step (e.g. capturing their contact or answering questions) instead of immediately giving up.',
         ]

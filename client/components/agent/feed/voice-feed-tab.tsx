@@ -56,80 +56,76 @@ type VoiceMode = 'converse' | 'dictate';
 
 type TargetCategory = 'all' | DocType;
 
+/**
+ * Categories are told apart by their icon and their label, not by a colour
+ * each. Six hues across six pills reads as decoration and leaves no colour
+ * free to mean anything: the accent is reserved here for what is selected and
+ * for the one primary action, and semantic colour for how an entry was filed.
+ */
 interface CategoryOption {
   id: TargetCategory;
   label: string;
-  description: string;
   hint: string;
   Icon: React.ElementType;
-  badgeClass: string;
-  dotClass: string;
 }
 
 const CATEGORY_OPTIONS: CategoryOption[] = [
   {
     id: 'all',
-    label: 'Automatic Sorting',
-    description: 'Structures voice input into policies, products, FAQs, and guidelines automatically.',
-    hint: 'Speak freely — automatically sorts policies, product details, and store guidelines.',
+    label: 'Sort it for me',
+    hint: 'Talk about anything in any order. Each topic is filed on its own once you finish.',
     Icon: Layers,
-    badgeClass: 'border-primary/40 bg-primary/10 text-primary',
-    dotClass: 'bg-primary',
   },
   {
     id: DocType.POLICY,
-    label: 'Store Policy',
-    description: 'Shipping timelines, return & refund windows, warranty, exchange rules.',
-    hint: 'Speak your return window, shipping couriers, replacement policy, or cancellation terms.',
+    label: 'Store policy',
+    hint: 'Return windows, couriers and delivery times, warranties, cancellation terms.',
     Icon: ShieldCheck,
-    badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500',
-    dotClass: 'bg-emerald-500',
   },
   {
     id: DocType.PRODUCT_MANUAL,
-    label: 'Product Details',
-    description: 'Materials, sizing guides, variations, specifications, care instructions.',
-    hint: 'Describe product dimensions, fabric composition, sizing fit, or washing instructions.',
+    label: 'Product details',
+    hint: 'Sizing and fit, materials, variants, care and washing instructions.',
     Icon: Tag,
-    badgeClass: 'border-sky-500/30 bg-sky-500/10 text-sky-500',
-    dotClass: 'bg-sky-500',
   },
   {
     id: DocType.FAQ,
-    label: 'Customer FAQ',
-    description: 'Common customer questions and standard authoritative answers.',
-    hint: 'State common shopper questions along with the exact answer ORA should give.',
+    label: 'Customer questions',
+    hint: 'A question shoppers keep asking, and the answer you want ORA to give.',
     Icon: HelpCircle,
-    badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-500',
-    dotClass: 'bg-amber-500',
   },
   {
     id: DocType.SALES_PLAYBOOK,
-    label: 'Sales Playbook',
-    description: 'Discount thresholds, bundle offers, upselling rules, pricing guidelines.',
-    hint: 'Explain seasonal discount codes, bundle deals, price match terms, or upselling tips.',
+    label: 'Selling rules',
+    hint: 'Discounts and their limits, bundles, price matching, what to offer and when.',
     Icon: BookOpen,
-    badgeClass: 'border-purple-500/30 bg-purple-500/10 text-purple-500',
-    dotClass: 'bg-purple-500',
   },
   {
     id: DocType.BRAND_RULE,
-    label: 'Brand & Tone',
-    description: 'Brand story, tone of voice, prohibited terms, core brand philosophy.',
-    hint: 'Define your store personality, customer greeting style, or words ORA should never say.',
+    label: 'Voice and tone',
+    hint: 'How ORA should greet people, the words to use, and the words to never use.',
     Icon: FileText,
-    badgeClass: 'border-rose-500/30 bg-rose-500/10 text-rose-500',
-    dotClass: 'bg-rose-500',
   },
 ];
 
-const DOC_TYPE_META: Record<string, { label: string; badgeClass: string; dotClass: string }> = {
-  [DocType.POLICY]: { label: 'Store Policy', badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500', dotClass: 'bg-emerald-500' },
-  [DocType.PRODUCT_MANUAL]: { label: 'Product Detail', badgeClass: 'border-sky-500/30 bg-sky-500/10 text-sky-500', dotClass: 'bg-sky-500' },
-  [DocType.FAQ]: { label: 'Customer FAQ', badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-500', dotClass: 'bg-amber-500' },
-  [DocType.SALES_PLAYBOOK]: { label: 'Sales Guidance', badgeClass: 'border-purple-500/30 bg-purple-500/10 text-purple-500', dotClass: 'bg-purple-500' },
-  [DocType.BRAND_RULE]: { label: 'Brand Rule', badgeClass: 'border-rose-500/30 bg-rose-500/10 text-rose-500', dotClass: 'bg-rose-500' },
-  [DocType.UPLOADED_DOC]: { label: 'Document', badgeClass: 'border-blue-500/30 bg-blue-500/10 text-blue-500', dotClass: 'bg-blue-500' },
+const DOC_TYPE_META: Record<string, { label: string; Icon: React.ElementType }> = {
+  [DocType.POLICY]: { label: 'Store policy', Icon: ShieldCheck },
+  [DocType.PRODUCT_MANUAL]: { label: 'Product details', Icon: Tag },
+  [DocType.FAQ]: { label: 'Customer questions', Icon: HelpCircle },
+  [DocType.SALES_PLAYBOOK]: { label: 'Selling rules', Icon: BookOpen },
+  [DocType.BRAND_RULE]: { label: 'Voice and tone', Icon: FileText },
+  [DocType.UPLOADED_DOC]: { label: 'Document', Icon: FileText },
+};
+
+/**
+ * How an entry landed. This is the one place colour carries meaning on this
+ * screen, so each outcome also carries its own word — colour alone would leave
+ * the distinction invisible to anyone who cannot separate these two greens.
+ */
+const ACTION_META: Record<string, { label: string; className: string }> = {
+  created: { label: 'New', className: 'text-emerald-600 dark:text-emerald-400' },
+  updated: { label: 'Updated', className: 'text-sky-600 dark:text-sky-400' },
+  unchanged: { label: 'No change', className: 'text-muted-foreground' },
 };
 
 export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
@@ -342,21 +338,19 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   return (
     <div className="space-y-5">
       {/* ── 1. Target Knowledge Category Selector ── */}
-      <div className="rounded-md border border-border/50 bg-surface-lowest/40 p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-border/40">
-          <div className="flex items-center gap-2">
-            <Layers size={14} className="text-primary flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
-              Target Category
-            </h2>
-          </div>
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            {selectedCategory === 'all' ? 'Auto-Sorting Active' : 'Category Selected'}
-          </span>
+      <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6 space-y-4">
+        <div className="flex items-center gap-2 pb-3.5 border-b border-border/40">
+          <Layers size={14} aria-hidden="true" className="text-muted-foreground flex-shrink-0" />
+          <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
+            What are you about to tell ORA?
+          </h2>
         </div>
 
-        {/* Category Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {/*
+          A radiogroup, not six buttons: only one applies at a time, and arrow
+          keys are what a keyboard user reaches for once the group has focus.
+        */}
+        <div role="radiogroup" aria-label="Knowledge category" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {CATEGORY_OPTIONS.map((cat) => {
             const isSelected = selectedCategory === cat.id;
             const CatIcon = cat.Icon;
@@ -364,77 +358,83 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
               <button
                 key={cat.id}
                 type="button"
+                role="radio"
+                aria-checked={isSelected}
                 onClick={() => setSelectedCategory(cat.id)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-md text-left transition-all border text-xs cursor-pointer',
+                  'flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left border text-xs cursor-pointer',
+                  'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface-container',
                   isSelected
-                    ? 'bg-surface-high border-border text-foreground font-semibold shadow-xs'
-                    : 'bg-surface-low/50 border-border/40 text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
+                    ? 'bg-surface-high border-foreground/25 text-foreground'
+                    : 'bg-transparent border-border/50 text-muted-foreground hover:text-foreground hover:border-border',
                 )}
               >
-                <div
-                  className={cn(
-                    'w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors',
-                    isSelected ? 'bg-primary/15 text-primary' : 'bg-surface-container text-muted-foreground',
-                  )}
-                >
-                  <CatIcon size={12} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-medium leading-tight truncate">{cat.label}</p>
-                </div>
+                <CatIcon
+                  size={14}
+                  aria-hidden="true"
+                  className={cn('flex-shrink-0', isSelected ? 'text-primary' : 'text-muted-foreground/70')}
+                />
+                <span className={cn('min-w-0 flex-1 truncate leading-tight', isSelected ? 'font-semibold' : 'font-medium')}>
+                  {cat.label}
+                </span>
               </button>
             );
           })}
         </div>
 
-        {/* Category Guidance Tip */}
-        <div className="mt-2 pt-2.5 border-t border-border/30 flex items-start gap-2 text-[11.5px] text-muted-foreground leading-relaxed">
-          <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', activeCategoryMeta.dotClass)} />
-          <p>
-            <strong className="text-foreground">{activeCategoryMeta.label}:</strong> {activeCategoryMeta.hint}
-          </p>
-        </div>
+        {/* The hint answers "so what do I say?", which is where merchants stall. */}
+        <p aria-live="polite" className="text-xs text-muted-foreground leading-relaxed max-w-[68ch]">
+          {activeCategoryMeta.hint}
+        </p>
       </div>
 
       {/* ── 2. Voice Feed Orb Card ── */}
-      <div className="rounded-md border border-border/50 bg-transparent p-6 relative flex flex-col items-center justify-center text-center">
-        {/* Ambient glow */}
+      {/*
+        This is the one surface on the tab that raises its voice. Everything
+        around it sits on the page background with a hairline; this one is
+        filled and given room, so the thing the merchant came here to do reads
+        first and the supporting controls stay supporting.
+      */}
+      <div className="rounded-md border border-border/50 bg-surface-lowest/60 px-6 py-8 sm:py-10 relative flex flex-col items-center justify-center text-center overflow-hidden">
+        {/* The session's only ambient signal: present while live, gone at rest. */}
         <div
           className={cn(
-            'absolute inset-0 pointer-events-none transition-opacity duration-700 rounded-md',
-            isActive ? 'opacity-10' : 'opacity-0',
+            'absolute inset-x-0 top-0 h-40 pointer-events-none transition-opacity duration-500',
+            isActive ? 'opacity-[0.07]' : 'opacity-0',
           )}
           style={{
             background:
               status === 'speaking'
-                ? 'radial-gradient(circle at center, var(--primary) 0%, transparent 70%)'
-                : 'radial-gradient(circle at center, var(--status-warning) 0%, transparent 70%)',
+                ? 'radial-gradient(60% 100% at 50% 0%, var(--primary) 0%, transparent 100%)'
+                : 'radial-gradient(60% 100% at 50% 0%, var(--status-warning) 0%, transparent 100%)',
           }}
         />
 
         {micBlocked && <MicrophoneBlockedNotice className="relative z-10 mb-2" />}
 
         {/* Mode Selector: Converse vs Dictate */}
-        <div className="relative z-10 inline-flex items-center gap-1 p-1 rounded-md border border-border/60 bg-surface-lowest/70 shadow-xs mb-2">
+        <div
+          role="radiogroup"
+          aria-label="Voice mode"
+          className="relative z-10 inline-flex items-center gap-1 p-1 rounded-md border border-border/60 bg-surface-container"
+        >
           {([
             {
               id: 'converse' as VoiceMode,
-              label: 'Interactive Voice',
+              label: 'Talk with ORA',
               Icon: AudioLines,
-              hint: 'Live conversation with spoken confirmations',
             },
             {
               id: 'dictate' as VoiceMode,
-              label: 'Direct Dictation',
+              label: 'Just listen',
               Icon: PenLine,
-              hint: 'Continuous transcription without spoken replies — ideal for reading out policies',
             },
-          ]).map(({ id, label, Icon, hint }) => (
+          ]).map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
-              title={hint}
+              role="radio"
+              aria-checked={voiceMode === id}
               disabled={isActive}
               onClick={() => {
                 setVoiceMode(id);
@@ -443,51 +443,66 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 }
               }}
               className={cn(
-                'px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
+                'px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 cursor-pointer',
+                'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'disabled:cursor-not-allowed disabled:opacity-50',
                 voiceMode === id
-                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-surface-high text-foreground font-semibold'
+                  : 'text-muted-foreground hover:text-foreground font-medium',
               )}
             >
-              <Icon size={12} />
+              <Icon size={12} aria-hidden="true" />
               {label}
             </button>
           ))}
         </div>
 
+        {/* The mode's consequence, spelled out rather than hidden in a tooltip. */}
+        <p className="relative z-10 mt-2 text-[11px] text-muted-foreground max-w-[46ch]">
+          {voiceMode === 'converse'
+            ? 'ORA answers out loud and asks when something is unclear.'
+            : 'ORA stays silent and writes down everything you say. Best for reading a policy out.'}
+        </p>
+
         {/* Central Living Crystal Wave Orb */}
-        <div className="relative flex flex-col items-center justify-center my-3">
+        <div className="relative flex flex-col items-center justify-center my-7">
           <LivingOrb
-            size={115}
+            size={140}
             voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
             energyLevel={audioLevel}
             onClick={handleToggleVoice}
-            ariaLabel={isActive ? 'Stop ORA Voice Assistant' : 'Start ORA Voice Assistant'}
-            title={isActive ? 'Click to stop and organize into knowledge' : 'Click to start voice input'}
+            ariaLabel={isActive ? 'Stop the session and file it into knowledge' : 'Start speaking to ORA'}
+            title={isActive ? 'Stop the session and file it into knowledge' : 'Start speaking to ORA'}
           />
         </div>
 
         {/* Dynamic Status Display */}
-        <div className="relative z-10 mt-1 max-w-md">
-          <p className="text-[12px] font-medium text-muted-foreground">
+        <div className="relative z-10 max-w-md">
+          <p aria-live="polite" className="text-[15px] font-semibold text-foreground tracking-tight">
             {status === 'speaking'
-              ? 'ORA speaking...'
+              ? 'ORA is answering'
               : status === 'listening'
                 ? voiceMode === 'dictate'
-                  ? 'Transcribing your speech'
-                  : 'Listening... speak store information'
+                  ? 'Writing down what you say'
+                  : 'Listening'
                 : status === 'connecting'
-                  ? 'Connecting to live stream...'
-                  : 'Click the orb or press Start to begin speaking'}
+                  ? 'Connecting'
+                  : 'Ready when you are'}
+          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {isActive
+              ? 'Everything is filed when you stop, not before.'
+              : 'Tap the orb and start talking.'}
           </p>
         </div>
 
         {/* Voice Control Toolbar */}
         {isActive && (
-          <div className="relative z-10 flex items-center gap-2 mt-4">
+          <div className="relative z-10 flex items-center gap-2 mt-6">
             {voiceMode === 'converse' && (
               <button
                 type="button"
+                aria-pressed={isMuted}
                 onClick={() => {
                   const nextMuted = !isMuted;
                   setIsMuted(nextMuted);
@@ -496,71 +511,102 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                   }
                 }}
                 className={cn(
-                  'px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer',
+                  'px-3 py-2 rounded-md text-xs font-semibold border flex items-center gap-1.5 cursor-pointer',
+                  'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   isMuted
                     ? 'bg-error/10 border-error/30 text-error'
-                    : 'bg-surface-low border-border text-foreground hover:bg-surface-high',
+                    : 'bg-surface-container border-border text-foreground hover:bg-surface-high',
                 )}
               >
-                {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
-                {isMuted ? 'Muted' : 'Mute Mic'}
+                {isMuted ? <MicOff size={13} aria-hidden="true" /> : <Mic size={13} aria-hidden="true" />}
+                {isMuted ? 'Microphone off' : 'Mute microphone'}
               </button>
             )}
 
+            {/* The one primary action while a session runs. */}
             <button
               type="button"
               onClick={stopAndOrganise}
-              title="End the session and save into store knowledge"
-              className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-surface-low hover:bg-error/10 hover:text-error border border-border transition-colors flex items-center gap-1.5 text-muted-foreground cursor-pointer"
+              className={cn(
+                'px-4 py-2 rounded-md text-xs font-semibold bg-primary text-primary-foreground flex items-center gap-1.5 cursor-pointer',
+                'transition-colors duration-150 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-lowest',
+              )}
             >
-              <Square size={12} />
-              Stop &amp; Save
+              <Square size={12} aria-hidden="true" />
+              Stop and file
             </button>
           </div>
         )}
 
         {errorMessage && (
-          <div className="relative z-10 mt-3 p-2.5 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md">
-            {errorMessage}
+          <div
+            role="alert"
+            className="relative z-10 mt-5 p-3 rounded-md bg-error/10 border border-error/20 text-xs text-error max-w-md text-left flex items-start gap-2"
+          >
+            <AlertTriangle size={13} aria-hidden="true" className="mt-0.5 flex-shrink-0" />
+            <p className="leading-relaxed">{errorMessage}</p>
           </div>
         )}
       </div>
 
       {/* ── 3. Quick Note / Manual Paste (Optional alternative) ── */}
-      <div className="rounded-md border border-border/50 bg-surface-lowest/30 p-3.5">
+      <div className="rounded-md border border-border/50 bg-transparent px-5 py-4">
         <button
           type="button"
+          aria-expanded={showManualNote}
           onClick={() => setShowManualNote((prev) => !prev)}
-          className="w-full flex items-center justify-between text-left text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          className={cn(
+            'w-full flex items-center justify-between gap-3 text-left text-xs font-medium cursor-pointer rounded-md',
+            'text-muted-foreground hover:text-foreground transition-colors duration-150',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
         >
-          <div className="flex items-center gap-2">
-            <FileText size={13} className="text-foreground" />
-            <span>Have written notes or copied text? Add or paste directly</span>
-          </div>
-          {showManualNote ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          <span className="flex items-center gap-2">
+            <PenLine size={13} aria-hidden="true" className="flex-shrink-0" />
+            Rather type it? Write or paste it here instead
+          </span>
+          {showManualNote ? (
+            <ChevronUp size={14} aria-hidden="true" className="flex-shrink-0" />
+          ) : (
+            <ChevronDown size={14} aria-hidden="true" className="flex-shrink-0" />
+          )}
         </button>
 
         {showManualNote && (
-          <form onSubmit={handleManualNoteSubmit} className="mt-3 space-y-2 pt-2 border-t border-border/40">
+          <form onSubmit={handleManualNoteSubmit} className="mt-4 space-y-3 pt-4 border-t border-border/40">
+            <label htmlFor="voice-feed-manual-note" className="block text-xs font-medium text-foreground">
+              Filed under {activeCategoryMeta.label.toLowerCase()}
+            </label>
             <textarea
+              id="voice-feed-manual-note"
               value={manualNoteText}
               onChange={(e) => setManualNoteText(e.target.value)}
-              placeholder={`Paste or type store info here to index under ${activeCategoryMeta.label}...\ne.g. Orders placed before 2 PM ship same day via Express Delivery.`}
+              placeholder={'For example: orders placed before 2 PM ship the same day by express delivery.'}
               rows={3}
-              className="w-full p-2.5 text-xs rounded-md bg-surface-low border border-border/60 text-foreground placeholder:text-muted-foreground/60 focus:outline-hidden focus:border-foreground leading-relaxed resize-y"
+              className={cn(
+                'w-full p-3 text-xs rounded-md bg-surface-container border border-border/60 text-foreground leading-relaxed resize-y',
+                'placeholder:text-muted-foreground/60 transition-colors duration-150',
+                'focus:outline-none focus:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring',
+              )}
             />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Category: <strong className="text-foreground">{activeCategoryMeta.label}</strong>
-              </span>
+            <div className="flex items-center justify-end">
               <button
                 type="submit"
                 disabled={readOnly || !manualNoteText.trim() || isSubmittingNote}
-                title={readOnly ? 'View-only access' : undefined}
-                className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                title={readOnly ? 'You have view-only access' : undefined}
+                className={cn(
+                  'px-3.5 py-2 rounded-md text-xs font-semibold bg-primary text-primary-foreground flex items-center gap-1.5 cursor-pointer',
+                  'transition-colors duration-150 hover:bg-primary-hover',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                )}
               >
-                {isSubmittingNote ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                <span>Save Note</span>
+                {isSubmittingNote ? (
+                  <Loader2 size={12} aria-hidden="true" className="animate-spin" />
+                ) : (
+                  <Send size={12} aria-hidden="true" />
+                )}
+                <span>{isSubmittingNote ? 'Filing' : 'File this note'}</span>
               </button>
             </div>
           </form>
@@ -569,68 +615,76 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
       {/* ── 4. Session Transcript Log ── */}
       <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6">
-        <div className="flex items-center justify-between pb-3.5 border-b border-border/40">
-          <div className="flex items-center gap-2">
-            <AudioLines size={14} className="text-primary flex-shrink-0" />
+        <div className="flex items-center justify-between gap-3 pb-3.5 border-b border-border/40">
+          <div className="flex items-center gap-2 min-w-0">
+            <AudioLines size={14} aria-hidden="true" className="text-muted-foreground flex-shrink-0" />
             <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
-              Session Transcript
+              This session
             </h2>
             {transcripts.length > 0 && (
-              <span className="text-[11px] text-muted-foreground tabular-nums">({transcripts.length})</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{transcripts.length}</span>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {transcripts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTranscripts([])}
+                className={cn(
+                  'text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer',
+                  'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                )}
+              >
+                <Trash2 size={11} aria-hidden="true" />
+                Clear
+              </button>
+            )}
+
             {transcripts.some((t) => t.sender === 'user' || t.sender === 'agent') && (
               <button
                 type="button"
                 onClick={() => void organiseIntoKnowledge()}
                 disabled={isOrganising}
-                title="Save transcript entries into store knowledge"
-                className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-[11px] font-semibold bg-primary text-primary-foreground flex items-center gap-1.5 cursor-pointer',
+                  'transition-colors duration-150 hover:bg-primary-hover',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                )}
               >
                 {isOrganising ? (
-                  <Loader2 size={11} className="animate-spin" />
+                  <Loader2 size={11} aria-hidden="true" className="animate-spin" />
                 ) : organiseResult ? (
-                  <CheckCircle2 size={11} />
+                  <CheckCircle2 size={11} aria-hidden="true" />
                 ) : (
-                  <Layers size={11} />
+                  <Layers size={11} aria-hidden="true" />
                 )}
-                <span>{isOrganising ? 'Organising…' : 'Organise into knowledge'}</span>
-              </button>
-            )}
-
-            {transcripts.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setTranscripts([])}
-                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors px-2 py-1 cursor-pointer"
-              >
-                <Trash2 size={11} />
-                Clear
+                <span>{isOrganising ? 'Filing' : 'File into knowledge'}</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Transcript scroll area */}
-        <div className="space-y-3 min-h-[160px] max-h-[320px] overflow-y-auto pt-3.5 no-scrollbar">
+        <div
+          aria-live="polite"
+          className="flex flex-col space-y-4 min-h-[160px] max-h-[320px] overflow-y-auto pt-4 pr-1 voice-feed-scroll"
+        >
           {transcripts.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground select-none">
-              <p className="font-medium text-foreground">No voice input captured yet.</p>
-              <p className="text-[11px] mt-1 text-muted-foreground/70">
-                Click the Living Orb above to speak with ORA or transcribe store knowledge.
+            <div className="flex-1 flex flex-col items-center justify-center py-8 text-center text-xs select-none">
+              <p className="font-medium text-foreground">Nothing said yet</p>
+              <p className="mt-1.5 text-muted-foreground max-w-[42ch] leading-relaxed">
+                Start a session above and talk the way you would to a new employee on their first day.
               </p>
             </div>
           ) : (
             transcripts.map((entry) => {
               if (entry.sender === 'system') {
                 return (
-                  <div key={entry.id} className="text-center my-1.5">
-                    <span className="inline-block px-2.5 py-0.5 rounded-[3px] text-[10px] bg-surface-low border border-border/40 text-muted-foreground">
-                      {entry.text}
-                    </span>
-                  </div>
+                  <p key={entry.id} className="text-center text-[11px] text-muted-foreground/80 py-0.5">
+                    {entry.text}
+                  </p>
                 );
               }
 
@@ -640,24 +694,30 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                 <div
                   key={entry.id}
                   className={cn(
-                    'flex flex-col gap-1 max-w-[85%]',
-                    isUser ? 'self-end items-end ml-auto' : 'self-start items-start',
+                    // Capped by measure rather than by a percentage: the panel
+                    // is full width now, and a percentage would let a long
+                    // turn run to an unreadable line length on a wide monitor.
+                    'flex flex-col gap-1.5 max-w-[68ch]',
+                    isUser ? 'self-end items-end' : 'self-start items-start',
                   )}
                 >
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className={cn('font-medium', isUser ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]')}>
-                      {isUser ? 'You (Merchant)' : 'ORA (Learning Assistant)'}
-                    </span>
-                    <span className="text-muted-foreground/60">·</span>
+                    <span className="font-medium text-foreground">{isUser ? 'You' : 'ORA'}</span>
+                    <span aria-hidden="true" className="text-muted-foreground/50">·</span>
                     <span className="tabular-nums">{entry.timestamp}</span>
                   </div>
 
+                  {/*
+                    The merchant's own words are the material being taught, so
+                    they are the ones given a surface; ORA's replies sit on the
+                    page, indented by a rule, as the quieter half of the record.
+                  */}
                   <div
                     className={cn(
-                      'p-3 rounded-md text-xs leading-relaxed border',
+                      'text-xs leading-relaxed text-foreground',
                       isUser
-                        ? 'bg-surface-high/50 border-border/60 text-foreground'
-                        : 'bg-transparent border-border/50 text-foreground',
+                        ? 'px-3.5 py-2.5 rounded-md bg-surface-high/60 text-left'
+                        : 'pl-3 border-l border-border/60 text-muted-foreground',
                     )}
                   >
                     <p className="whitespace-pre-wrap">{entry.text}</p>
@@ -671,106 +731,86 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
 
       {/* ── 5. What was filed into Knowledge Base ── */}
       {(organiseResult || organiseError) && (
-        <div className="rounded-md border border-border/50 bg-transparent p-5">
-          <div className="flex items-center justify-between pb-3 border-b border-border/40">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-              <span className="text-[13px] font-semibold text-foreground">
-                Organised into Knowledge Base
-              </span>
+        <div className="rounded-md border border-border/50 bg-transparent p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3 pb-3.5 border-b border-border/40">
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle2 size={14} aria-hidden="true" className="text-muted-foreground flex-shrink-0" />
+              <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
+                What ORA learned
+              </h2>
             </div>
             {organiseResult?.saved && organiseResult.saved.length > 0 && (
-              <span className="text-[11px] text-emerald-500 font-semibold flex items-center gap-1 tabular-nums">
-                <CheckCircle2 size={12} /> {organiseResult.saved.length} {organiseResult.saved.length === 1 ? 'entry indexed' : 'entries indexed'}
+              <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">
+                {organiseResult.saved.length} {organiseResult.saved.length === 1 ? 'entry' : 'entries'}
               </span>
             )}
           </div>
 
           {organiseError ? (
-            <div className="mt-3 flex items-start gap-2 text-[12px] text-error">
-              <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
-              <p>{organiseError}</p>
+            <div role="alert" className="mt-4 flex items-start gap-2 text-xs text-error">
+              <AlertTriangle size={13} aria-hidden="true" className="mt-0.5 flex-shrink-0" />
+              <p className="leading-relaxed">{organiseError}</p>
             </div>
           ) : organiseResult && organiseResult.saved.length === 0 ? (
-            <div className="mt-3 p-3 rounded-md bg-surface-low/50 border border-border/40 text-[12px] text-muted-foreground">
-              <p className="font-medium text-foreground">No durable store knowledge detected in this session.</p>
-              <p className="mt-1 text-[11.5px] leading-relaxed">
-                Try stating actionable facts directly: return windows, refund procedures, shipping carriers, sizing charts, or pricing policies.
+            <div className="mt-4 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Nothing here was worth keeping</p>
+              <p className="mt-1.5 leading-relaxed max-w-[62ch]">
+                ORA keeps facts it can repeat to a shopper. Try a plain statement it could quote back:
+                how many days a return takes, which courier you use, what a size 40 actually measures.
               </p>
             </div>
           ) : (
-            <div className="mt-3 space-y-2.5">
+            // A list with rules, not a stack of cards inside a card. The title
+            // is what the merchant recognises, so it leads at full weight and
+            // the filing detail trails behind it.
+            <>
+              <ul className="mt-1 divide-y divide-border/40">
               {organiseResult?.saved.map((entry) => {
-                const meta = DOC_TYPE_META[entry.docType] || {
-                  label: entry.docType,
-                  badgeClass: 'border-border bg-surface-high text-foreground',
-                  dotClass: 'bg-foreground',
-                };
+                const meta = DOC_TYPE_META[entry.docType] || { label: entry.docType, Icon: FileText };
+                const action = ACTION_META[entry.action] || ACTION_META.unchanged;
+                const EntryIcon = meta.Icon;
 
                 return (
-                  <div
-                    key={entry.id}
-                    className="p-3 rounded-md border border-border/50 bg-surface-lowest/40 space-y-1.5"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-medium border',
-                              meta.badgeClass,
-                            )}
-                          >
-                            <span className={cn('w-1.5 h-1.5 rounded-full', meta.dotClass)} />
-                            {meta.label}
-                          </span>
+                  <li key={entry.id} className="flex items-start gap-3 py-3.5">
+                    <EntryIcon
+                      size={14}
+                      aria-hidden="true"
+                      className="mt-0.5 flex-shrink-0 text-muted-foreground/70"
+                    />
 
-                          <span className="text-[10px] text-muted-foreground">
-                            {entry.action === 'created' && (
-                              <span className="text-emerald-500 font-semibold">• New Entry</span>
-                            )}
-                            {entry.action === 'updated' && (
-                              <span className="text-sky-500 font-semibold">• Updated Existing</span>
-                            )}
-                            {entry.action === 'unchanged' && (
-                              <span className="text-muted-foreground font-semibold">• Already Up to Date</span>
-                            )}
-                          </span>
-                        </div>
-
-                        <p className="text-[13px] font-semibold text-foreground">
-                          {entry.title}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col items-end flex-shrink-0">
-                        <span className="text-[10.5px] text-muted-foreground/80 tabular-nums">
-                          {Math.round(entry.confidence * 100)}% confidence
-                        </span>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-foreground leading-snug">
+                        {entry.title}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {meta.label}
+                        <span aria-hidden="true" className="mx-1.5 text-muted-foreground/50">·</span>
+                        <span className={cn('font-medium', action.className)}>{action.label}</span>
+                        {entry.chunksCount ? (
+                          <>
+                            <span aria-hidden="true" className="mx-1.5 text-muted-foreground/50">·</span>
+                            <span className="tabular-nums">
+                              {entry.chunksCount} searchable {entry.chunksCount === 1 ? 'piece' : 'pieces'}
+                            </span>
+                          </>
+                        ) : null}
+                      </p>
                     </div>
 
-                    {entry.chunksCount && (
-                      <p className="text-[11px] text-muted-foreground/70 tabular-nums">
-                        Created {entry.chunksCount} indexed knowledge {entry.chunksCount === 1 ? 'section' : 'sections'}
-                      </p>
-                    )}
-                  </div>
+                    <span className="text-[11px] text-muted-foreground/80 tabular-nums flex-shrink-0 mt-0.5">
+                      {Math.round(entry.confidence * 100)}%
+                    </span>
+                  </li>
                 );
               })}
+              </ul>
 
-              <div className="pt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>
-                  Method:{' '}
-                  <strong className="text-foreground">
-                    {organiseResult?.method === 'model' ? 'Structured Knowledge' : 'Direct Layout'}
-                  </strong>
-                </span>
-                <span className="text-muted-foreground/80">
-                  Synced directly with Knowledge Base
-                </span>
-              </div>
-            </div>
+              <p className="pt-3.5 mt-1 border-t border-border/40 text-[11px] text-muted-foreground leading-relaxed">
+                {organiseResult?.method === 'model'
+                  ? 'ORA split what you said by topic and filed each part on its own. Edit any of these from the knowledge list.'
+                  : 'Sorted by keyword this time, so check the titles before you rely on them. Edit any of these from the knowledge list.'}
+              </p>
+            </>
           )}
         </div>
       )}

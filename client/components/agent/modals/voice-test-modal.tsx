@@ -25,6 +25,7 @@ import { useModalA11y } from '@/hooks/use-modal-a11y';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { useRouter } from 'next/navigation';
 
 interface VoiceTestModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ type VoiceMode = 'direct-live' | 'browser-speech';
 type InspectorTab = 'transcript' | 'memory';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestModalProps) {
+  const router = useRouter();
   const [status, setStatus] = useState<SessionStatus>('idle');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('direct-live');
   const [activeTab, setActiveTab] = useState<InspectorTab>('transcript');
@@ -194,7 +196,17 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
         },
         onAction: (action) => {
           if (action?.type === 'navigate' && action.destination) {
-            addTranscript('system', `⚡ Executing Navigation: ${action.destination} (${action.reason || 'Requested'})`);
+            const dest = action.destination.trim();
+            addTranscript('system', `⚡ Navigating to: ${dest}`);
+            if (typeof window !== 'undefined' && dest.startsWith('/')) {
+              router.push(dest);
+            }
+          }
+          if (action?.type === 'open_quick_setup') {
+            addTranscript('system', '⚡ Launching Quick Setup wizard...');
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('ora:quick-setup-open-request'));
+            }
           }
         },
         onError: (err) => {

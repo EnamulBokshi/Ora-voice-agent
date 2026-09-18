@@ -193,14 +193,18 @@ function AgentClientContent() {
               </>
             }
           >
+            {/*
+              One column, read top to bottom: choose the topic, say it, see
+              what landed, then the whole knowledge base underneath. The cap is
+              there because the transcript is prose — full bleed on a wide
+              monitor would run lines past the point they are comfortable to
+              read — but it sits well past the half-width column this used to
+              occupy, so the six category choices fit on one line.
+            */}
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                <div className="xl:col-span-7">
-                  <VoiceFeedTab publishableKey={publishableKey || undefined} onFed={loadDocs} />
-                </div>
-                <div className="xl:col-span-5">
-                  <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
-                </div>
+              <div className="mx-auto w-full max-w-6xl space-y-5">
+                <VoiceFeedTab publishableKey={publishableKey || undefined} onFed={loadDocs} />
+                <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
               </div>
             </div>
           </AgentSectionLayout>
