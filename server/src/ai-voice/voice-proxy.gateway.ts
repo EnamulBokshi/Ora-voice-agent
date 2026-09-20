@@ -1489,7 +1489,21 @@ export class VoiceProxyGateway {
                 reason: msg.reason,
               },
             );
-            if (correction) sessionControls.sendTextMessage(correction);
+            if (correction) {
+              // Any client turn is a barge-in to Gemini Live, so sending this while ORA
+              // is mid-sentence would cut her off and cost a whole regenerated turn —
+              // the same reason client_context_update is held below. The correction is
+              // worth saying, just not worth interrupting for.
+              const sendCorrection = (attemptsLeft: number) => {
+                if (session.closed) return;
+                if (session.isAgentSpeaking && attemptsLeft > 0) {
+                  setTimeout(() => sendCorrection(attemptsLeft - 1), 1500);
+                  return;
+                }
+                sessionControls.sendTextMessage(correction);
+              };
+              sendCorrection(6);
+            }
           } catch (e: any) {
             this.logger.warn(`[VoiceProxyGateway] Cart sync failed for ${sessionId}: ${e.message}`);
           }

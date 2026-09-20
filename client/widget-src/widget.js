@@ -2668,6 +2668,29 @@
     });
   }
 
+  /**
+   * Re-renders the theme's cart markup in a second request.
+   *
+   * Asking /cart/add.js for sections makes Shopify render those Liquid sections before
+   * it answers, which put a few hundred milliseconds of theme rendering between the
+   * shopper's request and the item landing in their cart. The add is what has to be
+   * fast; the badge and drawer can catch up a moment later.
+   */
+  function refreshCartSections() {
+    var sections = detectCartSections();
+    if (!sections.length) return Promise.resolve();
+
+    return fetch('/cart?sections=' + sections.join(','), {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (res) { return res.json(); })
+      .then(applyCartSections)
+      .catch(function (err) {
+        console.warn('[ORA Widget] Cart section refresh failed:', err);
+      });
+  }
+
   function openCartDrawer() {
     try {
       var drawer = document.querySelector('cart-drawer, cart-notification');
@@ -2704,17 +2727,15 @@
 
     if (!isShopifyStorefront()) {
       // Widget embedded outside a Shopify storefront — a merchant's own site, or a
-      // preview. There is no storefront cart to mirror into, so say so rather than
-      // leave the server holding a line that will never reach a checkout.
-      reportCartSync(action, false, 'no Shopify storefront cart on this page');
+      // preview. Nothing is reported: there is no storefront cart to disagree with, and
+      // a failure report here would make ORA interrupt herself to correct a cart that
+      // was never wrong.
       return;
     }
 
     var quantity = action.quantity || 1;
-    var sections = detectCartSections();
-    var url = '/cart/add.js' + (sections.length ? '?sections=' + sections.join(',') : '');
 
-    fetch(url, {
+    fetch('/cart/add.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
@@ -2731,8 +2752,7 @@
         });
       })
       .then(function (data) {
-        applyCartSections(data.sections);
-        openCartDrawer();
+        refreshCartSections().then(openCartDrawer);
 
         // Older themes and merchant scripts listen for these; OS 2.0 themes ignore them.
         document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));

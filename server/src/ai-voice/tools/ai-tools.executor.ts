@@ -25,6 +25,15 @@ const URGENCY_FLAG_TTL_MS = 5 * 60 * 1000;
 /** How long a tenant's Shopify-connected flag is trusted without re-reading Mongo. */
 const SHOPIFY_FLAG_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * How many variants a tool payload may carry.
+ *
+ * A size-by-colour matrix runs to dozens of variants, and every one of them is text the
+ * model has to read before it can speak. Nobody chooses from forty options out loud, so
+ * the list is cut to what an agent can reasonably offer and the rest is a count.
+ */
+const MAX_VARIANTS_IN_PAYLOAD = 10;
+
 
 @Injectable()
 export class AiToolsExecutor {
@@ -536,7 +545,8 @@ export class AiToolsExecutor {
 
     return {
       optionNames: Array.isArray(shopify?.optionNames) ? shopify.optionNames : [],
-      variants: variants.map((variant) => ({
+      totalVariants: variants.length,
+      variants: variants.slice(0, MAX_VARIANTS_IN_PAYLOAD).map((variant) => ({
         variantId: variant.variantId,
         title: variant.title,
         price: variant.price,
@@ -572,7 +582,7 @@ export class AiToolsExecutor {
     requestedVariantId?: string,
   ):
     | { variantId: string | null }
-    | { needsSelection: true; optionNames: string[]; variants: any[] } {
+    | { needsSelection: true; optionNames: string[]; totalVariants: number; variants: any[] } {
     const shopify = product?.attributes?.shopify;
     const variants: any[] = Array.isArray(shopify?.variants) ? shopify.variants : [];
 
@@ -594,10 +604,12 @@ export class AiToolsExecutor {
     if (variants.length === 1) return { variantId: variants[0].variantId };
 
     const purchasable = variants.filter((variant) => variant.available);
+    const offered = purchasable.length > 0 ? purchasable : variants;
     return {
       needsSelection: true,
       optionNames: Array.isArray(shopify?.optionNames) ? shopify.optionNames : [],
-      variants: (purchasable.length > 0 ? purchasable : variants).map((variant) => ({
+      totalVariants: offered.length,
+      variants: offered.slice(0, MAX_VARIANTS_IN_PAYLOAD).map((variant) => ({
         variantId: variant.variantId,
         title: variant.title,
         price: variant.price,
@@ -617,27 +629,6 @@ export class AiToolsExecutor {
     const isShopify = await this.isShopifyTenant(businessId);
     const resolved = this.resolveCartVariant(product, args.variantId);
 
-    if (isShopify && !('needsSelection' in resolved) && !resolved.variantId) {
-      // Shopify owns this tenant's cart, and its cart is keyed by variant id. Without
-      // one there is nothing to add, and recording the item in ORA's cart instead would
-      // build exactly the second cart this tenant must not have: the shopper would hear
-      // "added", find nothing at checkout, and no order would ever exist.
-      const handle = product?.attributes?.shopify?.handle;
-      return {
-        success: false,
-        message: `${product.name} cannot be added by voice yet because its store listing has not finished syncing. Offer to take the customer to the product page so they can add it there.`,
-        ...(handle
-          ? {
-              action: {
-                type: 'navigate',
-                destination: `/products/${handle}`,
-                reason: 'Add to cart from the product page',
-              },
-            }
-          : {}),
-      };
-    }
-
     if ('needsSelection' in resolved) {
       return {
         success: false,
@@ -645,8 +636,12 @@ export class AiToolsExecutor {
         productId: product._id.toString(),
         name: product.name,
         optionNames: resolved.optionNames,
+        totalVariants: resolved.totalVariants,
         variants: resolved.variants,
-        message: `${product.name} comes in more than one option. Ask the customer which one they want, then call add_to_cart again with that variantId.`,
+        message:
+          resolved.totalVariants > resolved.variants.length
+            ? `${product.name} comes in ${resolved.totalVariants} options; the first ${resolved.variants.length} are listed. Ask the customer which one they want, then call add_to_cart again with that variantId.`
+            : `${product.name} comes in more than one option. Ask the customer which one they want, then call add_to_cart again with that variantId.`,
       };
     }
     const variantId = resolved.variantId;
@@ -682,6 +677,8 @@ export class AiToolsExecutor {
         name: product.name,
         price: product.price,
         quantity,
+        // Set by syncStorefrontCart once the browser confirms the storefront took it.
+        mirroredToStorefront: false,
       });
     }
     cart.updatedAt = Date.now();
@@ -689,6 +686,17 @@ export class AiToolsExecutor {
     // record of the conversation, mirrored into the storefront cart by the widget;
     // Shopify's own checkout is what actually sells.
     cart.authority = isShopify ? 'shopify' : 'ora';
+
+    if (isShopify && !variantId) {
+      // No variant id means the catalogue was synced before variants were captured, so
+      // the widget has nothing to mirror into the storefront cart. Failing the tool here
+      // is worse than the gap it reports: the model treats a failed call as a problem to
+      // solve, re-plans, re-searches and answers two turns later. The line is kept and
+      // flagged instead; a catalogue re-sync closes the gap for good.
+      this.logger.warn(
+        `[AiToolsExecutor] ${product.name} (business ${businessId}) has no Shopify variant id, so it cannot reach the storefront cart. Re-sync this catalogue.`,
+      );
+    }
 
     const saveOps = [
       this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),

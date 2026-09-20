@@ -533,7 +533,7 @@ describe('AiToolsExecutor', () => {
       expect(res.cart.authority).toBe('shopify');
     });
 
-    it('sends the shopper to the product page when a product has no variant to add', async () => {
+    it('still adds a product with no synced variant, rather than failing the turn', async () => {
       shopifyExecutor = await buildExecutor(
         { platform: 'shopify' },
         {
@@ -548,10 +548,39 @@ describe('AiToolsExecutor', () => {
         productId: 'prod_123',
       });
 
-      expect(res.success).toBe(false);
-      expect(res.action.destination).toBe('/products/unsynced-item');
-      // Nothing was written, so ORA is not holding an item the store has never seen.
-      expect(redis.set).not.toHaveBeenCalled();
+      // A failed tool makes the model re-plan and answer two turns later, which costs
+      // the shopper more than the missing storefront mirror does.
+      expect(res.success).toBe(true);
+      expect(res.action).toBeUndefined();
+      const line = JSON.parse(cartStore['cart:conv:sess_1']).items[0];
+      expect(line.variantId).toBeNull();
+      expect(line.mirroredToStorefront).toBe(false);
+    });
+
+    it('offers at most ten variants and reports the true count', async () => {
+      const manyVariants = Array.from({ length: 24 }, (_, i) => ({
+        variantId: String(i + 1),
+        title: `Option ${i + 1}`,
+        price: 150,
+        available: true,
+      }));
+      shopifyExecutor = await buildExecutor(
+        { platform: 'shopify' },
+        {
+          _id: { toString: () => 'prod_123' },
+          name: 'Matrix Product',
+          price: 150,
+          attributes: { shopify: { optionNames: ['Size', 'Color'], variants: manyVariants } },
+        },
+      );
+
+      const res = await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'add_to_cart', {
+        productId: 'prod_123',
+      });
+
+      expect(res.variants).toHaveLength(10);
+      expect(res.totalVariants).toBe(24);
+      expect(res.message).toContain('24 options');
     });
 
     describe('syncStorefrontCart', () => {
