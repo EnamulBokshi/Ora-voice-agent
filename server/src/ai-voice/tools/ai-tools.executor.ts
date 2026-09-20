@@ -571,37 +571,61 @@ export class AiToolsExecutor {
   /**
    * Resolves which Shopify variant an add_to_cart call means.
    *
-   * The storefront cart is keyed by variant id — POST /cart/add.js with a product id
-   * answers 404 — so a multi-variant product cannot be added until the shopper has said
-   * which option they want. Rather than guessing, this hands the option list back to the
-   * model so it asks, which is the one thing a voice agent can do that a Buy button
-   * cannot.
+   * Supports:
+   * 1. Direct variantId if already known.
+   * 2. Spoken variantOption fuzzy matching (e.g. "medium", "black", "size 10") in 1 turn.
+   * 3. Single-variant products without asking.
+   * 4. Multi-variant products without option: asks customer which option they want.
+   * 5. Pre-synced catalogs without variants: falls back to nativeProductId.
    */
   private resolveCartVariant(
     product: any,
     requestedVariantId?: string,
+    variantOption?: string,
   ):
-    | { variantId: string | null }
+    | { variantId: string | null; selectedTitle?: string }
     | { needsSelection: true; optionNames: string[]; totalVariants: number; variants: any[] } {
     const shopify = product?.attributes?.shopify;
     const variants: any[] = Array.isArray(shopify?.variants) ? shopify.variants : [];
 
     if (variants.length === 0) {
-      // Not a Shopify-sourced product, or synced before variants were captured. The
-      // server-side cart still works; only the storefront handoff is unavailable.
-      return { variantId: requestedVariantId ? String(requestedVariantId) : null };
+      // Not a Shopify-sourced product, or synced before variants were captured.
+      // Fall back to requestedVariantId or nativeProductId so the storefront widget can attempt the add.
+      const fallbackId = requestedVariantId ? String(requestedVariantId) : product?.nativeProductId ? String(product.nativeProductId) : null;
+      return { variantId: fallbackId };
     }
 
     if (requestedVariantId) {
       const match = variants.find(
         (variant) => String(variant.variantId) === String(requestedVariantId),
       );
-      if (match) return { variantId: match.variantId };
-      // An id the model invented or carried over from another product: fall through to
-      // asking rather than sending Shopify something it will reject.
+      if (match) return { variantId: match.variantId, selectedTitle: match.title };
     }
 
-    if (variants.length === 1) return { variantId: variants[0].variantId };
+    // Fuzzy-match spoken variantOption (e.g. "Medium", "Red", "Large") in 1 single turn
+    if (variantOption && typeof variantOption === 'string') {
+      const opt = variantOption.trim().toLowerCase();
+      // 1. Direct substring match on title
+      let match = variants.find((v) => {
+        const title = String(v.title || '').toLowerCase();
+        return title === opt || title.includes(opt) || opt.includes(title);
+      });
+      // 2. Token-level matching
+      if (!match) {
+        const tokens = opt.split(/[\s,/-]+/).filter((t) => t.length >= 2);
+        if (tokens.length > 0) {
+          match = variants.find((v) => {
+            const title = String(v.title || '').toLowerCase();
+            return tokens.some((token) => title.includes(token));
+          });
+        }
+      }
+      if (match) {
+        return { variantId: match.variantId, selectedTitle: match.title };
+      }
+    }
+
+    if (variants.length === 1) return { variantId: variants[0].variantId, selectedTitle: variants[0].title };
 
     const purchasable = variants.filter((variant) => variant.available);
     const offered = purchasable.length > 0 ? purchasable : variants;
@@ -627,7 +651,7 @@ export class AiToolsExecutor {
     const quantity = args.quantity || 1;
 
     const isShopify = await this.isShopifyTenant(businessId);
-    const resolved = this.resolveCartVariant(product, args.variantId);
+    const resolved = this.resolveCartVariant(product, args.variantId, args.variantOption);
 
     if ('needsSelection' in resolved) {
       return {
@@ -640,11 +664,12 @@ export class AiToolsExecutor {
         variants: resolved.variants,
         message:
           resolved.totalVariants > resolved.variants.length
-            ? `${product.name} comes in ${resolved.totalVariants} options; the first ${resolved.variants.length} are listed. Ask the customer which one they want, then call add_to_cart again with that variantId.`
-            : `${product.name} comes in more than one option. Ask the customer which one they want, then call add_to_cart again with that variantId.`,
+            ? `${product.name} comes in ${resolved.totalVariants} options; the first ${resolved.variants.length} are listed. Ask the customer which one they want, then call add_to_cart again with that variantOption or variantId.`
+            : `${product.name} comes in more than one option. Ask the customer which one they want, then call add_to_cart again with that variantOption or variantId.`,
       };
     }
     const variantId = resolved.variantId;
+    const selectedTitle = (resolved as any).selectedTitle;
 
     // Retrieve active customer bound to this session
     let customerId: string | null = null;
@@ -719,9 +744,14 @@ export class AiToolsExecutor {
       quantity,
     });
 
+    const itemLabel =
+      selectedTitle && selectedTitle !== 'Default Title'
+        ? `${product.name} (${selectedTitle})`
+        : product.name;
+
     const result: any = {
       success: true,
-      message: `Added ${quantity} x ${product.name} to cart.`,
+      message: `Added ${quantity} x ${itemLabel} to cart.`,
       cart,
     };
 

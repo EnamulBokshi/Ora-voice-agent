@@ -41,7 +41,7 @@ export const ORA_TOOL_DECLARATIONS = [
   {
     name: 'add_to_cart',
     description:
-      'Add a specified product and quantity to the customer shopping cart. If the product has several variants (size, color) and the customer has not said which one, call this without variantId: the tool answers with the available options so you can ask the customer which one they want, then call it again with variantId.',
+      'Add a specified product and quantity to the customer shopping cart. If the customer mentions an option (size, color, style), pass it in variantOption to add it immediately.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -51,12 +51,17 @@ export const ORA_TOOL_DECLARATIONS = [
         },
         quantity: {
           type: 'NUMBER',
-          description: 'Number of items to add.',
+          description: 'Number of items to add (default 1).',
+        },
+        variantOption: {
+          type: 'STRING',
+          description:
+            'Optional specific option name, size, color, or style spoken by customer (e.g. "Medium", "Black", "Large").',
         },
         variantId: {
           type: 'STRING',
           description:
-            'The variant ID for the option the customer chose, taken from the variants list returned by get_product_details or by a previous add_to_cart call. Omit it for a product with a single variant.',
+            'Optional variant ID if already known. Omit if customer specified an option name in variantOption.',
         },
       },
       required: ['productId'],

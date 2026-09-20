@@ -306,6 +306,26 @@ describe('AiToolsExecutor', () => {
       expect(res.action.variantId).toBe('2');
     });
 
+    it('fuzzy-matches spoken variantOption directly in 1 turn without asking', async () => {
+      products.verifyLive.mockResolvedValue(
+        shopifyProduct([
+          { variantId: '1', title: 'Small', price: 150, available: true },
+          { variantId: '2', title: 'Medium', price: 150, available: true },
+          { variantId: '3', title: 'Large', price: 150, available: true },
+        ]),
+      );
+
+      const res = await executor.executeTool('biz_1', 'sess_1', 'add_to_cart', {
+        productId: 'prod_123',
+        variantOption: 'medium',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.action).toBeDefined();
+      expect(res.action.variantId).toBe('2');
+      expect(res.message).toContain('Medium');
+    });
+
     it('asks again rather than sending Shopify a variant id the product does not have', async () => {
       products.verifyLive.mockResolvedValue(
         shopifyProduct([

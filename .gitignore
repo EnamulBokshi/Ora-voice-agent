@@ -7,3 +7,5 @@ gemini-live-test
 
 # CommandCode
 .commandcode/
+# Merchant storefront theme (Dawn), pushed to Shopify with the CLI, not part of the app
+storefront-theme/
