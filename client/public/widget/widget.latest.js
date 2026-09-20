@@ -2612,6 +2612,148 @@
     window.location.href = dest;
   }
 
+  // ─── Shopify Storefront Cart ────────────────────────────────────────────────
+  //
+  // The shopper's real cart lives in a first-party Shopify session cookie on the store's
+  // own domain. No server token reaches it — not the merchant's Admin token, not a
+  // customer token — so the add has to be made by this script, which runs inside the
+  // storefront document and therefore sends that cookie automatically.
+
+  // Sections a theme may render for the cart. Only the ones actually present on the page
+  // are requested, because asking for a section a theme does not define fails the call.
+  var CART_SECTION_IDS = [
+    'cart-drawer',
+    'cart-icon-bubble',
+    'cart-notification',
+    'cart-live-region-text',
+  ];
+
+  function isShopifyStorefront() {
+    return Boolean(
+      (window.Shopify && window.Shopify.shop) ||
+      document.querySelector('form[action*="/cart/add"]')
+    );
+  }
+
+  function detectCartSections() {
+    var present = [];
+    for (var i = 0; i < CART_SECTION_IDS.length; i++) {
+      if (document.getElementById('shopify-section-' + CART_SECTION_IDS[i])) {
+        present.push(CART_SECTION_IDS[i]);
+      }
+    }
+    return present;
+  }
+
+  /**
+   * Repaints the theme's own cart markup from the HTML Shopify returned.
+   *
+   * Dispatching a `cart:updated` event is not enough on its own: Dawn and the other
+   * Online Store 2.0 themes publish cart changes through an internal pub/sub that no
+   * outside script can reach, and only re-render from the Section Rendering API. The
+   * events below stay as a best-effort fallback for older themes that do listen.
+   */
+  function applyCartSections(sections) {
+    if (!sections) return;
+    Object.keys(sections).forEach(function (id) {
+      try {
+        var target = document.getElementById('shopify-section-' + id);
+        if (!target) return;
+        var parsed = new DOMParser().parseFromString(sections[id], 'text/html');
+        var source = parsed.getElementById('shopify-section-' + id) || parsed.body;
+        if (source) target.innerHTML = source.innerHTML;
+      } catch (err) {
+        console.warn('[ORA Widget] Cart section refresh skipped for ' + id, err);
+      }
+    });
+  }
+
+  function openCartDrawer() {
+    try {
+      var drawer = document.querySelector('cart-drawer, cart-notification');
+      if (drawer && typeof drawer.open === 'function') drawer.open();
+    } catch (err) {
+      // A theme without a drawer is fine; the cart badge still updated.
+    }
+  }
+
+  /**
+   * Tells the server what the storefront cart actually did.
+   *
+   * On a Shopify store the storefront cart is the only cart that sells, so a rejected
+   * add has to be undone on ORA's side too — otherwise ORA is holding an item the store
+   * is not, which is the divergence this whole path exists to prevent.
+   */
+  function reportCartSync(action, ok, reason) {
+    if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
+    try {
+      geminiWs.send(JSON.stringify({
+        type: 'cart_sync',
+        ok: ok,
+        variantId: action.variantId,
+        productId: action.product && action.product.id,
+        reason: reason || undefined,
+      }));
+    } catch (err) {
+      console.warn('[ORA Widget] Could not report cart sync:', err);
+    }
+  }
+
+  function addToShopifyCart(action) {
+    if (!action || !action.variantId) return;
+
+    if (!isShopifyStorefront()) {
+      // Widget embedded outside a Shopify storefront — a merchant's own site, or a
+      // preview. There is no storefront cart to mirror into, so say so rather than
+      // leave the server holding a line that will never reach a checkout.
+      reportCartSync(action, false, 'no Shopify storefront cart on this page');
+      return;
+    }
+
+    var quantity = action.quantity || 1;
+    var sections = detectCartSections();
+    var url = '/cart/add.js' + (sections.length ? '?sections=' + sections.join(',') : '');
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ items: [{ id: action.variantId, quantity: quantity }] }),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) {
+            // Shopify answers 422 for a sold-out or unknown variant, with the reason in
+            // `description`.
+            throw new Error(data.description || data.message || 'Add to cart failed');
+          }
+          return data;
+        });
+      })
+      .then(function (data) {
+        applyCartSections(data.sections);
+        openCartDrawer();
+
+        // Older themes and merchant scripts listen for these; OS 2.0 themes ignore them.
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        document.dispatchEvent(
+          new CustomEvent('ora:cart:added', {
+            detail: { variantId: action.variantId, quantity: quantity, product: action.product },
+          })
+        );
+
+        var name = (action.product && action.product.name) || 'Item';
+        showToastNotification('Added to cart: ' + name);
+        reportCartSync(action, true);
+      })
+      .catch(function (err) {
+        console.error('[ORA Widget] Failed to add item to Shopify cart:', err);
+        showToastNotification('Could not add to cart. Please try the product page.');
+        reportCartSync(action, false, err && err.message);
+      });
+  }
+
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
   function playIncomingPcm(base64Pcm) {
     try {
@@ -3323,6 +3465,10 @@
               isDetailsConfirmed = false;
               renderConfirmCard(changedField || true);
               armCardAutoDismiss(8000);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_add_to_cart') {
+              addToShopifyCart(msg.action);
             }
 
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {

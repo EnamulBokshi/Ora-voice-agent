@@ -11,6 +11,7 @@ import { VectorStoreService } from '../../vector/vector-store.service';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 import { SHOPIFY_API_VERSION } from '../../shopify/shopify.constants';
 import { ShopifyTokenService } from '../../common/shopify-token/shopify-token.service';
+import { mapShopifyVariants } from '../../common/utils/shopify-variant.util';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -138,6 +139,8 @@ export class ShopifyConnectorService {
       products: [
         {
           nativeProductId,
+          // Dot path so a sync never clobbers merchant overrides in `attributes`.
+          'attributes.shopify': mapShopifyVariants(payload),
           name: payload.title || 'Untitled Product',
           description: payload.body_html || '',
           price: parseFloat(variant.price || '0'),
@@ -152,7 +155,7 @@ export class ShopifyConnectorService {
           confidenceScore: 1.0,
           images: payload.images ? payload.images.map((img: any) => img.src) : [],
         },
-      ],
+      ] as any,
     });
 
     // Auto-embed into VectorIndex for instant RAG search availability
@@ -255,6 +258,7 @@ export class ShopifyConnectorService {
         const variant = p.variants?.[0] || {};
         return {
           nativeProductId: String(p.id),
+          'attributes.shopify': mapShopifyVariants(p),
           name: p.title || 'Untitled Product',
           description: p.body_html || '',
           price: parseFloat(variant.price || '0'),

@@ -22,6 +22,9 @@ const PLATFORM_FLAG_TTL_MS = 5 * 60 * 1000;
 /** How long a tenant's low-stock-urgency playbook flag is trusted without re-reading Mongo. */
 const URGENCY_FLAG_TTL_MS = 5 * 60 * 1000;
 
+/** How long a tenant's Shopify-connected flag is trusted without re-reading Mongo. */
+const SHOPIFY_FLAG_TTL_MS = 5 * 60 * 1000;
+
 
 @Injectable()
 export class AiToolsExecutor {
@@ -50,6 +53,20 @@ export class AiToolsExecutor {
   private readonly urgencyFlagCache = new Map<
     string,
     { mentionLowStockUrgency: boolean; expiresAt: number }
+  >();
+
+  /**
+   * Whether a tenant sells through a Shopify storefront.
+   *
+   * This decides who owns the cart. A Shopify store already has one — in the shopper's
+   * session cookie, the one its own checkout reads — so ORA must feed that cart rather
+   * than keep a second, orderable cart of its own. Two carts means the same item can be
+   * bought twice: once through ORA's Order collection, once through Shopify checkout,
+   * with neither side aware of the other.
+   */
+  private readonly shopifyTenantCache = new Map<
+    string,
+    { isShopify: boolean; expiresAt: number }
   >();
 
   constructor(
@@ -503,7 +520,28 @@ export class AiToolsExecutor {
         category: product.category,
         images: product.images,
         isLowStock: (product as any).isLowStock ?? false,
+        ...this.describeVariants(product),
       },
+    };
+  }
+
+  /**
+   * Variant options for the model to read out and choose between. Omitted entirely for
+   * single-variant products so the common case adds nothing to the tool payload.
+   */
+  private describeVariants(product: any): Record<string, any> {
+    const shopify = product?.attributes?.shopify;
+    const variants: any[] = Array.isArray(shopify?.variants) ? shopify.variants : [];
+    if (variants.length < 2) return {};
+
+    return {
+      optionNames: Array.isArray(shopify?.optionNames) ? shopify.optionNames : [],
+      variants: variants.map((variant) => ({
+        variantId: variant.variantId,
+        title: variant.title,
+        price: variant.price,
+        available: variant.available,
+      })),
     };
   }
 
@@ -520,6 +558,54 @@ export class AiToolsExecutor {
     };
   }
 
+  /**
+   * Resolves which Shopify variant an add_to_cart call means.
+   *
+   * The storefront cart is keyed by variant id — POST /cart/add.js with a product id
+   * answers 404 — so a multi-variant product cannot be added until the shopper has said
+   * which option they want. Rather than guessing, this hands the option list back to the
+   * model so it asks, which is the one thing a voice agent can do that a Buy button
+   * cannot.
+   */
+  private resolveCartVariant(
+    product: any,
+    requestedVariantId?: string,
+  ):
+    | { variantId: string | null }
+    | { needsSelection: true; optionNames: string[]; variants: any[] } {
+    const shopify = product?.attributes?.shopify;
+    const variants: any[] = Array.isArray(shopify?.variants) ? shopify.variants : [];
+
+    if (variants.length === 0) {
+      // Not a Shopify-sourced product, or synced before variants were captured. The
+      // server-side cart still works; only the storefront handoff is unavailable.
+      return { variantId: requestedVariantId ? String(requestedVariantId) : null };
+    }
+
+    if (requestedVariantId) {
+      const match = variants.find(
+        (variant) => String(variant.variantId) === String(requestedVariantId),
+      );
+      if (match) return { variantId: match.variantId };
+      // An id the model invented or carried over from another product: fall through to
+      // asking rather than sending Shopify something it will reject.
+    }
+
+    if (variants.length === 1) return { variantId: variants[0].variantId };
+
+    const purchasable = variants.filter((variant) => variant.available);
+    return {
+      needsSelection: true,
+      optionNames: Array.isArray(shopify?.optionNames) ? shopify.optionNames : [],
+      variants: (purchasable.length > 0 ? purchasable : variants).map((variant) => ({
+        variantId: variant.variantId,
+        title: variant.title,
+        price: variant.price,
+        available: variant.available,
+      })),
+    };
+  }
+
   private async handleAddToCart(
     businessId: string,
     sessionId: string,
@@ -527,6 +613,43 @@ export class AiToolsExecutor {
   ) {
     const product = await this.productsService.verifyLive(businessId, args.productId);
     const quantity = args.quantity || 1;
+
+    const isShopify = await this.isShopifyTenant(businessId);
+    const resolved = this.resolveCartVariant(product, args.variantId);
+
+    if (isShopify && !('needsSelection' in resolved) && !resolved.variantId) {
+      // Shopify owns this tenant's cart, and its cart is keyed by variant id. Without
+      // one there is nothing to add, and recording the item in ORA's cart instead would
+      // build exactly the second cart this tenant must not have: the shopper would hear
+      // "added", find nothing at checkout, and no order would ever exist.
+      const handle = product?.attributes?.shopify?.handle;
+      return {
+        success: false,
+        message: `${product.name} cannot be added by voice yet because its store listing has not finished syncing. Offer to take the customer to the product page so they can add it there.`,
+        ...(handle
+          ? {
+              action: {
+                type: 'navigate',
+                destination: `/products/${handle}`,
+                reason: 'Add to cart from the product page',
+              },
+            }
+          : {}),
+      };
+    }
+
+    if ('needsSelection' in resolved) {
+      return {
+        success: false,
+        needsVariantSelection: true,
+        productId: product._id.toString(),
+        name: product.name,
+        optionNames: resolved.optionNames,
+        variants: resolved.variants,
+        message: `${product.name} comes in more than one option. Ask the customer which one they want, then call add_to_cart again with that variantId.`,
+      };
+    }
+    const variantId = resolved.variantId;
 
     // Retrieve active customer bound to this session
     let customerId: string | null = null;
@@ -544,18 +667,28 @@ export class AiToolsExecutor {
     const cart = rawCart ? JSON.parse(rawCart) : { items: [] };
 
     // Update quantity if item exists, or push new
-    const existingItem = cart.items.find((i: any) => i.productId === product._id.toString());
+    // Same product, different variant is a different line item: a Medium and a Large
+    // shirt must not collapse into quantity 2 of whichever was added first.
+    const existingItem = cart.items.find(
+      (i: any) =>
+        i.productId === product._id.toString() && (i.variantId || null) === variantId,
+    );
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
       cart.items.push({
         productId: product._id.toString(),
+        variantId,
         name: product.name,
         price: product.price,
         quantity,
       });
     }
     cart.updatedAt = Date.now();
+    // Who may turn this cart into an order. On a Shopify tenant the cart below is a
+    // record of the conversation, mirrored into the storefront cart by the widget;
+    // Shopify's own checkout is what actually sells.
+    cart.authority = isShopify ? 'shopify' : 'ora';
 
     const saveOps = [
       this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),
@@ -578,11 +711,93 @@ export class AiToolsExecutor {
       quantity,
     });
 
-    return {
+    const result: any = {
       success: true,
       message: `Added ${quantity} x ${product.name} to cart.`,
       cart,
     };
+
+    // The storefront cart lives in the shopper's browser session cookie, which no server
+    // token can reach, so the browser has to make the /cart/add.js call itself. The
+    // gateway forwards `action` to the widget verbatim.
+    if (variantId) {
+      result.action = {
+        type: 'shopify_add_to_cart',
+        variantId,
+        quantity,
+        product: {
+          id: product._id.toString(),
+          name: product.name,
+          price: product.price,
+          image: (product.images && product.images[0]) || null,
+        },
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Reconciles ORA's cart with what the storefront cart actually accepted.
+   *
+   * The browser makes the /cart/add.js call, so only the browser knows whether it
+   * succeeded. Shopify rejects a sold-out or unknown variant with a 422 after the agent
+   * has already said "added", and if nothing undid that line ORA would hold an item the
+   * store does not — the two-cart divergence in miniature. The widget therefore reports
+   * back, and a rejected line is removed here.
+   *
+   * Returns a sentence for the model when it needs to correct itself, or null when the
+   * mirror succeeded and there is nothing to say.
+   */
+  async syncStorefrontCart(
+    businessId: string,
+    sessionId: string,
+    payload: { ok?: boolean; variantId?: string; productId?: string; reason?: string },
+  ): Promise<string | null> {
+    const redisKey = `cart:conv:${sessionId}`;
+
+    let cart: any;
+    try {
+      const rawCart = await this.redisService.getClient().get(redisKey);
+      cart = rawCart ? JSON.parse(rawCart) : null;
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Cart sync read failed: ${err.message}`);
+      return null;
+    }
+    if (!cart || !Array.isArray(cart.items)) return null;
+
+    const matches = (item: any) =>
+      payload.variantId
+        ? String(item.variantId || '') === String(payload.variantId)
+        : String(item.productId || '') === String(payload.productId || '');
+
+    const line = cart.items.find(matches);
+    if (!line) return null;
+
+    if (payload.ok) {
+      line.mirroredToStorefront = true;
+    } else {
+      cart.items = cart.items.filter((item: any) => !matches(item));
+    }
+    cart.updatedAt = Date.now();
+
+    try {
+      await this.redisService
+        .getClient()
+        .set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60);
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Cart sync write failed: ${err.message}`);
+    }
+
+    if (payload.ok) return null;
+
+    this.logger.warn(
+      `[AiToolsExecutor] Storefront rejected ${line.name} for business ${businessId}: ${payload.reason || 'unknown reason'}`,
+    );
+
+    return `[SYSTEM_UPDATE: The store could not add ${line.name} to the customer's cart${
+      payload.reason ? ` (${payload.reason})` : ''
+    }. It is not in their cart. Tell the customer plainly, and offer an alternative or the product page.]`;
   }
 
   private async handlePlaceOrder(
@@ -600,6 +815,24 @@ export class AiToolsExecutor {
         customerId = JSON.parse(rawSessionCustomer).customerId;
       }
     } catch {}
+
+    // A Shopify tenant's order is created by Shopify's checkout, from the cart in the
+    // shopper's browser. Writing an ORA order here as well would sell the same items
+    // twice — once in ORA's Orders collection, once when the shopper completes the
+    // storefront checkout they were already sent to — so hand the shopper over instead.
+    if (await this.isShopifyTenant(businessId)) {
+      return {
+        success: false,
+        handoffToStorefrontCheckout: true,
+        message:
+          'This store completes purchases through its own secure checkout. Tell the customer you are taking them to the cart to finish the order, and do not claim the order has been placed.',
+        action: {
+          type: 'navigate',
+          destination: '/cart',
+          reason: 'Complete the purchase in the storefront checkout',
+        },
+      };
+    }
 
     const redisKey = `cart:conv:${sessionId}`;
     const rawCart = await this.redisService.getClient().get(redisKey);
@@ -922,6 +1155,44 @@ export class AiToolsExecutor {
       expiresAt: Date.now() + PLATFORM_FLAG_TTL_MS,
     });
     return isPlatform;
+  }
+
+  /**
+   * Whether this tenant's storefront owns the cart. See shopifyTenantCache.
+   *
+   * An uninstalled app leaves `shopifyShopDomain` behind for re-install, so the
+   * uninstall timestamp has to be checked too: once the app is gone there is no
+   * storefront cart to defer to, and ORA's own cart becomes authoritative again.
+   */
+  private async isShopifyTenant(businessId: string): Promise<boolean> {
+    const cached = this.shopifyTenantCache.get(businessId);
+    if (cached && cached.expiresAt > Date.now()) return cached.isShopify;
+    if (!this.businessModel) return false;
+
+    let isShopify = false;
+    try {
+      const biz: any = await this.businessModel
+        .findById(businessId)
+        .select('platform shopifyShopDomain shopifyInstalledAt shopifyUninstalledAt')
+        .lean()
+        .exec();
+
+      const installed =
+        Boolean(biz?.shopifyShopDomain) &&
+        (!biz?.shopifyUninstalledAt ||
+          (biz?.shopifyInstalledAt &&
+            new Date(biz.shopifyInstalledAt) > new Date(biz.shopifyUninstalledAt)));
+
+      isShopify = biz?.platform === 'shopify' || installed;
+    } catch {
+      return false; // Do not cache a failed read.
+    }
+
+    this.shopifyTenantCache.set(businessId, {
+      isShopify,
+      expiresAt: Date.now() + SHOPIFY_FLAG_TTL_MS,
+    });
+    return isShopify;
   }
 
   private async handleNavigateToPage(

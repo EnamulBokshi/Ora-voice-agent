@@ -119,6 +119,10 @@
   let vadOpenStreak = 0;
   /** Whether the gate is currently passing audio (drives the hysteresis branch). */
   let vadGateOpen = false;
+  /** Timestamp the gate last opened, for the energy-dropoff check below. */
+  let vadGateOpenedAt = 0;
+  /** Loudest RMS seen since the gate opened (see VAD_PEAK_DROP_RATIO). */
+  let vadUtterancePeak = 0;
   /**
    * When the last `user_speaking` keep-alive was sent, so an open gate produces at most
    * one per USER_SPEAKING_PING_MS rather than one per 64ms chunk.
@@ -143,6 +147,8 @@
     lastSpeakingPingAt = 0;
     vadOpenStreak = 0;
     vadGateOpen = false;
+    vadGateOpenedAt = 0;
+    vadUtterancePeak = 0;
     vadCalibrationLeft = VAD_CALIBRATION_CHUNKS;
   }
 
@@ -1602,7 +1608,16 @@
    */
   const VAD_FLOOR_DECAY = 0.20;
   const VAD_FLOOR_ATTACK_CLOSED = 0.05;
-  const VAD_FLOOR_ATTACK_OPEN = 0.01;
+  /**
+   * Rise rate while the gate is open. It was 0.01, a ~6.4s time constant at 64ms per
+   * frame, which is the reason a gate that opened just before the room got louder (mic
+   * AGC ramping back up after a loud syllable, a fan starting, ORA's own voice leaking
+   * from the speakers) could hold open for seconds: the close threshold is derived from
+   * the floor, so until the floor caught up with the new ambient level, ambient alone
+   * kept clearing it. 0.04 catches up in ~1.6s instead, still slow enough that the
+   * speaker's own voice does not raise the floor against them mid-sentence.
+   */
+  const VAD_FLOOR_ATTACK_OPEN = 0.04;
 
   /** Ceiling on the learned floor, so even a very loud room still admits speech. */
   const VAD_FLOOR_MAX = 0.02;
@@ -1638,12 +1653,47 @@
   /**
    * How long the mic uplink keeps streaming after speech drops below the threshold.
    *
-   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (700ms): Gemini decides the
+   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (250ms): Gemini decides the
    * customer's turn has ended by hearing silence, so we have to keep feeding it real
    * (quiet) audio for a moment after they stop. Cut the stream too early and Gemini waits
-   * for silence it never receives, delaying ORA's reply instead of speeding it up.
+   * for silence it never receives, hanging the turn instead of speeding it up. Nothing
+   * else closes the turn — no audioStreamEnd, no explicit activityEnd is ever sent.
+   *
+   * The two must move together, server first: lowering this below a server still set to
+   * 400ms hangs every turn.
+   *
+   * 480ms is measured, not derived. Replaying recorded speech into a live session and
+   * cutting the uplink after exactly this many milliseconds of quiet audio: 320ms hung
+   * the turn outright (no response in 12s, 2 of 2 runs), while 384, 448 and 512ms all
+   * answered on every run. Gemini needs roughly 130ms of audio beyond its own
+   * silenceDurationMs before it commits to the turn ending, so the margin here has to
+   * cover that plus ~64ms of frame quantisation, not just clock skew. 480ms keeps
+   * ~230ms over the server's 250ms, one frame clear of the nearest value proven to work.
    */
-  const VAD_HANGOVER_MS = 700;
+  const VAD_HANGOVER_MS = 480;
+
+  /**
+   * Energy-dropoff guard, the second half of the fix for a gate stuck open on noise.
+   *
+   * Raising VAD_FLOOR_ATTACK_OPEN shortens that stall but cannot remove it, because the
+   * floor still has to travel. This check is level-independent instead: once an
+   * utterance has run long enough to have a meaningful peak, a fall to a small fraction
+   * of that peak means the speaker stopped, whatever the room is doing. The hangover
+   * then starts on time rather than waiting for the adaptive threshold to catch up.
+   *
+   * The ratio is deliberately well below the quiet part of ordinary speech — syllable
+   * troughs and trailing consonants sit far nearer the peak than this — so it ends turns
+   * that are genuinely over without chopping words mid-sentence, which is the failure
+   * the close-threshold hysteresis exists to prevent.
+   */
+  const VAD_PEAK_DROP_RATIO = 0.35;
+
+  /**
+   * How long the gate must have been open before the dropoff check arms. Short bursts
+   * have no reliable peak to measure against, and the onset of a word legitimately sits
+   * far below the peak it is about to reach.
+   */
+  const VAD_PEAK_DROP_MIN_OPEN_MS = 800;
 
   /**
    * Frames retained while the gate is shut, replayed when it opens, so the attack of the
@@ -2562,6 +2612,148 @@
     window.location.href = dest;
   }
 
+  // ─── Shopify Storefront Cart ────────────────────────────────────────────────
+  //
+  // The shopper's real cart lives in a first-party Shopify session cookie on the store's
+  // own domain. No server token reaches it — not the merchant's Admin token, not a
+  // customer token — so the add has to be made by this script, which runs inside the
+  // storefront document and therefore sends that cookie automatically.
+
+  // Sections a theme may render for the cart. Only the ones actually present on the page
+  // are requested, because asking for a section a theme does not define fails the call.
+  var CART_SECTION_IDS = [
+    'cart-drawer',
+    'cart-icon-bubble',
+    'cart-notification',
+    'cart-live-region-text',
+  ];
+
+  function isShopifyStorefront() {
+    return Boolean(
+      (window.Shopify && window.Shopify.shop) ||
+      document.querySelector('form[action*="/cart/add"]')
+    );
+  }
+
+  function detectCartSections() {
+    var present = [];
+    for (var i = 0; i < CART_SECTION_IDS.length; i++) {
+      if (document.getElementById('shopify-section-' + CART_SECTION_IDS[i])) {
+        present.push(CART_SECTION_IDS[i]);
+      }
+    }
+    return present;
+  }
+
+  /**
+   * Repaints the theme's own cart markup from the HTML Shopify returned.
+   *
+   * Dispatching a `cart:updated` event is not enough on its own: Dawn and the other
+   * Online Store 2.0 themes publish cart changes through an internal pub/sub that no
+   * outside script can reach, and only re-render from the Section Rendering API. The
+   * events below stay as a best-effort fallback for older themes that do listen.
+   */
+  function applyCartSections(sections) {
+    if (!sections) return;
+    Object.keys(sections).forEach(function (id) {
+      try {
+        var target = document.getElementById('shopify-section-' + id);
+        if (!target) return;
+        var parsed = new DOMParser().parseFromString(sections[id], 'text/html');
+        var source = parsed.getElementById('shopify-section-' + id) || parsed.body;
+        if (source) target.innerHTML = source.innerHTML;
+      } catch (err) {
+        console.warn('[ORA Widget] Cart section refresh skipped for ' + id, err);
+      }
+    });
+  }
+
+  function openCartDrawer() {
+    try {
+      var drawer = document.querySelector('cart-drawer, cart-notification');
+      if (drawer && typeof drawer.open === 'function') drawer.open();
+    } catch (err) {
+      // A theme without a drawer is fine; the cart badge still updated.
+    }
+  }
+
+  /**
+   * Tells the server what the storefront cart actually did.
+   *
+   * On a Shopify store the storefront cart is the only cart that sells, so a rejected
+   * add has to be undone on ORA's side too — otherwise ORA is holding an item the store
+   * is not, which is the divergence this whole path exists to prevent.
+   */
+  function reportCartSync(action, ok, reason) {
+    if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
+    try {
+      geminiWs.send(JSON.stringify({
+        type: 'cart_sync',
+        ok: ok,
+        variantId: action.variantId,
+        productId: action.product && action.product.id,
+        reason: reason || undefined,
+      }));
+    } catch (err) {
+      console.warn('[ORA Widget] Could not report cart sync:', err);
+    }
+  }
+
+  function addToShopifyCart(action) {
+    if (!action || !action.variantId) return;
+
+    if (!isShopifyStorefront()) {
+      // Widget embedded outside a Shopify storefront — a merchant's own site, or a
+      // preview. There is no storefront cart to mirror into, so say so rather than
+      // leave the server holding a line that will never reach a checkout.
+      reportCartSync(action, false, 'no Shopify storefront cart on this page');
+      return;
+    }
+
+    var quantity = action.quantity || 1;
+    var sections = detectCartSections();
+    var url = '/cart/add.js' + (sections.length ? '?sections=' + sections.join(',') : '');
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ items: [{ id: action.variantId, quantity: quantity }] }),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) {
+            // Shopify answers 422 for a sold-out or unknown variant, with the reason in
+            // `description`.
+            throw new Error(data.description || data.message || 'Add to cart failed');
+          }
+          return data;
+        });
+      })
+      .then(function (data) {
+        applyCartSections(data.sections);
+        openCartDrawer();
+
+        // Older themes and merchant scripts listen for these; OS 2.0 themes ignore them.
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        document.dispatchEvent(
+          new CustomEvent('ora:cart:added', {
+            detail: { variantId: action.variantId, quantity: quantity, product: action.product },
+          })
+        );
+
+        var name = (action.product && action.product.name) || 'Item';
+        showToastNotification('Added to cart: ' + name);
+        reportCartSync(action, true);
+      })
+      .catch(function (err) {
+        console.error('[ORA Widget] Failed to add item to Shopify cart:', err);
+        showToastNotification('Could not add to cart. Please try the product page.');
+        reportCartSync(action, false, err && err.message);
+      });
+  }
+
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
   function playIncomingPcm(base64Pcm) {
     try {
@@ -2893,10 +3085,29 @@
         // Already passing audio: hold open on the lower threshold so quiet syllables
         // mid-sentence do not chop the stream.
         isSpeech = rms > closeAt;
+        // ...but a sustained collapse relative to this utterance's own peak ends the
+        // turn regardless of level, so a room that got louder after the gate opened
+        // cannot hold it open while the noise floor slowly catches up.
+        if (
+          isSpeech &&
+          nowMs - vadGateOpenedAt >= VAD_PEAK_DROP_MIN_OPEN_MS &&
+          rms < vadUtterancePeak * VAD_PEAK_DROP_RATIO
+        ) {
+          isSpeech = false;
+        }
       } else {
         // Shut: require a sustained onset, not a single loud chunk.
         vadOpenStreak = rms > openAt ? vadOpenStreak + 1 : 0;
         isSpeech = vadOpenStreak >= VAD_OPEN_CHUNKS;
+      }
+      if (isSpeech && !vadGateOpen) {
+        // Gate opening: start a fresh peak for this utterance.
+        vadGateOpenedAt = nowMs;
+        vadUtterancePeak = rms;
+      } else if (isSpeech) {
+        vadUtterancePeak = Math.max(vadUtterancePeak, rms);
+      } else {
+        vadUtterancePeak = 0;
       }
       vadGateOpen = isSpeech;
       if (isSpeech) vadOpenStreak = 0;
@@ -3254,6 +3465,10 @@
               isDetailsConfirmed = false;
               renderConfirmCard(changedField || true);
               armCardAutoDismiss(8000);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_add_to_cart') {
+              addToShopifyCart(msg.action);
             }
 
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {

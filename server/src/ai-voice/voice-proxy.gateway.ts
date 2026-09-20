@@ -9,6 +9,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
 import { GeminiVoiceService, GeminiVoiceSessionControls } from './gemini-voice.service';
+import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { RedisService } from '../common/redis/redis.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ConversationChannel, ConversationStatus } from '../conversations/schemas/conversation.schema';
@@ -156,6 +157,7 @@ export class VoiceProxyGateway {
     private readonly customersService: CustomersService,
     private readonly conversationsService: ConversationsService,
     private readonly sessionTimerService: SessionTimerService,
+    private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly usageTrackingService?: UsageTrackingService,
   ) { }
 
@@ -1467,6 +1469,29 @@ export class VoiceProxyGateway {
             }
           } catch (e: any) {
             this.logger.warn(`[VoiceProxyGateway] Error processing confirmed customer details: ${e.message}`);
+          }
+          return;
+        }
+
+        if (msg.type === 'cart_sync') {
+          // Only the browser knows whether the storefront cart accepted the item: the
+          // cart cookie it needs is unreachable from here. A rejected line is dropped
+          // from ORA's cart so the two never disagree, and the model is told so it can
+          // correct what it already said out loud.
+          try {
+            const correction = await this.aiToolsExecutor.syncStorefrontCart(
+              session.businessId,
+              sessionId,
+              {
+                ok: msg.ok === true,
+                variantId: msg.variantId,
+                productId: msg.productId,
+                reason: msg.reason,
+              },
+            );
+            if (correction) sessionControls.sendTextMessage(correction);
+          } catch (e: any) {
+            this.logger.warn(`[VoiceProxyGateway] Cart sync failed for ${sessionId}: ${e.message}`);
           }
           return;
         }
