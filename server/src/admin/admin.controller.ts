@@ -21,12 +21,16 @@ import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 import { UpdateSessionLimitDto } from './dto/update-session-limit.dto';
+import { BillingService } from '../billing/billing.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(AdminRole.SUPER_ADMIN, AdminRole.ADMIN)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly billingService: BillingService,
+  ) {}
 
   @Get('stats')
   async getStats(@Query('period') period?: string) {
@@ -154,6 +158,47 @@ export class AdminController {
     @Body() dto: UpdateSessionLimitDto,
   ) {
     return this.adminService.setMerchantSessionLimit(id, dto.sessionDurationSeconds);
+  }
+
+  // --- Universal Plan Management & Merchant Custom Limits ---
+
+  @Get('plans')
+  async getAllPlans() {
+    return this.billingService.getAllPlansAdmin();
+  }
+
+  @Post('plans')
+  async createPlan(@Body() planData: any) {
+    return this.billingService.createPlanAdmin(planData);
+  }
+
+  @Patch('plans/:planId')
+  async updatePlan(
+    @Param('planId') planId: string,
+    @Body() planData: any,
+  ) {
+    return this.billingService.updatePlanAdmin(planId, planData);
+  }
+
+  @Delete('plans/:planId')
+  async deletePlan(@Param('planId') planId: string) {
+    return this.billingService.deletePlanAdmin(planId);
+  }
+
+  @Patch('businesses/:id/custom-limits')
+  async setBusinessCustomLimits(
+    @Param('id') id: string,
+    @Body() customLimits: { voiceMinutes?: number; documentLimit?: number; websiteLimit?: number },
+  ) {
+    return this.billingService.setMerchantCustomLimits(id, customLimits);
+  }
+
+  @Patch('merchants/:id/custom-limits')
+  async setMerchantCustomLimits(
+    @Param('id') id: string,
+    @Body() customLimits: { voiceMinutes?: number; documentLimit?: number; websiteLimit?: number },
+  ) {
+    return this.billingService.setMerchantCustomLimits(id, customLimits);
   }
 }
 

@@ -10,9 +10,11 @@ import { Subscription, SubscriptionSchema } from '../billing/schemas/subscriptio
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { AgentConfig, AgentConfigSchema } from '../agent-config/schemas/agent-config.schema';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
+    BillingModule,
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
       { name: AdminUser.name, schema: AdminUserSchema },

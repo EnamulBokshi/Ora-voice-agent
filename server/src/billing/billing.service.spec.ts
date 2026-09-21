@@ -15,6 +15,8 @@ import { RedisService } from '../common/redis/redis.service';
 import { MailService } from '../mail/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { EntitlementService } from '../common/entitlement/entitlement.service';
+import { TrialLog } from './schemas/trial-log.schema';
+import { KnowledgeBase } from '../knowledge/schemas/knowledge-base.schema';
 
 describe('BillingService', () => {
   let service: BillingService;
@@ -115,6 +117,19 @@ describe('BillingService', () => {
               get: jest.fn().mockResolvedValue('5'),
               incrby: jest.fn().mockResolvedValue(6),
             }),
+          },
+        },
+        {
+          provide: getModelToken(TrialLog.name),
+          useValue: {
+            findOne: jest.fn(),
+            create: jest.fn(),
+          },
+        },
+        {
+          provide: getModelToken(KnowledgeBase.name),
+          useValue: {
+            countDocuments: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(0) }),
           },
         },
       ],

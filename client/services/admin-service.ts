@@ -240,5 +240,43 @@ export async function updateMerchantSessionLimit(
   });
 }
 
+// --- Universal Plan Management & Custom Limits ---
+
+export async function fetchAdminPlans(): Promise<any[]> {
+  return apiClient<any[]>('/admin/plans', {
+    method: 'GET',
+  });
+}
+
+export async function createAdminPlan(planData: any): Promise<any> {
+  return apiClient<any>('/admin/plans', {
+    method: 'POST',
+    body: JSON.stringify(planData),
+  });
+}
+
+export async function updateAdminPlan(planId: string, planData: any): Promise<any> {
+  return apiClient<any>(`/admin/plans/${planId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(planData),
+  });
+}
+
+export async function deleteAdminPlan(planId: string): Promise<any> {
+  return apiClient<any>(`/admin/plans/${planId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateMerchantCustomLimits(
+  businessId: string,
+  customLimits: { voiceMinutes?: number; documentLimit?: number; websiteLimit?: number },
+): Promise<any> {
+  return apiClient<any>(`/admin/businesses/${businessId}/custom-limits`, {
+    method: 'PATCH',
+    body: JSON.stringify(customLimits),
+  });
+}
+
 
 

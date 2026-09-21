@@ -12,6 +12,16 @@ export class Business {
   @Prop({ trim: true })
   domain?: string;
 
+  /** Normalized merchant website domain (e.g. "boutique.com") for anti-abuse tracking */
+  @Prop({ trim: true, lowercase: true, index: true })
+  normalizedDomain?: string;
+
+  @Prop()
+  trialGrantedAt?: Date;
+
+  @Prop()
+  trialExpiresAt?: Date;
+
   @Prop({ type: String, unique: true, sparse: true, index: true, required: false })
   publishableKey?: string | null;
 

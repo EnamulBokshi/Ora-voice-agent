@@ -48,6 +48,22 @@ export class BillingController {
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
   @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
+  @Post('start-trial')
+  @HttpCode(HttpStatus.OK)
+  async startTrial(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() body: { websiteDomain: string },
+    @Req() req: Request,
+  ) {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || undefined;
+    return this.billingService.startFreeTrial(user.businessId, body.websiteDomain, ip, {
+      email: user.email,
+      userId: user.sub,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
   @Post('subscribe')
   @HttpCode(HttpStatus.OK)
   async subscribe(

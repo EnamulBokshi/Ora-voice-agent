@@ -15,6 +15,9 @@ import { BillingSchedulerService } from './services/billing-scheduler.service';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { AuthModule } from '../auth/auth.module';
 
+import { TrialLog, TrialLogSchema } from './schemas/trial-log.schema';
+import { KnowledgeBase, KnowledgeBaseSchema } from '../knowledge/schemas/knowledge-base.schema';
+
 @Module({
   imports: [
     ConfigModule,
@@ -26,6 +29,8 @@ import { AuthModule } from '../auth/auth.module';
       { name: PaymentTransaction.name, schema: PaymentTransactionSchema },
       { name: AdminUser.name, schema: AdminUserSchema },
       { name: Business.name, schema: BusinessSchema },
+      { name: TrialLog.name, schema: TrialLogSchema },
+      { name: KnowledgeBase.name, schema: KnowledgeBaseSchema },
     ]),
   ],
   controllers: [BillingController],

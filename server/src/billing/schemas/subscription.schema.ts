@@ -24,6 +24,17 @@ export enum SubscriptionStatus {
   CANCELED = 'canceled',
 }
 
+export class CustomPlanLimits {
+  @Prop({ type: Number })
+  voiceMinutes?: number;
+
+  @Prop({ type: Number })
+  documentLimit?: number;
+
+  @Prop({ type: Number })
+  websiteLimit?: number;
+}
+
 @Schema({ timestamps: true })
 export class Subscription {
   @Prop({
@@ -63,6 +74,20 @@ export class Subscription {
 
   @Prop({ default: false })
   cancelAtPeriodEnd: boolean;
+
+  /**
+   * Custom limit overrides for Scale / Enterprise tier contracts.
+   * If defined, these take priority over Plan.limits.
+   */
+  @Prop({
+    type: {
+      voiceMinutes: { type: Number },
+      documentLimit: { type: Number },
+      websiteLimit: { type: Number },
+    },
+    default: undefined,
+  })
+  customLimits?: CustomPlanLimits;
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);

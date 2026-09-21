@@ -191,7 +191,7 @@ export class ProductsService {
             const brandLower = (item.brand || '').toLowerCase();
             const descLower = (item.description || '').toLowerCase();
 
-            for (const term of searchTerms) {
+            for (const term of rawTerms) {
               if (nameLower.includes(term)) score += 10;
               if (catLower.includes(term)) score += 5;
               if (brandLower.includes(term)) score += 4;

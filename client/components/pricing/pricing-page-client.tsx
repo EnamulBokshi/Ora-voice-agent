@@ -28,9 +28,12 @@ export function PricingPageClient() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. Fetch plans
+    // 1. Fetch plans (Starter, Growth, Scale)
     getBillingPlansApi()
-      .then((data) => setPlans(data && data.length > 0 ? data : demoPlans))
+      .then((data) => {
+        const filtered = (data || []).filter((p) => p.planId !== 'free' && p.isActive !== false);
+        setPlans(filtered.length > 0 ? filtered : demoPlans);
+      })
       .catch(() => setPlans(demoPlans))
       .finally(() => setLoading(false));
 
@@ -364,10 +367,13 @@ export function PricingPageClient() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
               gap: '2rem',
               alignItems: 'stretch',
               marginTop: '1rem',
+              maxWidth: '74rem',
+              marginLeft: 'auto',
+              marginRight: 'auto',
             }}
           >
             {plans.map((plan) => {
@@ -439,11 +445,11 @@ export function PricingPageClient() {
                         minHeight: '2.5rem',
                       }}
                     >
-                      {plan.planId === 'growth'
-                        ? 'For growing e-commerce stores wanting autonomous voice conversions.'
-                        : isScale
-                        ? 'For high-volume merchants demanding unlimited voice scale.'
-                        : 'Starter tier for testing and light sandbox interactions.'}
+                      {plan.planId === 'starter'
+                        ? 'For businesses and startups launching their first autonomous AI sales agent.'
+                        : plan.planId === 'growth'
+                        ? 'For growing stores wanting autonomous voice sales conversions and higher traffic.'
+                        : 'For high-volume merchants demanding dedicated quotas and custom limits.'}
                     </p>
                   </div>
 
@@ -512,9 +518,9 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.conversationMinutes.toLocaleString()}
+                            {(plan.limits?.voiceMinutes || plan.limits?.conversationMinutes || 0).toLocaleString()}
                           </strong>{' '}
-                          Voice AI conversation minutes
+                          Voice AI minutes / month
                         </span>
                       </li>
                       <li
@@ -529,9 +535,9 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.ordersPerMonth.toLocaleString()}
+                            {(plan.limits?.documentLimit || 5).toLocaleString()}
                           </strong>{' '}
-                          Automated checkout orders/mo
+                          Knowledge base documents limit
                         </span>
                       </li>
                       <li
@@ -546,9 +552,9 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.connectedStores}
+                            {plan.limits?.websiteLimit || plan.limits?.connectedStores || 1}
                           </strong>{' '}
-                          Store connector{plan.limits.connectedStores > 1 ? 's' : ''} (Shopify / WooCommerce)
+                          Verified website / domain connector{(plan.limits?.websiteLimit || plan.limits?.connectedStores || 1) > 1 ? 's' : ''}
                         </span>
                       </li>
                       <li
@@ -561,24 +567,7 @@ export function PricingPageClient() {
                         }}
                       >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
-                        <span>
-                          <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.seats}
-                          </strong>{' '}
-                          Admin & staff dashboard seat{plan.limits.seats > 1 ? 's' : ''}
-                        </span>
-                      </li>
-                      <li
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '0.65rem',
-                          fontSize: '0.8125rem',
-                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
-                        }}
-                      >
-                        <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
-                        <span>Full RAG catalog vector indexing & live search</span>
+                        <span>Real-time voice AI agent with low latency streaming</span>
                       </li>
                       <li
                         style={{
@@ -592,6 +581,36 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>Instant publishable widget key & embed script</span>
                       </li>
+                      {Boolean(plan.trialDays && plan.trialDays > 0) && (
+                        <li
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.65rem',
+                            fontSize: '0.8125rem',
+                            color: 'var(--lp-primary)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Zap size={16} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+                          <span>{plan.trialDays}-day free trial included (no immediate charge)</span>
+                        </li>
+                      )}
+                      {isScale && (
+                        <li
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.65rem',
+                            fontSize: '0.8125rem',
+                            color: 'var(--lp-primary)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Zap size={16} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+                          <span>Customizable quotas & SLA on demand</span>
+                        </li>
+                      )}
                     </ul>
                   </div>
 
@@ -626,12 +645,12 @@ export function PricingPageClient() {
                       </>
                     ) : !isLoggedIn ? (
                       <>
-                        Get Started
+                        Start 14-Day Free Trial
                         <ArrowRight size={15} />
                       </>
                     ) : userRole === 'user' ? (
                       <>
-                        {plan.planId === 'free' ? 'Activate Free Tier' : 'Subscribe & Activate Store'}
+                        Start 14-Day Free Trial
                         <Zap size={15} />
                       </>
                     ) : (

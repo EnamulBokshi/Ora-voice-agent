@@ -32,6 +32,7 @@ const ENTITLEMENT_CACHE_PREFIX = 'entitlement:';
 export const ENTITLEMENT_ERRORS = {
   SUBSCRIPTION_REQUIRED: 'SUBSCRIPTION_REQUIRED',
   TENANT_SUSPENDED: 'TENANT_SUSPENDED',
+  TRIAL_EXPIRED: 'TRIAL_EXPIRED',
 } as const;
 
 interface EntitlementDecision {
@@ -43,16 +44,8 @@ interface EntitlementDecision {
 /**
  * Decides whether a tenant may use the product.
  *
- * This exists because the plan gate used to live only in the embedded UI: a
- * Shopify merchant who never approved a charge still held a valid ORA session
- * token — `POST /shopify/session` issues one at install — and could call the
- * API directly. A paywall that only renders is a suggestion.
- *
- * Scope is deliberately narrow. A tenant with no `shopifyShopDomain` is left
- * exactly as it was: web signups reach billing through a different flow, some
- * sit on a free plan, and some have no subscription document at all. Widening
- * this to them is a product decision, not a security fix, and it would lock
- * existing merchants out of their own dashboards.
+ * Validates both Shopify embedded stores and direct web tenants.
+ * Enforces active subscription status and strict 14-day free trial expiry.
  *
  * Provided by a @Global module so guards in any feature module can inject it
  * without that module registering the Business and Subscription schemas.
@@ -120,25 +113,20 @@ export class EntitlementService {
       return { entitled: true };
     }
 
-    // Non-Shopify tenants keep today's behavior exactly.
-    if (!business.shopifyShopDomain) {
-      return { entitled: true };
-    }
-
     if (business.status !== 'active') {
       return {
         entitled: false,
         code: ENTITLEMENT_ERRORS.TENANT_SUSPENDED,
         message:
           business.status === 'suspended'
-            ? 'This store is suspended. Reinstall the ORA app from Shopify, or resolve the billing issue on the charge, to restore access.'
-            : 'This store is not active yet.',
+            ? 'This store is suspended. Please check your billing status or contact support.'
+            : 'This store is not active yet. Please complete setup or start your free trial.',
       };
     }
 
     const subscription = await this.subscriptionModel
       .findOne({ businessId: businessId as any })
-      .select('status')
+      .select('status currentPeriodEnd planId billingProvider')
       .lean()
       .exec();
 
@@ -146,16 +134,41 @@ export class EntitlementService {
       return {
         entitled: false,
         code: ENTITLEMENT_ERRORS.SUBSCRIPTION_REQUIRED,
-        message: 'Choose an ORA plan to start using your voice agent.',
+        message: 'Choose an ORA plan or start your 14-day free trial to use your voice agent.',
       };
     }
 
+    // Check if free trial has expired
+    if (subscription.status === SubscriptionStatus.TRIALING) {
+      if (subscription.currentPeriodEnd && new Date() > new Date(subscription.currentPeriodEnd)) {
+        return {
+          entitled: false,
+          code: ENTITLEMENT_ERRORS.TRIAL_EXPIRED,
+          message: 'Your 14-day free trial has expired. Please select a plan to continue using ORA.',
+        };
+      }
+      return { entitled: true };
+    }
+
+    // Check if non-trial subscription is in an entitled state
     if (!ENTITLED_SUBSCRIPTION_STATES.includes(subscription.status)) {
       return {
         entitled: false,
         code: ENTITLEMENT_ERRORS.SUBSCRIPTION_REQUIRED,
-        message: `This store's ORA subscription is ${subscription.status}. Approve a charge in Shopify to restore access.`,
+        message: `This store's ORA subscription is ${subscription.status}. Please renew your plan to restore access.`,
       };
+    }
+
+    // Check if active subscription has passed its period end (for bKash / direct billing)
+    if (subscription.currentPeriodEnd && new Date() > new Date(subscription.currentPeriodEnd)) {
+      const gracePeriodMs = 3 * 24 * 60 * 60 * 1000; // 3-day grace period
+      if (Date.now() > new Date(subscription.currentPeriodEnd).getTime() + gracePeriodMs) {
+        return {
+          entitled: false,
+          code: ENTITLEMENT_ERRORS.SUBSCRIPTION_REQUIRED,
+          message: 'Your subscription period has expired. Please complete renewal payment to restore access.',
+        };
+      }
     }
 
     return { entitled: true };

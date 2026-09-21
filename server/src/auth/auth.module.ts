@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { OnboardingEmailService } from './services/onboarding-email.service';
+import { DisposableEmailValidatorService } from './services/disposable-email-validator.service';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -26,8 +27,18 @@ import { UsersModule } from '../users/users.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, OnboardingEmailService],
-  exports: [AuthService, JwtModule, OnboardingEmailService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    OnboardingEmailService,
+    DisposableEmailValidatorService,
+  ],
+  exports: [
+    AuthService,
+    JwtModule,
+    OnboardingEmailService,
+    DisposableEmailValidatorService,
+  ],
 })
 export class AuthModule {}
 

@@ -402,18 +402,33 @@ export class SessionTimerService {
   }
 
   /**
-   * Clears ALL timers (max duration + idle) for a socket.
-   * Safe to call even if no timer exists. Always call on disconnect or explicit stop.
+   * Retrieves active session timer metadata before clearing.
    */
-  clearTimer(socketId: string): void {
+  getSessionInfo(socketId: string): { sessionId: string; businessId: string; startedAt: Date } | null {
     const entry = this.timers.get(socketId);
-    if (!entry) return;
+    if (!entry) return null;
+    return {
+      sessionId: entry.sessionId,
+      businessId: entry.businessId,
+      startedAt: entry.startedAt,
+    };
+  }
 
+  /**
+   * Clears ALL timers (max duration + idle) for a socket.
+   * Returns elapsed duration in seconds.
+   */
+  clearTimer(socketId: string): number {
+    const entry = this.timers.get(socketId);
+    if (!entry) return 0;
+
+    const elapsedSeconds = Math.max(0, Math.round((Date.now() - entry.startedAt.getTime()) / 1000));
     this.disposeEntry(socketId);
 
     this.logger.debug(
-      `[SessionTimer] Cleared — session: ${entry.sessionId}, socketId: ${socketId}`,
+      `[SessionTimer] Cleared — session: ${entry.sessionId}, socketId: ${socketId}, elapsed: ${elapsedSeconds}s`,
     );
+    return elapsedSeconds;
   }
 
   /** Returns the remaining seconds for the max-duration timer, or null if no timer exists. */

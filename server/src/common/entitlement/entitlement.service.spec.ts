@@ -81,13 +81,24 @@ describe('EntitlementService', () => {
       });
     });
 
-    it('allows a trialing subscription', async () => {
+    it('allows a trialing subscription that is within trial window', async () => {
+      const futureDate = new Date(Date.now() + 7 * 86400000);
       mockBusiness({ status: 'active', shopifyShopDomain: 'demo.myshopify.com' });
-      mockSubscription({ status: 'trialing' });
+      mockSubscription({ status: 'trialing', currentPeriodEnd: futureDate });
 
       await expect(service.decide(BUSINESS_ID)).resolves.toEqual({
         entitled: true,
       });
+    });
+
+    it('denies an expired trialing subscription', async () => {
+      const pastDate = new Date(Date.now() - 86400000);
+      mockBusiness({ status: 'active', shopifyShopDomain: 'demo.myshopify.com' });
+      mockSubscription({ status: 'trialing', currentPeriodEnd: pastDate });
+
+      const decision = await service.decide(BUSINESS_ID);
+      expect(decision.entitled).toBe(false);
+      expect(decision.code).toBe('TRIAL_EXPIRED');
     });
 
     it.each(['canceled', 'suspended', 'past_due'])(
@@ -122,19 +133,23 @@ describe('EntitlementService', () => {
     });
   });
 
-  describe('non-Shopify tenants', () => {
-    /**
-     * Deliberately untouched. Web signups reach billing another way, some sit
-     * on a free plan, and some have no subscription document at all; gating
-     * them here would lock existing merchants out of their own dashboards.
-     */
-    it('allows a tenant with no shop domain and no subscription', async () => {
+  describe('universal evaluation across all tenants', () => {
+    it('requires subscription for non-Shopify tenant with no subscription', async () => {
       mockBusiness({ status: 'active', shopifyShopDomain: null });
+      mockSubscription(null);
+
+      const decision = await service.decide(BUSINESS_ID);
+      expect(decision.entitled).toBe(false);
+      expect(decision.code).toBe('SUBSCRIPTION_REQUIRED');
+    });
+
+    it('allows non-Shopify tenant with active subscription', async () => {
+      mockBusiness({ status: 'active', shopifyShopDomain: null });
+      mockSubscription({ status: 'active' });
 
       await expect(service.decide(BUSINESS_ID)).resolves.toEqual({
         entitled: true,
       });
-      expect(subscriptionModel.findOne).not.toHaveBeenCalled();
     });
   });
 

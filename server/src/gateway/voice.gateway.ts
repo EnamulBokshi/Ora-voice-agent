@@ -22,6 +22,8 @@ import {
 } from './session-timer.service';
 import { EntitlementService } from '../common/entitlement/entitlement.service';
 
+import { BillingService } from '../billing/billing.service';
+
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: 'voice',
@@ -48,13 +50,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly sessionTimerService: SessionTimerService,
     private readonly configService: ConfigService,
     private readonly entitlementService: EntitlementService,
+    private readonly billingService: BillingService,
   ) { }
 
   handleConnection(client: Socket) {
     this.logger.log(`[VoiceGateway] Client connected: ${client.id}`);
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(`[VoiceGateway] Client disconnected: ${client.id}`);
     this.closingOnIdleSessions.delete(client.id);
     const session = this.activeVoiceSessions.get(client.id);
@@ -62,8 +65,23 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       session.closeSession();
       this.activeVoiceSessions.delete(client.id);
     }
-    // Always clear the session timer on disconnect
-    this.sessionTimerService.clearTimer(client.id);
+    const sessionInfo = this.sessionTimerService.getSessionInfo(client.id);
+    const elapsedSeconds = this.sessionTimerService.clearTimer(client.id);
+    if (sessionInfo?.businessId && elapsedSeconds > 0) {
+      const billedMinutes = Math.max(1, Math.ceil(elapsedSeconds / 60));
+      try {
+        await this.billingService.incrementUsage(
+          sessionInfo.businessId,
+          'conversationMinutes',
+          billedMinutes,
+        );
+        this.logger.log(
+          `[VoiceGateway] Recorded ${billedMinutes} voice minute(s) (${elapsedSeconds}s) for business ${sessionInfo.businessId}`,
+        );
+      } catch (err: any) {
+        this.logger.warn(`[VoiceGateway] Failed to record voice usage: ${err.message}`);
+      }
+    }
   }
 
   @SubscribeMessage('start-voice-session')
@@ -128,10 +146,34 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         `[VoiceGateway] Connection rejected: business ${business._id} (${business.name}) is not entitled (${entitlement.code})`,
       );
       client.emit('voice-error', {
-        message: 'The voice agent is not available for this store.',
+        message:
+          entitlement.code === 'TRIAL_EXPIRED'
+            ? 'The 14-day free trial for this store has expired. Please upgrade in the dashboard.'
+            : 'The voice agent is not available for this store.',
       });
       return;
     }
+
+    // Real-time Voice Quota Enforcement
+    const quota = await this.billingService.getSubscription(business._id.toString());
+    const usedVoiceMins = quota?.usage?.voiceMinutes ?? quota?.usage?.conversationMinutes ?? 0;
+    const allowedVoiceMins =
+      quota?.subscription?.customLimits?.voiceMinutes ??
+      quota?.plan?.limits?.voiceMinutes ??
+      quota?.plan?.limits?.conversationMinutes ??
+      150;
+
+    if (usedVoiceMins >= allowedVoiceMins) {
+      this.logger.warn(
+        `[VoiceGateway] Connection rejected: business ${business._id} has exceeded monthly voice quota (${usedVoiceMins}/${allowedVoiceMins} mins)`,
+      );
+      client.emit('voice-error', {
+        message: `Monthly voice minutes quota reached (${usedVoiceMins}/${allowedVoiceMins} mins). Please upgrade your plan in the ORA dashboard.`,
+      });
+      return;
+    }
+
+    const remainingVoiceMinutes = Math.max(0, allowedVoiceMins - usedVoiceMins);
 
     // Check if merchant disabled the storefront widget
     if (business.isWidgetActive === false) {
@@ -267,14 +309,16 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       this.activeVoiceSessions.set(client.id, voiceSession);
 
-      // Resolve per-merchant session duration limit (or fall back to platform default)
+      // Resolve per-merchant session duration limit, bounded by remaining quota
       const defaultDuration =
         this.configService.get<number>('DEFAULT_SESSION_DURATION_SECONDS') ??
         DEFAULT_SESSION_DURATION_SECONDS;
-      const sessionDurationSeconds: number =
+      const configuredDuration =
         typeof business.maxSessionDurationSeconds === 'number' && business.maxSessionDurationSeconds > 0
           ? business.maxSessionDurationSeconds
           : defaultDuration;
+      const remainingQuotaSeconds = Math.max(30, remainingVoiceMinutes * 60);
+      const sessionDurationSeconds: number = Math.min(configuredDuration, remainingQuotaSeconds);
 
       client.emit('voice-session-started', {
         success: true,

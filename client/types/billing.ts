@@ -1,8 +1,18 @@
 export interface PlanLimits {
-  conversationMinutes: number;
-  ordersPerMonth: number;
-  connectedStores: number;
-  seats: number;
+  voiceMinutes: number;
+  documentLimit: number;
+  websiteLimit: number;
+  // Legacy optional fields for backward compatibility
+  conversationMinutes?: number;
+  ordersPerMonth?: number;
+  connectedStores?: number;
+  seats?: number;
+}
+
+export interface CustomPlanLimits {
+  voiceMinutes?: number;
+  documentLimit?: number;
+  websiteLimit?: number;
 }
 
 export interface Plan {
@@ -14,28 +24,35 @@ export interface Plan {
   billingInterval: 'monthly' | 'yearly';
   limits: PlanLimits;
   features: string[];
-  /** Free-trial length Shopify applies before the first charge. */
+  /** Free-trial length applied before the first charge. */
   trialDays?: number;
   isActive: boolean;
+  activeSubscribers?: number;
 }
 
 export interface Subscription {
   _id: string;
   businessId: string;
   planId: string;
-  billingProvider: 'stripe' | 'bkash';
+  billingProvider: 'stripe' | 'bkash' | 'shopify';
   providerRef?: string;
   status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled';
   currentPeriodStart: string;
   currentPeriodEnd: string;
+  trialDays?: number;
+  trialExpiresAt?: string;
   cancelAtPeriodEnd: boolean;
+  customLimits?: CustomPlanLimits;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface SubscriptionUsage {
-  conversationMinutes: number;
-  ordersPerMonth: number;
+  voiceMinutes: number;
+  documentCount: number;
+  websiteCount: number;
+  conversationMinutes?: number;
+  ordersPerMonth?: number;
   connectedStores?: number;
   seats?: number;
 }

@@ -19,6 +19,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { AdminRole } from '../users/enums/admin-role.enum';
 
+import { DisposableEmailValidatorService } from './services/disposable-email-validator.service';
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -35,6 +37,7 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly disposableEmailValidatorService: DisposableEmailValidatorService,
     @Optional()
     private readonly onboardingEmailService?: OnboardingEmailService,
   ) {}
@@ -57,6 +60,18 @@ export class AuthService {
     reqInfo: { userAgent?: string; ip?: string },
     clientOrigin?: string,
   ) {
+    if (this.disposableEmailValidatorService.isDisposable(dto.email)) {
+      throw new DomainException(
+        'DISPOSABLE_EMAIL_NOT_ALLOWED',
+        'Disposable or temporary email addresses are not permitted. Please use your official business email.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const normalizedDomain = dto.domain
+      ? this.disposableEmailValidatorService.normalizeDomain(dto.domain)
+      : undefined;
+
     const existingUser = await this.usersService.findByEmail(dto.email);
     let user: any;
     let business: any;
@@ -89,11 +104,13 @@ export class AuthService {
         business = await this.usersService.updateBusiness(business._id.toString(), {
           name: dto.businessName,
           domain: dto.domain,
+          ...(normalizedDomain ? { normalizedDomain } : {}),
         });
       } else {
         business = await this.usersService.createBusiness(
           dto.businessName,
           dto.domain,
+          normalizedDomain ? { normalizedDomain } : undefined,
         );
         user = await this.usersService.updateAdminUser(existingUser._id.toString(), {
           businessId: business._id as any,
@@ -108,6 +125,7 @@ export class AuthService {
       business = await this.usersService.createBusiness(
         dto.businessName,
         dto.domain,
+        normalizedDomain ? { normalizedDomain } : undefined,
       );
 
       user = await this.usersService.createAdminUser({

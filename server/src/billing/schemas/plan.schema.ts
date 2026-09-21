@@ -5,8 +5,39 @@ export type PlanDocument = Plan & Document;
 
 export enum PlanId {
   FREE = 'free',
+  STARTER = 'starter',
   GROWTH = 'growth',
   SCALE = 'scale',
+}
+
+export class PlanLimits {
+  /** Monthly live voice minutes allocation */
+  @Prop({ type: Number, default: 500 })
+  voiceMinutes: number;
+
+  /** Maximum knowledge base documents / files uploaded */
+  @Prop({ type: Number, default: 15 })
+  documentLimit: number;
+
+  /** Maximum number of verified connected websites / domains */
+  @Prop({ type: Number, default: 1 })
+  websiteLimit: number;
+
+  /** Backwards compatibility alias for voiceMinutes */
+  @Prop({ type: Number, default: 500 })
+  conversationMinutes?: number;
+
+  /** Backwards compatibility alias for websiteLimit */
+  @Prop({ type: Number, default: 1 })
+  connectedStores?: number;
+
+  /** Backwards compatibility fallback */
+  @Prop({ type: Number, default: 0 })
+  ordersPerMonth?: number;
+
+  /** Backwards compatibility fallback */
+  @Prop({ type: Number, default: 1 })
+  seats?: number;
 }
 
 @Schema({ timestamps: true })
@@ -15,10 +46,9 @@ export class Plan {
     type: String,
     required: true,
     unique: true,
-    enum: Object.values(PlanId),
     index: true,
   })
-  planId: PlanId;
+  planId: string;
 
   @Prop({ required: true, trim: true })
   name: string;
@@ -34,32 +64,25 @@ export class Plan {
 
   @Prop({
     type: {
-      conversationMinutes: { type: Number, default: 100 },
-      ordersPerMonth: { type: Number, default: 20 },
+      voiceMinutes: { type: Number, default: 500 },
+      documentLimit: { type: Number, default: 15 },
+      websiteLimit: { type: Number, default: 1 },
+      conversationMinutes: { type: Number, default: 500 },
       connectedStores: { type: Number, default: 1 },
+      ordersPerMonth: { type: Number, default: 0 },
       seats: { type: Number, default: 1 },
     },
     required: true,
   })
-  limits: {
-    conversationMinutes: number;
-    ordersPerMonth: number;
-    connectedStores: number;
-    seats: number;
-  };
+  limits: PlanLimits;
 
   @Prop({ type: [String], default: [] })
   features: string[];
 
   /**
-   * Free-trial length in days, passed to Shopify's `appSubscriptionCreate`.
-   *
-   * Shopify owns the trial: it starts the subscription ACTIVE and takes the
-   * first payment `trialDays` later. Nothing in ORA counts it down, so this
-   * value is the only thing that makes an advertised trial real. Zero means
-   * the merchant is charged on approval.
+   * Free-trial length in days (e.g. 14 days).
    */
-  @Prop({ type: Number, default: 0 })
+  @Prop({ type: Number, default: 14 })
   trialDays: number;
 
   @Prop({ default: true, index: true })

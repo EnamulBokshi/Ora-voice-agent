@@ -53,6 +53,9 @@ function UsageClientContent() {
     plan: null,
     subscription: null,
     usage: {
+      voiceMinutes: 0,
+      documentCount: 0,
+      websiteCount: 1,
       conversationMinutes: 0,
       ordersPerMonth: 0,
     },

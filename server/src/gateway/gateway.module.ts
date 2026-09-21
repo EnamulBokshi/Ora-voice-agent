@@ -8,6 +8,7 @@ import { ConversationsModule } from '../conversations/conversations.module';
 import { RagModule } from '../rag/rag.module';
 import { AiVoiceModule } from '../ai-voice/ai-voice.module';
 import { RedisModule } from '../common/redis/redis.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RedisModule } from '../common/redis/redis.module';
     RagModule,
     AiVoiceModule,
     RedisModule,
+    BillingModule,
     MongooseModule.forFeature([
       { name: Business.name, schema: BusinessSchema },
     ]),

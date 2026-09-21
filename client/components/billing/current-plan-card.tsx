@@ -64,10 +64,15 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       {/* Section Sub-Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
+          <span className="w-2 h-2 rounded-[2px] bg-primary flex-shrink-0" />
           <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
             Active Plan & Billing Cycle
           </h2>
+          {sub?.customLimits && (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-[3px] bg-primary/20 text-primary border border-primary/30 font-semibold">
+              Scale Custom Limits Active
+            </span>
+          )}
         </div>
         {sub && sub.status !== 'canceled' && (
           <button
@@ -116,27 +121,38 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
         <div className="py-2 md:py-0 md:pr-6 space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-[16px] font-semibold text-foreground font-serif">
-              {plan ? plan.name : 'Free Tier'}
+              {plan ? plan.name : 'No Active Subscription'}
             </span>
             {sub && (
               <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-foreground uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
-                {sub.status.replace('_', ' ')}
+                <span
+                  className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    sub.status === 'active' || sub.status === 'trialing'
+                      ? 'bg-[color:var(--status-online)]'
+                      : 'bg-destructive',
+                  )}
+                />
+                {sub.status === 'trialing' ? '14-Day Free Trial' : sub.status.replace('_', ' ')}
               </span>
             )}
           </div>
           {plan && (
             <div className="text-[13px] text-muted-foreground">
               <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
-                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                {sub?.billingProvider === 'bkash'
+                  ? `৳${Math.round(plan.priceBdtPaisa / 100).toLocaleString()}`
+                  : formatCurrency(plan.priceUsdCents / 100, 'USD')}
               </span>
               <span> / month · {providerName}</span>
             </div>
           )}
           <p className="text-[11.5px] text-muted-foreground pt-1">
-            {sub?.currentPeriodStart && sub?.currentPeriodEnd
+            {sub?.status === 'trialing' && sub?.currentPeriodEnd
+              ? `Trial ends: ${formatDateTime(sub.currentPeriodEnd)}`
+              : sub?.currentPeriodStart && sub?.currentPeriodEnd
               ? `Cycle: ${formatDateTime(sub.currentPeriodStart)} – ${formatDateTime(sub.currentPeriodEnd)}`
-              : 'Active free store quota tier.'}
+              : 'Choose a plan below to activate your 14-day risk-free trial.'}
           </p>
         </div>
 
@@ -147,15 +163,28 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
           </span>
           <div className="space-y-2 text-[12.5px]">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Voice conversation minutes:</span>
+              <span className="text-muted-foreground">Voice conversation:</span>
               <span className="font-medium text-foreground tabular-nums">
-                {usage.conversationMinutes.toLocaleString()} / {plan ? plan.limits.conversationMinutes.toLocaleString() : '100'}
+                {(usage.voiceMinutes ?? usage.conversationMinutes ?? 0).toLocaleString()} /{' '}
+                {(
+                  sub?.customLimits?.voiceMinutes ??
+                  plan?.limits?.voiceMinutes ??
+                  plan?.limits?.conversationMinutes ??
+                  150
+                ).toLocaleString()}{' '}
+                mins
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Assisted checkout orders:</span>
+              <span className="text-muted-foreground">Knowledge base documents:</span>
               <span className="font-medium text-foreground tabular-nums">
-                {usage.ordersPerMonth.toLocaleString()} / {plan ? plan.limits.ordersPerMonth.toLocaleString() : '25'}
+                {(usage.documentCount ?? 0).toLocaleString()} /{' '}
+                {(
+                  sub?.customLimits?.documentLimit ??
+                  plan?.limits?.documentLimit ??
+                  5
+                ).toLocaleString()}{' '}
+                docs
               </span>
             </div>
           </div>
@@ -164,19 +193,25 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
         {/* Col 3: Quotas & Capacity */}
         <div className="py-3 md:py-0 md:pl-6 space-y-2">
           <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
-            Provisioned Capacity
+            Connected Domains & Capacity
           </span>
           <div className="space-y-2 text-[12.5px]">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Connected storefronts:</span>
+              <span className="text-muted-foreground">Verified websites / domains:</span>
               <span className="font-medium text-foreground tabular-nums">
-                {usage.connectedStores ?? 1} / {plan ? plan.limits.connectedStores : 1}
+                {(usage.websiteCount ?? usage.connectedStores ?? 1).toLocaleString()} /{' '}
+                {(
+                  sub?.customLimits?.websiteLimit ??
+                  plan?.limits?.websiteLimit ??
+                  plan?.limits?.connectedStores ??
+                  1
+                ).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Operator team seats:</span>
-              <span className="font-medium text-foreground tabular-nums">
-                {usage.seats ?? 1} / {plan ? plan.limits.seats : 1}
+              <span className="text-muted-foreground">Voice AI engine:</span>
+              <span className="font-medium text-primary tabular-nums">
+                Real-Time Streaming Active
               </span>
             </div>
           </div>
