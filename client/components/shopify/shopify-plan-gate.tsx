@@ -98,7 +98,7 @@ export function ShopifyPlanGate() {
 
   if (!canSubscribe) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-6 sm:p-10 flex flex-col items-center justify-center">
+      <div className="flex-1 h-full w-full overflow-y-auto bg-background text-foreground p-6 sm:p-10 flex flex-col items-center justify-center">
         <div className="max-w-md w-full rounded-2xl border border-border/80 bg-surface-container p-8 text-center flex flex-col items-center gap-4 shadow-xl">
           <div className="size-11 rounded-full bg-surface-high border border-border/70 text-foreground flex items-center justify-center">
             <Lock className="size-4 text-muted-foreground" />
@@ -116,7 +116,7 @@ export function ShopifyPlanGate() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground px-4 sm:px-8 py-10 flex flex-col items-center">
+    <div className="flex-1 h-full w-full overflow-y-auto bg-background text-foreground px-4 sm:px-8 py-10 flex flex-col items-center">
       {/* Header Banner */}
       <div className="max-w-3xl text-center flex flex-col items-center gap-3.5 mb-12">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-high border border-border/70 text-foreground text-xs font-mono font-medium tracking-tight">

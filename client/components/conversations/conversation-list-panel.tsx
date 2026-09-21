@@ -35,9 +35,9 @@ export function ConversationListPanel({
   ];
 
   return (
-    <div className="w-full md:w-[300px] lg:w-[320px] shrink-0 flex flex-col border-r border-border/40 h-full overflow-hidden bg-transparent">
-      {/* ── Search & Filter Controls ── */}
-      <div className="p-3.5 border-b border-border/40 space-y-3 bg-transparent flex-shrink-0">
+    <div className="w-full md:w-[300px] lg:w-[320px] shrink-0 flex flex-col h-full min-h-0 overflow-hidden bg-transparent">
+      {/* ── Search & Filter Controls (Fixed, non-scrolling) ── */}
+      <div className="p-3.5 border-b border-border/40 space-y-3 bg-transparent shrink-0">
         {/* Search Input */}
         <div className="relative w-full">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -83,8 +83,8 @@ export function ConversationListPanel({
         </div>
       </div>
 
-      {/* ── Conversation Rows List ── */}
-      <div className="flex-1 overflow-y-auto no-scrollbar divide-y divide-border/30 bg-transparent">
+      {/* ── Conversation Rows List (Independently scrollable) ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border/30 bg-transparent">
         {conversations.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground px-4">
             <p className="font-medium text-foreground">No conversations match</p>

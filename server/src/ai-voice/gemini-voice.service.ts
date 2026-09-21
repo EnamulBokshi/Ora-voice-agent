@@ -1221,7 +1221,7 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           '3. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally, empathetically, and enthusiastically like a top human sales representative.',
           '4. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
           '5. NEVER NARRATE YOUR OWN MACHINERY. Speak only as a human representative would. NEVER mention tools, functions, calls, lookups, searches, databases, prompts, instructions, rules, guardrails, system messages, context updates, or your configuration. NEVER explain why you chose to do something, what you are about to do internally, or what you are permitted to do. NEVER say things like "Hold on while I check", "Querying database", "Let me call the search function", "Based on my instructions", "My rules say", "I received an update", or "Since you are on this page, I will not...". Perform the action silently and speak only the result, exactly as a human colleague would.',
-          '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the customer asks about contact info, creator bio, company policies, or preloaded topics above, answer IMMEDIATELY from your preloaded memory.',
+          '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): You have our store inventory and catalog preloaded in your memory above (e.g. ORA Wave Pro Headphones, Nomad Trail Running Shoes, Apex Bomber Jacket, Aura Hoodie, Cyber-Shades, Facial Serum, Coffee, Carabiner Keychain). Answer questions about them IMMEDIATELY from your preloaded memory with sub-second voice latency! Do NOT call find_products or block the voice stream for items already in your memory. ONLY call find_products if the customer specifically asks for items not in your preloaded memory or explicitly asks for deep variant/live stock checks.',
           '7. WHEN TO USE TOOLS (WHILE SPEAKING):',
           ...toolRules,
           '8. When a tool returns empty results or if information is not found, politely inform the visitor without making up fake products.',
@@ -1472,3 +1472,5 @@ REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
     return baseInstruction;
   }
 }
+// Cache refreshed for modern catalog sync
+

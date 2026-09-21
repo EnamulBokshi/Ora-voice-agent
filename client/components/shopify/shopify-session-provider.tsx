@@ -4,7 +4,114 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { getShopifySession, UnifiedSession, OraSessionError } from '@/lib/session';
 import { getSubscriptionApi } from '@/services/billing-service';
 import { SubscriptionDetailsResponse } from '@/types/billing';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Store, ExternalLink, LogIn, ArrowRight } from 'lucide-react';
+
+function ShopifyNotEmbeddedNotice() {
+  const [storeDomain, setStoreDomain] = useState('');
+  const [detectedShop, setDetectedShop] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const s = p.get('shop');
+      if (s) setDetectedShop(s);
+    }
+  }, []);
+
+  const handleOpenStore = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const raw = (detectedShop || storeDomain).trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!raw) return;
+    const storeHandle = raw.replace('.myshopify.com', '');
+    window.location.href = `https://admin.shopify.com/store/${storeHandle}/apps/ora-voice-ai`;
+  };
+
+  return (
+    <div className="flex-1 h-full w-full overflow-y-auto flex flex-col items-center justify-center p-6 bg-background text-foreground">
+      <div className="max-w-md w-full rounded-2xl border border-border/80 bg-surface-container p-7 text-center space-y-5 shadow-2xl">
+        <div className="w-12 h-12 rounded-2xl bg-surface-high border border-border/60 text-foreground flex items-center justify-center mx-auto shadow-xs">
+          <Store className="w-6 h-6 text-primary" />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-high border border-border/60 text-[11px] font-mono text-muted-foreground mb-1">
+            <span>Shopify Embedded App</span>
+          </div>
+          <h2 className="text-xl font-serif font-semibold tracking-tight text-foreground">
+            Launch ORA in Shopify Admin
+          </h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This dashboard runs directly inside Shopify Admin to securely sync your catalog and sales agent.
+          </p>
+        </div>
+
+        {detectedShop ? (
+          <div className="space-y-3 pt-1">
+            <div className="p-3 rounded-lg bg-surface-lowest border border-border/60 text-xs font-mono text-foreground break-all">
+              Store: <span className="font-semibold text-primary">{detectedShop}</span>
+            </div>
+            <button
+              onClick={() => handleOpenStore()}
+              className="w-full rounded-lg bg-primary text-primary-foreground py-2.5 px-4 text-xs font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.99]"
+            >
+              <span>Open in Shopify Admin</span>
+              <ExternalLink size={13} />
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleOpenStore} className="space-y-3 pt-1">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                placeholder="your-store-name"
+                value={storeDomain}
+                onChange={(e) => setStoreDomain(e.target.value)}
+                className="w-full bg-surface-lowest border border-border/70 rounded-lg py-2 pl-3 pr-32 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary transition-colors font-mono"
+              />
+              <span className="absolute right-3 text-[11px] font-mono text-muted-foreground pointer-events-none select-none">
+                .myshopify.com
+              </span>
+            </div>
+            <button
+              type="submit"
+              disabled={!storeDomain.trim()}
+              className="w-full rounded-lg bg-primary text-primary-foreground py-2.5 px-4 text-xs font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-md active:scale-[0.99]"
+            >
+              <span>Open in Shopify Admin</span>
+              <ExternalLink size={13} />
+            </button>
+          </form>
+        )}
+
+        <div className="relative flex items-center justify-center pt-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border/50" />
+          </div>
+          <span className="relative bg-surface-container px-3 text-[11px] font-mono uppercase tracking-wider text-muted-foreground/60">
+            or
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+          <a
+            href="/auth"
+            className="w-full py-2 px-3 rounded-lg border border-border/70 bg-surface-high hover:bg-surface-bright text-foreground text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+          >
+            <LogIn size={13} className="text-muted-foreground" />
+            <span>Standalone Login</span>
+          </a>
+          <a
+            href="/"
+            className="w-full py-2 px-3 rounded-lg border border-transparent hover:border-border/60 hover:bg-surface-high/60 text-muted-foreground hover:text-foreground text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+          >
+            <ArrowRight size={13} />
+            <span>ORA Homepage</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface ShopifySessionContextType {
   session: UnifiedSession | null;
@@ -91,9 +198,13 @@ export function ShopifySessionProvider({ children }: { children: React.ReactNode
   }
 
   if (error && !session) {
+    if (error.code === 'NOT_EMBEDDED') {
+      return <ShopifyNotEmbeddedNotice />;
+    }
+
     return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center p-6 bg-background text-foreground">
-        <div className="max-w-md w-full rounded-xl border border-destructive/40 bg-surface-container p-6 text-center space-y-4 shadow-xl">
+      <div className="flex-1 h-full w-full overflow-y-auto flex flex-col items-center justify-center p-6 bg-background text-foreground">
+        <div className="max-w-md w-full rounded-2xl border border-destructive/40 bg-surface-container p-6 text-center space-y-4 shadow-xl">
           <div className="w-10 h-10 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
             !
           </div>
@@ -102,7 +213,7 @@ export function ShopifySessionProvider({ children }: { children: React.ReactNode
           <p className="text-xs font-mono text-muted-foreground">Code: {error.code}</p>
           <button
             onClick={() => init(true)}
-            className="w-full rounded-md bg-primary text-primary-foreground py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+            className="w-full rounded-md bg-primary text-primary-foreground py-2 text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
           >
             Retry Connection
           </button>

@@ -458,26 +458,48 @@ export class AiToolsExecutor {
     if (typeof (this.productsService as any).findAll !== 'function') return empty;
 
     try {
+      const STOP_WORDS = new Set([
+        'do', 'you', 'have', 'show', 'me', 'any', 'what', 'is', 'are', 'the', 'price', 'of',
+        'can', 'i', 'get', 'for', 'in', 'store', 'stock', 'tell', 'about', 'looking',
+        'need', 'want', 'please', 'give', 'check', 'available', 'product', 'products',
+        'item', 'items', 'much', 'cost', 'buy', 'purchase', 'order', 'a', 'an', 'and', 'or',
+        'some', 'with', 'under', 'category', 'find', 'which', 'shop', 'there', 'got',
+        'does', 'did', 'their', 'your', 'our', 'all', 'like', 'how', 'would', 'could',
+        'see', 'look', 'view', 'let', 'take', 'know', 'browse', 'kind', 'type', 'kinds', 'types',
+        'one', 'ones', 'nice', 'best', 'good', 'cool', 'top', 'new', 'latest',
+      ]);
+
+      const allTokens = trimmed
+        .toLowerCase()
+        .split(/\s+/)
+        .map((t) => t.replace(/[^a-z0-9]/g, ''))
+        .filter((t) => t.length >= 2);
+
+      const substantiveTerms = allTokens.filter((t) => !STOP_WORDS.has(t));
+      const searchTerms = substantiveTerms.length > 0 ? substantiveTerms : allTokens.filter((t) => t.length >= 3);
+
       const res = await this.productsService.findAll(businessId, {
-        search: trimmed,
+        search: searchTerms.length > 0 ? searchTerms.join(' ') : trimmed,
         limit: 5,
       } as any);
       if (!res || !res.items || res.items.length === 0) return empty;
 
-      const terms = trimmed
-        .toLowerCase()
-        .split(/\s+/)
-        .map((t) => t.replace(/[^a-z0-9]/g, ''))
-        .filter((t) => t.length >= 3);
-
       // A query with no substantive word of its own ("what do you sell?") has nothing
       // for a keyword match to be confident about, but its results are still worth
       // handing back for the catalog fallback further down.
-      if (terms.length === 0) return { confident: [], items: res.items };
+      if (searchTerms.length === 0) return { confident: [], items: res.items };
 
       const confident = res.items.filter((item: any) => {
         const nameLower = (item.name || '').toLowerCase();
-        return terms.every((term) => nameLower.includes(term));
+        const catLower = (item.category || '').toLowerCase();
+        const brandLower = (item.brand || '').toLowerCase();
+        const full = `${nameLower} ${catLower} ${brandLower}`;
+
+        if (searchTerms.length > 1) {
+          return searchTerms.every((term) => full.includes(term));
+        }
+
+        return searchTerms.some((term) => nameLower.includes(term) || catLower.includes(term));
       });
 
       return { confident, items: res.items };

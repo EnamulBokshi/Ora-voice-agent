@@ -135,8 +135,8 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
       />
 
       <ShopifySessionProvider>
-        <div className="min-h-screen bg-background text-foreground flex flex-col">
-          <main className="flex-1 flex flex-col overflow-x-hidden">{children}</main>
+        <div className="h-screen h-[100dvh] bg-background text-foreground flex flex-col overflow-hidden">
+          <main className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">{children}</main>
         </div>
       </ShopifySessionProvider>
     </>

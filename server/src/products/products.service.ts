@@ -97,11 +97,14 @@ export class ProductsService {
 
       // Conversational stop words to filter out of voice search queries
       const STOP_WORDS = new Set([
-        'do', 'you', 'have', 'show', 'me', 'any', 'what', 'is', 'the', 'price', 'of',
+        'do', 'you', 'have', 'show', 'me', 'any', 'what', 'is', 'are', 'the', 'price', 'of',
         'can', 'i', 'get', 'for', 'in', 'store', 'stock', 'tell', 'about', 'looking',
         'need', 'want', 'please', 'give', 'check', 'available', 'product', 'products',
         'item', 'items', 'much', 'cost', 'buy', 'purchase', 'order', 'a', 'an', 'and', 'or',
-        'some', 'with', 'under', 'category', 'find', 'which', 'shop',
+        'some', 'with', 'under', 'category', 'find', 'which', 'shop', 'there', 'got',
+        'does', 'did', 'their', 'your', 'our', 'all', 'like', 'how', 'would', 'could',
+        'see', 'look', 'view', 'let', 'take', 'know', 'browse', 'kind', 'type', 'kinds', 'types',
+        'one', 'ones', 'nice', 'best', 'good', 'cool', 'top', 'new', 'latest',
       ]);
 
       const rawTerms = trimmed

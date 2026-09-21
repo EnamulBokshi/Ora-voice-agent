@@ -83,6 +83,7 @@ describe('EmbeddingService', () => {
         body: JSON.stringify({
           model: 'models/custom-embedding-model',
           content: { parts: [{ text: 'test text' }] },
+          outputDimensionality: 768,
         }),
       }),
     );
