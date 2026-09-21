@@ -87,6 +87,7 @@
   let idleTimer = null;
   let activeResumptionToken = null;
   let isWaitingForAi = false;
+  const isMobileDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
 
   /**
    * Fails a connect attempt that never gets an answer.
@@ -403,7 +404,7 @@
           var prod = flattened.find(function(node) {
             if (!node || !node['@type']) return false;
             var t = node['@type'];
-            return t === 'Product' || (Array.isArray(t) && t.indexOf('Product') !== -1);
+            return t === 'Product' || t === 'ProductGroup' || (Array.isArray(t) && (t.indexOf('Product') !== -1 || t.indexOf('ProductGroup') !== -1));
           });
           if (prod) {
             var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
@@ -420,6 +421,22 @@
               if (offer.priceCurrency) currVal = String(offer.priceCurrency).toUpperCase();
               if (offer.availability) {
                 availVal = /instock|in_stock/i.test(String(offer.availability)) ? 'in_stock' : (/outofstock|out_of_stock/i.test(String(offer.availability)) ? 'out_of_stock' : 'unknown');
+              }
+            }
+
+            // Support Shopify ProductGroup with hasVariant array
+            if (prod.hasVariant && Array.isArray(prod.hasVariant) && prod.hasVariant.length > 0) {
+              var anyInStock = prod.hasVariant.some(function(v) {
+                var vOffer = v.offers;
+                return vOffer && /instock|in_stock/i.test(String(vOffer.availability));
+              });
+              availVal = anyInStock ? 'in_stock' : 'out_of_stock';
+              if (priceVal === null && prod.hasVariant[0] && prod.hasVariant[0].offers) {
+                var firstOffer = prod.hasVariant[0].offers;
+                if (firstOffer.price !== undefined && firstOffer.price !== null) {
+                  priceVal = Number(String(firstOffer.price).replace(/[^0-9.]/g, ''));
+                }
+                if (firstOffer.priceCurrency) currVal = String(firstOffer.priceCurrency).toUpperCase();
               }
             }
 
@@ -569,11 +586,21 @@
                   try { prodImg = new URL(prodImg, window.location.origin).href; } catch (e) {}
                 }
 
+                var isSoldOut = false;
+                if (addToCartBtn) {
+                  var btnTxt = (addToCartBtn.innerText || addToCartBtn.textContent || '').trim().toLowerCase();
+                  isSoldOut = addToCartBtn.disabled || addToCartBtn.hasAttribute('disabled') || /sold out|out of stock|unavailable|স্টক আউট/i.test(btnTxt);
+                }
+                if (!isSoldOut) {
+                  var badgeEl = document.querySelector('.badge--sold-out, [class*="sold-out"], [class*="soldOut"]');
+                  if (badgeEl && /sold out/i.test(badgeEl.innerText || '')) isSoldOut = true;
+                }
+
                 product = {
                   name: candidateTitle,
                   price: cleanAmount,
                   currency: normalizedCurrency,
-                  availability: 'in_stock',
+                  availability: isSoldOut ? 'out_of_stock' : 'in_stock',
                   sku: null,
                   image: prodImg,
                   description: metaDesc || null
@@ -2824,9 +2851,19 @@
   }
 
   function addToShopifyCart(action) {
-    if (!action || !action.variantId) return;
+    if (!action) return;
+
+    // Both exits below used to return in silence, which is the worst of the two
+    // outcomes: ORA has already told the shopper the item is in their cart, and
+    // nothing ever contradicts it. Report the failure so the server drops the line
+    // and the agent corrects itself out loud.
+    if (!action.variantId) {
+      reportCartSync(action, false, 'no-variant-id');
+      return;
+    }
 
     if (!isShopifyStorefront()) {
+      reportCartSync(action, false, 'not-a-shopify-storefront');
       return;
     }
 
@@ -3076,6 +3113,14 @@
 
   // ─── SpeechRecognition (Instant Local User Transcript Pill) ────────────────
   function startSpeechRecognition() {
+    // Mobile / iOS Safari contention fix:
+    // On iOS Safari, webkitSpeechRecognition competes with getUserMedia Web Audio for hardware
+    // CoreAudio access, causing audio dropped samples, high latency, and battery drain.
+    // In addition, Apple's dictation waits 2-3 seconds after silence before emitting isFinal.
+    // Gemini Multimodal Live API already transcribes user microphone audio on the server in real-time,
+    // so mobile browsers skip client-side speech recognition entirely.
+    if (isMobileDevice) return;
+
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) return;
     try {
@@ -3138,8 +3183,14 @@
 
   async function startMicCapture() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
-    if (audioContext.state === 'suspended') await audioContext.resume();
+    if (!audioContext) {
+      try {
+        audioContext = new AudioCtx({ sampleRate: 16000 });
+      } catch (e) {
+        audioContext = new AudioCtx();
+      }
+    }
+    if (audioContext.state === 'suspended') await audioContext.resume().catch(() => {});
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -3260,6 +3311,9 @@
 
       if (isSpeech) {
         lastSpeechAt = nowMs;
+        lastSpeaker = 'user';
+        liveSpeaker = 'user';
+        isWaitingForAi = false;
         cancelIdleTimer();
         clearSessionNotice(); // the customer is speaking — drop any "are you still there?"
         // Tell the server a human is talking, whether or not anything transcribes it.
@@ -3284,6 +3338,10 @@
       if (!isSpeech && nowMs - lastSpeechAt >= VAD_HANGOVER_MS) {
         prerollFrames.push(b64);
         if (prerollFrames.length > VAD_PREROLL_FRAMES) prerollFrames.shift();
+        if (lastSpeaker === 'user' && !isWaitingForAi && voiceState === 'active') {
+          isWaitingForAi = true;
+          render();
+        }
         return;
       }
 
@@ -3376,7 +3434,9 @@
           await audioContext.audioWorklet.addModule(resolveOraAssetUrl('/audio-processors/pcm-recorder-worklet.js'));
         } finally {
           if (blobUrl) {
-            try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+            setTimeout(function () {
+              try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+            }, 10000);
           }
         }
         worklet = new AudioWorkletNode(audioContext, 'pcm-recorder-processor');
@@ -3395,20 +3455,39 @@
       source.connect(worklet);
       worklet.connect(muteNode);
     } else {
-      const processor = audioContext.createScriptProcessor(1024, 1, 1);
+      // ── Fallback ScriptProcessor with 64ms (1024-sample) Frame Accumulator ──
+      // On mobile Safari (where AudioWorklet may fail or blob URLs are restricted),
+      // ScriptProcessor emits raw chunks at native hardware rate (48kHz, 1024 samples = 21ms).
+      // Emitting 21ms unbuffered chunks floods the mobile WebSocket with 48 msgs/sec, saturating
+      // mobile TCP queues and distorting the VAD noise floor 3.8x faster.
+      // We accumulate downsampled 16kHz audio into exactly 1024 samples (64ms) before sending.
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
       processorNode = processor;
       source.connect(processor);
       processor.connect(muteNode);
 
+      const FRAME_SAMPLES = 1024;
+      const spAccumulator = new Float32Array(FRAME_SAMPLES);
+      let spAccumulatorCount = 0;
+
       processor.onaudioprocess = function (e) {
+        if (voiceState === 'idle' || !geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
         const rawInput = e.inputBuffer.getChannelData(0);
-        const inputData = downsampleTo16k(rawInput, audioContext.sampleRate);
+        const downsampled = downsampleTo16k(rawInput, audioContext.sampleRate);
 
-        let sum = 0;
-        for (let i = 0; i < rawInput.length; i++) sum += rawInput[i] * rawInput[i];
-        const rms = Math.sqrt(sum / rawInput.length);
-
-        handleMicChunk(floatTo16BitPCM(inputData).buffer, rms);
+        for (let i = 0; i < downsampled.length; i++) {
+          spAccumulator[spAccumulatorCount++] = downsampled[i];
+          if (spAccumulatorCount >= FRAME_SAMPLES) {
+            let sum = 0;
+            for (let j = 0; j < FRAME_SAMPLES; j++) {
+              sum += spAccumulator[j] * spAccumulator[j];
+            }
+            const rms = Math.sqrt(sum / FRAME_SAMPLES);
+            const pcm16 = floatTo16BitPCM(spAccumulator);
+            handleMicChunk(pcm16.buffer, rms);
+            spAccumulatorCount = 0;
+          }
+        }
       };
     }
 
@@ -3422,10 +3501,32 @@
   async function startVoiceSession(resumeToken) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
+      if (!audioContext) {
+        try {
+          audioContext = new AudioCtx({ sampleRate: 16000 });
+        } catch (e) {
+          audioContext = new AudioCtx();
+        }
+      }
       if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
-      if (!playbackContext) playbackContext = new AudioCtx({ sampleRate: 24000 });
+
+      if (!playbackContext) {
+        try {
+          playbackContext = new AudioCtx({ sampleRate: 24000 });
+        } catch (e) {
+          playbackContext = new AudioCtx();
+        }
+      }
       if (playbackContext.state === 'suspended') playbackContext.resume().catch(() => {});
+
+      // Play 1 silent sample inside user gesture to reliably unlock iOS Safari Web Audio hardware pipeline
+      try {
+        const silentBuf = playbackContext.createBuffer(1, 1, 22050);
+        const silentSrc = playbackContext.createBufferSource();
+        silentSrc.buffer = silentBuf;
+        silentSrc.connect(playbackContext.destination);
+        silentSrc.start(0);
+      } catch (e) {}
     } catch (e) {}
 
     voiceState = 'connecting';
@@ -3546,6 +3647,22 @@
             cancelIdleTimer();
             isWaitingForAi = false;
             if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+            render();
+            return;
+          }
+
+          if (msg.type === 'user_transcript' && msg.text) {
+            cancelIdleTimer();
+            lastSpeaker = 'user';
+            liveSpeaker = 'user';
+            const cleanText = msg.text.trim();
+            if (cleanText) {
+              liveUtterance = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
+              showTranscript = true;
+            }
+            if (msg.isFinal) {
+              isWaitingForAi = true;
+            }
             render();
             return;
           }

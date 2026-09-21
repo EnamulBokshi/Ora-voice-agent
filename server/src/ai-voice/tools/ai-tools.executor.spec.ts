@@ -553,7 +553,7 @@ describe('AiToolsExecutor', () => {
       expect(res.cart.authority).toBe('shopify');
     });
 
-    it('still adds a product with no synced variant, rather than failing the turn', async () => {
+    it('refuses a product with no synced variant instead of claiming it was added', async () => {
       shopifyExecutor = await buildExecutor(
         { platform: 'shopify' },
         {
@@ -568,13 +568,42 @@ describe('AiToolsExecutor', () => {
         productId: 'prod_123',
       });
 
-      // A failed tool makes the model re-plan and answer two turns later, which costs
-      // the shopper more than the missing storefront mirror does.
-      expect(res.success).toBe(true);
+      // Without a variant id nothing can reach the storefront cart, which is the only
+      // cart that sells here. Reporting success made the agent promise an add that
+      // never happened and left a line no checkout would ever see.
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('VARIANT_NOT_SYNCED');
       expect(res.action).toBeUndefined();
-      const line = JSON.parse(cartStore['cart:conv:sess_1']).items[0];
-      expect(line.variantId).toBeNull();
-      expect(line.mirroredToStorefront).toBe(false);
+      expect(res.message).toContain('could not be added');
+      expect(cartStore['cart:conv:sess_1']).toBeUndefined();
+    });
+
+    it('matches a spoken option against variants that carry option values but no title', async () => {
+      shopifyExecutor = await buildExecutor(
+        { platform: 'shopify' },
+        {
+          _id: { toString: () => 'prod_123' },
+          name: 'Aura Hoodie',
+          price: 85,
+          attributes: {
+            shopify: {
+              options: ['Size', 'Color'],
+              variants: [
+                { variantId: '11', price: 85, options: ['Small', 'Washed Black'] },
+                { variantId: '12', price: 85, options: ['Medium', 'Washed Black'] },
+              ],
+            },
+          },
+        },
+      );
+
+      const res = await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'add_to_cart', {
+        productId: 'prod_123',
+        variantOption: 'medium',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.action.variantId).toBe('12');
     });
 
     it('offers at most ten variants and reports the true count', async () => {

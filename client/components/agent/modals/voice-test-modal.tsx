@@ -196,6 +196,14 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           if (action?.type === 'navigate' && action.destination) {
             addTranscript('system', `⚡ Executing Navigation: ${action.destination} (${action.reason || 'Requested'})`);
           }
+          if (action?.type === 'shopify_add_to_cart') {
+            // The real add runs in the storefront widget, not here. Say so, so a test
+            // run is never mistaken for proof that the merchant's cart works.
+            addTranscript(
+              'system',
+              `🛒 Storefront cart add requested (variant ${action.variantId}, qty ${action.quantity ?? 1}). Not executed: the cart only exists on the merchant storefront.`,
+            );
+          }
         },
         onError: (err) => {
           setStatus('error');

@@ -34,7 +34,15 @@ export interface LiveClientOptions {
   onTranscript?: (sender: 'user' | 'agent' | 'system', text: string) => void;
   onAudioLevel?: (level: number) => void;
   onLatency?: (rttMs: number) => void;
-  onAction?: (action: { type: string; destination?: string; reason?: string; data?: any }) => void;
+  onAction?: (action: {
+    type: string;
+    destination?: string;
+    reason?: string;
+    data?: any;
+    variantId?: string;
+    quantity?: number;
+    product?: { id?: string; name?: string; price?: number; image?: string | null };
+  }) => void;
   onError?: (errMessage: string) => void;
 }
 
@@ -299,6 +307,17 @@ export class GeminiLiveClient {
               this.recordActivity();
               onTranscript?.('system', `⚡ ORA executed: ${message.toolName}`);
               if (message.action) {
+                // A storefront cart add can only happen inside the merchant's own
+                // Shopify page, where the widget bundle runs. This client runs on ORA's
+                // pages, so the add is impossible here and the agent must be told —
+                // otherwise it keeps telling the shopper the item is in their cart.
+                if (message.action.type === 'shopify_add_to_cart') {
+                  onTranscript?.(
+                    'system',
+                    'ℹ️ Storefront cart add skipped: this session is not running on the merchant storefront.',
+                  );
+                  this.reportCartSync(message.action, false, 'not-a-shopify-storefront');
+                }
                 this.options.onAction?.(message.action);
               }
               break;
@@ -806,6 +825,30 @@ export class GeminiLiveClient {
       binary += String.fromCharCode(bytes[i]);
     }
     return btoa(binary);
+  }
+
+  /**
+   * Tells the server what the storefront cart actually did with an add.
+   *
+   * Mirrors the widget's own report. Without it a failed or impossible add leaves ORA
+   * holding a line the store never took, and the agent never corrects itself.
+   */
+  public reportCartSync(
+    action: { variantId?: string; product?: { id?: string } },
+    ok: boolean,
+    reason?: string,
+  ) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'cart_sync',
+          ok,
+          variantId: action?.variantId,
+          productId: action?.product?.id,
+          reason,
+        }),
+      );
+    }
   }
 
   public confirmCustomerDetails(data: { name?: string; email?: string; phone?: string; address?: string; [key: string]: any }) {

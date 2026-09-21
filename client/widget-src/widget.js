@@ -2851,9 +2851,19 @@
   }
 
   function addToShopifyCart(action) {
-    if (!action || !action.variantId) return;
+    if (!action) return;
+
+    // Both exits below used to return in silence, which is the worst of the two
+    // outcomes: ORA has already told the shopper the item is in their cart, and
+    // nothing ever contradicts it. Report the failure so the server drops the line
+    // and the agent corrects itself out loud.
+    if (!action.variantId) {
+      reportCartSync(action, false, 'no-variant-id');
+      return;
+    }
 
     if (!isShopifyStorefront()) {
+      reportCartSync(action, false, 'not-a-shopify-storefront');
       return;
     }
 

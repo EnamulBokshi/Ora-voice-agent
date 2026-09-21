@@ -665,6 +665,15 @@ export function FloatingOrbWidget() {
         },
         onAction: (action) => {
           if (!isMountedRef.current) return;
+          if (action?.type === 'shopify_add_to_cart') {
+            // ORA's own marketing site has no Shopify cart. The client already reports
+            // the miss back to the server so the agent corrects itself; nothing to do
+            // here but stay out of the way.
+            console.info(
+              '[ORA] Ignoring shopify_add_to_cart: this page is not a merchant storefront.',
+            );
+            return;
+          }
           if (action?.type === 'confirm_details' && action.data) {
             const data = action.data;
             setCustomerDetails((prev) => ({ ...prev, ...data }));

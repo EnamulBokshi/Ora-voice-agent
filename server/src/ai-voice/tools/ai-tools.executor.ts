@@ -34,6 +34,44 @@ const SHOPIFY_FLAG_TTL_MS = 5 * 60 * 1000;
  */
 const MAX_VARIANTS_IN_PAYLOAD = 10;
 
+/**
+ * What to call a variant out loud.
+ *
+ * `mapShopifyVariants` always records a title, but a catalogue written by a script or an
+ * older sync can carry only the option values, and `String(undefined)` matching nothing
+ * is how a shopper who says "medium" gets told the size does not exist.
+ */
+function variantLabel(variant: any): string | undefined {
+  const title = String(variant?.title ?? '').trim();
+  if (title) return title;
+  const options = Array.isArray(variant?.options)
+    ? variant.options.filter(Boolean).map(String)
+    : [];
+  return options.length > 0 ? options.join(' / ') : undefined;
+}
+
+/** Lower-cased haystack for spoken-option matching: title plus raw option values. */
+function variantSearchText(variant: any): string {
+  const options = Array.isArray(variant?.options)
+    ? variant.options.filter(Boolean).map(String)
+    : [];
+  return [String(variant?.title ?? ''), ...options]
+    .filter((part) => part.trim() !== '')
+    .join(' ')
+    .toLowerCase();
+}
+
+/** Option names, accepting the `options` spelling older writers used. */
+function readOptionNames(shopify: any): string[] {
+  if (Array.isArray(shopify?.optionNames)) return shopify.optionNames;
+  if (Array.isArray(shopify?.options)) {
+    return shopify.options
+      .map((option: any) => (typeof option === 'string' ? option : option?.name))
+      .filter(Boolean);
+  }
+  return [];
+}
+
 
 @Injectable()
 export class AiToolsExecutor {
@@ -566,11 +604,11 @@ export class AiToolsExecutor {
     if (variants.length < 2) return {};
 
     return {
-      optionNames: Array.isArray(shopify?.optionNames) ? shopify.optionNames : [],
+      optionNames: readOptionNames(shopify),
       totalVariants: variants.length,
       variants: variants.slice(0, MAX_VARIANTS_IN_PAYLOAD).map((variant) => ({
         variantId: variant.variantId,
-        title: variant.title,
+        title: variantLabel(variant),
         price: variant.price,
         available: variant.available,
       })),
@@ -621,43 +659,46 @@ export class AiToolsExecutor {
       const match = variants.find(
         (variant) => String(variant.variantId) === String(requestedVariantId),
       );
-      if (match) return { variantId: match.variantId, selectedTitle: match.title };
+      if (match) return { variantId: match.variantId, selectedTitle: variantLabel(match) };
     }
 
     // Fuzzy-match spoken variantOption (e.g. "Medium", "Red", "Large") in 1 single turn
     if (variantOption && typeof variantOption === 'string') {
       const opt = variantOption.trim().toLowerCase();
-      // 1. Direct substring match on title
+      // 1. Direct substring match on the searchable text
       let match = variants.find((v) => {
-        const title = String(v.title || '').toLowerCase();
-        return title === opt || title.includes(opt) || opt.includes(title);
+        const title = variantSearchText(v);
+        return title !== '' && (title === opt || title.includes(opt) || opt.includes(title));
       });
       // 2. Token-level matching
       if (!match) {
         const tokens = opt.split(/[\s,/-]+/).filter((t) => t.length >= 2);
         if (tokens.length > 0) {
           match = variants.find((v) => {
-            const title = String(v.title || '').toLowerCase();
-            return tokens.some((token) => title.includes(token));
+            const title = variantSearchText(v);
+            return title !== '' && tokens.some((token) => title.includes(token));
           });
         }
       }
       if (match) {
-        return { variantId: match.variantId, selectedTitle: match.title };
+        return { variantId: match.variantId, selectedTitle: variantLabel(match) };
       }
     }
 
-    if (variants.length === 1) return { variantId: variants[0].variantId, selectedTitle: variants[0].title };
+    if (variants.length === 1)
+      return { variantId: variants[0].variantId, selectedTitle: variantLabel(variants[0]) };
 
-    const purchasable = variants.filter((variant) => variant.available);
+    // `available` is only decisive when the sync actually recorded it: an undefined flag
+    // means unknown, and hiding every variant behind it would strand the shopper.
+    const purchasable = variants.filter((variant) => variant.available !== false);
     const offered = purchasable.length > 0 ? purchasable : variants;
     return {
       needsSelection: true,
-      optionNames: Array.isArray(shopify?.optionNames) ? shopify.optionNames : [],
+      optionNames: readOptionNames(shopify),
       totalVariants: offered.length,
       variants: offered.slice(0, MAX_VARIANTS_IN_PAYLOAD).map((variant) => ({
         variantId: variant.variantId,
-        title: variant.title,
+        title: variantLabel(variant),
         price: variant.price,
         available: variant.available,
       })),
@@ -692,6 +733,26 @@ export class AiToolsExecutor {
     }
     const variantId = resolved.variantId;
     const selectedTitle = (resolved as any).selectedTitle;
+
+    if (isShopify && !variantId) {
+      // On a Shopify tenant the storefront cart is the only cart that sells, and it is
+      // keyed by variant id. Without one there is nothing for the widget to mirror, so
+      // reporting success would make the agent claim an add that never happened and
+      // leave a phantom line ORA's own cart could never turn into an order. The failure
+      // carries the exact sentence to say, so the model answers in this turn instead of
+      // re-planning. A catalogue re-sync closes the gap for good.
+      this.logger.warn(
+        `[AiToolsExecutor] ${product.name} (business ${businessId}) has no Shopify variant id, so it cannot reach the storefront cart. Re-sync this catalogue.`,
+      );
+      return {
+        success: false,
+        error: 'VARIANT_NOT_SYNCED',
+        addedToStorefront: false,
+        productId: product._id.toString(),
+        name: product.name,
+        message: `${product.name} could not be added to the store cart: its variant is missing from the synced catalogue. Tell the customer plainly that you could not add it, and offer to open its product page instead. Do not say it is in their cart.`,
+      };
+    }
 
     // Retrieve active customer bound to this session
     let customerId: string | null = null;
@@ -733,17 +794,6 @@ export class AiToolsExecutor {
     // record of the conversation, mirrored into the storefront cart by the widget;
     // Shopify's own checkout is what actually sells.
     cart.authority = isShopify ? 'shopify' : 'ora';
-
-    if (isShopify && !variantId) {
-      // No variant id means the catalogue was synced before variants were captured, so
-      // the widget has nothing to mirror into the storefront cart. Failing the tool here
-      // is worse than the gap it reports: the model treats a failed call as a problem to
-      // solve, re-plans, re-searches and answers two turns later. The line is kept and
-      // flagged instead; a catalogue re-sync closes the gap for good.
-      this.logger.warn(
-        `[AiToolsExecutor] ${product.name} (business ${businessId}) has no Shopify variant id, so it cannot reach the storefront cart. Re-sync this catalogue.`,
-      );
-    }
 
     const saveOps = [
       this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),
@@ -825,6 +875,11 @@ export class AiToolsExecutor {
       return null;
     }
     if (!cart || !Array.isArray(cart.items)) return null;
+
+    // Only a storefront-owned cart is a mirror of something else. On an ORA-owned cart
+    // the line is the order, and a browser that could not reach a Shopify endpoint is
+    // no reason to delete it.
+    if (cart.authority !== 'shopify') return null;
 
     const matches = (item: any) =>
       payload.variantId
