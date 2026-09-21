@@ -217,6 +217,7 @@ describe('AiToolsExecutor', () => {
   });
   describe('add_to_cart variant handling', () => {
     let products: any;
+    let redis: any;
 
     const shopifyProduct = (variants: any[], optionNames: string[] = ['Size']) => ({
       _id: { toString: () => 'prod_123' },
@@ -230,6 +231,7 @@ describe('AiToolsExecutor', () => {
 
     beforeEach(() => {
       products = module.get(ProductsService);
+      redis = module.get(RedisService);
     });
 
     it('asks which option the shopper wants instead of guessing a variant', async () => {
@@ -324,6 +326,54 @@ describe('AiToolsExecutor', () => {
       expect(res.action).toBeDefined();
       expect(res.action.variantId).toBe('2');
       expect(res.message).toContain('Medium');
+    });
+
+    it('scores multi-attribute variants like "Medium Matte Black" to pick the exact variant', async () => {
+      products.verifyLive.mockResolvedValue(
+        shopifyProduct([
+          { variantId: '101', title: 'Medium / Matte Black', options: ['Medium', 'Matte Black'], price: 165, available: true },
+          { variantId: '102', title: 'Medium / Olive Drab', options: ['Medium', 'Olive Drab'], price: 165, available: true },
+          { variantId: '103', title: 'Large / Matte Black', options: ['Large', 'Matte Black'], price: 165, available: true },
+          { variantId: '104', title: 'Large / Olive Drab', options: ['Large', 'Olive Drab'], price: 165, available: true },
+        ]),
+      );
+
+      const res = await executor.executeTool('biz_1', 'sess_1', 'add_to_cart', {
+        productId: 'apex-minimalist-bomber-jacket',
+        variantOption: 'Medium Matte Black',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.action).toBeDefined();
+      expect(res.action.variantId).toBe('101');
+      expect(res.message).toContain('Medium / Matte Black');
+    });
+
+    it('resolves product from active session context when customer says add this on a PDP', async () => {
+      const prod = shopifyProduct([
+        { variantId: '201', title: 'Medium / Matte Black', price: 165, available: true },
+      ]);
+      products.verifyLive.mockImplementation((_biz, id) => {
+        if (id === 'apex-minimalist-bomber-jacket') return Promise.resolve(prod);
+        return Promise.reject(new Error('not found'));
+      });
+
+      (redis.getClient().get as jest.Mock).mockImplementation((key: string) => {
+        if (key === 'session:sess_pdp:context') {
+          return Promise.resolve(JSON.stringify({
+            currentPath: '/products/apex-minimalist-bomber-jacket',
+            selectedVariantId: '201',
+          }));
+        }
+        return Promise.resolve(null);
+      });
+
+      const res = await executor.executeTool('biz_1', 'sess_pdp', 'add_to_cart', {
+        productId: 'current',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.action.variantId).toBe('201');
     });
 
     it('asks again rather than sending Shopify a variant id the product does not have', async () => {

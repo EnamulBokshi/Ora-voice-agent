@@ -404,7 +404,7 @@
           var prod = flattened.find(function(node) {
             if (!node || !node['@type']) return false;
             var t = node['@type'];
-            return t === 'Product' || (Array.isArray(t) && t.indexOf('Product') !== -1);
+            return t === 'Product' || t === 'ProductGroup' || (Array.isArray(t) && (t.indexOf('Product') !== -1 || t.indexOf('ProductGroup') !== -1));
           });
           if (prod) {
             var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
@@ -421,6 +421,22 @@
               if (offer.priceCurrency) currVal = String(offer.priceCurrency).toUpperCase();
               if (offer.availability) {
                 availVal = /instock|in_stock/i.test(String(offer.availability)) ? 'in_stock' : (/outofstock|out_of_stock/i.test(String(offer.availability)) ? 'out_of_stock' : 'unknown');
+              }
+            }
+
+            // Support Shopify ProductGroup with hasVariant array
+            if (prod.hasVariant && Array.isArray(prod.hasVariant) && prod.hasVariant.length > 0) {
+              var anyInStock = prod.hasVariant.some(function(v) {
+                var vOffer = v.offers;
+                return vOffer && /instock|in_stock/i.test(String(vOffer.availability));
+              });
+              availVal = anyInStock ? 'in_stock' : 'out_of_stock';
+              if (priceVal === null && prod.hasVariant[0] && prod.hasVariant[0].offers) {
+                var firstOffer = prod.hasVariant[0].offers;
+                if (firstOffer.price !== undefined && firstOffer.price !== null) {
+                  priceVal = Number(String(firstOffer.price).replace(/[^0-9.]/g, ''));
+                }
+                if (firstOffer.priceCurrency) currVal = String(firstOffer.priceCurrency).toUpperCase();
               }
             }
 
@@ -570,11 +586,21 @@
                   try { prodImg = new URL(prodImg, window.location.origin).href; } catch (e) {}
                 }
 
+                var isSoldOut = false;
+                if (addToCartBtn) {
+                  var btnTxt = (addToCartBtn.innerText || addToCartBtn.textContent || '').trim().toLowerCase();
+                  isSoldOut = addToCartBtn.disabled || addToCartBtn.hasAttribute('disabled') || /sold out|out of stock|unavailable|স্টক আউট/i.test(btnTxt);
+                }
+                if (!isSoldOut) {
+                  var badgeEl = document.querySelector('.badge--sold-out, [class*="sold-out"], [class*="soldOut"]');
+                  if (badgeEl && /sold out/i.test(badgeEl.innerText || '')) isSoldOut = true;
+                }
+
                 product = {
                   name: candidateTitle,
                   price: cleanAmount,
                   currency: normalizedCurrency,
-                  availability: 'in_stock',
+                  availability: isSoldOut ? 'out_of_stock' : 'in_stock',
                   sku: null,
                   image: prodImg,
                   description: metaDesc || null
@@ -584,6 +610,19 @@
           }
         } catch (e) {}
       }
+
+      var selectedVariantId = null;
+      try {
+        var varInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (varInput && varInput.value) {
+          selectedVariantId = String(varInput.value);
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          selectedVariantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+        } else {
+          var urlVar = new URLSearchParams(window.location.search).get('variant');
+          if (urlVar) selectedVariantId = urlVar;
+        }
+      } catch (e) {}
 
       var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + (product ? (product.name + ':' + product.price + ':' + product.currency) : '') + '|' + cleanBodyText.slice(0, 500);
       var contentHash = hashString(contentSignature);
@@ -598,6 +637,7 @@
         contacts: contacts,
         bodyTextSnippet: cleanBodyText,
         product: product,
+        selectedVariantId: selectedVariantId,
         contentHash: contentHash
       };
     } catch (err) {
@@ -613,7 +653,8 @@
       title: telemetry.title,
       pathname: telemetry.pathname,
       isProductPage: !!telemetry.product,
-      product: telemetry.product
+      product: telemetry.product,
+      selectedVariantId: telemetry.selectedVariantId
     };
   }
 
@@ -1698,7 +1739,7 @@
    * cover that plus ~64ms of frame quantisation, not just clock skew. 480ms keeps
    * ~230ms over the server's 250ms, one frame clear of the nearest value proven to work.
    */
-  const VAD_HANGOVER_MS = 380;
+  const VAD_HANGOVER_MS = 480;
 
   /**
    * Energy-dropoff guard, the second half of the fix for a gate stuck open on noise.
@@ -2825,9 +2866,34 @@
   }
 
   function addToShopifyCart(action) {
-    if (!action || !action.variantId) return;
+    if (!action) return;
+
+    var variantId = action.variantId;
+    if (!variantId) {
+      // DOM fail-safe: if shopper is on a Shopify PDP, read the active variant id from the form
+      try {
+        var domInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (domInput && domInput.value) {
+          variantId = domInput.value;
+          action.variantId = variantId;
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          variantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+          action.variantId = variantId;
+        }
+      } catch (e) {}
+    }
+
+    // Both exits below used to return in silence, which is the worst of the two
+    // outcomes: ORA has already told the shopper the item is in their cart, and
+    // nothing ever contradicts it. Report the failure so the server drops the line
+    // and the agent corrects itself out loud.
+    if (!variantId) {
+      reportCartSync(action, false, 'no-variant-id');
+      return;
+    }
 
     if (!isShopifyStorefront()) {
+      reportCartSync(action, false, 'not-a-shopify-storefront');
       return;
     }
 
@@ -3576,7 +3642,8 @@
             currentPath: pageCtx.pathname || window.location.pathname || '/',
             title: pageCtx.title || document.title || '',
             history: [pageCtx.pathname || window.location.pathname || '/'],
-            product: pageCtx.product || null
+            product: pageCtx.product || null,
+            selectedVariantId: pageCtx.selectedVariantId || null
           }));
           if (custPayload.identified) {
             ws.send(JSON.stringify({

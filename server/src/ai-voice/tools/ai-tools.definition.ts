@@ -26,28 +26,35 @@ export const ORA_TOOL_DECLARATIONS = [
   },
   {
     name: 'get_product_details',
-    description: 'Retrieve full details, pricing, images, and description for a specific product ID.',
+    description: 'Retrieve full details, pricing, images, and description for a specific product by ID, handle, or name.',
     parameters: {
       type: 'OBJECT',
       properties: {
         productId: {
           type: 'STRING',
-          description: 'The unique MongoDB product ID.',
+          description: 'The product ID, Shopify numeric ID, product handle / slug (e.g. "apex-minimalist-bomber-jacket"), or "current" for the current page item.',
+        },
+        productName: {
+          type: 'STRING',
+          description: 'Optional product title or name if productId is not known.',
         },
       },
-      required: ['productId'],
     },
   },
   {
     name: 'add_to_cart',
     description:
-      'Add a specified product and quantity to the customer shopping cart. If the customer mentions an option (size, color, style), pass it in variantOption to add it immediately.',
+      'Add a specified product and quantity to the customer shopping cart. Can be specified by productId, handle, or productName. If the customer mentions an option (size, color, style), pass it in variantOption to add it immediately.',
     parameters: {
       type: 'OBJECT',
       properties: {
         productId: {
           type: 'STRING',
-          description: 'The product ID to add.',
+          description: 'The product ID, Shopify numeric ID, product handle / slug (e.g. "apex-minimalist-bomber-jacket"), or "current" to add the item from the current product page.',
+        },
+        productName: {
+          type: 'STRING',
+          description: 'Optional product name if referring to an item by name (e.g. "Apex Minimalist Bomber Jacket").',
         },
         quantity: {
           type: 'NUMBER',
@@ -56,7 +63,7 @@ export const ORA_TOOL_DECLARATIONS = [
         variantOption: {
           type: 'STRING',
           description:
-            'Optional specific option name, size, color, or style spoken by customer (e.g. "Medium", "Black", "Large").',
+            'Optional specific option name, size, color, or style spoken by customer (e.g. "Medium", "Matte Black", "Medium / Matte Black").',
         },
         variantId: {
           type: 'STRING',
@@ -64,7 +71,6 @@ export const ORA_TOOL_DECLARATIONS = [
             'Optional variant ID if already known. Omit if customer specified an option name in variantOption.',
         },
       },
-      required: ['productId'],
     },
   },
   {

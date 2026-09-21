@@ -212,7 +212,12 @@ export class ProductsService {
       query.nativeProductId = id;
     }
 
-    const product = await this.productModel.findOne(query).exec();
+    let product = await this.productModel.findOne(query).exec();
+
+    // Fallback: If not found by direct _id or nativeProductId, try resolving by handle or name
+    if (!product && id) {
+      product = (await this.resolveByIdentifier(businessId, id)) as any;
+    }
 
     if (!product) {
       throw new DomainException(
@@ -223,6 +228,53 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  async resolveByIdentifier(businessId: string, identifier: string): Promise<any> {
+    if (!identifier) return null;
+    const clean = String(identifier).trim();
+    const bId = new Types.ObjectId(businessId);
+
+    // 1. Direct _id or nativeProductId
+    const isObjectId = Types.ObjectId.isValid(clean) && clean.length === 24;
+    if (isObjectId) {
+      const byId = await this.productModel.findOne({ businessId: bId as any, _id: new Types.ObjectId(clean) }).exec();
+      if (byId) return byId;
+    }
+    const byNative = await this.productModel.findOne({ businessId: bId as any, nativeProductId: clean }).exec();
+    if (byNative) return byNative;
+
+    // 2. Handle match (exact or slug normalized)
+    const slug = clean.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (slug) {
+      const query = this.productModel.find({
+        businessId: bId as any,
+        isActive: true,
+        $or: [
+          { 'attributes.shopify.handle': clean },
+          { 'attributes.shopify.handle': slug },
+          { 'attributes.shopify.handle': new RegExp(slug.replace(/-/g, '.*'), 'i') },
+        ],
+      });
+      const byHandle = query && typeof query.sort === 'function'
+        ? await query.sort({ sourceTier: 1, updatedAt: -1 }).limit(1).exec()
+        : null;
+      if (byHandle && byHandle.length > 0) return byHandle[0];
+    }
+
+    // 3. Name match (case-insensitive substring)
+    const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nameQuery = this.productModel.find({
+      businessId: bId as any,
+      isActive: true,
+      name: { $regex: escaped, $options: 'i' },
+    });
+    const byName = nameQuery && typeof nameQuery.sort === 'function'
+      ? await nameQuery.sort({ sourceTier: 1, updatedAt: -1 }).limit(1).exec()
+      : null;
+    if (byName && byName.length > 0) return byName[0];
+
+    return null;
   }
 
   async findManyByIds(businessId: string, ids: string[]): Promise<ProductDocument[]> {

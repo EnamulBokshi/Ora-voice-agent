@@ -611,6 +611,19 @@
         } catch (e) {}
       }
 
+      var selectedVariantId = null;
+      try {
+        var varInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (varInput && varInput.value) {
+          selectedVariantId = String(varInput.value);
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          selectedVariantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+        } else {
+          var urlVar = new URLSearchParams(window.location.search).get('variant');
+          if (urlVar) selectedVariantId = urlVar;
+        }
+      } catch (e) {}
+
       var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + (product ? (product.name + ':' + product.price + ':' + product.currency) : '') + '|' + cleanBodyText.slice(0, 500);
       var contentHash = hashString(contentSignature);
 
@@ -624,6 +637,7 @@
         contacts: contacts,
         bodyTextSnippet: cleanBodyText,
         product: product,
+        selectedVariantId: selectedVariantId,
         contentHash: contentHash
       };
     } catch (err) {
@@ -639,7 +653,8 @@
       title: telemetry.title,
       pathname: telemetry.pathname,
       isProductPage: !!telemetry.product,
-      product: telemetry.product
+      product: telemetry.product,
+      selectedVariantId: telemetry.selectedVariantId
     };
   }
 
@@ -2853,11 +2868,26 @@
   function addToShopifyCart(action) {
     if (!action) return;
 
+    var variantId = action.variantId;
+    if (!variantId) {
+      // DOM fail-safe: if shopper is on a Shopify PDP, read the active variant id from the form
+      try {
+        var domInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (domInput && domInput.value) {
+          variantId = domInput.value;
+          action.variantId = variantId;
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          variantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+          action.variantId = variantId;
+        }
+      } catch (e) {}
+    }
+
     // Both exits below used to return in silence, which is the worst of the two
     // outcomes: ORA has already told the shopper the item is in their cart, and
     // nothing ever contradicts it. Report the failure so the server drops the line
     // and the agent corrects itself out loud.
-    if (!action.variantId) {
+    if (!variantId) {
       reportCartSync(action, false, 'no-variant-id');
       return;
     }
@@ -3612,7 +3642,8 @@
             currentPath: pageCtx.pathname || window.location.pathname || '/',
             title: pageCtx.title || document.title || '',
             history: [pageCtx.pathname || window.location.pathname || '/'],
-            product: pageCtx.product || null
+            product: pageCtx.product || null,
+            selectedVariantId: pageCtx.selectedVariantId || null
           }));
           if (custPayload.identified) {
             ws.send(JSON.stringify({

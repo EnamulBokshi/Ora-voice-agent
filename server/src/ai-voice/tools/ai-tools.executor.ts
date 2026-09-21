@@ -1,4 +1,5 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
+import { DomainException } from '../../common/exceptions/domain.exception';
 import { ConfigService } from '@nestjs/config';
 import { ProductsService } from '../../products/products.service';
 import { RagService } from '../../rag/services/rag.service';
@@ -11,6 +12,7 @@ import { OrderSource } from '../../orders/schemas/order.schema';
 import { AgentConfigService } from '../../agent-config/agent-config.service';
 import { CustomersService } from '../../customers/customers.service';
 import { BillingService } from '../../billing/billing.service';
+import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -223,7 +225,10 @@ export class AiToolsExecutor {
     //    and better, so we answer from it and let the semantic search finish into the
     //    RAG cache unread rather than making the shopper wait for it.
     const ragPromise = this.ragService
-      .searchCombined(businessId, queryText, { limit: 5 })
+      .searchCombined(businessId, queryText, {
+        limit: 5,
+        entityType: EntityType.PRODUCT,
+      })
       .catch((err: any) => {
         this.logger.warn(`[AiToolsExecutor] Semantic search notice: ${err.message}`);
         return {
@@ -527,17 +532,41 @@ export class AiToolsExecutor {
       // handing back for the catalog fallback further down.
       if (searchTerms.length === 0) return { confident: [], items: res.items };
 
+      const matchesTerm = (text: string, term: string) => {
+        if (text.includes(term)) return true;
+        if (term.length >= 4 && term.endsWith('s') && text.includes(term.slice(0, -1))) return true;
+        if (term.length >= 5 && term.endsWith('es') && text.includes(term.slice(0, -2))) return true;
+        return false;
+      };
+
       const confident = res.items.filter((item: any) => {
         const nameLower = (item.name || '').toLowerCase();
         const catLower = (item.category || '').toLowerCase();
         const brandLower = (item.brand || '').toLowerCase();
-        const full = `${nameLower} ${catLower} ${brandLower}`;
+        const descLower = (item.description || '').toLowerCase();
+        const tags = Array.isArray(item.attributes?.shopify?.tags)
+          ? item.attributes.shopify.tags.join(' ').toLowerCase()
+          : Array.isArray(item.attributes?.tags)
+            ? item.attributes.tags.join(' ').toLowerCase()
+            : '';
+        const full = `${nameLower} ${catLower} ${brandLower} ${tags} ${descLower}`;
 
         if (searchTerms.length > 1) {
-          return searchTerms.every((term) => full.includes(term));
+          // At least one term must appear in title or category (core product identity)
+          const coreMatches = searchTerms.some(
+            (term) => matchesTerm(nameLower, term) || matchesTerm(catLower, term),
+          );
+          if (!coreMatches) return false;
+          // And every term must appear in the combined product text (name, category, brand, tags, description)
+          return searchTerms.every((term) => matchesTerm(full, term));
         }
 
-        return searchTerms.some((term) => nameLower.includes(term) || catLower.includes(term));
+        return (
+          matchesTerm(nameLower, searchTerms[0]) ||
+          matchesTerm(catLower, searchTerms[0]) ||
+          matchesTerm(brandLower, searchTerms[0]) ||
+          matchesTerm(full, searchTerms[0])
+        );
       });
 
       return { confident, items: res.items };
@@ -574,8 +603,8 @@ export class AiToolsExecutor {
   }
 
   private async handleGetProductDetails(businessId: string, args: Record<string, any>) {
-    // Use verifyLive so isLowStock is always included
-    const product = await this.productsService.verifyLive(businessId, args.productId);
+    // Use flexible resolution so handles, names, or IDs can be used
+    const product = await this.resolveProductForAction(businessId, '', args);
     return {
       success: true,
       product: {
@@ -616,7 +645,7 @@ export class AiToolsExecutor {
   }
 
   private async handleCheckInventory(businessId: string, args: Record<string, any>) {
-    const product = await this.productsService.verifyLive(businessId, args.productId);
+    const product = await this.resolveProductForAction(businessId, '', args);
     return {
       success: true,
       productId: product._id.toString(),
@@ -629,19 +658,106 @@ export class AiToolsExecutor {
   }
 
   /**
+   * Multi-strategy product resolution for add_to_cart, get_product_details, and check_inventory.
+   * Resolves products by:
+   * 1. Direct MongoDB _id or Shopify nativeProductId
+   * 2. Direct product handle or normalized slug
+   * 3. Explicit productName if provided
+   * 4. Active PDP context from visitor's session in Redis (/products/<handle>)
+   * 5. Catalog keyword search fallback (prioritizing tier1 connector items with full variants)
+   */
+  private async resolveProductForAction(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ): Promise<any> {
+    const rawId = (args.productId || '').trim();
+    const rawName = (args.productName || '').trim();
+
+    // 1. If explicit ID provided and not "current"
+    if (rawId && rawId.toLowerCase() !== 'current' && rawId.toLowerCase() !== 'this') {
+      try {
+        const prod = await this.productsService.verifyLive(businessId, rawId);
+        if (prod) return prod;
+      } catch {
+        // Fallback to name/handle resolution below
+      }
+    }
+
+    // 2. Direct verifyLive by rawName if provided
+    if (rawName) {
+      try {
+        const prod = await this.productsService.verifyLive(businessId, rawName);
+        if (prod) return prod;
+      } catch {
+        // Fallback below
+      }
+    }
+
+    // 3. Check active session context from Redis (e.g. browsing a product page)
+    if (sessionId) {
+      try {
+        const rawCtx = await this.redisService.getClient().get(`session:${sessionId}:context`);
+        if (rawCtx) {
+          const ctx = JSON.parse(rawCtx);
+          if (ctx.currentPath && ctx.currentPath.includes('/products/')) {
+            const slug = ctx.currentPath.split('/products/')[1]?.split(/[?#]/)[0]?.replace(/\/$/, '');
+            if (slug) {
+              try {
+                const prod = await this.productsService.verifyLive(businessId, slug);
+                if (prod) return prod;
+              } catch {}
+            }
+          }
+          if (ctx.product && (ctx.product.name || ctx.product.sku)) {
+            try {
+              const prod = await this.productsService.verifyLive(businessId, ctx.product.sku || ctx.product.name);
+              if (prod) return prod;
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    // 4. Keyword search fallback using rawName or rawId
+    const query = rawName || rawId;
+    if (query && query.toLowerCase() !== 'current' && query.toLowerCase() !== 'this') {
+      try {
+        const res = await this.productsService.findAll(businessId, { search: query, limit: 5 });
+        if (res && res.items && res.items.length > 0) {
+          const sorted = [...res.items].sort((a: any, b: any) => {
+            const aTier = a.sourceTier === 'tier1_connector' ? 0 : 1;
+            const bTier = b.sourceTier === 'tier1_connector' ? 0 : 1;
+            return aTier - bTier;
+          });
+          return await this.productsService.verifyLive(businessId, sorted[0]._id.toString());
+        }
+      } catch {}
+    }
+
+    throw new DomainException(
+      'PRODUCT_NOT_FOUND',
+      `Product '${rawName || rawId || 'item'}' could not be found.`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+
+  /**
    * Resolves which Shopify variant an add_to_cart call means.
    *
    * Supports:
    * 1. Direct variantId if already known.
-   * 2. Spoken variantOption fuzzy matching (e.g. "medium", "black", "size 10") in 1 turn.
-   * 3. Single-variant products without asking.
-   * 4. Multi-variant products without option: asks customer which option they want.
-   * 5. Pre-synced catalogs without variants: falls back to nativeProductId.
+   * 2. Active variant selected in the storefront DOM (passed from session PDP telemetry).
+   * 3. Spoken variantOption scored fuzzy matching (e.g. "Medium and Matte Black", "Olive Drab Large") in 1 turn.
+   * 4. Single-variant products without asking.
+   * 5. Multi-variant products without option: asks customer which option they want.
+   * 6. Pre-synced catalogs without variants: falls back to nativeProductId.
    */
   private resolveCartVariant(
     product: any,
     requestedVariantId?: string,
     variantOption?: string,
+    activeContextVariantId?: string,
   ):
     | { variantId: string | null; selectedTitle?: string }
     | { needsSelection: true; optionNames: string[]; totalVariants: number; variants: any[] } {
@@ -655,31 +771,50 @@ export class AiToolsExecutor {
       return { variantId: fallbackId };
     }
 
-    if (requestedVariantId) {
+    // Direct variantId if already specified by caller or active from PDP
+    const targetVariantId = requestedVariantId || activeContextVariantId;
+    if (targetVariantId) {
       const match = variants.find(
-        (variant) => String(variant.variantId) === String(requestedVariantId),
+        (variant) => String(variant.variantId) === String(targetVariantId),
       );
       if (match) return { variantId: match.variantId, selectedTitle: variantLabel(match) };
     }
 
-    // Fuzzy-match spoken variantOption (e.g. "Medium", "Red", "Large") in 1 single turn
+    // Fuzzy-match spoken variantOption (e.g. "Medium", "Matte Black", "Medium / Matte Black")
     if (variantOption && typeof variantOption === 'string') {
       const opt = variantOption.trim().toLowerCase();
-      // 1. Direct substring match on the searchable text
+
+      // 1. Direct title match or title contains opt
       let match = variants.find((v) => {
         const title = variantSearchText(v);
         return title !== '' && (title === opt || title.includes(opt) || opt.includes(title));
       });
-      // 2. Token-level matching
+
+      // 2. Multi-token scoring across attributes (e.g. "Medium and Matte Black", "Olive Drab Large")
       if (!match) {
-        const tokens = opt.split(/[\s,/-]+/).filter((t) => t.length >= 2);
+        const tokens = opt
+          .split(/[\s,/-]+/)
+          .filter((t) => t.length >= 2 && !['and', 'the', 'with', 'in', 'color', 'size'].includes(t));
         if (tokens.length > 0) {
-          match = variants.find((v) => {
-            const title = variantSearchText(v);
-            return title !== '' && tokens.some((token) => title.includes(token));
-          });
+          let bestScore = 0;
+          let bestVariant: any = null;
+          for (const v of variants) {
+            const haystack = variantSearchText(v);
+            let score = 0;
+            for (const token of tokens) {
+              if (haystack.includes(token)) score += 1;
+            }
+            if (score > bestScore) {
+              bestScore = score;
+              bestVariant = v;
+            }
+          }
+          if (bestScore > 0 && bestVariant) {
+            match = bestVariant;
+          }
         }
       }
+
       if (match) {
         return { variantId: match.variantId, selectedTitle: variantLabel(match) };
       }
@@ -710,11 +845,28 @@ export class AiToolsExecutor {
     sessionId: string,
     args: Record<string, any>,
   ) {
-    const product = await this.productsService.verifyLive(businessId, args.productId);
+    const product = await this.resolveProductForAction(businessId, sessionId, args);
     const quantity = args.quantity || 1;
 
+    // Check if active context in Redis has a selectedVariantId
+    let activeContextVariantId: string | undefined;
+    if (!args.variantId && !args.variantOption && sessionId) {
+      try {
+        const rawCtx = await this.redisService.getClient().get(`session:${sessionId}:context`);
+        if (rawCtx) {
+          const ctx = JSON.parse(rawCtx);
+          if (ctx.selectedVariantId) activeContextVariantId = String(ctx.selectedVariantId);
+        }
+      } catch {}
+    }
+
     const isShopify = await this.isShopifyTenant(businessId);
-    const resolved = this.resolveCartVariant(product, args.variantId, args.variantOption);
+    const resolved = this.resolveCartVariant(
+      product,
+      args.variantId,
+      args.variantOption,
+      activeContextVariantId,
+    );
 
     if ('needsSelection' in resolved) {
       return {

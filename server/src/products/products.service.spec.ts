@@ -24,7 +24,13 @@ describe('ProductsService', () => {
           provide: getModelToken(Product.name),
           useValue: {
             findOne: jest.fn(),
-            find: jest.fn(),
+            find: jest.fn().mockReturnValue({
+              sort: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  exec: jest.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
             save: jest.fn(),
             bulkWrite: jest.fn(),
             countDocuments: jest.fn(),

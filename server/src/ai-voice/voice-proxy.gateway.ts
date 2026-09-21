@@ -135,6 +135,8 @@ interface ClientBrowsingContext {
   title?: string;
   history?: string[];
   activeSection?: string;
+  product?: any;
+  selectedVariantId?: string;
 }
 
 @Injectable()
@@ -647,12 +649,19 @@ export class VoiceProxyGateway {
     const sessionMode: 'customer' | 'training' = sessionModeParam === 'training' ? 'training' : 'customer';
     const silentMode = parsedUrl.query.silentMode === 'true';
 
-    const initialClientContext = {
+    const initialClientContext: ClientBrowsingContext = {
       currentPath: currentPathParam,
       title: pageTitleParam,
       history: historyParam ? historyParam.split(',') : [currentPathParam],
       activeSection: activeSectionParam,
     };
+
+    if (this.redisService) {
+      this.redisService
+        .getClient()
+        .set(`session:${sessionId}:context`, JSON.stringify(initialClientContext), 'EX', 24 * 60 * 60)
+        .catch(() => {});
+    }
 
     // ── Adopt a parked session, or replace a live one ────────────────────────
     const existingSession = this.sessions.get(sessionId);
@@ -1535,7 +1544,15 @@ export class VoiceProxyGateway {
             title: msg.title,
             history: msg.history,
             activeSection: msg.activeSection,
+            product: msg.product,
+            selectedVariantId: msg.selectedVariantId,
           };
+          if (this.redisService) {
+            this.redisService
+              .getClient()
+              .set(`session:${sessionId}:context`, JSON.stringify(context), 'EX', 24 * 60 * 60)
+              .catch(() => {});
+          }
           if (session.isAgentSpeaking) {
             session.pendingContextUpdate = context;
             // Gemini does not always emit turnComplete (a dropped or truncated
