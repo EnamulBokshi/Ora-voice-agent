@@ -123,6 +123,7 @@ interface ProxySession {
   pendingContextUpdate: ClientBrowsingContext | null;
   /** Safety net so a held update is not lost if turnComplete never arrives. */
   pendingContextTimer: NodeJS.Timeout | null;
+  lastClientContext?: ClientBrowsingContext;
   userId?: string;
   authenticatedUser?: { id: string; name: string; email: string; role: string; businessId?: string };
   sessionMode?: 'customer' | 'training';
@@ -137,6 +138,8 @@ interface ClientBrowsingContext {
   activeSection?: string;
   product?: any;
   selectedVariantId?: string;
+  cartItemCount?: number;
+  cartTotal?: number;
 }
 
 @Injectable()
@@ -1482,6 +1485,35 @@ export class VoiceProxyGateway {
           return;
         }
 
+        if (msg.type === 'cart_telemetry') {
+          if (msg.cart && session.businessId) {
+            this.aiToolsExecutor
+              .syncStorefrontCartTelemetry(session.businessId, sessionId, msg.cart)
+              .then(() => {
+                const count =
+                  msg.cart.item_count ??
+                  (Array.isArray(msg.cart.items) ? msg.cart.items.length : 0);
+                const total = (msg.cart.total_price || 0) / 100;
+                session.lastClientContext = {
+                  ...(session.lastClientContext || {}),
+                  cartItemCount: count,
+                  cartTotal: total,
+                };
+                if (!session.isAgentSpeaking) {
+                  sessionControls.sendContextUpdate(session.lastClientContext);
+                } else {
+                  session.pendingContextUpdate = session.lastClientContext;
+                }
+              })
+              .catch((err: any) => {
+                this.logger.warn(
+                  `[VoiceProxyGateway] Cart telemetry sync failed for ${sessionId}: ${err.message}`,
+                );
+              });
+          }
+          return;
+        }
+
         if (msg.type === 'cart_sync') {
           // If the storefront cart accepted the item, no correction is needed.
           if (msg.ok === true) return;
@@ -1546,7 +1578,15 @@ export class VoiceProxyGateway {
             activeSection: msg.activeSection,
             product: msg.product,
             selectedVariantId: msg.selectedVariantId,
+            cartItemCount: msg.cartItemCount ?? session.lastClientContext?.cartItemCount,
+            cartTotal: msg.cartTotal ?? session.lastClientContext?.cartTotal,
           };
+          session.lastClientContext = context;
+          if (msg.cart && session.businessId) {
+            this.aiToolsExecutor
+              .syncStorefrontCartTelemetry(session.businessId, sessionId, msg.cart)
+              .catch(() => {});
+          }
           if (this.redisService) {
             this.redisService
               .getClient()

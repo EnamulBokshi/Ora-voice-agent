@@ -158,6 +158,13 @@ export class AiToolsExecutor {
           return await this.handleCheckInventory(businessId, args);
         case 'add_to_cart':
           return await this.handleAddToCart(businessId, sessionId, args);
+        case 'get_cart':
+        case 'view_cart':
+          return await this.handleGetCart(businessId, sessionId);
+        case 'update_cart_quantity':
+        case 'update_cart':
+        case 'remove_from_cart':
+          return await this.handleUpdateCartQuantity(businessId, sessionId, args);
         case 'place_order':
           return await this.handlePlaceOrder(businessId, sessionId, args);
         case 'redirect_to_checkout':
@@ -1065,6 +1072,312 @@ export class AiToolsExecutor {
     return `[SYSTEM_UPDATE: The store could not add ${line.name} to the customer's cart${
       payload.reason ? ` (${payload.reason})` : ''
     }. It is not in their cart. Tell the customer plainly, and offer an alternative or the product page.]`;
+  }
+
+  /**
+   * Reads the current shopping cart state for the session or customer from Redis memory.
+   * Returns a complete, human-readable summary of items, quantities, and totals.
+   */
+  async handleGetCart(businessId: string, sessionId: string) {
+    const redisKey = `cart:conv:${sessionId}`;
+    let cart: any = null;
+    try {
+      const rawCart = await this.redisService.getClient().get(redisKey);
+      if (rawCart) {
+        cart = JSON.parse(rawCart);
+      }
+    } catch (err: any) {
+      this.logger.warn(`[AiToolsExecutor] Cart read error: ${err.message}`);
+    }
+
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      let customerId: string | null = null;
+      try {
+        const rawSessionCustomer = await this.redisService
+          .getClient()
+          .get(`session:${sessionId}:customer`);
+        if (rawSessionCustomer) {
+          customerId = JSON.parse(rawSessionCustomer).customerId;
+        }
+      } catch {}
+      if (customerId) {
+        try {
+          const rawCustCart = await this.redisService
+            .getClient()
+            .get(`cart:customer:${customerId}`);
+          if (rawCustCart) {
+            cart = JSON.parse(rawCustCart);
+          }
+        } catch {}
+      }
+    }
+
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      return {
+        success: true,
+        items: [],
+        itemCount: 0,
+        totalPrice: 0,
+        currency: cart?.currency || 'USD',
+        message: 'The customer’s shopping cart is currently empty.',
+      };
+    }
+
+    const items = cart.items.map((item: any) => ({
+      name: item.name,
+      variantId: item.variantId || null,
+      productId: item.productId || null,
+      quantity: item.quantity,
+      price: item.price,
+      lineTotal: Math.round(Number(item.price || 0) * Number(item.quantity || 1) * 100) / 100,
+    }));
+
+    const totalItems = items.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0);
+    const totalPrice =
+      Math.round(items.reduce((sum: number, i: any) => sum + (i.lineTotal || 0), 0) * 100) / 100;
+    const currency = cart.currency || 'USD';
+
+    const itemsSummary = items
+      .map((i: any) => `${i.quantity}x ${i.name} ($${i.price} each = $${i.lineTotal})`)
+      .join(', ');
+
+    return {
+      success: true,
+      items,
+      itemCount: totalItems,
+      totalPrice,
+      currency,
+      message: `The cart currently contains ${totalItems} item(s): ${itemsSummary}. Total: $${totalPrice.toFixed(2)} ${currency}. Answer the customer directly using these exact details.`,
+    };
+  }
+
+  /**
+   * Increases, decreases, or removes items from the customer's cart.
+   * Emits shopify_update_cart action to update the Shopify storefront cookie via /cart/change.js.
+   */
+  async handleUpdateCartQuantity(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ) {
+    const redisKey = `cart:conv:${sessionId}`;
+    let cart: any = null;
+    try {
+      const rawCart = await this.redisService.getClient().get(redisKey);
+      if (rawCart) cart = JSON.parse(rawCart);
+    } catch {}
+
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      return {
+        success: false,
+        message: 'The shopping cart is currently empty, so there are no items to update.',
+      };
+    }
+
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
+    const requestedName = (args.productName || '').trim().toLowerCase();
+    const requestedVariantId = args.variantId ? String(args.variantId).trim() : null;
+
+    // Check for clear all
+    const isClearAll =
+      args.clearAll === true ||
+      (requestedName && /^(all|everything|clear|empty)$/i.test(requestedName));
+    if (isClearAll) {
+      cart.items = [];
+      cart.itemCount = 0;
+      cart.totalPrice = 0;
+      cart.updatedAt = Date.now();
+
+      const saveOps = [
+        this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),
+      ];
+      if (customerId) {
+        saveOps.push(
+          this.redisService
+            .getClient()
+            .set(`cart:customer:${customerId}`, JSON.stringify(cart), 'EX', 7 * 24 * 60 * 60),
+        );
+      }
+      await Promise.all(saveOps);
+
+      return {
+        success: true,
+        message: 'All items have been removed from the shopping cart. The cart is now empty.',
+        cart,
+        action: {
+          type: 'shopify_clear_cart',
+        },
+      };
+    }
+
+    // Find matching item
+    let itemIndex = -1;
+    if (requestedVariantId) {
+      itemIndex = cart.items.findIndex(
+        (i: any) => String(i.variantId || '') === requestedVariantId,
+      );
+    }
+    if (itemIndex === -1 && requestedName) {
+      itemIndex = cart.items.findIndex((i: any) => {
+        const n = (i.name || '').toLowerCase();
+        return n.includes(requestedName) || requestedName.includes(n);
+      });
+      if (itemIndex === -1) {
+        const words = requestedName.split(/\s+/).filter((w: string) => w.length >= 3);
+        if (words.length > 0) {
+          itemIndex = cart.items.findIndex((i: any) => {
+            const n = (i.name || '').toLowerCase();
+            return words.some((w: string) => n.includes(w));
+          });
+        }
+      }
+    }
+    if (itemIndex === -1 && cart.items.length === 1 && !requestedName && !requestedVariantId) {
+      itemIndex = 0;
+    }
+
+    if (itemIndex === -1) {
+      return {
+        success: false,
+        message: `Could not find "${args.productName || 'that item'}" in the cart. Current cart items: ${cart.items.map((i: any) => i.name).join(', ')}.`,
+      };
+    }
+
+    const targetItem = cart.items[itemIndex];
+    const currentQty = targetItem.quantity || 1;
+    let newQty: number;
+
+    if (args.quantity !== undefined && args.quantity !== null) {
+      newQty = Math.max(0, Math.floor(Number(args.quantity)));
+    } else if (args.delta !== undefined && args.delta !== null) {
+      newQty = Math.max(0, currentQty + Math.floor(Number(args.delta)));
+    } else {
+      newQty = Math.max(0, currentQty - 1);
+    }
+
+    if (newQty === 0) {
+      cart.items.splice(itemIndex, 1);
+    } else {
+      targetItem.quantity = newQty;
+    }
+
+    cart.itemCount = cart.items.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0);
+    cart.totalPrice =
+      Math.round(
+        cart.items.reduce(
+          (sum: number, i: any) => sum + Number(i.price || 0) * Number(i.quantity || 0),
+          0,
+        ) * 100,
+      ) / 100;
+    cart.updatedAt = Date.now();
+
+    const saveOps = [
+      this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),
+    ];
+    if (customerId) {
+      saveOps.push(
+        this.redisService
+          .getClient()
+          .set(`cart:customer:${customerId}`, JSON.stringify(cart), 'EX', 7 * 24 * 60 * 60),
+      );
+    }
+    await Promise.all(saveOps);
+
+    const isRemoved = newQty === 0;
+    const msg = isRemoved
+      ? `Removed "${targetItem.name}" from the cart.`
+      : `Updated "${targetItem.name}" quantity to ${newQty}.`;
+
+    const result: any = {
+      success: true,
+      message: msg,
+      cart,
+    };
+
+    if (targetItem.variantId) {
+      result.action = {
+        type: 'shopify_update_cart',
+        variantId: targetItem.variantId,
+        quantity: newQty,
+        productName: targetItem.name,
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Ingests live Shopify /cart.js telemetry sent by the storefront widget.
+   * Ensures Redis in-memory cart state mirrors the actual browser cookie cart in sub-millisecond time.
+   */
+  async syncStorefrontCartTelemetry(
+    businessId: string,
+    sessionId: string,
+    shopifyCart: any,
+  ): Promise<void> {
+    if (!shopifyCart || typeof shopifyCart !== 'object') return;
+    const redisKey = `cart:conv:${sessionId}`;
+
+    const rawItems = Array.isArray(shopifyCart.items) ? shopifyCart.items : [];
+    const items = rawItems.map((item: any) => ({
+      productId: item.product_id ? String(item.product_id) : undefined,
+      variantId: item.variant_id
+        ? String(item.variant_id)
+        : item.id
+          ? String(item.id)
+          : undefined,
+      name: item.title || item.product_title || 'Item',
+      price: (item.price || 0) / 100,
+      quantity: item.quantity || 1,
+      image: item.featured_image?.url || item.image || null,
+      mirroredToStorefront: true,
+    }));
+
+    const cart = {
+      items,
+      itemCount:
+        shopifyCart.item_count ?? items.reduce((s: number, i: any) => s + (i.quantity || 0), 0),
+      totalPrice: (shopifyCart.total_price || 0) / 100,
+      currency: shopifyCart.currency || 'USD',
+      authority: 'shopify',
+      updatedAt: Date.now(),
+    };
+
+    let customerId: string | null = null;
+    try {
+      const rawSessionCustomer = await this.redisService
+        .getClient()
+        .get(`session:${sessionId}:customer`);
+      if (rawSessionCustomer) {
+        customerId = JSON.parse(rawSessionCustomer).customerId;
+      }
+    } catch {}
+
+    const saveOps = [
+      this.redisService.getClient().set(redisKey, JSON.stringify(cart), 'EX', 24 * 60 * 60),
+    ];
+    if (customerId) {
+      (cart as any).customerId = customerId;
+      saveOps.push(
+        this.redisService
+          .getClient()
+          .set(`cart:customer:${customerId}`, JSON.stringify(cart), 'EX', 7 * 24 * 60 * 60),
+      );
+    }
+    await Promise.all(saveOps);
+
+    this.logger.log(
+      `[AiToolsExecutor] Synced Shopify cart telemetry for session ${sessionId}: ${cart.itemCount} items, total $${cart.totalPrice} ${cart.currency}`,
+    );
   }
 
   private async handlePlaceOrder(

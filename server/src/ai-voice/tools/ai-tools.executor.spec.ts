@@ -724,5 +724,141 @@ describe('AiToolsExecutor', () => {
         expect(JSON.parse(cartStore['cart:conv:sess_1']).items).toHaveLength(1);
       });
     });
+
+    describe('get_cart and update_cart_quantity', () => {
+      beforeEach(async () => {
+        shopifyExecutor = await buildExecutor({ platform: 'shopify' });
+      });
+
+      it('returns empty message when cart has no items', async () => {
+        const res = await shopifyExecutor.executeTool('biz_shop', 'sess_empty', 'get_cart', {});
+        expect(res.success).toBe(true);
+        expect(res.itemCount).toBe(0);
+        expect(res.message).toContain('currently empty');
+      });
+
+      it('returns items and total when items exist in cart', async () => {
+        await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'add_to_cart', {
+          productId: 'prod_123',
+          quantity: 2,
+        });
+
+        const res = await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'get_cart', {});
+        expect(res.success).toBe(true);
+        expect(res.itemCount).toBe(2);
+        expect(res.totalPrice).toBe(300);
+        expect(res.items).toHaveLength(1);
+        expect(res.items[0].name).toBe('Test Audio Headset');
+      });
+
+      it('updates cart quantity and emits shopify_update_cart action', async () => {
+        await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'add_to_cart', {
+          productId: 'prod_123',
+          quantity: 2,
+        });
+
+        const res = await shopifyExecutor.executeTool(
+          'biz_shop',
+          'sess_1',
+          'update_cart_quantity',
+          {
+            productName: 'Audio Headset',
+            quantity: 1,
+          },
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.cart.items[0].quantity).toBe(1);
+        expect(res.action).toEqual({
+          type: 'shopify_update_cart',
+          variantId: '77',
+          quantity: 1,
+          productName: 'Test Audio Headset',
+        });
+      });
+
+      it('removes item when quantity is reduced to 0', async () => {
+        await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'add_to_cart', {
+          productId: 'prod_123',
+          quantity: 1,
+        });
+
+        const res = await shopifyExecutor.executeTool(
+          'biz_shop',
+          'sess_1',
+          'update_cart_quantity',
+          {
+            productName: 'Audio Headset',
+            quantity: 0,
+          },
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.cart.items).toHaveLength(0);
+        expect(res.message).toContain('Removed');
+      });
+
+      it('clears all items when clearAll or all is passed', async () => {
+        await shopifyExecutor.executeTool('biz_shop', 'sess_1', 'add_to_cart', {
+          productId: 'prod_123',
+          quantity: 2,
+        });
+
+        const res = await shopifyExecutor.executeTool(
+          'biz_shop',
+          'sess_1',
+          'update_cart_quantity',
+          {
+            productName: 'all',
+          },
+        );
+
+        expect(res.success).toBe(true);
+        expect(res.cart.items).toHaveLength(0);
+        expect(res.action.type).toBe('shopify_clear_cart');
+      });
+
+      it('syncs live storefront /cart.js telemetry into Redis', async () => {
+        await shopifyExecutor.syncStorefrontCartTelemetry('biz_shop', 'sess_telemetry', {
+          item_count: 5,
+          total_price: 48300,
+          currency: 'USD',
+          items: [
+            {
+              id: 50460721053910,
+              variant_id: 50460721053910,
+              product_id: 9991,
+              title: 'Botanical Restorative Facial Serum',
+              price: 4800,
+              quantity: 2,
+            },
+            {
+              id: 50460720169174,
+              variant_id: 50460720169174,
+              product_id: 9992,
+              title: 'Cyber-Shades 2077 Polarized Sunglasses',
+              price: 12900,
+              quantity: 3,
+            },
+          ],
+        });
+
+        const cart = JSON.parse(cartStore['cart:conv:sess_telemetry']);
+        expect(cart.itemCount).toBe(5);
+        expect(cart.totalPrice).toBe(483);
+        expect(cart.items).toHaveLength(2);
+        expect(cart.items[0].name).toBe('Botanical Restorative Facial Serum');
+        expect(cart.items[0].quantity).toBe(2);
+        expect(cart.items[1].name).toBe('Cyber-Shades 2077 Polarized Sunglasses');
+        expect(cart.items[1].quantity).toBe(3);
+
+        // Verify get_cart returns the live data
+        const getRes = await shopifyExecutor.executeTool('biz_shop', 'sess_telemetry', 'get_cart', {});
+        expect(getRes.itemCount).toBe(5);
+        expect(getRes.totalPrice).toBe(483);
+        expect(getRes.message).toContain('Botanical Restorative Facial Serum');
+        expect(getRes.message).toContain('Cyber-Shades 2077 Polarized Sunglasses');
+      });
+    });
   });
 });

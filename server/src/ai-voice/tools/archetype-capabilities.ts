@@ -44,6 +44,8 @@ export const COMMERCE_TOOL_NAMES = [
   'find_products',
   'get_product_details',
   'add_to_cart',
+  'get_cart',
+  'update_cart_quantity',
   'navigate_to_page',
   'search_knowledge_base',
   'get_store_policy',

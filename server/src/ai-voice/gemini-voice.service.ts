@@ -200,7 +200,14 @@ export interface GeminiVoiceSessionOptions {
 export interface GeminiVoiceSessionControls {
   sendAudioChunk: (base64Pcm16k: string) => void;
   sendTextMessage: (text: string) => void;
-  sendContextUpdate: (context: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => void;
+  sendContextUpdate: (context: {
+    currentPath?: string;
+    title?: string;
+    history?: string[];
+    activeSection?: string;
+    cartItemCount?: number;
+    cartTotal?: number;
+  }) => void;
   closeSession: () => void;
 }
 
@@ -476,7 +483,14 @@ export class GeminiVoiceService {
             ws.send(JSON.stringify(clientContent));
           }
         },
-        sendContextUpdate: (ctx: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => {
+        sendContextUpdate: (ctx: {
+          currentPath?: string;
+          title?: string;
+          history?: string[];
+          activeSection?: string;
+          cartItemCount?: number;
+          cartTotal?: number;
+        }) => {
           if (ws.readyState === WebSocket.OPEN) {
             const histStr = ctx.history && ctx.history.length > 0 ? ctx.history.join(' -> ') : ctx.currentPath || '/';
             // Deliberately terse and free of instructions. This arrives in the
@@ -491,7 +505,11 @@ export class GeminiVoiceService {
               const slug = ctx.currentPath.split('/products/')[1]?.split(/[?#]/)[0]?.replace(/\/$/, '');
               if (slug) productSnippet = ` | active_product_slug=${slug}`;
             }
-            const contextText = `[PAGE_STATE] path=${ctx.currentPath || '/'}${ctx.title ? ` | title=${ctx.title}` : ''}${productSnippet}${ctx.activeSection ? ` | section=${ctx.activeSection}` : ''} | visited=${histStr}`;
+            let cartSnippet = '';
+            if (ctx.cartItemCount !== undefined && ctx.cartItemCount !== null) {
+              cartSnippet = ` | cart_items=${ctx.cartItemCount}${ctx.cartTotal !== undefined ? ` | cart_total=$${ctx.cartTotal}` : ''}`;
+            }
+            const contextText = `[PAGE_STATE] path=${ctx.currentPath || '/'}${ctx.title ? ` | title=${ctx.title}` : ''}${productSnippet}${cartSnippet}${ctx.activeSection ? ` | section=${ctx.activeSection}` : ''} | visited=${histStr}`;
             const clientContent = {
               clientContent: {
                 turns: [

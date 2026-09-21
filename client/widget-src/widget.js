@@ -2238,6 +2238,16 @@
     window.addEventListener('pagehide', parkSessionForNavigation);
     window.addEventListener('beforeunload', parkSessionForNavigation);
 
+    // ── Live Shopify Cart Synchronization ────────────────────────────────────
+    if (isShopifyStorefront()) {
+      document.addEventListener('cart:updated', function () { syncShopifyCart(); });
+      document.addEventListener('cart:refresh', function () { syncShopifyCart(); });
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) syncShopifyCart();
+      });
+      window.addEventListener('focus', function () { syncShopifyCart(); });
+    }
+
     // ── Resume a conversation the previous page was holding ──────────────────
     // Only when it was actually live. A session the customer had let lapse to standby
     // stays parked but silent: they get their history back when they tap, and are not
@@ -2938,12 +2948,111 @@
             refreshCartSections().then(openCartDrawer);
           }, 60);
         }
+        syncShopifyCart();
       })
       .catch(function (err) {
         console.error('[ORA Widget] Failed to add item to Shopify cart:', err);
         showToastNotification('Could not add to cart. Please try the product page.');
         reportCartSync(action, false, err && err.message);
       });
+  }
+
+  /**
+   * Reads Shopify /cart.js and sends real-time cart state to the server via WebSocket.
+   */
+  function syncShopifyCart() {
+    if (!isShopifyStorefront()) return;
+    try {
+      fetch('/cart.js', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('Cart fetch failed');
+          return res.json();
+        })
+        .then(function (cartData) {
+          if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+            geminiWs.send(
+              JSON.stringify({
+                type: 'cart_telemetry',
+                cart: cartData,
+              })
+            );
+          }
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  /**
+   * Updates an item quantity in Shopify cart via /cart/change.js (or removes if quantity is 0).
+   */
+  function updateShopifyCart(action) {
+    if (!action || !action.variantId) return;
+    if (!isShopifyStorefront()) return;
+
+    var newQty = action.quantity !== undefined ? Number(action.quantity) : 0;
+    var name = action.productName || 'Item';
+
+    if (newQty === 0) {
+      showToastNotification('Removed from cart: ' + name);
+    } else {
+      showToastNotification('Updated ' + name + ' quantity to ' + newQty);
+    }
+
+    fetch('/cart/change.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ id: String(action.variantId), quantity: newQty }),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.description || data.message || 'Cart update failed');
+          return data;
+        });
+      })
+      .then(function (data) {
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(function () {
+            refreshCartSections().then(openCartDrawer);
+          });
+        } else {
+          setTimeout(function () {
+            refreshCartSections().then(openCartDrawer);
+          }, 60);
+        }
+        syncShopifyCart();
+      })
+      .catch(function (err) {
+        console.error('[ORA Widget] Failed to update Shopify cart:', err);
+        showToastNotification('Could not update cart.');
+      });
+  }
+
+  /**
+   * Clears all items from the Shopify cart via /cart/clear.js.
+   */
+  function clearShopifyCart() {
+    if (!isShopifyStorefront()) return;
+    showToastNotification('Shopping cart cleared');
+    fetch('/cart/clear.js', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        refreshCartSections();
+        syncShopifyCart();
+      })
+      .catch(function () {});
   }
 
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
@@ -3652,6 +3761,7 @@
               userData: custPayload.identified
             }));
           }
+          syncShopifyCart();
         } catch (e) {}
       };
 
@@ -3819,6 +3929,14 @@
 
             if (msg.action && msg.action.type === 'shopify_add_to_cart') {
               addToShopifyCart(msg.action);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_update_cart') {
+              updateShopifyCart(msg.action);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_clear_cart') {
+              clearShopifyCart();
             }
 
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {

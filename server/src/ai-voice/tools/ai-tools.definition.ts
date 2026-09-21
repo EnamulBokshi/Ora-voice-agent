@@ -74,6 +74,44 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'get_cart',
+    description:
+      'Retrieve all items, quantities, unit prices, line item totals, and grand total currently in the customer’s shopping cart. Call this whenever the customer asks what is in their cart, asks for cart totals, or asks to review their order.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
+    },
+  },
+  {
+    name: 'update_cart_quantity',
+    description:
+      'Update the quantity of an item in the customer’s shopping cart, or remove it completely. Use this when the customer asks to decrease, increase, change quantity, or remove/delete an item.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        productName: {
+          type: 'STRING',
+          description:
+            'The name or title of the product to update (e.g. "Botanical Restorative Facial Serum", "Cyber-Shades").',
+        },
+        variantId: {
+          type: 'STRING',
+          description: 'Optional variant ID of the item if already known.',
+        },
+        quantity: {
+          type: 'NUMBER',
+          description:
+            'The target quantity (set to 0 to remove the item from cart). If the user says "decrease by 1" and current quantity is 2, pass quantity: 1 or use delta.',
+        },
+        delta: {
+          type: 'NUMBER',
+          description:
+            'Optional relative quantity change (e.g. -1 to decrease by one, +1 to increase by one).',
+        },
+      },
+    },
+  },
+  {
     name: 'search_knowledge_base',
     description:
       'Search external knowledge base for specific technical or company documentation NOT already present in your preloaded memory. If the information is in memory, answer immediately without calling this tool.',

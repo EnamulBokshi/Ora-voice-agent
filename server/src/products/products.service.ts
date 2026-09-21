@@ -113,7 +113,27 @@ export class ProductsService {
         .filter(Boolean);
 
       const meaningfulTerms = rawTerms.filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
-      const searchTerms = meaningfulTerms.length > 0 ? meaningfulTerms : rawTerms.filter((t) => t.length >= 2);
+      const baseTerms = meaningfulTerms.length > 0 ? meaningfulTerms : rawTerms.filter((t) => t.length >= 2);
+
+      // Expand terms with singular / plural morphological stems so "hoodies" matches "hoodie", "shoes" matches "shoe"
+      const expandTermsWithStems = (terms: string[]): string[] => {
+        const set = new Set<string>();
+        for (const term of terms) {
+          set.add(term);
+          if (term.length >= 4 && term.endsWith('ies')) {
+            set.add(term.slice(0, -1)); // "hoodies" -> "hoodie", "cookies" -> "cookie"
+            set.add(term.slice(0, -3) + 'y'); // "batteries" -> "battery"
+          } else if (term.length >= 5 && term.endsWith('es')) {
+            set.add(term.slice(0, -2));
+            set.add(term.slice(0, -1));
+          } else if (term.length >= 4 && term.endsWith('s') && !term.endsWith('ss')) {
+            set.add(term.slice(0, -1));
+          }
+        }
+        return Array.from(set);
+      };
+
+      const searchTerms = expandTermsWithStems(baseTerms);
 
       // Dynamic Word-Boundary Regex Creator:
       // Prevents short words (like "ac", "fan", "ips", "led") from matching inside words like "Machine", "Pack", "Backup"
@@ -171,7 +191,7 @@ export class ProductsService {
             const brandLower = (item.brand || '').toLowerCase();
             const descLower = (item.description || '').toLowerCase();
 
-            for (const term of rawTerms) {
+            for (const term of searchTerms) {
               if (nameLower.includes(term)) score += 10;
               if (catLower.includes(term)) score += 5;
               if (brandLower.includes(term)) score += 4;
@@ -244,35 +264,33 @@ export class ProductsService {
     const byNative = await this.productModel.findOne({ businessId: bId as any, nativeProductId: clean }).exec();
     if (byNative) return byNative;
 
-    // 2. Handle match (exact or slug normalized)
+    // 2. Handle or Name match (combined single query with fallback ranking)
     const slug = clean.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
-    if (slug) {
-      const query = this.productModel.find({
-        businessId: bId as any,
-        isActive: true,
-        $or: [
-          { 'attributes.shopify.handle': clean },
-          { 'attributes.shopify.handle': slug },
-          { 'attributes.shopify.handle': new RegExp(slug.replace(/-/g, '.*'), 'i') },
-        ],
-      });
-      const byHandle = query && typeof query.sort === 'function'
-        ? await query.sort({ sourceTier: 1, updatedAt: -1 }).limit(1).exec()
-        : null;
-      if (byHandle && byHandle.length > 0) return byHandle[0];
-    }
-
-    // 3. Name match (case-insensitive substring)
     const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const nameQuery = this.productModel.find({
+
+    const orClauses: any[] = [
+      { 'attributes.shopify.handle': clean },
+      ...(slug
+        ? [
+            { 'attributes.shopify.handle': slug },
+            { 'attributes.shopify.handle': new RegExp(slug.replace(/-/g, '.*'), 'i') },
+          ]
+        : []),
+      { name: { $regex: escaped, $options: 'i' } },
+    ];
+
+    const query = this.productModel.find({
       businessId: bId as any,
       isActive: true,
-      name: { $regex: escaped, $options: 'i' },
+      $or: orClauses,
     });
-    const byName = nameQuery && typeof nameQuery.sort === 'function'
-      ? await nameQuery.sort({ sourceTier: 1, updatedAt: -1 }).limit(1).exec()
-      : null;
-    if (byName && byName.length > 0) return byName[0];
+    const match =
+      query && typeof query.sort === 'function'
+        ? await query.sort({ sourceTier: 1, updatedAt: -1 }).limit(1).exec()
+        : await (query as any).exec();
+
+    if (Array.isArray(match) && match.length > 0) return match[0];
+    if (match && !Array.isArray(match)) return match;
 
     return null;
   }
