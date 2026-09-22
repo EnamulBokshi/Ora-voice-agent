@@ -173,11 +173,11 @@ export function DocsPageClient() {
       id: 'quickstart',
       category: 'Getting Started',
       title: 'Quickstart',
-      summary: 'Embed ORA onto your store in three steps.',
+      summary: 'Embed ORA on your site in three steps.',
       content: (
         <>
           <p className="lp-docs-p">
-            No programming experience required. Copy your key, paste one script tag, and connect your store.
+            No programming experience required. Copy your key, paste one script tag, and connect your site.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', margin: '1.5rem 0' }}>
@@ -221,7 +221,7 @@ export function DocsPageClient() {
             code: `<!-- Paste before the closing </body> tag -->
 <script
   src="https://tryora.live/widget/ora-widget.js"
-  data-ora-key="biz_live_your_merchant_key"
+  data-ora-key="biz_live_your_publishable_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
@@ -238,7 +238,7 @@ export function DocsPageClient() {
       content: (
         <>
           <p className="lp-docs-p">
-            Pick your platform and paste the snippet exactly as shown. Replace <code>biz_live_your_merchant_key</code> with your actual key.
+            Pick your platform and paste the snippet exactly as shown. Replace <code>biz_live_your_publishable_key</code> with your actual key.
           </p>
           <CodeBlock snippets={[
             {
@@ -246,7 +246,7 @@ export function DocsPageClient() {
               filename: 'index.html',
               code: `<script
   src="https://tryora.live/widget/ora-widget.js"
-  data-ora-key="biz_live_your_merchant_key"
+  data-ora-key="biz_live_your_publishable_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
@@ -258,7 +258,7 @@ export function DocsPageClient() {
               code: `{% comment %} Before </body> in layout/theme.liquid {% endcomment %}
 <script
   src="https://tryora.live/widget/ora-widget.js"
-  data-ora-key="biz_live_your_merchant_key"
+  data-ora-key="biz_live_your_publishable_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
@@ -276,7 +276,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Script
           src="https://tryora.live/widget/ora-widget.js"
-          data-ora-key="biz_live_your_merchant_key"
+          data-ora-key="biz_live_your_publishable_key"
           data-ora-api="https://api.tryora.live"
           data-ora-position="bottom-right"
           strategy="afterInteractive"
@@ -293,7 +293,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 useHead({
   script: [{
     src: 'https://tryora.live/widget/ora-widget.js',
-    'data-ora-key': 'biz_live_your_merchant_key',
+    'data-ora-key': 'biz_live_your_publishable_key',
     'data-ora-api': 'https://api.tryora.live',
     'data-ora-position': 'bottom-right',
     defer: true
@@ -308,7 +308,7 @@ useHead({
 <!-- Wix: Settings > Custom Code > Body - End -->
 <script
   src="https://tryora.live/widget/ora-widget.js"
-  data-ora-key="biz_live_your_merchant_key"
+  data-ora-key="biz_live_your_publishable_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
@@ -319,10 +319,10 @@ useHead({
       ),
     },
 
-    // Store Platforms
+    // Platforms
     {
       id: 'shopify-setup',
-      category: 'Store Platforms',
+      category: 'Platforms',
       title: 'Shopify',
       summary: 'Install the ORA Shopify App in under 60 seconds with zero code editing.',
       content: (
@@ -332,7 +332,7 @@ useHead({
             You do not need to touch any code or edit <code>theme.liquid</code>. Simply install the official ORA app and enable the native Theme App Embed:
           </p>
           <ol style={{ paddingLeft: '1.25rem', marginBottom: '1.25rem', color: 'var(--lp-text-secondary)', fontSize: '0.875rem', lineHeight: 1.8 }}>
-            <li>Install the <strong>ORA Voice AI</strong> app from the Shopify App Store or connect your store in the ORA dashboard under <strong>Agent Configuration → Sync Catalog</strong>.</li>
+            <li>Install the <strong>ORA Voice AI</strong> app from the Shopify App Store or connect your site in the ORA dashboard under <strong>Agent Configuration → Sync Catalog</strong>.</li>
             <li>In Shopify Admin, navigate to <strong>Online Store</strong> → <strong>Themes</strong> and click <strong>Customize</strong>.</li>
             <li>In the left sidebar, click the <strong>App embeds</strong> icon (or click &ldquo;Enable in Theme&rdquo; in the ORA Shopify app).</li>
             <li>Toggle the <strong>ORA Voice Widget</strong> switch to <strong>ON</strong>.</li>
@@ -356,7 +356,7 @@ useHead({
     },
     {
       id: 'woocommerce-setup',
-      category: 'Store Platforms',
+      category: 'Platforms',
       title: 'WooCommerce & WordPress',
       summary: 'Add ORA via a plugin or by editing your theme template.',
       content: (
@@ -377,7 +377,7 @@ useHead({
     },
     {
       id: 'nocode-setup',
-      category: 'Store Platforms',
+      category: 'Platforms',
       title: 'Webflow, Wix & Framer',
       summary: 'Embed ORA into no-code site builders.',
       content: (
@@ -440,7 +440,7 @@ useHead({
             filename: 'custom-position.html',
             code: `<script
   src="https://tryora.live/widget/ora-widget.js"
-  data-ora-key="biz_live_your_merchant_key"
+  data-ora-key="biz_live_your_publishable_key"
   data-ora-api="https://api.tryora.live"
   data-ora-position="bottom-right"
   defer>
@@ -457,7 +457,7 @@ useHead({
       content: (
         <>
           <p className="lp-docs-p">
-            Language is configured per store from your dashboard under <strong>Agent Settings</strong>. When a shopper speaks a supported language, ORA responds in that language for the session.
+            Language is configured per store from your dashboard under <strong>Agent Settings</strong>. When a visitor speaks a supported language, ORA responds in that language for the session.
           </p>
           <div className="lp-docs-table-wrapper">
             <table className="lp-docs-table">
@@ -523,7 +523,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
     {
       id: 'store-policies',
       category: 'Catalog & Knowledge',
-      title: 'Store policies & FAQs',
+      title: 'Policies & FAQs',
       summary: 'Teach ORA your shipping rules, return policy, and store details.',
       content: (
         <>
@@ -543,7 +543,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
             ))}
           </div>
           <div className="lp-docs-callout tip">
-            ORA stays on-topic. If a shopper asks something unrelated to your store, it redirects the conversation back to your products and policies.
+            ORA stays on-topic. If a visitor asks something unrelated to your store, it redirects the conversation back to your products and policies.
           </div>
         </>
       ),
@@ -585,7 +585,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
           {[
             {
               q: "The floating orb isn't appearing.",
-              a: <>Make sure you replaced <code>biz_live_your_merchant_key</code> with your actual key from the dashboard. Check the <code>&lt;script&gt;</code> tag is placed before <code>&lt;/body&gt;</code>. Try a hard refresh or incognito window.</>,
+              a: <>Make sure you replaced <code>biz_live_your_publishable_key</code> with your actual key from the dashboard. Check the <code>&lt;script&gt;</code> tag is placed before <code>&lt;/body&gt;</code>. Try a hard refresh or incognito window.</>,
             },
             {
               q: "The microphone isn't turning on.",
@@ -750,7 +750,7 @@ KB-03,Wireless Precision Mouse,26000 DPI optical sensor with 80-hour battery,69.
             className="lp-display"
             style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.15, marginBottom: '0.875rem', letterSpacing: '-0.025em', color: 'var(--lp-text-primary)' }}
           >
-            Set up ORA on your store
+            Set up ORA on your site
           </h1>
           <p style={{ fontSize: '1rem', color: 'var(--lp-text-secondary)', maxWidth: '38rem', lineHeight: 1.65, margin: '0 auto 2rem' }}>
             Step-by-step guides for adding ORA to Shopify, WooCommerce, Next.js, and any custom site.

@@ -1,0 +1,53 @@
+Created At: 2026-09-22T12:43:59+06:00
+Completed At: 2026-09-22T12:44:00+06:00
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":120,"LineContent":"          \u003cdiv className=\"s2-timeline-nav-row\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":124,"LineContent":"              className={`s2-timeline-nav-pill ${activeStep === 0 ? 'active' : ''}`}"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":133,"LineContent":"              className={`s2-timeline-nav-pill ${activeStep === 1 ? 'active' : ''}`}"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":142,"LineContent":"              className={`s2-timeline-nav-pill ${activeStep === 2 ? 'active' : ''}`}"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":153,"LineContent":"              className=\"s2-timeline-play-btn\""}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":163,"LineContent":"        \u003cdiv className=\"s2-timeline-wrapper\" ref={timelineRef}\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":166,"LineContent":"          \u003cdiv className=\"s2-timeline-spine-track\" aria-hidden=\"true\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":188,"LineContent":"            className={`s2-timeline-stage ${activeStep === 0 ? 'stage-active' : ''}`}"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":192,"LineContent":"            \u003cdiv className=\"s2-timeline-milestone\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":201,"LineContent":"            \u003cdiv className=\"s2-timeline-card-grid\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":204,"LineContent":"              \u003cdiv className=\"s2-timeline-info\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":220,"LineContent":"              \u003cdiv className=\"s2-timeline-mockup\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":280,"LineContent":"            className={`s2-timeline-stage ${activeStep === 1 ? 'stage-active' : ''}`}"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":284,"LineContent":"            \u003cdiv className=\"s2-timeline-milestone\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":293,"LineContent":"            \u003cdiv className=\"s2-timeline-card-grid\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":296,"LineContent":"              \u003cdiv className=\"s2-timeline-info\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":312,"LineContent":"              \u003cdiv className=\"s2-timeline-mockup\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":378,"LineContent":"            className={`s2-timeline-stage ${activeStep === 2 ? 'stage-active' : ''}`}"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":382,"LineContent":"            \u003cdiv className=\"s2-timeline-milestone\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":391,"LineContent":"            \u003cdiv className=\"s2-timeline-card-grid\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":394,"LineContent":"              \u003cdiv className=\"s2-timeline-info\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\components\\marketing\\start2\\start2-steps.tsx","LineNumber":410,"LineContent":"              \u003cdiv className=\"s2-timeline-mockup\"\u003e"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1498,"LineContent":".start2-landing .s2-timeline-nav-row {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1510,"LineContent":".start2-landing .s2-timeline-nav-pill {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1525,"LineContent":".start2-landing .s2-timeline-nav-pill:hover {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1529,"LineContent":".start2-landing .s2-timeline-nav-pill.active {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1540,"LineContent":".start2-landing .s2-timeline-play-btn {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1555,"LineContent":".start2-landing .s2-timeline-play-btn:hover {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1561,"LineContent":".start2-landing .s2-timeline-wrapper {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1568,"LineContent":".start2-landing .s2-timeline-spine-track {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1616,"LineContent":".start2-landing .s2-timeline-stage {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1623,"LineContent":".start2-landing .s2-timeline-stage:last-child {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1628,"LineContent":".start2-landing .s2-timeline-milestone {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1678,"LineContent":".start2-landing .s2-timeline-stage.stage-active .s2-milestone-circle {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1686,"LineContent":".dark .start2-landing .s2-timeline-stage.stage-active .s2-milestone-circle {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1693,"LineContent":".start2-landing .s2-timeline-stage.stage-active .s2-milestone-branch {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1697,"LineContent":".dark .start2-landing .s2-timeline-stage.stage-active .s2-milestone-branch {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1702,"LineContent":".start2-landing .s2-timeline-stage.stage-active .s2-milestone-aura {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1707,"LineContent":".dark .start2-landing .s2-timeline-stage.stage-active .s2-milestone-aura {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1712,"LineContent":".start2-landing .s2-timeline-card-grid {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1725,"LineContent":"  .start2-landing .s2-timeline-card-grid {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1732,"LineContent":".start2-landing .s2-timeline-stage:hover .s2-timeline-card-grid {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1737,"LineContent":".start2-landing .s2-timeline-stage.stage-active .s2-timeline-card-grid {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1742,"LineContent":".dark .start2-landing .s2-timeline-stage.stage-active .s2-timeline-card-grid {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1764,"LineContent":".start2-landing .s2-timeline-stage.stage-active .s2-stage-status-chip {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1771,"LineContent":".dark .start2-landing .s2-timeline-stage.stage-active .s2-stage-status-chip {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":1810,"LineContent":".start2-landing .s2-timeline-mockup {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":2111,"LineContent":"  .start2-landing .s2-timeline-wrapper {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":2116,"LineContent":"  .start2-landing .s2-timeline-spine-track {"}
+{"File":"c:\\Users\\SHAMIM\\Documents\\GitHub\\ora\\client\\app\\(marketing)\\start2\\start2.css","LineNumber":2120,"LineContent":"  .start2-landing .s2-timeline-milestone {"}
+(...2 more results not shown)

@@ -28,6 +28,7 @@ import { DomTelemetryDto } from './dto/dom-telemetry.dto';
 import { FeedIngestDto } from './dto/feed-ingest.dto';
 import { PassiveIngestDto } from './dto/passive-ingest.dto';
 import { ManualIngestDto } from './dto/manual-ingest.dto';
+import { CrawlStoreDto } from './dto/crawl-store.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
 import { SubscriptionGuard } from '../common/guards/subscription.guard';
@@ -249,11 +250,8 @@ export class IngestionController {
   @HttpCode(HttpStatus.OK)
   async crawlStore(
     @CurrentUser() user: JwtPayloadUser,
-    @Body() dto: { domain: string },
+    @Body() dto: CrawlStoreDto,
   ) {
-    if (!dto.domain) {
-      throw new BadRequestException('A valid website domain or URL is required.');
-    }
     return this.sitemapCrawlerService.syncFromWebsite({
       businessId: user.businessId,
       domain: dto.domain,

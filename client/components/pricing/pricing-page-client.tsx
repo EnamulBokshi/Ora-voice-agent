@@ -55,7 +55,7 @@ export function PricingPageClient() {
 
     // 3. Handle incoming Stripe / Gateway return callback
     if (statusParam === 'success' || sessionIdParam) {
-      setSuccessMessage('🎉 Payment & subscription confirmed! Activating your merchant dashboard...');
+      setSuccessMessage('🎉 Payment & subscription confirmed! Activating your dashboard...');
       setErrorMessage(null);
       if (typeof document !== 'undefined') {
         const isProd = process.env.NODE_ENV === 'production';
@@ -264,7 +264,7 @@ export function PricingPageClient() {
               letterSpacing: '-0.025em',
             }}
           >
-            Supercharge Your Store With <br className="hidden sm:inline" />
+            Put a voice agent on <br className="hidden sm:inline" />
             <span style={{ color: 'var(--lp-primary)', WebkitTextFillColor: 'var(--lp-primary)' }}>
               Autonomous Voice AI
             </span>
@@ -280,7 +280,7 @@ export function PricingPageClient() {
               margin: '0 auto 1.5rem',
             }}
           >
-            Choose the plan that fits your business scale. Unlock real-time voice selling, live inventory syncing, and automated instant checkout.
+            Choose the plan that fits your business scale. Real-time voice answers on your own site, trained by talking to it.
           </p>
 
           {/* Currency / Provider Selector Pill */}
@@ -440,9 +440,9 @@ export function PricingPageClient() {
                       }}
                     >
                       {plan.planId === 'growth'
-                        ? 'For growing e-commerce stores wanting autonomous voice conversions.'
+                        ? 'For a working business handling real enquiry volume.'
                         : isScale
-                        ? 'For high-volume merchants demanding unlimited voice scale.'
+                        ? 'For larger teams needing unlimited conversations.'
                         : 'Starter tier for testing and light sandbox interactions.'}
                     </p>
                   </div>
@@ -531,7 +531,7 @@ export function PricingPageClient() {
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
                             {plan.limits.ordersPerMonth.toLocaleString()}
                           </strong>{' '}
-                          Automated checkout orders/mo
+                          Orders handled/mo
                         </span>
                       </li>
                       <li
@@ -615,7 +615,7 @@ export function PricingPageClient() {
                       </>
                     ) : userRole === 'user' ? (
                       <>
-                        {plan.planId === 'free' ? 'Activate Free Tier' : 'Subscribe & Activate Store'}
+                        {plan.planId === 'free' ? 'Activate Free Tier' : 'Subscribe'}
                         <Zap size={15} />
                       </>
                     ) : (
@@ -692,10 +692,10 @@ export function PricingPageClient() {
               </div>
               <div>
                 <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
-                  Bank-Grade Encryption
+                  Encrypted in transit and at rest
                 </h4>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>
-                  All payment transactions and store credentials are protected with AES-256 field-level encryption and strict tenant scoping.
+                  All payment transactions and your credentials are protected with AES-256 field-level encryption and strict tenant scoping.
                 </p>
               </div>
             </div>

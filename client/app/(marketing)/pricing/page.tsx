@@ -6,15 +6,15 @@ import { PricingPageClient } from '@/components/pricing/pricing-page-client';
 import { JsonLd, oraSoftwareSchema } from '@/components/marketing/json-ld';
 
 export const metadata: Metadata = {
-  title: 'Pricing & Subscription Plans | ORA AI Sales Assistant',
+  title: 'Pricing | ORA Voice AI',
   description:
-    'Choose your ORA AI subscription plan. Multimodal 24/7 conversational voice agent with live product catalog intelligence and conversational shopping assistance.',
+    'Free, Growth and Scale plans in USD and BDT. A voice AI agent for any business with a website. Start free.',
   alternates: {
     canonical: 'https://tryora.live/pricing',
   },
   openGraph: {
-    title: 'Pricing & Subscription Plans | ORA AI Sales Assistant',
-    description: 'Explore the Free, Growth, and Scale tiers in USD & BDT. Start free today.',
+    title: 'Pricing | ORA Voice AI',
+    description: 'Free, Growth and Scale tiers in USD and BDT. Start free today.',
     url: 'https://tryora.live/pricing',
     type: 'website',
   },

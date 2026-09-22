@@ -1,0 +1,1921 @@
+/* =============================================================================
+   ORA SAAS REDESIGN (/start) — DUAL THEME SYSTEM (LIGHT & DARK)
+   Strictly aligned with ORA Merchant Dashboard & Stitch Lumina Tokens
+   
+   Light Mode:
+     Canvas: #FAFAFA · Cards: #FFFFFF · Borders: #E5E7EB · Text: #111827 / #6B7280
+     Primary Button: #111111 (White text) · Accents: #C8F031 / #16A34A
+   
+   Dark Mode:
+     Canvas: #131418 · Cards: #1A1C22 · Sub-surfaces: #141519 · Borders: #252831
+     Text: #F3F4F6 / #8B90A0 · Primary Button: #C8F031 (#0E0F12 text)
+   ============================================================================= */
+
+/* ── Light Mode Token Variables ───────────────────────────────────────────── */
+.start-landing {
+  --fs-bg: #FAFAFA;
+  --fs-card: #FFFFFF;
+  --fs-card-subtle: #F8F9FA;
+  --fs-card-nested: #F1F3F5;
+  --fs-border: #E5E7EB;
+  --fs-border-subtle: #F3F4F6;
+  --fs-text-primary: #111827;
+  --fs-text-secondary: #6B7280;
+  --fs-text-muted: #9CA3AF;
+  
+  --fs-btn-primary-bg: #111111;
+  --fs-btn-primary-text: #FFFFFF;
+  --fs-btn-primary-hover: #000000;
+  
+  --fs-btn-ghost-bg: #FFFFFF;
+  --fs-btn-ghost-text: #111827;
+  --fs-btn-ghost-border: #E5E7EB;
+  --fs-btn-ghost-hover: #F3F4F6;
+
+  --fs-brand-lime: #C8F031;
+  --fs-brand-lime-dim: #D4F536;
+  --fs-brand-lime-bg: rgba(200, 240, 49, 0.12);
+  --fs-brand-lime-border: rgba(200, 240, 49, 0.35);
+  --fs-brand-lime-text: #111111;
+
+  --fs-badge-bg: rgba(17, 17, 17, 0.05);
+  --fs-badge-border: #E5E7EB;
+  --fs-badge-text: #111111;
+
+  --fs-nav-bg: rgba(255, 255, 255, 0.92);
+  --fs-nav-border: #E5E7EB;
+  --fs-nav-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+
+  --fs-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  --fs-window-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.08);
+
+  --fs-status-green: #16A34A;
+  --fs-status-green-bg: rgba(22, 163, 74, 0.1);
+
+  background-color: var(--fs-bg);
+  color: var(--fs-text-primary);
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ── Dark Mode Token Overrides ────────────────────────────────────────────── */
+.dark .start-landing,
+[data-theme="dark"] .start-landing {
+  --fs-bg: #131418;
+  --fs-card: #1A1C22;
+  --fs-card-subtle: #141519;
+  --fs-card-nested: #242731;
+  --fs-border: #252831;
+  --fs-border-subtle: #1E2027;
+  --fs-text-primary: #F3F4F6;
+  --fs-text-secondary: #8B90A0;
+  --fs-text-muted: #6B7280;
+
+  --fs-btn-primary-bg: #C8F031;
+  --fs-btn-primary-text: #0E0F12;
+  --fs-btn-primary-hover: #D4F536;
+
+  --fs-btn-ghost-bg: #1A1C22;
+  --fs-btn-ghost-text: #F3F4F6;
+  --fs-btn-ghost-border: #252831;
+  --fs-btn-ghost-hover: #242731;
+
+  --fs-brand-lime: #C8F031;
+  --fs-brand-lime-dim: #D4F536;
+  --fs-brand-lime-bg: rgba(200, 240, 49, 0.12);
+  --fs-brand-lime-border: rgba(200, 240, 49, 0.3);
+  --fs-brand-lime-text: #C8F031;
+
+  --fs-badge-bg: rgba(200, 240, 49, 0.1);
+  --fs-badge-border: rgba(200, 240, 49, 0.25);
+  --fs-badge-text: #C8F031;
+
+  --fs-nav-bg: rgba(26, 28, 34, 0.92);
+  --fs-nav-border: #252831;
+  --fs-nav-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  --fs-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --fs-window-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.55);
+
+  --fs-status-green: #C8F031;
+  --fs-status-green-bg: rgba(200, 240, 49, 0.15);
+
+  background-color: var(--fs-bg);
+  color: var(--fs-text-primary);
+}
+
+/* ── Container Utility ─────────────────────────────────────────────────────── */
+.start-landing .fs-container {
+  width: 100%;
+  max-width: 1160px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .start-landing .fs-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* ── Pill Badges ──────────────────────────────────────────────────────────── */
+.start-landing .fs-pill-badge {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fs-badge-text);
+  background-color: var(--fs-badge-bg);
+  border: 1px solid var(--fs-badge-border);
+  padding: 0.25rem 0.85rem;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+}
+
+/* ── Common Buttons ───────────────────────────────────────────────────────── */
+.start-landing .fs-btn-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--fs-btn-primary-bg);
+  color: var(--fs-btn-primary-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.75rem 1.65rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.start-landing .fs-btn-dark:hover {
+  background-color: var(--fs-btn-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.start-landing .fs-btn-dark.sm {
+  padding: 0.5rem 1.15rem;
+  font-size: 0.82rem;
+}
+
+.start-landing .fs-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--fs-btn-ghost-bg);
+  color: var(--fs-btn-ghost-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.75rem 1.65rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  border: 1px solid var(--fs-btn-ghost-border);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.start-landing .fs-btn-ghost:hover {
+  background-color: var(--fs-btn-ghost-hover);
+  border-color: var(--fs-text-primary);
+  transform: translateY(-1px);
+}
+
+.start-landing .fs-btn-ghost.sm {
+  padding: 0.5rem 1.15rem;
+  font-size: 0.82rem;
+}
+
+/* ── Section Headings ──────────────────────────────────────────────────────── */
+.start-landing .fs-section-head {
+  max-width: 660px;
+  margin: 0 auto 3.5rem auto;
+}
+
+.start-landing .fs-section-title {
+  font-family: var(--font-heading, var(--font-sans, sans-serif));
+  font-size: clamp(2rem, 4.5vw, 2.75rem);
+  font-weight: 800;
+  color: var(--fs-text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 0.85rem;
+}
+
+.start-landing .fs-section-sub {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--fs-text-secondary);
+}
+
+/* =============================================================================
+   1. FLOATING NAVIGATION BAR
+   ============================================================================= */
+.start-landing .fs-nav-wrapper {
+  position: sticky;
+  top: 1.25rem;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem;
+}
+
+.start-landing .fs-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  background-color: var(--fs-nav-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--fs-nav-border);
+  border-radius: 9999px;
+  padding: 0.45rem 0.65rem 0.45rem 1.5rem;
+  box-shadow: var(--fs-nav-shadow);
+  max-width: 860px;
+  width: 100%;
+}
+
+.start-landing .fs-nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+}
+
+.start-landing .fs-logo-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background-color: #111111;
+  color: #C8F031;
+  font-weight: 900;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark .start-landing .fs-logo-mark {
+  background-color: #C8F031;
+  color: #0E0F12;
+}
+
+.start-landing .fs-logo-mark.sm {
+  width: 20px;
+  height: 20px;
+  font-size: 0.75rem;
+}
+
+.start-landing .fs-logo-text {
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-nav-links {
+  display: none;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .start-landing .fs-nav-links {
+    display: flex;
+  }
+}
+
+.start-landing .fs-nav-links a {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--fs-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.start-landing .fs-nav-links a:hover {
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+/* =============================================================================
+   2. HERO SECTION & FLOATING DASHBOARD WINDOW
+   ============================================================================= */
+.start-landing .fs-hero-section {
+  padding-top: 3.5rem;
+  padding-bottom: 5rem;
+}
+
+.start-landing .fs-hero-content {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 3.5rem auto;
+}
+
+.start-landing .fs-hero-title {
+  font-family: var(--font-heading, var(--font-sans, sans-serif));
+  font-size: clamp(2.75rem, 6vw, 4.25rem);
+  font-weight: 800;
+  color: var(--fs-text-primary);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  margin-bottom: 1.25rem;
+}
+
+.start-landing .fs-hero-sub {
+  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
+  line-height: 1.6;
+  color: var(--fs-text-secondary);
+  max-width: 640px;
+  margin: 0 auto 2rem auto;
+}
+
+.start-landing .fs-hero-cta-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+/* Floating App Dashboard */
+.start-landing .fs-dashboard-container {
+  max-width: 980px;
+  margin: 0 auto 4.5rem auto;
+  position: relative;
+}
+
+.start-landing .fs-dashboard-window {
+  background-color: var(--fs-card);
+  border-radius: 18px;
+  border: 1px solid var(--fs-border);
+  box-shadow: var(--fs-window-shadow);
+  overflow: hidden;
+}
+
+/* Dashboard Topbar */
+.start-landing .fs-dash-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--fs-border);
+  background-color: var(--fs-card-subtle);
+  gap: 1rem;
+}
+
+.start-landing .fs-dash-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.start-landing .fs-dash-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #C8F031;
+  box-shadow: 0 0 6px #C8F031;
+}
+
+.start-landing .fs-dash-brand-title {
+  color: var(--fs-text-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.start-landing .fs-dash-search {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  color: var(--fs-text-secondary);
+  width: 320px;
+}
+
+@media (min-width: 768px) {
+  .start-landing .fs-dash-search {
+    display: flex;
+  }
+}
+
+.start-landing .fs-dash-user-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.start-landing .fs-dash-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--fs-border);
+  background: var(--fs-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fs-text-secondary);
+  cursor: pointer;
+}
+
+.start-landing .fs-dash-btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: var(--fs-btn-primary-bg);
+  color: var(--fs-btn-primary-text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+}
+
+/* Workspace Layout */
+.start-landing .fs-dash-workspace {
+  display: flex;
+}
+
+.start-landing .fs-dash-sidebar {
+  display: none;
+  width: 150px;
+  border-right: 1px solid var(--fs-border);
+  padding: 1rem 0.75rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  background-color: var(--fs-card-subtle);
+}
+
+@media (min-width: 768px) {
+  .start-landing .fs-dash-sidebar {
+    display: flex;
+  }
+}
+
+.start-landing .fs-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-sidebar-item.active {
+  background-color: var(--fs-card);
+  color: var(--fs-text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.dark .start-landing .fs-sidebar-item.active {
+  background-color: var(--fs-card-nested);
+  color: #C8F031;
+}
+
+.start-landing .fs-dash-main {
+  flex: 1;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Metric Cards */
+.start-landing .fs-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.start-landing .fs-metric-card {
+  background-color: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.start-landing .fs-metric-label {
+  font-size: 0.72rem;
+  color: var(--fs-text-secondary);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.start-landing .fs-metric-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.start-landing .fs-metric-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-metric-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.start-landing .fs-metric-tag.green {
+  background-color: var(--fs-status-green-bg);
+  color: var(--fs-status-green);
+}
+
+.start-landing .fs-metric-tag.lime {
+  background-color: var(--fs-brand-lime-bg);
+  color: var(--fs-brand-lime-text);
+}
+
+.start-landing .fs-metric-tag.live {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+}
+
+.start-landing .fs-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #EF4444;
+  display: inline-block;
+}
+
+/* Audio Banner with Play Button */
+.start-landing .fs-audio-center-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--fs-brand-lime-bg);
+  border: 1px solid var(--fs-brand-lime-border);
+  border-radius: 12px;
+  padding: 0.85rem 1.25rem;
+}
+
+.start-landing .fs-center-play-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #111111;
+  color: #C8F031;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.dark .start-landing .fs-center-play-btn {
+  background-color: #C8F031;
+  color: #0E0F12;
+}
+
+.start-landing .fs-center-play-btn:hover {
+  transform: scale(1.06);
+}
+
+.start-landing .fs-audio-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.start-landing .fs-audio-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-audio-sub {
+  font-size: 0.74rem;
+  color: var(--fs-text-secondary);
+}
+
+/* Table View */
+.start-landing .fs-table-wrap {
+  border: 1px solid var(--fs-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.start-landing .fs-table-header {
+  display: grid;
+  grid-template-columns: 180px 1fr 140px;
+  padding: 0.6rem 1rem;
+  background-color: var(--fs-card-subtle);
+  border-bottom: 1px solid var(--fs-border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--fs-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.start-landing .fs-table-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 140px;
+  padding: 0.75rem 1rem;
+  align-items: center;
+  border-bottom: 1px solid var(--fs-border);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.start-landing .fs-table-row:hover,
+.start-landing .fs-table-row.selected {
+  background-color: var(--fs-card-subtle);
+}
+
+.start-landing .fs-table-domain {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.78rem;
+}
+
+.start-landing .fs-domain-name {
+  color: var(--fs-text-primary);
+  font-weight: 600;
+}
+
+.start-landing .fs-domain-cat {
+  font-size: 0.7rem;
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-table-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-right: 1rem;
+}
+
+.start-landing .fs-table-q {
+  font-size: 0.78rem;
+  color: var(--fs-text-secondary);
+  font-style: italic;
+}
+
+.start-landing .fs-table-a {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 9999px;
+}
+
+.start-landing .fs-status-chip.lime {
+  background-color: var(--fs-brand-lime-bg);
+  color: var(--fs-brand-lime-text);
+}
+
+.start-landing .fs-status-chip.neutral {
+  background-color: var(--fs-card-subtle);
+  color: var(--fs-text-secondary);
+}
+
+/* Trust Bar */
+.start-landing .fs-trust-wrap {
+  text-align: center;
+  margin-top: 4rem;
+}
+
+.start-landing .fs-trust-caption {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--fs-text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.start-landing .fs-trust-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  flex-wrap: wrap;
+}
+
+.start-landing .fs-logo-partner {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fs-text-muted);
+}
+
+/* =============================================================================
+   3. 2-COLUMN ASYMMETRIC SPLIT (ARCHITECTURE CONSOLE)
+   ============================================================================= */
+.start-landing .fs-split-section {
+  padding: 6rem 0;
+}
+
+.start-landing .fs-split-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .start-landing .fs-split-grid {
+    grid-template-columns: 1fr 1.15fr;
+  }
+}
+
+.start-landing .fs-split-title {
+  font-family: var(--font-heading, var(--font-sans, sans-serif));
+  font-size: clamp(2rem, 4vw, 2.85rem);
+  font-weight: 800;
+  color: var(--fs-text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 1.25rem;
+}
+
+.start-landing .fs-split-desc {
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--fs-text-secondary);
+  margin-bottom: 2rem;
+}
+
+.start-landing .fs-split-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+/* Pipeline Architecture Card */
+.start-landing .fs-pipeline-card {
+  background-color: var(--fs-card);
+  color: var(--fs-text-primary);
+  border-radius: 18px;
+  border: 1px solid var(--fs-border);
+  padding: 1.75rem;
+  box-shadow: var(--fs-card-shadow);
+}
+
+.start-landing .fs-pipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--fs-border);
+  margin-bottom: 1.25rem;
+}
+
+.start-landing .fs-pipe-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background-color: var(--fs-brand-lime-bg);
+  color: var(--fs-brand-lime-text);
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+}
+
+.start-landing .fs-pipe-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
+}
+
+.start-landing .fs-stage-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+
+.start-landing .fs-stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--fs-text-muted);
+}
+
+.start-landing .fs-stage-dot.active {
+  background-color: #C8F031;
+  box-shadow: 0 0 8px #C8F031;
+}
+
+.start-landing .fs-stage-info {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.start-landing .fs-stage-name {
+  color: var(--fs-text-primary);
+  font-weight: 500;
+}
+
+.start-landing .fs-stage-latency {
+  font-family: var(--font-mono, monospace);
+  color: var(--fs-status-green);
+  font-weight: 700;
+}
+
+.start-landing .fs-pipe-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.start-landing .fs-pipe-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--fs-text-primary);
+  font-weight: 500;
+}
+
+/* =============================================================================
+   4. "WHY ORA? BUILT TO FIX THAT" (ACOUSTIC CORE & NEURAL ORB VISUALIZER)
+   ============================================================================= */
+.start-landing .fs-why-section {
+  padding: 6rem 0;
+}
+
+.start-landing .fs-why-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: stretch;
+}
+
+@media (min-width: 1024px) {
+  .start-landing .fs-why-grid {
+    grid-template-columns: 1fr 1.2fr;
+  }
+}
+
+/* Left: ORA Signature Voice Visualizer Card */
+.start-landing .fs-ora-visual-card {
+  background-color: var(--fs-card);
+  color: var(--fs-text-primary);
+  border-radius: 20px;
+  border: 1px solid var(--fs-border);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--fs-card-shadow);
+}
+
+.start-landing .fs-ora-vis-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--fs-border);
+}
+
+.start-landing .fs-vis-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #C8F031;
+  box-shadow: 0 0 8px #C8F031;
+}
+
+.start-landing .fs-vis-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--fs-brand-lime-text);
+  background-color: var(--fs-brand-lime-bg);
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+}
+
+/* ORA Neural Orb & Soundwave Stage */
+.start-landing .fs-ora-orb-stage {
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  border-radius: 14px;
+  padding: 1.5rem 1rem;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.start-landing .fs-ora-orb-core-wrap {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.start-landing .fs-ora-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(200, 240, 49, 0.35);
+  animation: fs-orb-ring-spin 8s linear infinite;
+}
+
+.start-landing .fs-ora-ring.ring-1 {
+  width: 70px;
+  height: 70px;
+}
+
+.start-landing .fs-ora-ring.ring-2 {
+  width: 90px;
+  height: 90px;
+  border-style: dashed;
+  animation-direction: reverse;
+  animation-duration: 12s;
+  border-color: rgba(200, 240, 49, 0.25);
+}
+
+.start-landing .fs-ora-ring.ring-3 {
+  width: 110px;
+  height: 110px;
+  border-color: rgba(200, 240, 49, 0.15);
+  animation-duration: 16s;
+}
+
+@keyframes fs-orb-ring-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.start-landing .fs-ora-orb-sphere {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #D4F536 0%, #C8F031 60%, #9BC416 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 0 24px rgba(200, 240, 49, 0.45);
+}
+
+.start-landing .fs-ora-orb-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: rgba(200, 240, 49, 0.25);
+  filter: blur(8px);
+  z-index: 0;
+  animation: fs-orb-pulse 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes fs-orb-pulse {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+/* Frequency Bars */
+.start-landing .fs-spectrum-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 34px;
+  width: 100%;
+}
+
+.start-landing .fs-spec-bar {
+  width: 4px;
+  background-color: #C8F031;
+  border-radius: 2px;
+  transition: height 0.15s ease;
+  box-shadow: 0 0 3px rgba(200, 240, 49, 0.5);
+}
+
+.start-landing .fs-spectrum-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--fs-text-secondary);
+}
+
+/* Scenario Tabs */
+.start-landing .fs-scenario-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.start-landing .fs-scenario-tab {
+  flex: 1;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  color: var(--fs-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.start-landing .fs-scenario-tab.active {
+  background-color: var(--fs-btn-primary-bg);
+  color: var(--fs-btn-primary-text);
+  border-color: transparent;
+}
+
+/* Speech Dialogue */
+.start-landing .fs-vis-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+}
+
+.start-landing .fs-vis-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.start-landing .fs-vis-speaker {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-vis-speaker.agent {
+  color: var(--fs-status-green);
+  font-weight: 600;
+}
+
+.start-landing .fs-vis-ground-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--fs-brand-lime-text);
+  background-color: var(--fs-brand-lime-bg);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.start-landing .fs-vis-text {
+  font-size: 0.84rem;
+  color: var(--fs-text-primary);
+  line-height: 1.45;
+}
+
+.start-landing .fs-vis-text.agent {
+  font-weight: 500;
+}
+
+.start-landing .fs-vis-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  color: var(--fs-text-secondary);
+  padding-top: 0.75rem;
+}
+
+/* Right: 2x2 Clean Dashboard Feature Cards */
+.start-landing .fs-why-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .start-landing .fs-why-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.start-landing .fs-clean-card {
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--fs-border);
+  background-color: var(--fs-card);
+  box-shadow: var(--fs-card-shadow);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.start-landing .fs-clean-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--fs-text-primary);
+}
+
+.start-landing .fs-clean-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background-color: var(--fs-card-subtle);
+  color: var(--fs-text-primary);
+}
+
+.dark .start-landing .fs-clean-icon-wrap {
+  color: #C8F031;
+}
+
+.start-landing .fs-card-kicker {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--fs-text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.start-landing .fs-card-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--fs-text-primary);
+  line-height: 1.4;
+  margin-bottom: 0.4rem;
+}
+
+.start-landing .fs-card-desc {
+  font-size: 0.82rem;
+  color: var(--fs-text-secondary);
+  line-height: 1.5;
+}
+
+/* =============================================================================
+   5. "AUTOMATE IN 3 STEPS!" BANNER CARD
+   ============================================================================= */
+.start-landing .fs-steps-section {
+  padding: 4rem 0;
+}
+
+.start-landing .fs-steps-banner {
+  background-color: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  border-radius: 24px;
+  padding: clamp(2rem, 5vw, 3.5rem);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  align-items: center;
+  box-shadow: var(--fs-card-shadow);
+}
+
+@media (min-width: 1024px) {
+  .start-landing .fs-steps-banner {
+    grid-template-columns: 1fr 1.15fr;
+  }
+}
+
+.start-landing .fs-steps-title {
+  font-family: var(--font-heading, var(--font-sans, sans-serif));
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--fs-text-primary);
+  margin-bottom: 1rem;
+}
+
+.start-landing .fs-steps-desc {
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--fs-text-secondary);
+  margin-bottom: 2rem;
+}
+
+.start-landing .fs-steps-actions {
+  display: flex;
+  gap: 0.85rem;
+}
+
+.start-landing .fs-steps-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.start-landing .fs-step-card {
+  background-color: var(--fs-card-subtle);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--fs-border);
+}
+
+.start-landing .fs-step-tag {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background-color: var(--fs-border);
+  color: var(--fs-text-primary);
+  margin-bottom: 0.35rem;
+}
+
+.start-landing .fs-step-tag.lime {
+  background-color: var(--fs-brand-lime-bg);
+  color: var(--fs-brand-lime-text);
+}
+
+.start-landing .fs-step-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fs-text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.start-landing .fs-step-body {
+  font-size: 0.82rem;
+  color: var(--fs-text-secondary);
+  line-height: 1.5;
+}
+
+/* =============================================================================
+   6. "FEATURES THAT SET US APART" 6-CARD GRID
+   ============================================================================= */
+.start-landing .fs-features-section {
+  padding: 6rem 0;
+}
+
+.start-landing .fs-features-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.start-landing .fs-features-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .start-landing .fs-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .start-landing .fs-features-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.start-landing .fs-feature-card {
+  background-color: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  border-radius: 18px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--fs-card-shadow);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.start-landing .fs-feature-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--fs-text-primary);
+}
+
+.start-landing .fs-feat-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--fs-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.start-landing .fs-feat-desc {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--fs-text-secondary);
+  margin-bottom: 1.25rem;
+}
+
+.start-landing .fs-feat-link-row {
+  margin-bottom: 1.5rem;
+}
+
+.start-landing .fs-feat-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fs-text-primary);
+  cursor: pointer;
+}
+
+.start-landing .fs-feat-mock-container {
+  margin-top: auto;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+/* Mini Mockup Visuals */
+.start-landing .fs-card-mock-wire {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.start-landing .fs-wire-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.start-landing .fs-wire-pill {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background-color: var(--fs-border);
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-wire-pill.active {
+  background-color: var(--fs-brand-lime-bg);
+  color: var(--fs-brand-lime-text);
+}
+
+.start-landing .fs-wire-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.start-landing .fs-wire-bar {
+  height: 5px;
+  border-radius: 2px;
+  background-color: var(--fs-border);
+}
+
+.start-landing .fs-wire-bar.active {
+  background-color: #C8F031;
+}
+
+.start-landing .fs-wire-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.start-landing .fs-wire-chart-line {
+  height: 18px;
+  background: linear-gradient(90deg, var(--fs-border) 0%, #C8F031 100%);
+  border-radius: 4px;
+  margin-top: 0.35rem;
+}
+
+.start-landing .fs-wire-chip {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background-color: var(--fs-border);
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-wire-chip.active {
+  background-color: var(--fs-brand-lime-bg);
+  color: var(--fs-brand-lime-text);
+  font-weight: 600;
+}
+
+.start-landing .fs-wire-subtext {
+  font-size: 0.7rem;
+  color: var(--fs-text-secondary);
+  margin-top: 0.25rem;
+}
+
+.start-landing .fs-wire-action-btn {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--fs-btn-primary-text);
+  background-color: var(--fs-btn-primary-bg);
+  padding: 0.35rem;
+  border-radius: 4px;
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+.start-landing .fs-wire-progress-track {
+  width: 100%;
+  height: 6px;
+  background-color: var(--fs-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 0.4rem;
+}
+
+.start-landing .fs-wire-progress-fill {
+  height: 100%;
+  background-color: #C8F031;
+  border-radius: 9999px;
+}
+
+/* =============================================================================
+   7. "CONNECT, AUTOMATE, AND SCALE" INTEGRATION SECTION
+   ============================================================================= */
+.start-landing .fs-integration-section {
+  padding: 6rem 0;
+}
+
+.start-landing .fs-integration-hub-box {
+  background-color: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  border-radius: 24px;
+  padding: clamp(2rem, 5vw, 4rem) 1.5rem;
+  box-shadow: var(--fs-card-shadow);
+}
+
+.start-landing .fs-nodes-constellation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1rem, 3vw, 2.5rem);
+  flex-wrap: wrap;
+  margin-bottom: 3.5rem;
+}
+
+.start-landing .fs-node-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-central-node {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background-color: var(--fs-card-subtle);
+  border: 2px solid #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark .start-landing .fs-central-node {
+  border-color: #C8F031;
+  box-shadow: 0 0 20px rgba(200, 240, 49, 0.25);
+}
+
+.start-landing .fs-central-core {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark .start-landing .fs-central-core {
+  background-color: #C8F031;
+}
+
+.start-landing .fs-core-letter {
+  color: #C8F031;
+  font-weight: 900;
+  font-size: 1.3rem;
+}
+
+.dark .start-landing .fs-core-letter {
+  color: #0E0F12;
+}
+
+/* Hub Quote Card */
+.start-landing .fs-hub-quote-card {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+  background-color: var(--fs-card-subtle);
+  border: 1px solid var(--fs-border);
+  border-radius: 16px;
+  padding: 1.75rem;
+}
+
+.start-landing .fs-hub-quote-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--fs-text-primary);
+  font-style: italic;
+  margin-bottom: 1.25rem;
+}
+
+.start-landing .fs-hub-author {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.start-landing .fs-hub-author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #111111;
+  color: #FFFFFF;
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark .start-landing .fs-hub-author-avatar {
+  background-color: #C8F031;
+  color: #0E0F12;
+}
+
+.start-landing .fs-hub-author-info {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.78rem;
+}
+
+.start-landing .fs-hub-author-info strong {
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-hub-author-info span {
+  color: var(--fs-text-secondary);
+}
+
+/* =============================================================================
+   8. "FLEXIBLE PLANS FOR EVERY BUSINESS" PRICING SECTION
+   ============================================================================= */
+.start-landing .fs-pricing-section {
+  padding: 6rem 0;
+}
+
+.start-landing .fs-pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .start-landing .fs-pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.start-landing .fs-price-card {
+  background-color: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  border-radius: 20px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--fs-card-shadow);
+  transition: transform 0.15s ease;
+}
+
+.start-landing .fs-price-card:hover {
+  transform: translateY(-2px);
+}
+
+.start-landing .fs-price-card.featured {
+  border: 2px solid #111111;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+}
+
+.dark .start-landing .fs-price-card.featured {
+  border: 2px solid #C8F031;
+  box-shadow: 0 16px 36px rgba(200, 240, 49, 0.2);
+}
+
+.start-landing .fs-plan-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fs-text-primary);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.start-landing .fs-plan-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.start-landing .fs-plan-price {
+  font-family: var(--font-heading, var(--font-sans, sans-serif));
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-plan-period {
+  font-size: 0.85rem;
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-plan-target {
+  font-size: 0.78rem;
+  color: var(--fs-text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.start-landing .fs-price-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 2rem;
+}
+
+.start-landing .fs-price-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--fs-text-primary);
+  line-height: 1.45;
+}
+
+.start-landing .fs-check-icon {
+  color: var(--fs-status-green);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+/* =============================================================================
+   9. CLOSING CTA BANNER
+   ============================================================================= */
+.start-landing .fs-cta-section {
+  padding: 4rem 0 6rem 0;
+}
+
+.start-landing .fs-cta-card {
+  background-color: #111111;
+  color: #FAFAFA;
+  border-radius: 24px;
+  padding: clamp(3rem, 6vw, 4.5rem) 2rem;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .start-landing .fs-cta-card {
+  background-color: #1A1C22;
+  border-color: #252831;
+}
+
+.start-landing .fs-cta-headline {
+  font-family: var(--font-heading, var(--font-sans, sans-serif));
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #FAFAFA;
+  line-height: 1.15;
+  margin-bottom: 2rem;
+}
+
+.start-landing .fs-cta-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.start-landing .fs-cta-btn-lime {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #C8F031;
+  color: #0E0F12;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.85rem 1.85rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 16px rgba(200, 240, 49, 0.3);
+}
+
+.start-landing .fs-cta-btn-lime:hover {
+  background-color: #D4F536;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(200, 240, 49, 0.45);
+}
+
+.start-landing .fs-cta-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #FAFAFA;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.85rem 1.85rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.15s ease;
+}
+
+.start-landing .fs-cta-btn-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+/* =============================================================================
+   10. SAAS FOOTER
+   ============================================================================= */
+.start-landing .fs-footer {
+  background-color: var(--fs-card);
+  border-top: 1px solid var(--fs-border);
+  padding-top: 4.5rem;
+  padding-bottom: 2.5rem;
+}
+
+.start-landing .fs-footer-grid {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(4, 1fr);
+  gap: 2.5rem;
+  margin-bottom: 3.5rem;
+}
+
+@media (max-width: 1024px) {
+  .start-landing .fs-footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .start-landing .fs-footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.start-landing .fs-col-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--fs-text-primary);
+  margin-bottom: 1rem;
+}
+
+.start-landing .fs-footer-about-text {
+  font-size: 0.82rem;
+  color: var(--fs-text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+}
+
+.start-landing .fs-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.start-landing .fs-footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.start-landing .fs-footer-links a {
+  font-size: 0.82rem;
+  color: var(--fs-text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.start-landing .fs-footer-links a:hover {
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-footer-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--fs-text-secondary);
+}
+
+.start-landing .fs-footer-sub-note {
+  font-size: 0.8rem;
+  color: var(--fs-text-secondary);
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.start-landing .fs-footer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.start-landing .fs-footer-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--fs-border);
+  border-radius: 6px;
+  background-color: var(--fs-card-subtle);
+  color: var(--fs-text-primary);
+}
+
+.start-landing .fs-footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2rem;
+  border-top: 1px solid var(--fs-border);
+  font-size: 0.78rem;
+  color: var(--fs-text-muted);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.start-landing .fs-footer-bottom a {
+  color: var(--fs-text-muted);
+  text-decoration: none;
+}
+
+.start-landing .fs-footer-bottom a:hover {
+  color: var(--fs-text-primary);
+}

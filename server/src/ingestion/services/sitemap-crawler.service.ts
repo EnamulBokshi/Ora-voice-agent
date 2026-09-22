@@ -337,17 +337,21 @@ export class SitemapCrawlerService {
   ): Promise<number> {
     if (urls.length === 0) return 0;
 
-    await this.htmlCrawlQueue.addBulk(
-      urls.map((discovered) => ({
-        name: 'crawl-url',
-        data: { businessId, domain, platform, discovered },
-        opts: {
-          removeOnComplete: 1000,
-          removeOnFail: 500,
-        },
-      })),
-    );
-
-    return urls.length;
+    try {
+      await this.htmlCrawlQueue.addBulk(
+        urls.map((discovered) => ({
+          name: 'crawl-url',
+          data: { businessId, domain, platform, discovered },
+          opts: {
+            removeOnComplete: 1000,
+            removeOnFail: 500,
+          },
+        })),
+      );
+      return urls.length;
+    } catch (err: any) {
+      this.logger.error(`[SitemapCrawlerService] Failed to queue background crawl jobs: ${err.message}`);
+      return 0;
+    }
   }
 }

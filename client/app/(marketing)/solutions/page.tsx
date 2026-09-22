@@ -4,24 +4,24 @@ import { MarketingNavbar } from '@/components/marketing/navbar';
 import { MarketingFooter } from '@/components/marketing/footer';
 
 export const metadata: Metadata = {
-  title: 'E-Commerce Solutions & Storefront Integrations | ORA Voice AI',
+  title: 'Profiles & Integrations | ORA Voice AI',
   description:
-    'Explore ORA integrations for Shopify, WooCommerce, Headless Custom APIs, Enterprise, and regional South Asia bKash tokenized checkout. Automate sales conversations 24/7.',
+    'One agent, seven business profiles. Embed ORA on any website, with catalogue connectors for Shopify and WooCommerce and bKash billing for Bangladesh.',
   keywords: [
-    'Shopify voice sales assistant',
-    'WooCommerce cart recovery bot',
-    'conversational commerce API',
-    'headless voice commerce',
-    'bKash subscription & billing',
-    'multimodal AI sales agent',
-    'ORA solutions',
+    'voice AI for clinics',
+    'voice AI for agencies',
+    'website voice agent',
+    'Shopify voice assistant',
+    'WooCommerce voice AI',
+    'bKash subscription billing',
+    'ORA profiles',
   ],
   alternates: {
     canonical: 'https://tryora.live/solutions',
   },
   openGraph: {
-    title: 'E-Commerce Solutions & Integrations | ORA Voice AI',
-    description: 'Turn every shopper visit into revenue on Shopify, WooCommerce, and custom storefronts.',
+    title: 'Profiles & Integrations | ORA Voice AI',
+    description: 'One agent, seven business profiles. Embed it on any site with a single script tag.',
     url: 'https://tryora.live/solutions',
     type: 'website',
   },
@@ -30,11 +30,11 @@ export const metadata: Metadata = {
 const solutions = [
   {
     id: 'shopify',
-    badge: 'E-Commerce Leader',
+    badge: 'Shops',
     title: 'Shopify Storefront Integration',
-    subtitle: 'Full product sync, 1-click discount application, and abandoned cart voice recovery.',
-    stats: '+34% CVR',
-    statsLabel: 'Average conversion lift across 120+ Shopify merchants',
+    subtitle: 'Full product sync, discount application, and voice answers about stock and sizing.',
+    stats: 'Catalogue',
+    statsLabel: 'Products, variants and stock synced into the agent automatically',
     features: [
       'Zero-code theme app embed: deploy the ORA voice orb in under 3 minutes',
       'Real-time inventory & stock status sync via Shopify Storefront Webhooks',
@@ -62,11 +62,11 @@ const solutions = [
   },
   {
     id: 'custom-api',
-    badge: 'Headless Commerce',
+    badge: 'Custom builds',
     title: 'Custom API & Headless Frameworks',
     subtitle: 'Next.js, Remix, Hydrogen, Nuxt, and custom mobile apps powered by WebSocket streaming.',
-    stats: '<250ms',
-    statsLabel: 'Ultra-low voice latency over bidirectional WebSockets',
+    stats: 'Streaming',
+    statsLabel: 'Bidirectional WebSocket audio with interruption in both directions',
     features: [
       'Publishable widget keys (biz_live_xxxx) with granular domain-level origin whitelisting',
       'Event-driven webhook bridge for cart updates, order creation, and live inventory changes',
@@ -78,14 +78,14 @@ const solutions = [
   },
   {
     id: 'enterprise',
-    badge: 'High-Scale Retailers',
+    badge: 'Larger teams',
     title: 'Enterprise Brand Intelligence',
-    subtitle: 'Custom voice personas, dedicated private LLM fine-tuning, and SLA guarantees.',
-    stats: '99.9%',
-    statsLabel: 'Dedicated infrastructure uptime and 24/7 priority engineering support',
+    subtitle: 'Custom voice personas and priority support for larger teams.',
+    stats: 'Dedicated',
+    statsLabel: 'Custom voice personas and priority support on the Scale plan',
     features: [
       'Bespoke synthetic voice trained on your brand ambassadors tone and vocabulary',
-      'Custom LLM guardrails tuned to prevent hallucination across 100,000+ catalog items',
+      'Retrieval restricted to your own material, so the agent cannot invent an answer',
       'Enterprise role-based access control (RBAC), audit logging, and automated compliance',
       'Dedicated account manager and custom integration engineering team',
     ],
@@ -127,7 +127,7 @@ export default function SolutionsPage() {
               className="lp-display lp-text-gradient"
               style={{ fontSize: 'clamp(2.25rem, 5vw, 3.75rem)', marginBottom: '1.25rem', lineHeight: 1.15 }}
             >
-              The sales brain that adapts to your store
+              One agent that adapts to your work
             </h1>
             <p style={{ fontSize: '1.125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.7 }}>
               Whether you run a fast-growing Shopify boutique, a high-volume WooCommerce store, a headless custom platform, or an emerging market storefront with bKash, ORA deploys in minutes.
@@ -225,7 +225,7 @@ export default function SolutionsPage() {
                     }}
                   >
                     <div className="lp-mono" style={{ fontSize: '0.8125rem', color: 'var(--lp-primary-dim)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Impact Metric
+                      What you get
                     </div>
                     <div className="lp-display" style={{ fontSize: 'clamp(3rem, 6vw, 4.5rem)', color: 'var(--lp-primary-dim)', lineHeight: 1, marginBottom: '1rem' }}>
                       {sol.stats}
@@ -245,10 +245,10 @@ export default function SolutionsPage() {
                       }}
                     >
                       <span className="lp-mono" style={{ fontSize: '0.75rem', color: 'var(--lp-text-on-dark-dim)' }}>
-                        Target Latency
+                        Streaming
                       </span>
                       <span className="lp-mono" style={{ fontSize: '0.75rem', color: 'var(--lp-primary-dim)', fontWeight: 700 }}>
-                        &lt; 350ms
+                        Two-way
                       </span>
                     </div>
                   </div>
@@ -269,7 +269,7 @@ export default function SolutionsPage() {
             }}
           >
             <h2 className="lp-headline" style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>
-              Ready to automate sales on your storefront?
+              Ready to put it on your site?
             </h2>
             <p style={{ fontSize: '1rem', color: 'var(--lp-text-secondary)', maxWidth: '32rem', margin: '0 auto 1.75rem' }}>
               Start your free tier today with 1-click catalog sync and zero credit card required.
