@@ -280,3 +280,37 @@ export async function updateMerchantCustomLimits(
 
 
 
+
+// --- Coupons ---
+
+export async function fetchAdminCoupons(): Promise<any[]> {
+  return apiClient<any[]>('/admin/coupons', {
+    method: 'GET',
+  });
+}
+
+export async function createAdminCoupon(data: any): Promise<any> {
+  return apiClient<any>('/admin/coupons', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAdminCoupon(id: string, data: any): Promise<any> {
+  return apiClient<any>(`/admin/coupons/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deactivateAdminCoupon(id: string): Promise<any> {
+  return apiClient<any>(`/admin/coupons/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function fetchAdminCouponRedemptions(id: string): Promise<any[]> {
+  return apiClient<any[]>(`/admin/coupons/${id}/redemptions`, {
+    method: 'GET',
+  });
+}

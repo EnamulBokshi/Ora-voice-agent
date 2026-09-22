@@ -674,6 +674,31 @@ export function FloatingOrbWidget() {
             );
             return;
           }
+          if (action?.type === 'apply_coupon' && action.couponCode) {
+            // The agent only carries the code across; the checkout page revalidates it
+            // against the server and shows the real total. Parking it in localStorage
+            // means a visitor who still has to sign up keeps their code.
+            const code = String(action.couponCode).toUpperCase();
+            try {
+              window.localStorage.setItem('ora.pendingCoupon', code);
+            } catch {}
+
+            const planId = action.planId ? String(action.planId) : '';
+            const dest = `/billing/checkout?${planId ? `planId=${encodeURIComponent(planId)}&` : ''}coupon=${encodeURIComponent(code)}`;
+
+            if (window.location.pathname === '/billing/checkout') {
+              // Already on the form: let the page pick the code up without a reload.
+              document.dispatchEvent(
+                new CustomEvent('ora:coupon:apply', { detail: { couponCode: code } }),
+              );
+            } else {
+              try {
+                router.prefetch(dest);
+              } catch {}
+              router.push(dest);
+            }
+            return;
+          }
           if (action?.type === 'confirm_details' && action.data) {
             const data = action.data;
             setCustomerDetails((prev) => ({ ...prev, ...data }));

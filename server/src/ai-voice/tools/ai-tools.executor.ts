@@ -12,6 +12,8 @@ import { OrderSource } from '../../orders/schemas/order.schema';
 import { AgentConfigService } from '../../agent-config/agent-config.service';
 import { CustomersService } from '../../customers/customers.service';
 import { BillingService } from '../../billing/billing.service';
+import { CouponService } from '../../billing/services/coupon.service';
+import { BillingProvider } from '../../billing/schemas/subscription.schema';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 
 import { InjectModel } from '@nestjs/mongoose';
@@ -131,6 +133,8 @@ export class AiToolsExecutor {
     @Optional()
     private readonly billingService?: BillingService,
     @Optional()
+    private readonly couponService?: CouponService,
+    @Optional()
     private readonly configService?: ConfigService,
     @Optional()
     @InjectModel(Business.name)
@@ -172,6 +176,10 @@ export class AiToolsExecutor {
         case 'get_pricing_plans':
         case 'get_plans':
           return await this.handleGetPricingPlans(businessId, args);
+        case 'apply_coupon':
+        case 'apply_discount':
+        case 'apply_promo_code':
+          return await this.handleApplyCoupon(businessId, sessionId, args);
         case 'navigate_to_page':
         case 'navigate':
           return await this.handleNavigateToPage(businessId, sessionId, args);
@@ -1609,6 +1617,125 @@ export class AiToolsExecutor {
     } catch (err: any) {
       return { success: false, message: 'Could not retrieve customer details.' };
     }
+  }
+
+  /**
+   * Hands a coupon code the visitor already has to the checkout form.
+   *
+   * The agent may only pass a code along. It cannot create one, and it does not decide
+   * what the code is worth: CouponService prices it from the stored record, and the
+   * checkout page revalidates before a single cent is charged. A code that does not
+   * resolve comes back as a refusal carrying the sentence to say, so the model cannot
+   * announce a discount that will not appear.
+   */
+  private async handleApplyCoupon(
+    businessId: string,
+    sessionId: string,
+    args: Record<string, any>,
+  ) {
+    const isPlatform = await this.isPlatformTenant(businessId);
+    if (!isPlatform) {
+      return {
+        success: false,
+        message:
+          'Coupon codes apply to ORA subscriptions, not to this store. Ask the customer to use the store’s own discount field at checkout.',
+      };
+    }
+
+    if (!this.couponService) {
+      return {
+        success: false,
+        message: 'Coupon lookup is unavailable right now. Ask the visitor to enter the code on the checkout page.',
+      };
+    }
+
+    // Spoken codes arrive with spaces, stray punctuation and mixed case. Anything
+    // outside the allowed alphabet is dropped rather than sent on to a lookup.
+    const rawCode = String(args?.couponCode ?? args?.code ?? '');
+    const code = rawCode
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, '')
+      .slice(0, 50);
+
+    if (!code) {
+      return {
+        success: false,
+        message: 'No usable coupon code was heard. Ask the visitor to spell the code out.',
+      };
+    }
+
+    // A spoken code is cheap to guess, so a session gets a small budget of misses.
+    const attemptsKey = `coupon:attempts:${sessionId}`;
+    let attempts = 0;
+    try {
+      attempts = Number(await this.redisService.getClient().get(attemptsKey)) || 0;
+    } catch {}
+
+    if (attempts >= 5) {
+      return {
+        success: false,
+        error: 'COUPON_ATTEMPTS_EXCEEDED',
+        message:
+          'Too many coupon codes have been tried in this conversation. Tell the visitor to enter the code on the checkout page instead.',
+      };
+    }
+
+    const planId = String(args?.planId ?? args?.plan ?? 'growth').toLowerCase();
+
+    let quote;
+    try {
+      const coupon = await this.couponService.previewPublic(code, planId);
+      const plan = this.billingService
+        ? (await this.billingService.getPlans()).find((p: any) => p.planId === planId)
+        : null;
+
+      if (!plan) {
+        return {
+          success: false,
+          message: `There is no ${planId} plan to apply a coupon to. Ask which plan the visitor wants first.`,
+        };
+      }
+
+      quote = this.couponService.quote(plan as any, coupon, BillingProvider.STRIPE);
+    } catch (err: any) {
+      try {
+        const redis = this.redisService.getClient();
+        await redis.set(attemptsKey, String(attempts + 1), 'EX', 60 * 60);
+      } catch {}
+
+      return {
+        success: false,
+        error: err?.code || 'COUPON_INVALID',
+        message: `The code ${code} was not accepted: ${err?.message || 'it is not valid.'} Tell the visitor plainly that it did not work. Do not say a discount was applied.`,
+      };
+    }
+
+    await this.eventsService
+      .logEvent(businessId, EventType.COUPON_CODE_OFFERED, {
+        sessionId,
+        code,
+        planId,
+      })
+      .catch(() => undefined);
+
+    const discountLabel = `$${(quote.discountMinor / 100).toFixed(2)}`;
+    const dueLabel = `$${(quote.amountAfterMinor / 100).toFixed(2)}`;
+
+    return {
+      success: true,
+      couponCode: code,
+      planId,
+      discountUsd: quote.discountMinor / 100,
+      amountDueUsd: quote.amountAfterMinor / 100,
+      message: `${code} is valid on the ${planId} plan: ${discountLabel} off, ${dueLabel} due at checkout. Say that you are putting the code into the checkout form now, and that the final amount is confirmed on that page.`,
+      // The browser fills the checkout field; the page then revalidates the code
+      // against the server before anything is charged.
+      action: {
+        type: 'apply_coupon',
+        couponCode: code,
+        planId,
+      },
+    };
   }
 
   private async handleGetPricingPlans(businessId: string, args: Record<string, any>) {

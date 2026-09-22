@@ -4,6 +4,7 @@ import {
   SubscriptionDetailsResponse,
   SubscribePayload,
   SubscribeResponseData,
+  CouponQuote,
 } from '@/types/billing';
 
 export async function getBillingPlansApi(): Promise<Plan[]> {
@@ -42,6 +43,7 @@ export async function subscribePlanApi(
   const body = {
     planId: payload.planId,
     billingProvider: payload.billingProvider || payload.provider || 'stripe',
+    ...(payload.couponCode ? { couponCode: payload.couponCode } : {}),
   };
   return apiClient<SubscribeResponseData>('/billing/subscribe', {
     method: 'POST',
@@ -95,3 +97,28 @@ export async function subscribeShopifyBillingApi(
   });
 }
 
+
+export interface PaymentMethodOption {
+  provider: 'stripe' | 'bkash';
+  label: string;
+  currency: 'USD' | 'BDT';
+  available: boolean;
+}
+
+export async function getPaymentMethodsApi(): Promise<PaymentMethodOption[]> {
+  return apiClient<PaymentMethodOption[]>('/billing/payment-methods', {
+    method: 'GET',
+  });
+}
+
+/** Prices a coupon for the signed-in tenant. The amounts come from the server. */
+export async function validateCouponApi(payload: {
+  code: string;
+  planId: string;
+  billingProvider?: 'stripe' | 'bkash';
+}): Promise<CouponQuote> {
+  return apiClient<CouponQuote>('/billing/coupons/validate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

@@ -129,16 +129,16 @@ export function AdminPlansView() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar bg-background text-foreground">
-      <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <AdminHeader
-          title="Plans & Universal Quotas"
-          description="Configure platform subscription tiers, monthly voice AI minutes, document ingestion limits, and Scale merchant custom limits."
-          onRefresh={() => loadPlans(true)}
-          isRefreshing={refreshing}
-        />
+    <div className="flex flex-col min-h-full">
+      {/* Header sits edge to edge above the content, as on every other admin page. */}
+      <AdminHeader
+        title="Plans & Universal Quotas"
+        description="Configure platform subscription tiers, monthly voice AI minutes, document ingestion limits, and Scale merchant custom limits."
+        onRefresh={() => loadPlans(true)}
+        isRefreshing={refreshing}
+      />
 
+      <div className="flex-1 p-4 sm:p-6 space-y-6">
         {/* Telemetry Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <PlatformStatCard
@@ -170,7 +170,7 @@ export function AdminPlansView() {
         {/* Available Plans Grid */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold font-serif text-foreground">
+            <h2 className="text-sm font-bold font-heading text-foreground">
               Configured Subscription Tiers
             </h2>
             <span className="text-xs font-mono text-muted-foreground">
@@ -214,7 +214,7 @@ export function AdminPlansView() {
                         </div>
                       </div>
 
-                      <h3 className="text-lg font-serif font-bold text-foreground mb-1">
+                      <h3 className="text-lg font-heading font-bold text-foreground mb-1">
                         {plan.name}
                       </h3>
 
@@ -298,7 +298,7 @@ export function AdminPlansView() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Sliders size={18} className="text-primary" />
-                <h3 className="text-base font-semibold font-serif text-foreground">
+                <h3 className="text-base font-bold font-heading text-foreground">
                   Scale Plan Custom Quota Provisioning
                 </h3>
               </div>
@@ -411,7 +411,7 @@ export function AdminPlansView() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs">
             <div className="rounded-2xl border border-border bg-surface-container p-6 w-full max-w-lg shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-border/50">
-                <h3 className="text-base font-serif font-bold text-foreground">
+                <h3 className="text-base font-heading font-bold text-foreground">
                   Edit Plan: {editingPlan.name}
                 </h3>
                 <button

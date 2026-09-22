@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Check, AlertCircle, CreditCard, Clock } from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
-import { cancelSubscriptionApi, subscribePlanApi } from '@/services/billing-service';
+import { cancelSubscriptionApi } from '@/services/billing-service';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +14,7 @@ interface CurrentPlanCardProps {
 }
 
 export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps) {
+  const router = useRouter();
   const [cancelling, setCancelling] = useState(false);
   const [activating, setActivating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -31,27 +33,12 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
   const daysRemaining = subscription.trialDaysRemaining ?? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
   const hoursRemaining = subscription.trialHoursRemaining ?? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
 
-  const handlePayAndActivate = async () => {
+  // Payment starts on the checkout page, which is where a gateway is chosen.
+  const handlePayAndActivate = () => {
     if (!plan) return;
     setActivating(true);
     setActionError(null);
-    try {
-      const provider = sub?.billingProvider === 'bkash' ? 'bkash' : 'stripe';
-      const result = await subscribePlanApi({ planId: plan.planId, provider });
-      if (result.requiresRedirect && result.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-      if (result.requiresRedirect && result.bkashURL) {
-        window.location.href = result.bkashURL;
-        return;
-      }
-      onReload();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not initiate checkout.');
-    } finally {
-      setActivating(false);
-    }
+    router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
   };
 
   const handleCancel = async () => {

@@ -42,6 +42,9 @@ export interface LiveClientOptions {
     variantId?: string;
     quantity?: number;
     product?: { id?: string; name?: string; price?: number; image?: string | null };
+    /** Coupon code the agent is passing to the checkout form. */
+    couponCode?: string;
+    planId?: string;
   }) => void;
   onError?: (errMessage: string) => void;
 }

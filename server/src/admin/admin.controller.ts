@@ -22,6 +22,8 @@ import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 import { UpdateSessionLimitDto } from './dto/update-session-limit.dto';
 import { BillingService } from '../billing/billing.service';
+import { CouponService } from '../billing/services/coupon.service';
+import { CreateCouponDto, UpdateCouponDto } from '../billing/dto/coupon.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,6 +32,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly billingService: BillingService,
+    private readonly couponService: CouponService,
   ) {}
 
   @Get('stats')
@@ -183,6 +186,36 @@ export class AdminController {
   @Delete('plans/:planId')
   async deletePlan(@Param('planId') planId: string) {
     return this.billingService.deletePlanAdmin(planId);
+  }
+
+  // --- Coupons ---
+  //
+  // Creation lives behind the platform-admin guard on this controller. Merchants
+  // only ever see /billing/coupons/validate, which prices a code they already know.
+
+  @Get('coupons')
+  async listCoupons() {
+    return this.couponService.listAdmin();
+  }
+
+  @Post('coupons')
+  async createCoupon(@Body() dto: CreateCouponDto, @Req() req: any) {
+    return this.couponService.createAdmin(dto as any, req?.user?.sub);
+  }
+
+  @Patch('coupons/:id')
+  async updateCoupon(@Param('id') id: string, @Body() dto: UpdateCouponDto) {
+    return this.couponService.updateAdmin(id, dto as any);
+  }
+
+  @Delete('coupons/:id')
+  async deactivateCoupon(@Param('id') id: string) {
+    return { deactivated: await this.couponService.deleteAdmin(id) };
+  }
+
+  @Get('coupons/:id/redemptions')
+  async couponRedemptions(@Param('id') id: string) {
+    return this.couponService.redemptionsAdmin(id);
   }
 
   @Patch('businesses/:id/custom-limits')

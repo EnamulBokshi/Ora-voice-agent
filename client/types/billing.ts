@@ -85,6 +85,39 @@ export interface SubscribePayload {
   provider?: 'stripe' | 'bkash';
   billingProvider?: 'stripe' | 'bkash';
   paymentMethodId?: string;
+  /** Code only. The server recomputes the discount from its own records. */
+  couponCode?: string;
+}
+
+export type CouponDiscountType = 'percent' | 'fixed';
+
+/** Server-computed pricing for a coupon. Never assembled on the client. */
+export interface CouponQuote {
+  code: string;
+  discountType: CouponDiscountType;
+  currency: 'USD' | 'BDT';
+  amountBeforeMinor: number;
+  discountMinor: number;
+  amountAfterMinor: number;
+  coversFullPrice: boolean;
+}
+
+export interface Coupon {
+  _id: string;
+  code: string;
+  discountType: CouponDiscountType;
+  percentOff: number;
+  amountOffUsdCents: number;
+  amountOffBdtPaisa: number;
+  appliesToPlanIds: string[];
+  maxRedemptions: number | null;
+  redeemedCount: number;
+  maxRedemptionsPerBusiness: number;
+  validFrom: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  notes: string;
+  createdAt?: string;
 }
 
 export interface SubscribeResponseData {
@@ -98,6 +131,17 @@ export interface SubscribeResponseData {
   message?: string;
   transaction?: any;
   invoice?: any;
+  discount?: {
+    code: string;
+    currency: 'USD' | 'BDT';
+    discountMinor: number;
+    amountAfterMinor: number;
+  } | null;
+  coupon?: {
+    code: string;
+    discountMinor: number;
+    currency: string;
+  };
 }
 
 

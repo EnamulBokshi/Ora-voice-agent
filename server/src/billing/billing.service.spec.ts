@@ -9,6 +9,7 @@ import { Business } from '../users/schemas/business.schema';
 import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
 import { StripeProvider } from './providers/stripe.provider';
 import { BkashProvider } from './providers/bkash.provider';
+import { CouponService } from './services/coupon.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { RedisService } from '../common/redis/redis.service';
 
@@ -98,11 +99,24 @@ describe('BillingService', () => {
           provide: StripeProvider,
           useValue: {
             createSubscription: jest.fn().mockResolvedValue({ subscriptionId: 'sub_mock_123' }),
+            isConfigured: false,
           },
         },
         {
           provide: BkashProvider,
-          useValue: {},
+          useValue: { isConfigured: false },
+        },
+        {
+          provide: CouponService,
+          useValue: {
+            validate: jest.fn(),
+            quote: jest.fn(),
+            reserve: jest.fn(),
+            attachProviderRef: jest.fn().mockResolvedValue(undefined),
+            markApplied: jest.fn().mockResolvedValue(undefined),
+            release: jest.fn().mockResolvedValue(undefined),
+            findReservedByProviderRef: jest.fn().mockResolvedValue(null),
+          },
         },
         {
           provide: InvoicesService,
@@ -496,6 +510,49 @@ describe('BillingService', () => {
       expect(result).toBeNull();
       expect(subModel.findOneAndUpdate).not.toHaveBeenCalled();
       expect(businessModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('paid subscribe without a configured gateway', () => {
+    it('refuses to activate a paid plan instead of granting it for free', async () => {
+      const planModel = module.get(getModelToken(Plan.name));
+      const subModel = module.get(getModelToken(Subscription.name));
+
+      planModel.findOne = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          planId: 'growth',
+          name: 'Growth',
+          priceUsdCents: 4900,
+          priceBdtPaisa: 590000,
+        }),
+      });
+      subModel.findOneAndUpdate = jest.fn();
+
+      await expect(
+        service.subscribe('biz_123', { planId: 'growth' as any }),
+      ).rejects.toMatchObject({ code: 'PAYMENT_PROVIDER_UNAVAILABLE' });
+
+      expect(subModel.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('refuses a bKash checkout when bKash credentials are missing', async () => {
+      const planModel = module.get(getModelToken(Plan.name));
+
+      planModel.findOne = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          planId: 'growth',
+          name: 'Growth',
+          priceUsdCents: 4900,
+          priceBdtPaisa: 590000,
+        }),
+      });
+
+      await expect(
+        service.subscribe('biz_123', {
+          planId: 'growth' as any,
+          billingProvider: 'bkash' as any,
+        }),
+      ).rejects.toMatchObject({ code: 'PAYMENT_PROVIDER_UNAVAILABLE' });
     });
   });
 });

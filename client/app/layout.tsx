@@ -4,6 +4,7 @@ import { Suspense } from "react"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { FloatingOrbWidget } from "@/components/marketing/floating-orb-widget"
 import { cn } from "@/lib/utils"
 
@@ -97,6 +98,7 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <FloatingOrbWidget />
           </Suspense>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

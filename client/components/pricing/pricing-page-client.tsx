@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard, LogOut, User } from 'lucide-react';
-import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
+import { getBillingPlansApi } from '@/services/billing-service';
 import { getMeApi, refreshApi, logoutApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
@@ -92,57 +92,10 @@ export function PricingPageClient() {
       return;
     }
 
+    // Logged-in merchants finish the purchase on the dashboard checkout page, where
+    // they pick Stripe or bKash. This page no longer starts a charge by itself.
     setSubscribingId(plan.planId);
-    setSuccessMessage(null);
-    setErrorMessage(null);
-
-    try {
-      const res = await subscribePlanApi({
-        planId: plan.planId,
-        provider: provider,
-      });
-
-      // 1. If bKash gateway redirect is required
-      if (res.requiresRedirect && res.bkashURL) {
-        window.location.href = res.bkashURL;
-        return;
-      }
-
-      // 2. If Stripe Checkout hosted session redirect is required
-      if (res.requiresRedirect && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
-        return;
-      }
-
-      // 3. Free Plan or Direct Sandbox Activation
-      if (typeof document !== 'undefined') {
-        const isProd = process.env.NODE_ENV === 'production';
-        document.cookie = `userRole=owner; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
-      }
-
-      setUserRole('owner');
-      setSuccessMessage(
-        `🎉 Congratulations! You have successfully subscribed to the ${plan.name}. Redirecting to your dashboard...`
-      );
-
-      // Refresh JWT token to owner payload
-      refreshApi()
-        .then((refreshRes) => {
-          if (refreshRes?.accessToken && typeof window !== 'undefined') {
-            localStorage.setItem('accessToken', refreshRes.accessToken);
-          }
-        })
-        .catch(() => null);
-
-      // Brief delay to display celebration toast, then navigate to dashboard
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 2500);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Subscription initiation failed. Please try again.');
-    } finally {
-      setSubscribingId(null);
-    }
+    router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
   };
 
   const handleLogout = async () => {

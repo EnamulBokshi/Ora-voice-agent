@@ -52,9 +52,26 @@ describe('StripeProvider — plan pricing', () => {
       billingInterval: 'month',
     });
 
-    await provider.createSubscription(BUSINESS_ID, 'growth');
+    // With no Stripe key configured the provider refuses rather than minting a
+    // fake subscription id, but it still prices from the plan document first.
+    await expect(
+      provider.createSubscription(BUSINESS_ID, 'growth'),
+    ).rejects.toMatchObject({ code: 'PAYMENT_PROVIDER_UNAVAILABLE' });
 
     expect(planModel.findOne).toHaveBeenCalledWith({ planId: 'growth' });
+  });
+
+  it('never returns a usable reference when Stripe is not configured', async () => {
+    mockPlan({
+      planId: 'growth',
+      name: 'Growth Plan',
+      priceUsdCents: 4900,
+      billingInterval: 'month',
+    });
+
+    await expect(
+      provider.createSubscription(BUSINESS_ID, 'growth'),
+    ).rejects.toMatchObject({ code: 'PAYMENT_PROVIDER_UNAVAILABLE' });
   });
 
   it('refuses a plan that does not exist', async () => {

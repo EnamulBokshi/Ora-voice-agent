@@ -194,6 +194,27 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'apply_coupon',
+    description:
+      'Apply a coupon, promo, or discount code the visitor already has to their ORA subscription checkout. Only ever passes a code the visitor said out loud or one published by ORA — it can never create, invent, or generate a code, and it does not decide the discount: the server prices it.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        couponCode: {
+          type: 'STRING',
+          description:
+            'The coupon code exactly as the visitor gave it (e.g. "LAUNCH20", "SAVE10").',
+        },
+        planId: {
+          type: 'STRING',
+          description:
+            'Optional plan the visitor is buying ("starter", "growth", "scale"). Defaults to the plan they are viewing.',
+        },
+      },
+      required: ['couponCode'],
+    },
+  },
+  {
     name: 'navigate_to_page',
     description:
       'Direct or scroll the visitor’s browser to a specific valid page or section. Use this when the visitor asks to navigate to docs, pricing, cart, checkout, collections, product pages, dashboard, create account, log in, view features, or go home.',

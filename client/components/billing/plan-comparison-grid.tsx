@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, Loader2, ArrowRight, Sparkles, CreditCard } from 'lucide-react';
-import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
+import { getBillingPlansApi } from '@/services/billing-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ export function PlanComparisonGrid({
   isTrialing = false,
   trialDaysRemaining = null,
 }: PlanComparisonGridProps) {
+  const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState<'USD' | 'BDT'>('USD');
@@ -41,25 +43,12 @@ export function PlanComparisonGrid({
 
   const hasConsumedTrial = Boolean(hasUsedTrial || currentPlanId);
 
-  const handleSubscribe = async (plan: Plan) => {
+  // Buying a plan always goes through the checkout step, where the merchant picks a
+  // gateway and pays. Calling /billing/subscribe straight from this grid used to
+  // activate the plan in one click whenever no gateway was configured.
+  const goToCheckout = (plan: Plan) => {
     setSubscribingId(plan._id);
-    try {
-      const provider = currency === 'USD' ? 'stripe' : 'bkash';
-      const result = await subscribePlanApi({ planId: plan.planId, provider });
-      if (result.requiresRedirect && result.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-      if (result.requiresRedirect && result.bkashURL) {
-        window.location.href = result.bkashURL;
-        return;
-      }
-      onSubscribed();
-    } catch {
-      // silent
-    } finally {
-      setSubscribingId(null);
-    }
+    router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
   };
 
   const handleCardCta = (plan: Plan) => {
@@ -69,7 +58,7 @@ export function PlanComparisonGrid({
       return;
     }
     // Otherwise -> Paid Subscription / Upgrade checkout
-    handleSubscribe(plan);
+    goToCheckout(plan);
   };
 
   if (loading) {
@@ -235,14 +224,14 @@ export function PlanComparisonGrid({
                   </button>
                 ) : isCurrent && isTrialing ? (
                   <button
-                    onClick={() => handleSubscribe(plan)}
+                    onClick={() => goToCheckout(plan)}
                     disabled={Boolean(subscribingId)}
                     className="w-full h-9 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 touch-manipulation"
                   >
                     {isSubscribing ? (
                       <>
                         <Loader2 className="animate-spin text-primary-foreground" size={13} />
-                        <span>Connecting Gateway…</span>
+                        <span>Opening checkout…</span>
                       </>
                     ) : (
                       <>
@@ -261,7 +250,7 @@ export function PlanComparisonGrid({
                     {isSubscribing ? (
                       <>
                         <Loader2 className="animate-spin text-background" size={13} />
-                        <span>Connecting {currency === 'USD' ? 'Stripe' : 'bKash'}…</span>
+                        <span>Opening checkout…</span>
                       </>
                     ) : (
                       <>

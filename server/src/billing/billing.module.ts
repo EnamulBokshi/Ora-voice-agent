@@ -15,6 +15,13 @@ import { BillingSchedulerService } from './services/billing-scheduler.service';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { AuthModule } from '../auth/auth.module';
 
+import { Coupon, CouponSchema } from './schemas/coupon.schema';
+import {
+  CouponRedemption,
+  CouponRedemptionSchema,
+} from './schemas/coupon-redemption.schema';
+import { CouponService } from './services/coupon.service';
+
 import { TrialLog, TrialLogSchema } from './schemas/trial-log.schema';
 import { KnowledgeBase, KnowledgeBaseSchema } from '../knowledge/schemas/knowledge-base.schema';
 
@@ -30,6 +37,8 @@ import { KnowledgeBase, KnowledgeBaseSchema } from '../knowledge/schemas/knowled
       { name: AdminUser.name, schema: AdminUserSchema },
       { name: Business.name, schema: BusinessSchema },
       { name: TrialLog.name, schema: TrialLogSchema },
+      { name: Coupon.name, schema: CouponSchema },
+      { name: CouponRedemption.name, schema: CouponRedemptionSchema },
       { name: KnowledgeBase.name, schema: KnowledgeBaseSchema },
     ]),
   ],
@@ -40,6 +49,7 @@ import { KnowledgeBase, KnowledgeBaseSchema } from '../knowledge/schemas/knowled
     BkashProvider,
     ShopifyProvider,
     BillingSchedulerService,
+    CouponService,
   ],
   exports: [
     BillingService,
@@ -47,6 +57,7 @@ import { KnowledgeBase, KnowledgeBaseSchema } from '../knowledge/schemas/knowled
     BkashProvider,
     ShopifyProvider,
     BillingSchedulerService,
+    CouponService,
     MongooseModule,
   ],
 })

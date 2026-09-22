@@ -12,6 +12,8 @@ import {
 import type { Request } from 'express';
 import { BillingService } from './billing.service';
 import { SubscribeDto } from './dto/subscribe.dto';
+import { ValidateCouponDto } from './dto/coupon.dto';
+import { CouponService } from './services/coupon.service';
 import { StripeProvider } from './providers/stripe.provider';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -33,11 +35,17 @@ export class BillingController {
   constructor(
     private readonly billingService: BillingService,
     private readonly stripeProvider: StripeProvider,
+    private readonly couponService: CouponService,
   ) {}
 
   @Get('plans')
   async getPlans() {
     return this.billingService.getPlans();
+  }
+
+  @Get('payment-methods')
+  async getPaymentMethods() {
+    return this.billingService.getPaymentMethods();
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard)
@@ -66,6 +74,21 @@ export class BillingController {
       },
       body.planId,
     );
+  }
+
+  /**
+   * Prices a coupon for the caller's own tenant. The response carries amounts the
+   * server computed; it is a preview only, and subscribe revalidates from scratch.
+   */
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
+  @Post('coupons/validate')
+  @HttpCode(HttpStatus.OK)
+  async validateCoupon(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: ValidateCouponDto,
+  ) {
+    return this.billingService.previewCoupon(user.businessId, dto);
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)

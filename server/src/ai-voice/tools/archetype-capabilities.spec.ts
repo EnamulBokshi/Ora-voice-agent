@@ -142,4 +142,31 @@ describe('resolveAgentCapability', () => {
       expect(hints).toContain('capture_sales_lead');
     });
   });
+
+  describe('apply_coupon placement', () => {
+    it("is offered on ORA's own platform agent", () => {
+      expect(names('platform', true)).toContain('apply_coupon');
+    });
+
+    it('is not offered to merchant storefront agents', () => {
+      // Storefront discount codes belong to the merchant's own checkout, not to
+      // ORA's subscription coupons, so a merchant agent must not carry this tool.
+      expect(names('retail', false, true)).not.toContain('apply_coupon');
+      expect(names('clinic')).not.toContain('apply_coupon');
+      expect(names('portfolio')).not.toContain('apply_coupon');
+      expect(names('saas')).not.toContain('apply_coupon');
+    });
+
+    it('explains itself in the prompt only where it is declared', () => {
+      const platformHints = toolUsageHints(
+        resolveAgentCapability({ archetype: 'platform', isPlatform: true }),
+      ).join('\n');
+      const retailHints = toolUsageHints(
+        resolveAgentCapability({ archetype: 'retail', hasCatalog: true }),
+      ).join('\n');
+
+      expect(platformHints).toContain('Never invent a code');
+      expect(retailHints).not.toContain('apply_coupon');
+    });
+  });
 });
