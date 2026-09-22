@@ -30,7 +30,7 @@ export interface AgentRoleOption {
 
 export const ROLES: AgentRoleOption[] = [
   { id: 'prompt', label: 'System Prompt & Persona', Icon: Terminal, iconClass: 'text-foreground' },
-  { id: 'voice', label: 'Talk to ORA', Icon: Mic, iconClass: 'text-foreground' },
+  { id: 'voice', label: 'Train & Test ORA', Icon: Mic, iconClass: 'text-foreground' },
   { id: 'documents', label: 'Documents', Icon: FileText, iconClass: 'text-foreground' },
   { id: 'products', label: 'Product Catalog', Icon: Package, iconClass: 'text-foreground' },
   // The embed snippet used to live in the Get Set Up guide's "Widget embed"
@@ -70,17 +70,11 @@ export function isRoleVisible(
 export const TRAIN_ITEMS: Record<AgentRole, { view: AgentView; label: string }[]> = {
   prompt: [{ view: 'prompt', label: 'System prompt' }],
   voice: [
-    // { view: 'get-started', label: 'Get started' },
-    { view: 'feed', label: 'Voice feed' },
-    // DISABLED: the standalone "Test ORA" page — see lib/disabled-features.ts.
-    // Testing now happens through the Test Voice button on the persona page,
-    // which opens the same live call in a modal.
-    // { view: 'test', label: 'Test ORA' },
+    { view: 'feed', label: 'Train Knowledge' },
+    { view: 'test', label: 'Test Assistant' },
   ],
   documents: [
-    // { view: 'get-started', label: 'Get started' },
     { view: 'feed', label: 'Upload files' },
-    // { view: 'test', label: 'Test ORA' },
   ],
   products: [
     // { view: 'get-started', label: 'Get started' },

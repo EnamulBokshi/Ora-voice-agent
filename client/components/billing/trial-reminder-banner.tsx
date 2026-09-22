@@ -166,7 +166,7 @@ export function TrialReminderBanner({
                 isEndingSoon ? 'bg-amber-500/20 text-amber-400' : 'bg-primary/20 text-primary',
               )}
             >
-              {isEndingSoon ? <Clock size={20} /> : <Sparkles size={20} />}
+              {isEndingSoon ? <Clock size={20} /> : <span className=''></span>}
             </div>
 
             <div>

@@ -109,19 +109,19 @@ function BillingClientContent() {
 
         {/* ── Editorial Header (Matching ORA Agent & Setup pages) ── */}
         <div className="border-b border-border/40 pb-5">
-          <div className="flex items-center gap-2 mb-2">
+          {/* <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
               <Receipt size={14} className="text-foreground" />
             </div>
-          </div>
+          </div> */}
 
           <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
             Plans & Billing
           </h1>
 
-          <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
+          {/* <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
             Manage your active subscription tier, track trial and usage quotas, and access payment receipts.
-          </p>
+          </p> */}
         </div>
 
         {/* ── Functional Cards ── */}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   AGENT_VIEWS,
   DEFAULT_AGENT_ROLE,
@@ -20,6 +20,7 @@ import { AGENT_TEST_PAGE_ENABLED } from '@/lib/disabled-features';
 import { AgentSectionLayout } from './agent-section-layout';
 import { VoiceTestModal } from './modals/voice-test-modal';
 import { VoiceFeedTab } from './feed/voice-feed-tab';
+import { VoiceTestStudio } from './test/voice-test-studio';
 import { DocumentsFeedTab } from './feed/documents-feed-tab';
 import { ProductDetailsFeedTab } from './feed/product-details-feed-tab';
 import { KnowledgeFeedList } from './feed/knowledge-feed-list';
@@ -29,23 +30,21 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, Database, ArrowRight, ExternalLink, Sliders, SlidersHorizontal, MessageSquare, Code2, PhoneCall } from 'lucide-react';
+import { Mic, FileText, Package, Database, ArrowRight, ExternalLink, Sliders, SlidersHorizontal, MessageSquare, Code2, PhoneCall, Radio, BrainCircuit, Sparkles } from 'lucide-react';
 import { IntegrationPreview } from '@/components/setup/previews/integration-preview';
-import Link from 'next/link';
-import { AppLink } from '@/components/navigation/app-link';
 import { ReadOnlyFence } from '@/components/common/read-only-fence';
 import { usePermissions } from '@/hooks/use-permissions';
+import { cn } from '@/lib/utils';
 
 // ─── Main content ─────────────────────────────────────────────────────────────
 
 function AgentClientContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { canManage, readOnlyReason, loading: permissionsLoading } = usePermissions();
 
-  // New param scheme: ?role=voice|prompt|documents|products&view=...
-  // Also support legacy ?tab= for backward compatibility
-  const rawRole  = searchParams.get('role');
-  const rawView  = searchParams.get('view');
+  const rawRole = searchParams.get('role');
+  const rawView = searchParams.get('view');
   const legacyTab = searchParams.get('tab'); // backward compat
 
   // Resolve role. With the hub disabled, `/agent` with no role opens the
@@ -95,7 +94,7 @@ function AgentClientContent() {
     isWidgetActive?: boolean;
   }>({});
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [docs, setDocs]               = useState<KnowledgeDoc[]>([]);
+  const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
 
   const loadDocs = useCallback(() => {
@@ -172,132 +171,82 @@ function AgentClientContent() {
     }
 
     // ── Voice: feed, test, or knowledge views ──────────────────────────────
+    // ── Voice: Train & Test ORA ─────────────────────────────────────────────
     if (activeRole === 'voice') {
-      if (activeView === 'feed') {
-        return (
-          <AgentSectionLayout
-            iconNode={<Mic size={16} className="text-foreground" />}
-            title="Voice Feed"
-            description="Speak product updates and store knowledge directly to your sales agent."
-            previewSrc="/previews/agent-voice-role.jpg"
-            previewAlt="ORA voice interface"
-            howLabel="Voice training"
-            ctaNodes={
-              <>
+      const isTestView = activeView === 'test';
+      return (
+        <AgentSectionLayout
+          iconNode={<BrainCircuit size={16} className="text-foreground" />}
+          title="Train & Test ORA"
+          description="Train your sales agent with store knowledge, policies, and products, then test customer conversations in real time."
+          previewSrc="/previews/agent-voice-role.jpg"
+          previewAlt="ORA voice training and storefront testing"
+          howLabel={isTestView ? 'Customer Simulation Studio' : 'Knowledge Training Studio'}
+          ctaNodes={
+            <div className="flex items-center gap-2.5">
+              <div className="inline-flex items-center gap-1 p-0.5 rounded-md border border-border/60 bg-surface-lowest/80 shadow-xs">
                 <button
-                  onClick={() => setIsVoiceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
+                  type="button"
+                  onClick={() => router.push('/agent?role=voice&view=feed')}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer',
+                    !isTestView
+                      ? 'bg-surface-high text-foreground font-semibold shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
                 >
-                  Start talking <ArrowRight size={10} />
+                  <Mic size={12} />
+                  <span>Train Knowledge</span>
                 </button>
-              </>
-            }
-          >
-            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                <div className="xl:col-span-7">
-                  <VoiceFeedTab publishableKey={publishableKey || undefined} onFed={loadDocs} />
-                </div>
-                <div className="xl:col-span-5">
-                  <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/agent?role=voice&view=test')}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer',
+                    isTestView
+                      ? 'bg-surface-high text-foreground font-semibold shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Radio size={12} className={isTestView ? 'text-primary' : ''} />
+                  <span>Test Assistant</span>
+                </button>
+              </div>
+
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border/40 bg-surface-lowest/40 text-[11px] text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-status-online animate-pulse" />
+                <span className="font-medium text-foreground">ORA Ready</span>
               </div>
             </div>
-          </AgentSectionLayout>
-        );
-      }
-      if (AGENT_TEST_PAGE_ENABLED && activeView === 'test') {
-        return (
-          <AgentSectionLayout
-            iconNode={<PhoneCall size={16} className="text-foreground" />}
-            title="Test Voice"
-            description="Talk to your agent exactly as a shopper would to preview storefront responses."
-            previewSrc="/previews/agent-voice-role.jpg"
-            previewAlt="Testing the ORA voice agent"
-            howLabel="Live voice test"
-            ctaNodes={
-              <button
-                onClick={() => setIsVoiceModalOpen(true)}
-                className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-md bg-primary text-primary-foreground text-[11.5px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
-              >
-                Start voice test <ArrowRight size={10} />
-              </button>
-            }
-          >
-            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
-              <div className="max-w-2xl space-y-5">
-                <div className="rounded-md border border-border/50 p-6">
-                  <div className="flex items-start gap-3">
-                    <Mic size={16} className="text-primary mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <h3 className="text-[13.5px] font-semibold text-foreground tracking-tight">
-                        Test your voice agent
-                      </h3>
-                      <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                        This uses the same agent voice, persona, and knowledge base your
-                        shoppers reach on your store. Nothing spoken here is saved into training records.
-                      </p>
-                      <button
-                        onClick={() => setIsVoiceModalOpen(true)}
-                        className="mt-3.5 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
-                      >
-                        <Mic size={12} /> Start voice test
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-border/50 p-5">
-                  <div className="flex items-center gap-2 pb-3 border-b border-border/40">
-                    <MessageSquare size={13} className="text-foreground" />
-                    <span className="text-[13.5px] font-semibold text-foreground tracking-tight">
-                      What to ask
-                    </span>
-                  </div>
-                  <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground leading-relaxed">
-                    <li>• A question about recently added products, policies, or return rules.</li>
-                    <li>• Common questions your customers ask, using their everyday phrasing.</li>
-                    <li>• Edge-case questions, to review how ORA politely handles missing details.</li>
-                    <li>• Navigation requests, to ensure checkout and store links work smoothly.</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-md border border-border/50 p-5">
-                  <div className="flex items-center gap-2 pb-3 border-b border-border/40">
-                    <SlidersHorizontal size={13} className="text-foreground" />
-                    <span className="text-[13.5px] font-semibold text-foreground tracking-tight">
-                      Updating answers
-                    </span>
-                  </div>
-                  <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed">
-                    Head to{' '}
-                    <Link href="/agent?role=voice&view=feed" className="text-foreground underline underline-offset-2">
-                      Voice feed
-                    </Link>{' '}
-                    or upload a reference document to refine your agent's knowledge base.
-                  </p>
-                </div>
+          }
+        >
+          <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+              <div className="xl:col-span-7">
+                {isTestView ? (
+                  <VoiceTestStudio
+                    publishableKey={publishableKey || undefined}
+                    onSwitchToTrain={() => router.push('/agent?role=voice&view=feed')}
+                  />
+                ) : (
+                  <VoiceFeedTab
+                    publishableKey={publishableKey || undefined}
+                    onFed={loadDocs}
+                    onSwitchToTest={() => router.push('/agent?role=voice&view=test')}
+                  />
+                )}
+              </div>
+              <div className="xl:col-span-5">
+                <KnowledgeFeedList
+                  docs={docs}
+                  loading={docsLoading}
+                  onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))}
+                />
               </div>
             </div>
-          </AgentSectionLayout>
-        );
-      }
-      if (activeView === 'knowledge') {
-        return (
-          <AgentSectionLayout
-            iconNode={<Database size={16} className="text-foreground" />}
-            title="Knowledge Base"
-            description="Reference guides, store knowledge, and indexed documents used during customer conversations."
-            previewSrc="/previews/docs-step2-index.jpg"
-            previewAlt="ORA knowledge base"
-            howLabel="Store knowledge"
-          >
-            <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
-              <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
-            </div>
-          </AgentSectionLayout>
-        );
-      }
+          </div>
+        </AgentSectionLayout>
+      );
     }
 
     // ── Documents: feed or knowledge views ─────────────────────────────────

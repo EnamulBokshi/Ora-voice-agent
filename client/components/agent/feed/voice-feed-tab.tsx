@@ -21,6 +21,7 @@ import {
   Send,
   ArrowRight,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 import { ingestVoiceTranscriptApi } from '@/services/knowledge-service';
 import { DocType, IngestVoiceTranscriptResponseData } from '@/types/knowledge';
@@ -35,6 +36,7 @@ import { useReadOnly } from '@/components/common/read-only-fence';
 interface VoiceFeedTabProps {
   publishableKey?: string;
   onFed?: () => void;
+  onSwitchToTest?: () => void;
 }
 
 interface TranscriptEntry {
@@ -132,7 +134,7 @@ const DOC_TYPE_META: Record<string, { label: string; badgeClass: string; dotClas
   [DocType.UPLOADED_DOC]: { label: 'Document', badgeClass: 'border-blue-500/30 bg-blue-500/10 text-blue-500', dotClass: 'bg-blue-500' },
 };
 
-export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
+export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFeedTabProps) {
   const readOnly = useReadOnly();
   const [status, setStatus] = useState<SessionStatus>('idle');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('converse');
@@ -340,65 +342,9 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
   const activeCategoryMeta = CATEGORY_OPTIONS.find((c) => c.id === selectedCategory) || CATEGORY_OPTIONS[0];
 
   return (
-    <div className="space-y-5">
-      {/* ── 1. Target Knowledge Category Selector ── */}
-      <div className="rounded-md border border-border/50 bg-surface-lowest/40 p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-border/40">
-          <div className="flex items-center gap-2">
-            <Layers size={14} className="text-primary flex-shrink-0" />
-            <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
-              Target Category
-            </h2>
-          </div>
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            {selectedCategory === 'all' ? 'Auto-Sorting Active' : 'Category Selected'}
-          </span>
-        </div>
-
-        {/* Category Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {CATEGORY_OPTIONS.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            const CatIcon = cat.Icon;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setSelectedCategory(cat.id)}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded-md text-left transition-all border text-xs cursor-pointer',
-                  isSelected
-                    ? 'bg-surface-high border-border text-foreground font-semibold shadow-xs'
-                    : 'bg-surface-low/50 border-border/40 text-muted-foreground hover:text-foreground hover:bg-surface-high/60',
-                )}
-              >
-                <div
-                  className={cn(
-                    'w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors',
-                    isSelected ? 'bg-primary/15 text-primary' : 'bg-surface-container text-muted-foreground',
-                  )}
-                >
-                  <CatIcon size={12} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-medium leading-tight truncate">{cat.label}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Category Guidance Tip */}
-        <div className="mt-2 pt-2.5 border-t border-border/30 flex items-start gap-2 text-[11.5px] text-muted-foreground leading-relaxed">
-          <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', activeCategoryMeta.dotClass)} />
-          <p>
-            <strong className="text-foreground">{activeCategoryMeta.label}:</strong> {activeCategoryMeta.hint}
-          </p>
-        </div>
-      </div>
-
-      {/* ── 2. Voice Feed Orb Card ── */}
-      <div className="rounded-md border border-border/50 bg-transparent p-6 relative flex flex-col items-center justify-center text-center">
+    <div className="space-y-4">
+      {/* ── 1. Voice Feed & Training Console ── */}
+      <div className="rounded-md border border-border/60 bg-surface-lowest/40 p-5 sm:p-6 relative flex flex-col items-center justify-center text-center">
         {/* Ambient glow */}
         <div
           className={cn(
@@ -413,47 +359,60 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
           }}
         />
 
-        {micBlocked && <MicrophoneBlockedNotice className="relative z-10 mb-2" />}
+        {/* Top header row: Category badge + Mode selector */}
+        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-3.5 border-b border-border/40 relative z-10">
+          <div className="flex items-center gap-1.5 text-left">
+            <span className={cn('w-2 h-2 rounded-full flex-shrink-0', activeCategoryMeta.dotClass)} />
+            <span className="text-[12px] font-semibold text-foreground tracking-tight">
+              {activeCategoryMeta.label}
+            </span>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              — {activeCategoryMeta.hint}
+            </span>
+          </div>
 
-        {/* Mode Selector: Converse vs Dictate */}
-        <div className="relative z-10 inline-flex items-center gap-1 p-1 rounded-md border border-border/60 bg-surface-lowest/70 shadow-xs mb-2">
-          {([
-            {
-              id: 'converse' as VoiceMode,
-              label: 'Interactive Voice',
-              Icon: AudioLines,
-              hint: 'Live conversation with spoken confirmations',
-            },
-            {
-              id: 'dictate' as VoiceMode,
-              label: 'Direct Dictation',
-              Icon: PenLine,
-              hint: 'Continuous transcription without spoken replies — ideal for reading out policies',
-            },
-          ]).map(({ id, label, Icon, hint }) => (
-            <button
-              key={id}
-              type="button"
-              title={hint}
-              disabled={isActive}
-              onClick={() => {
-                setVoiceMode(id);
-                if (!isActive) {
-                  stopSession();
-                }
-              }}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-[11.5px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
-                voiceMode === id
-                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <Icon size={12} />
-              {label}
-            </button>
-          ))}
+          {/* Mode Selector: Converse vs Dictate */}
+          <div className="inline-flex items-center gap-1 p-0.5 rounded-md border border-border/60 bg-surface-lowest/70 shadow-xs flex-shrink-0">
+            {([
+              {
+                id: 'converse' as VoiceMode,
+                label: 'Interactive Voice',
+                Icon: AudioLines,
+                hint: 'Live conversation with spoken confirmations',
+              },
+              {
+                id: 'dictate' as VoiceMode,
+                label: 'Direct Dictation',
+                Icon: PenLine,
+                hint: 'Continuous transcription without spoken replies — ideal for reading out policies',
+              },
+            ]).map(({ id, label, Icon, hint }) => (
+              <button
+                key={id}
+                type="button"
+                title={hint}
+                disabled={isActive}
+                onClick={() => {
+                  setVoiceMode(id);
+                  if (!isActive) {
+                    stopSession();
+                  }
+                }}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
+                  voiceMode === id
+                    ? 'bg-surface-high text-foreground font-semibold shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon size={11} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {micBlocked && <MicrophoneBlockedNotice className="relative z-10 my-2" />}
 
         {/* Central Living Crystal Wave Orb */}
         <div className="relative flex flex-col items-center justify-center my-3">
@@ -770,8 +729,44 @@ export function VoiceFeedTab({ publishableKey, onFed }: VoiceFeedTabProps) {
                   Synced directly with Knowledge Base
                 </span>
               </div>
+
+              {onSwitchToTest && organiseResult && organiseResult.saved.length > 0 && (
+                <div className="pt-2.5 mt-2 border-t border-border/40 flex items-center justify-between">
+                  <span className="text-[11.5px] text-emerald-500 font-medium flex items-center gap-1">
+                    <CheckCircle2 size={12} />
+                    Knowledge indexed! Test how ORA uses it:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onSwitchToTest}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[11.5px] font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors cursor-pointer shadow-xs"
+                  >
+                    <span>Test Assistant</span>
+                    <ArrowRight size={11} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── 6. Bottom Bridge to Test Assistant ── */}
+      {onSwitchToTest && (
+        <div className="rounded-md border border-border/50 bg-surface-lowest/30 p-3.5 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Sparkles size={13} className="text-primary flex-shrink-0" />
+            <span>Done feeding knowledge? Test your sales agent live as a storefront customer.</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onSwitchToTest}
+            className="text-foreground dark:text-[#C8F031] hover:underline font-semibold flex items-center gap-1 transition-colors cursor-pointer flex-shrink-0"
+          >
+            <span>Test Assistant</span>
+            <ArrowRight size={11} />
+          </button>
         </div>
       )}
     </div>
