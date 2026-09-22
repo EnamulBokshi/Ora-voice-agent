@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard, LogOut, User } from 'lucide-react';
 import { getBillingPlansApi } from '@/services/billing-service';
+import { StartTrialModal } from '@/components/billing/start-trial-modal';
 import { getMeApi, refreshApi, logoutApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
@@ -26,6 +27,7 @@ export function PricingPageClient() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [trialPlan, setTrialPlan] = useState<Plan | null>(null);
 
   useEffect(() => {
     // 1. Fetch plans (Starter, Growth, Scale)
@@ -92,11 +94,57 @@ export function PricingPageClient() {
       return;
     }
 
-    // Logged-in merchants finish the purchase on the dashboard checkout page, where
-    // they pick Stripe or bKash. This page no longer starts a charge by itself.
+    // An account that has not subscribed yet still has the `user` role, and the
+    // dashboard guard bounces that role straight back to /pricing. Sending it to
+    // /billing/checkout was a round trip to nowhere that left this button spinning
+    // forever and never started a trial. The trial is claimed here instead.
+    if (userRole === 'user') {
+      setTrialPlan(plan);
+      return;
+    }
+
+    // A merchant who already has a workspace finishes a paid upgrade on the
+    // dashboard checkout page, where the gateway is chosen.
     setSubscribingId(plan.planId);
     router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
   };
+
+  /**
+   * The trial is live, so this account is now a merchant. Its JWT still carries the
+   * old role, which is what the dashboard guard reads, so the token is refreshed
+   * before navigating rather than after being bounced back here.
+   */
+  const handleTrialStarted = async (plan: Plan) => {
+    setTrialPlan(null);
+    setSuccessMessage(
+      `🎉 Your 14-day ${plan.name} trial is active. Opening your dashboard…`,
+    );
+
+    if (typeof document !== 'undefined') {
+      const isProd = process.env.NODE_ENV === 'production';
+      document.cookie = `userRole=owner; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
+    }
+    setUserRole('owner');
+
+    try {
+      const refreshed = await refreshApi();
+      if (refreshed?.accessToken && typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', refreshed.accessToken);
+      }
+    } catch {
+      // The trial is active either way; the dashboard will re-check the session.
+    }
+
+    window.location.href = '/dashboard';
+  };
+
+  // A client-side push that gets redirected away leaves this button disabled with no
+  // way back, so the spinner is given a hard stop.
+  useEffect(() => {
+    if (!subscribingId) return;
+    const timer = setTimeout(() => setSubscribingId(null), 8000);
+    return () => clearTimeout(timer);
+  }, [subscribingId]);
 
   const handleLogout = async () => {
     if (loggingOut) return;
@@ -594,7 +642,7 @@ export function PricingPageClient() {
                     {isSubscribing ? (
                       <>
                         <Loader2 className="animate-spin" size={16} />
-                        Connecting Gateway...
+                        Opening checkout...
                       </>
                     ) : !isLoggedIn ? (
                       <>
@@ -717,6 +765,16 @@ export function PricingPageClient() {
           </div>
         </div>
       </div>
+
+      {/* Trial activation, for an account that has not subscribed yet. */}
+      <StartTrialModal
+        isOpen={Boolean(trialPlan)}
+        plan={trialPlan}
+        onClose={() => setTrialPlan(null)}
+        onSuccess={() => {
+          if (trialPlan) handleTrialStarted(trialPlan);
+        }}
+      />
     </div>
   );
 }

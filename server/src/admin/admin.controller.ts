@@ -9,6 +9,8 @@ import {
   Query,
   Req,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -21,6 +23,9 @@ import { AdminUserActionDto } from './dto/admin-user-action.dto';
 import { CreatePlatformUserDto } from './dto/create-platform-user.dto';
 import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 import { UpdateSessionLimitDto } from './dto/update-session-limit.dto';
+import { TrialOutreachDto } from './dto/trial-outreach.dto';
+import { PreviewAudienceDto, SendCampaignDto } from './dto/email-campaign.dto';
+import { EmailCampaignService } from './services/email-campaign.service';
 import { BillingService } from '../billing/billing.service';
 import { CouponService } from '../billing/services/coupon.service';
 import { CreateCouponDto, UpdateCouponDto } from '../billing/dto/coupon.dto';
@@ -33,6 +38,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly billingService: BillingService,
     private readonly couponService: CouponService,
+    private readonly campaignService: EmailCampaignService,
   ) {}
 
   @Get('stats')
@@ -186,6 +192,52 @@ export class AdminController {
   @Delete('plans/:planId')
   async deletePlan(@Param('planId') planId: string) {
     return this.billingService.deletePlanAdmin(planId);
+  }
+
+  // --- Trial leads ---
+
+  @Get('trials')
+  async getTrialLeads(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.adminService.getTrialLeads({ page, limit, search, status });
+  }
+
+  @Post('trials/:businessId/contact')
+  async contactTrialLead(
+    @Param('businessId') businessId: string,
+    @Body() dto: TrialOutreachDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.sendTrialOutreach(businessId, dto, {
+      name: req?.user?.name,
+      email: req?.user?.email,
+    });
+  }
+
+  // --- Promotional campaigns ---
+
+  @Post('campaigns/preview')
+  @HttpCode(HttpStatus.OK)
+  async previewCampaignAudience(@Body() dto: PreviewAudienceDto) {
+    return this.campaignService.previewAudience(dto);
+  }
+
+  @Post('campaigns/send')
+  @HttpCode(HttpStatus.OK)
+  async sendCampaign(@Body() dto: SendCampaignDto, @Req() req: any) {
+    return this.campaignService.send(dto, {
+      userId: req?.user?.sub,
+      email: req?.user?.email,
+    });
+  }
+
+  @Get('campaigns')
+  async campaignHistory(@Query('limit') limit?: number) {
+    return this.campaignService.history(Number(limit) || 25);
   }
 
   // --- Coupons ---

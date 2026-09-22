@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
   X,
   Ticket,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -38,6 +39,7 @@ const adminNavItems: NavItem[] = [
   { id: 'overview', label: 'Platform Overview', href: '/admin', icon: <LayoutDashboard size={16} /> },
   { id: 'merchants', label: 'Merchants & Stores', href: '/admin/merchants', icon: <Store size={16} /> },
   { id: 'plans', label: 'Plans & Pricing', href: '/admin/plans', icon: <CreditCard size={16} /> },
+  { id: 'trials', label: 'Trial Leads', href: '/admin/trials', icon: <Zap size={16} /> },
   { id: 'coupons', label: 'Coupons', href: '/admin/coupons', icon: <Ticket size={16} /> },
   { id: 'token-usage', label: 'Token & Cost OpEx', href: '/admin/token-usage', icon: <Coins size={16} /> },
   { id: 'users', label: 'Users & RBAC', href: '/admin/users', icon: <Users size={16} /> },

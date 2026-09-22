@@ -39,6 +39,7 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
     setActivating(true);
     setActionError(null);
     router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
+    setTimeout(() => setActivating(false), 8000);
   };
 
   const handleCancel = async () => {

@@ -52,6 +52,7 @@ export function TrialReminderBanner({
     setSubscribing(true);
     setError(null);
     router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
+    setTimeout(() => setSubscribing(false), 8000);
   };
 
   const scrollToPlans = () => {

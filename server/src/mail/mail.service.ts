@@ -6,10 +6,14 @@ import {
   renderOtpTemplate,
   renderCongratulationsTemplate,
   renderForgotPasswordTemplate,
+  renderAdminOutreachTemplate,
+  renderPromotionalTemplate,
   VerifyEmailData,
   OtpEmailData,
   CongratulationsEmailData,
   ForgotPasswordData,
+  AdminOutreachData,
+  PromotionalEmailData,
 } from './email-templates';
 
 @Injectable()
@@ -190,4 +194,88 @@ export class MailService {
       );
     }
   }
+
+  /**
+   * Sends a message a platform admin composed for one merchant.
+   *
+   * Unlike the transactional senders, this one reports failure: an admin who thinks
+   * they contacted a lead and did not is worse off than one who sees the error.
+   */
+  async sendAdminOutreachEmail(
+    to: string,
+    data: AdminOutreachData,
+  ): Promise<{ delivered: boolean; reason?: string }> {
+    const html = renderAdminOutreachTemplate(data);
+    const from = this.getFromAddress('ORA Team');
+
+    if (!this.resend) {
+      this.logger.log(
+        `==================================================\n` +
+          `[DEV EMAIL LOG] Admin outreach to: ${to}\n` +
+          `[DEV EMAIL LOG] Subject: ${data.heading}\n` +
+          `[DEV EMAIL LOG] Message: ${data.message}\n` +
+          `==================================================`,
+      );
+      return { delivered: false, reason: 'EMAIL_PROVIDER_NOT_CONFIGURED' };
+    }
+
+    try {
+      const response = await this.resend.emails.send({
+        from,
+        to,
+        subject: data.heading,
+        html,
+      });
+      this.logger.log(
+        `[MailService] Admin outreach sent to ${to} via Resend (ID: ${response.data?.id})`,
+      );
+      return { delivered: true };
+    } catch (err: any) {
+      this.logger.error(
+        `[MailService] Admin outreach to ${to} failed: ${err.message}`,
+      );
+      return { delivered: false, reason: err.message };
+    }
+  }
+
+  /**
+   * Sends one promotional message. Reports failure rather than swallowing it, because
+   * a campaign's delivery count is only meaningful if every send is accounted for.
+   */
+  async sendPromotionalEmail(
+    to: string,
+    data: PromotionalEmailData,
+  ): Promise<{ delivered: boolean; reason?: string }> {
+    const html = renderPromotionalTemplate(data);
+    const from = this.getFromAddress('ORA');
+
+    if (!this.resend) {
+      this.logger.log(
+        `[DEV EMAIL LOG] Promotional email to ${to} — "${data.heading}"${data.couponCode ? ` (coupon ${data.couponCode})` : ''}`,
+      );
+      return { delivered: false, reason: 'EMAIL_PROVIDER_NOT_CONFIGURED' };
+    }
+
+    try {
+      const response = await this.resend.emails.send({
+        from,
+        to,
+        subject: data.heading,
+        html,
+        headers: {
+          // One-click unsubscribe, which mailbox providers surface in their own UI.
+          'List-Unsubscribe': `<${data.unsubscribeUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      });
+      this.logger.log(
+        `[MailService] Promotional email sent to ${to} (ID: ${response.data?.id})`,
+      );
+      return { delivered: true };
+    } catch (err: any) {
+      this.logger.error(`[MailService] Promotional email to ${to} failed: ${err.message}`);
+      return { delivered: false, reason: err.message };
+    }
+  }
 }
+

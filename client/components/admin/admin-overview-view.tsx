@@ -95,12 +95,17 @@ export function AdminOverviewView() {
 
   const totalGrowthMRR = overview?.platformMRR || 0;
   const totalARR = overview?.platformARR || totalGrowthMRR * 12;
-  const planDist = overview?.planDistribution || { free: 0, growth: 0, scale: 0 };
-  const totalSubscribers = (planDist.free + planDist.growth + planDist.scale) || 1;
 
-  const freePct = Math.round((planDist.free / totalSubscribers) * 100);
-  const growthPct = Math.round((planDist.growth / totalSubscribers) * 100);
-  const scalePct = Math.round((planDist.scale / totalSubscribers) * 100);
+  // Tiers come from the plan catalogue, so a price change in the console shows here
+  // without editing this file. Highest-priced tier first, as the bar reads.
+  const planCatalogue = [...(overview?.planCatalogue || [])].sort(
+    (a, b) => b.priceUsd - a.priceUsd,
+  );
+  const totalSubscribers =
+    planCatalogue.reduce((sum, tier) => sum + tier.subscribers, 0) || 1;
+
+  const trendDays = overview?.growth?.comparedToDays ?? (period === '7d' ? 7 : 30);
+  const isUp = (trend?: string | null) => !trend || !trend.startsWith('-');
 
   const voiceTotal = overview?.voiceConversationsCount || 0;
   const textTotal = overview?.textConversationsCount || 0;
@@ -135,6 +140,7 @@ export function AdminOverviewView() {
               <h2 className="text-sm font-bold text-foreground">ORA Platform Pulse</h2>
               <p className="text-[11px] text-muted-foreground">
                 Aggregating live data across {overview?.totalBusinesses || 0} stores and {overview?.totalUsers || 0} admin users.
+                {' '}Trends compare the last {trendDays} days with the {trendDays} before.
               </p>
             </div>
           </div>
@@ -185,8 +191,8 @@ export function AdminOverviewView() {
             value={loading ? '...' : `$${totalGrowthMRR.toLocaleString()}`}
             subtitle={`ARR: $${totalARR.toLocaleString()} / year`}
             icon={<DollarSign size={18} />}
-            trend={overview?.growth?.mrrTrend || '+18.4%'}
-            trendUp={true}
+            trend={overview?.growth?.mrrTrend ?? undefined}
+            trendUp={isUp(overview?.growth?.mrrTrend)}
             highlight={true}
           />
 
@@ -195,8 +201,6 @@ export function AdminOverviewView() {
             value={loading ? '...' : `$${(overview?.totalGmv || 0).toLocaleString()}`}
             subtitle={`ORA Agent: $${(overview?.oraAgentGmv || 0).toLocaleString()} (${overview?.oraAgentOrders || 0} orders)`}
             icon={<TrendingUp size={18} />}
-            trend="Live Agent GMV"
-            trendUp={true}
           />
 
           <PlatformStatCard
@@ -204,17 +208,17 @@ export function AdminOverviewView() {
             value={loading ? '...' : `${overview?.activeBusinesses || 0}`}
             subtitle={`${overview?.totalBusinesses || 0} total (${overview?.suspendedBusinesses || 0} suspended)`}
             icon={<Store size={18} />}
-            trend={overview?.growth?.storeTrend || '+12.5%'}
-            trendUp={!overview?.suspendedBusinesses}
+            trend={overview?.growth?.storeTrend ?? undefined}
+            trendUp={isUp(overview?.growth?.storeTrend)}
           />
 
           <PlatformStatCard
             title="AI Voice Minutes"
             value={loading ? '...' : `${(overview?.totalVoiceMinutes || 0).toLocaleString()} m`}
-            subtitle={`${overview?.voiceConversationsCount || 0} voice sessions (${textTotal} chats)`}
+            subtitle={`${overview?.voiceConversationsCount || 0} voice sessions (${textTotal} chats) · spoken time`}
             icon={<Mic size={18} />}
-            trend={overview?.growth?.voiceTrend || '+31.2%'}
-            trendUp={true}
+            trend={overview?.growth?.voiceTrend ?? undefined}
+            trendUp={isUp(overview?.growth?.voiceTrend)}
           />
         </div>
 
@@ -331,53 +335,72 @@ export function AdminOverviewView() {
 
               {/* Stacked Progress Bar */}
               <div className="h-3 w-full rounded-full bg-surface-high flex overflow-hidden">
-                <div
-                  style={{ width: `${scalePct}%` }}
-                  className="bg-primary transition-all duration-500"
-                  title={`Scale: ${planDist.scale} stores (${scalePct}%)`}
-                />
-                <div
-                  style={{ width: `${growthPct}%` }}
-                  className="bg-primary/60 transition-all duration-500"
-                  title={`Growth: ${planDist.growth} stores (${growthPct}%)`}
-                />
-                <div
-                  style={{ width: `${freePct}%` }}
-                  className="bg-surface-bright transition-all duration-500"
-                  title={`Free: ${planDist.free} stores (${freePct}%)`}
-                />
+                {planCatalogue.map((tier, index) => {
+                  const pct = Math.round((tier.subscribers / totalSubscribers) * 100);
+                  // Paid tiers shade down from the primary; a zero-price tier reads as
+                  // inactive rather than as revenue.
+                  const shade =
+                    tier.priceUsd === 0
+                      ? 'bg-surface-bright'
+                      : index === 0
+                        ? 'bg-primary'
+                        : index === 1
+                          ? 'bg-primary/60'
+                          : 'bg-primary/35';
+
+                  return (
+                    <div
+                      key={tier.planId}
+                      style={{ width: `${pct}%` }}
+                      className={cn(shade, 'transition-all duration-500')}
+                      title={`${tier.name}: ${tier.subscribers} stores (${pct}%)`}
+                    />
+                  );
+                })}
               </div>
 
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-primary" />
-                    <span className="text-foreground font-medium">Scale ($199/mo)</span>
-                  </div>
-                  <span className="font-serif font-semibold text-foreground tabular-nums text-sm">
-                    {planDist.scale} <span className="text-[11px] font-sans font-normal text-muted-foreground">stores</span>
-                  </span>
-                </div>
+                {planCatalogue.length === 0 ? (
+                  <p className="text-muted-foreground">No subscription tiers configured.</p>
+                ) : (
+                  planCatalogue.map((tier, index) => {
+                    const isFree = tier.priceUsd === 0;
+                    const dot = isFree
+                      ? 'bg-surface-bright'
+                      : index === 0
+                        ? 'bg-primary'
+                        : index === 1
+                          ? 'bg-primary/60'
+                          : 'bg-primary/35';
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-primary/60" />
-                    <span className="text-foreground font-medium">Growth ($49/mo)</span>
-                  </div>
-                  <span className="font-serif font-semibold text-foreground tabular-nums text-sm">
-                    {planDist.growth} <span className="text-[11px] font-sans font-normal text-muted-foreground">stores</span>
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-surface-bright" />
-                    <span className="text-muted-foreground font-medium">Free Tier ($0/mo)</span>
-                  </div>
-                  <span className="font-serif font-semibold text-muted-foreground tabular-nums text-sm">
-                    {planDist.free} <span className="text-[11px] font-sans font-normal text-muted-foreground">stores</span>
-                  </span>
-                </div>
+                    return (
+                      <div key={tier.planId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn('h-2.5 w-2.5 rounded-full', dot)} />
+                          <span
+                            className={cn(
+                              'font-medium',
+                              isFree ? 'text-muted-foreground' : 'text-foreground',
+                            )}
+                          >
+                            {tier.name} (${tier.priceUsd}/mo)
+                          </span>
+                        </div>
+                        <span
+                          className={cn(
+                            'font-serif font-semibold tabular-nums text-sm',
+                            isFree ? 'text-muted-foreground' : 'text-foreground',
+                          )}
+                        >
+                          {tier.subscribers}{' '}
+                          <span className="text-[11px] font-sans font-normal text-muted-foreground">
+                            stores
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -432,16 +455,33 @@ export function AdminOverviewView() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div className="flex flex-col gap-1 rounded-lg bg-surface-high p-3">
               <span className="text-muted-foreground text-[10px] uppercase font-semibold">MongoDB Cluster</span>
-              <div className="flex items-center gap-1.5 font-semibold text-primary">
-                <CheckCircle2 size={14} />
-                <span>{system?.mongoStatus || 'Connected'}</span>
+              <div
+                className={cn(
+                  'flex items-center gap-1.5 font-semibold',
+                  system?.mongoStatus === 'connected' ? 'text-primary' : 'text-destructive',
+                )}
+              >
+                {system?.mongoStatus === 'connected' ? (
+                  <CheckCircle2 size={14} />
+                ) : (
+                  <ShieldAlert size={14} />
+                )}
+                <span>{system?.mongoStatus || 'Unknown'}</span>
               </div>
             </div>
 
             <div className="flex flex-col gap-1 rounded-lg bg-surface-high p-3">
               <span className="text-muted-foreground text-[10px] uppercase font-semibold">Redis Session Cache</span>
-              <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                <Activity size={14} className="text-primary" />
+              <div
+                className={cn(
+                  'flex items-center gap-1.5 font-semibold',
+                  system?.redisStatus === 'healthy' ? 'text-foreground' : 'text-destructive',
+                )}
+              >
+                <Activity
+                  size={14}
+                  className={system?.redisStatus === 'healthy' ? 'text-primary' : 'text-destructive'}
+                />
                 <span>
                   {system?.redisStatus === 'healthy' ? `Healthy (${system.redisLatencyMs}ms)` : 'Degraded'}
                 </span>
@@ -451,7 +491,7 @@ export function AdminOverviewView() {
             <div className="flex flex-col gap-1 rounded-lg bg-surface-high p-3">
               <span className="text-muted-foreground text-[10px] uppercase font-semibold">Heap / Total Memory</span>
               <div className="font-mono font-semibold text-foreground">
-                {system ? `${system.nodeMemoryUsageMB} MB / ${system.nodeMemoryTotalMB || 256} MB` : 'Analyzing...'}
+                {system ? `${system.nodeMemoryUsageMB} MB / ${system.nodeMemoryTotalMB} MB` : 'Analyzing...'}
               </div>
             </div>
 

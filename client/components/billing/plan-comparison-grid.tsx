@@ -49,6 +49,9 @@ export function PlanComparisonGrid({
   const goToCheckout = (plan: Plan) => {
     setSubscribingId(plan._id);
     router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
+    // If the route never takes — a guard redirect, a blocked navigation — the button
+    // must not stay disabled with no way back.
+    setTimeout(() => setSubscribingId(null), 8000);
   };
 
   const handleCardCta = (plan: Plan) => {

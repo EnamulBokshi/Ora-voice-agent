@@ -14,6 +14,10 @@ import {
   UpdatePlatformAgentPayload,
   PlatformTokenAnalyticsResponse,
   MerchantCostItem,
+  TrialLeadsResponse,
+  CampaignAudiencePreview,
+  CampaignSendResult,
+  CampaignHistoryItem,
 } from '@/types/admin';
 
 export async function fetchPlatformStats(period = '30d'): Promise<PlatformStatsData> {
@@ -311,6 +315,68 @@ export async function deactivateAdminCoupon(id: string): Promise<any> {
 
 export async function fetchAdminCouponRedemptions(id: string): Promise<any[]> {
   return apiClient<any[]>(`/admin/coupons/${id}/redemptions`, {
+    method: 'GET',
+  });
+}
+
+// --- Trial leads ---
+
+export async function fetchTrialLeads(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+} = {}): Promise<TrialLeadsResponse> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.search) query.set('search', params.search);
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+
+  const qs = query.toString();
+  return apiClient<TrialLeadsResponse>(`/admin/trials${qs ? `?${qs}` : ''}`, {
+    method: 'GET',
+  });
+}
+
+export async function contactTrialLead(
+  businessId: string,
+  payload: { subject: string; message: string; ctaUrl?: string },
+): Promise<{ delivered: boolean; to: string; storeName: string }> {
+  return apiClient<{ delivered: boolean; to: string; storeName: string }>(
+    `/admin/trials/${businessId}/contact`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
+// --- Promotional campaigns ---
+
+export async function previewCampaignAudience(payload: {
+  businessIds?: string[];
+  audience?: string;
+}): Promise<CampaignAudiencePreview> {
+  return apiClient<CampaignAudiencePreview>('/admin/campaigns/preview', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function sendCampaign(payload: {
+  subject: string;
+  message: string;
+  couponCode?: string;
+  ctaUrl?: string;
+  businessIds?: string[];
+  audience?: string;
+}): Promise<CampaignSendResult> {
+  return apiClient<CampaignSendResult>('/admin/campaigns/send', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchCampaignHistory(limit = 25): Promise<CampaignHistoryItem[]> {
+  return apiClient<CampaignHistoryItem[]>(`/admin/campaigns?limit=${limit}`, {
     method: 'GET',
   });
 }
