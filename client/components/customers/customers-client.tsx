@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   RefreshCw,
-  UserPlus,
   Download,
   AlertCircle,
   Users,
@@ -17,7 +16,6 @@ import { CustomersKpiStrip } from './customers-kpi-strip';
 import { CustomersFilterBar, CustomerSegment, CustomerSort } from './customers-filter-bar';
 import { CustomersTable } from './customers-table';
 import { CustomerDetailPanel } from './customer-detail-panel';
-import { AddCustomerModal } from './add-customer-modal';
 
 export function CustomersClient() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -28,7 +26,6 @@ export function CustomersClient() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const applyCustomersData = useCallback((items: Customer[]) => {
     setCustomers(items);
@@ -181,25 +178,16 @@ export function CustomersClient() {
 
   // Header action elements
   const headerActions = (
-    <div className="flex items-center gap-2.5">
-      <button
-        type="button"
-        onClick={() => setIsAddModalOpen(true)}
-        className="px-3 py-1.5 rounded-md text-xs font-medium text-primary-foreground bg-primary hover:bg-primary-hover transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-      >
-        <UserPlus size={13} />
-        <span>Add Customer</span>
-      </button>
-
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={handleExportJson}
         disabled={filteredAndSortedCustomers.length === 0}
-        className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground bg-surface-high/40 hover:bg-surface-high border border-border/50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
-        title="Export to JSON"
+        className="px-3 py-1.5 rounded-md text-xs font-medium text-foreground bg-surface-high hover:bg-surface-bright border border-border/60 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+        title="Export Shoppers to JSON"
       >
         <Download size={13} />
-        <span className="hidden sm:inline">Export</span>
+        <span>Export Shoppers</span>
       </button>
 
       <button
@@ -310,16 +298,7 @@ export function CustomersClient() {
           )}
         </div>
       </div>
-
-      {/* Add Customer Modal */}
-      <AddCustomerModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={(created) => {
-          load();
-          if (created) setSelectedId(created._id || created.id || '');
-        }}
-      />
     </div>
   );
 }
+

@@ -340,7 +340,7 @@ export function Sidebar({
 
             <Link
               href="/billing"
-              title="Invoices"
+              title="Plans & Billing"
               className={cn(
                 'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
                 pathname.startsWith('/billing') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
@@ -667,7 +667,7 @@ export function Sidebar({
             {/* ── Section Divider ── */}
             <div className="h-px bg-border/40 my-2" />
 
-            {/* 6. Invoices */}
+            {/* 6. Plans & Billing */}
             <Link
               href="/billing"
               className={cn(
@@ -678,7 +678,7 @@ export function Sidebar({
               )}
             >
               <Receipt size={15} className={pathname.startsWith('/billing') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
-              <span className="truncate flex-1">Invoices</span>
+              <span className="truncate flex-1">Plans & Billing</span>
             </Link>
 
             {/* 7. Usage */}

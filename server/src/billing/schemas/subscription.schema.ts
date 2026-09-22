@@ -76,6 +76,13 @@ export class Subscription {
   cancelAtPeriodEnd: boolean;
 
   /**
+   * Records whether this subscription/account has ever consumed a 14-day free trial.
+   * Strictly enforces that switching tiers does not reactivate a trial.
+   */
+  @Prop({ default: false })
+  hasUsedTrial?: boolean;
+
+  /**
    * Custom limit overrides for Scale / Enterprise tier contracts.
    * If defined, these take priority over Plan.limits.
    */

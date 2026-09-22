@@ -3,6 +3,8 @@ import { getModelToken } from '@nestjs/mongoose';
 import { KnowledgeService } from './knowledge.service';
 import { KnowledgeBase } from './schemas/knowledge-base.schema';
 import { KnowledgeChunk } from './schemas/knowledge-chunk.schema';
+import { Subscription } from '../billing/schemas/subscription.schema';
+import { Plan } from '../billing/schemas/plan.schema';
 import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
 
 describe('KnowledgeService', () => {
@@ -35,6 +37,18 @@ describe('KnowledgeService', () => {
             insertMany: jest.fn(),
             find: jest.fn(),
             deleteMany: jest.fn(),
+          },
+        },
+        {
+          provide: getModelToken(Subscription.name),
+          useValue: {
+            findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+          },
+        },
+        {
+          provide: getModelToken(Plan.name),
+          useValue: {
+            findOne: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
           },
         },
       ],

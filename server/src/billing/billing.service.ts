@@ -107,6 +107,24 @@ export class BillingService implements OnModuleInit {
 
     const usedVoiceMins = mins ? parseInt(mins, 10) : 0;
 
+    // Check whether this business has ever utilized a trial (anti-abuse verification)
+    const trialLog = await this.trialLogModel.findOne({ businessId: businessId as any }).exec();
+    const isTrialing = sub?.status === SubscriptionStatus.TRIALING;
+    const hasUsedTrial = Boolean(
+      business?.trialGrantedAt ||
+      trialLog ||
+      isTrialing ||
+      (sub as any)?.hasUsedTrial,
+    );
+
+    let trialDaysRemaining: number | null = null;
+    let trialHoursRemaining: number | null = null;
+    if (isTrialing && sub?.currentPeriodEnd) {
+      const msLeft = new Date(sub.currentPeriodEnd).getTime() - Date.now();
+      trialDaysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+      trialHoursRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60)));
+    }
+
     return {
       subscription: sub,
       plan,
@@ -119,6 +137,11 @@ export class BillingService implements OnModuleInit {
         ordersPerMonth: orders ? parseInt(orders, 10) : 0,
         seats: seatsCount || 1,
       },
+      hasUsedTrial,
+      isTrialing,
+      trialDaysRemaining,
+      trialHoursRemaining,
+      trialExpiresAt: sub?.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : undefined,
     };
   }
 
@@ -266,6 +289,7 @@ export class BillingService implements OnModuleInit {
           billingProvider: BillingProvider.STRIPE,
           providerRef: subRef.providerRef,
           status: SubscriptionStatus.ACTIVE,
+          hasUsedTrial: true,
           currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd: false,
@@ -657,12 +681,14 @@ export class BillingService implements OnModuleInit {
   /**
    * Activates a strict 14-day free trial for a verified website domain.
    * Enforces domain uniqueness via TrialLog to prevent trial abuse.
+   * Strictly enforces that an account receives only ONE trial across all tiers.
    */
   async startFreeTrial(
     businessId: string,
     websiteDomain: string,
     ipAddress?: string,
     userContext?: { email?: string; userId?: string },
+    planId?: string,
   ) {
     if (!websiteDomain || typeof websiteDomain !== 'string' || !websiteDomain.trim()) {
       throw new DomainException(
@@ -697,14 +723,29 @@ export class BillingService implements OnModuleInit {
       );
     }
 
-    // 2. Check if this business already had a trial
-    if (business.trialGrantedAt) {
+    // 2. Check if this business already had a trial across ANY plan
+    const existingBusinessTrial = await this.trialLogModel.findOne({ businessId: bId }).exec();
+    if (business.trialGrantedAt || existingBusinessTrial) {
       throw new DomainException(
         'TRIAL_ALREADY_GRANTED',
-        'A free trial has already been granted to this account.',
+        'A 14-day free trial has already been utilized by this account. Switching plans requires a paid subscription.',
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    // 3. Check if existing subscription has already used trial or is active
+    const existingSub = await this.subscriptionModel.findOne({ businessId: bId }).exec();
+    if (existingSub && (existingSub.status === SubscriptionStatus.TRIALING || existingSub.hasUsedTrial)) {
+      throw new DomainException(
+        'TRIAL_ALREADY_GRANTED',
+        'Your account has already utilized its 14-day free trial. Switching plans requires an immediate paid subscription.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Determine target plan (Starter, Growth, or Scale)
+    const allowedPlanIds = [PlanId.STARTER, PlanId.GROWTH, PlanId.SCALE];
+    const targetPlanId = planId && allowedPlanIds.includes(planId as any) ? planId : PlanId.GROWTH;
 
     // Resolve user details
     let customerEmail = userContext?.email;
@@ -720,7 +761,7 @@ export class BillingService implements OnModuleInit {
     const now = new Date();
     const periodEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
 
-    // 3. Record immutable TrialLog
+    // 4. Record immutable TrialLog
     await new this.trialLogModel({
       normalizedDomain,
       businessId: bId,
@@ -731,7 +772,7 @@ export class BillingService implements OnModuleInit {
       trialExpiresAt: periodEnd,
     }).save();
 
-    // 4. Update Business Record
+    // 5. Update Business Record
     if (!business.publishableKey) {
       const randomHex = crypto.randomBytes(12).toString('hex');
       business.publishableKey = `biz_live_${randomHex}`;
@@ -743,15 +784,16 @@ export class BillingService implements OnModuleInit {
     business.trialExpiresAt = periodEnd;
     await business.save();
 
-    // 5. Create or Update Subscription as TRIALING on Growth tier
+    // 6. Create or Update Subscription as TRIALING on selected tier
     const sub = await this.subscriptionModel.findOneAndUpdate(
       { businessId: bId },
       {
         $set: {
-          planId: PlanId.GROWTH,
+          planId: targetPlanId,
           billingProvider: BillingProvider.STRIPE,
           providerRef: 'free_trial',
           status: SubscriptionStatus.TRIALING,
+          hasUsedTrial: true,
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd: false,

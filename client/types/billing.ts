@@ -41,6 +41,7 @@ export interface Subscription {
   currentPeriodEnd: string;
   trialDays?: number;
   trialExpiresAt?: string;
+  hasUsedTrial?: boolean;
   cancelAtPeriodEnd: boolean;
   customLimits?: CustomPlanLimits;
   createdAt: string;
@@ -61,6 +62,22 @@ export interface SubscriptionDetailsResponse {
   subscription: Subscription | null;
   plan: Plan | null;
   usage: SubscriptionUsage;
+  hasUsedTrial?: boolean;
+  isTrialing?: boolean;
+  trialDaysRemaining?: number | null;
+  trialHoursRemaining?: number | null;
+  trialExpiresAt?: string;
+}
+
+export interface StartTrialPayload {
+  websiteDomain: string;
+  planId?: string;
+}
+
+export interface StartTrialResponse {
+  trialDays: number;
+  trialExpiresAt: string;
+  message: string;
 }
 
 export interface SubscribePayload {
@@ -82,4 +99,5 @@ export interface SubscribeResponseData {
   transaction?: any;
   invoice?: any;
 }
+
 

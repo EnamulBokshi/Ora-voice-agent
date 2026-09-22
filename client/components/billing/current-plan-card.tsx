@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { Loader2, Check, AlertCircle, CreditCard, Clock } from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
-import { cancelSubscriptionApi } from '@/services/billing-service';
+import { cancelSubscriptionApi, subscribePlanApi } from '@/services/billing-service';
 import { formatCurrency, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -14,12 +14,47 @@ interface CurrentPlanCardProps {
 
 export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps) {
   const [cancelling, setCancelling] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [cancelResult, setCancelResult] = useState<
     { ok: true } | { ok: false; message: string } | null
   >(null);
 
+  const plan = subscription.plan;
+  const sub = subscription.subscription;
+  const usage = subscription.usage;
+
+  const isTrialing = sub?.status === 'trialing';
+  const currentPeriodEnd = sub?.currentPeriodEnd;
+  const endMs = currentPeriodEnd ? new Date(currentPeriodEnd).getTime() : 0;
+  const diffMs = endMs - Date.now();
+  const daysRemaining = subscription.trialDaysRemaining ?? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  const hoursRemaining = subscription.trialHoursRemaining ?? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
+
+  const handlePayAndActivate = async () => {
+    if (!plan) return;
+    setActivating(true);
+    setActionError(null);
+    try {
+      const provider = sub?.billingProvider === 'bkash' ? 'bkash' : 'stripe';
+      const result = await subscribePlanApi({ planId: plan.planId, provider });
+      if (result.requiresRedirect && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      if (result.requiresRedirect && result.bkashURL) {
+        window.location.href = result.bkashURL;
+        return;
+      }
+      onReload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not initiate checkout.');
+    } finally {
+      setActivating(false);
+    }
+  };
+
   const handleCancel = async () => {
-    // Names the consequence for a voice product: the agent stops answering shoppers.
     if (
       !confirm(
         'Cancel your subscription?\n\nORA will keep serving your storefront until the end of the current billing cycle, then stop answering shoppers. Your catalog and conversation history are kept.',
@@ -34,8 +69,6 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       setCancelResult({ ok: true });
       onReload();
     } catch (err) {
-      // Previously `catch { // silent }`: the spinner stopped and the merchant had no
-      // idea whether their storefront agent was still paid for.
       setCancelResult({
         ok: false,
         message:
@@ -47,10 +80,6 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       setCancelling(false);
     }
   };
-
-  const plan = subscription.plan;
-  const sub = subscription.subscription;
-  const usage = subscription.usage;
 
   const providerName =
     sub?.billingProvider === 'bkash'
@@ -74,16 +103,40 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
             </span>
           )}
         </div>
-        {sub && sub.status !== 'canceled' && (
-          <button
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="self-start sm:self-auto px-3 py-1.5 rounded-md text-[12px] font-medium border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer font-sans touch-manipulation"
-          >
-            {cancelling && <Loader2 className="animate-spin text-foreground" size={12} />}
-            Cancel subscription
-          </button>
-        )}
+
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {isTrialing && plan && (
+            <button
+              type="button"
+              onClick={handlePayAndActivate}
+              disabled={activating || cancelling}
+              className="px-3.5 py-1.5 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 touch-manipulation"
+            >
+              {activating ? (
+                <>
+                  <Loader2 className="animate-spin text-primary-foreground" size={12} />
+                  <span>Connecting…</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard size={13} />
+                  <span>Pay & Activate Plan</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {sub && sub.status !== 'canceled' && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling || activating}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer font-sans touch-manipulation"
+            >
+              {cancelling && <Loader2 className="animate-spin text-foreground" size={12} />}
+              Cancel subscription
+            </button>
+          )}
+        </div>
       </div>
 
       {/* The outcome of the highest-stakes action on this surface, stated plainly. */}
@@ -147,6 +200,25 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
               <span> / month · {providerName}</span>
             </div>
           )}
+
+          {isTrialing && sub?.currentPeriodEnd && (
+            <div
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11.5px] font-medium border mt-1',
+                daysRemaining <= 3
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                  : 'border-primary/30 bg-primary/10 text-primary',
+              )}
+            >
+              <Clock size={12} className="shrink-0" />
+              <span>
+                {daysRemaining === 0
+                  ? `${hoursRemaining}h left in trial`
+                  : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining in trial`}
+              </span>
+            </div>
+          )}
+
           <p className="text-[11.5px] text-muted-foreground pt-1">
             {sub?.status === 'trialing' && sub?.currentPeriodEnd
               ? `Trial ends: ${formatDateTime(sub.currentPeriodEnd)}`
@@ -154,6 +226,8 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
               ? `Cycle: ${formatDateTime(sub.currentPeriodStart)} – ${formatDateTime(sub.currentPeriodEnd)}`
               : 'Choose a plan below to activate your 14-day risk-free trial.'}
           </p>
+
+          {actionError && <p className="text-[11px] text-destructive font-medium">{actionError}</p>}
         </div>
 
         {/* Col 2: Usage this period */}

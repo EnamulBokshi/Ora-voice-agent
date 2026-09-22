@@ -6,6 +6,7 @@ import { VoiceGateway } from './voice.gateway';
 import { SessionTimerService } from './session-timer.service';
 import { GeminiVoiceService } from '../ai-voice/gemini-voice.service';
 import { EntitlementService } from '../common/entitlement/entitlement.service';
+import { BillingService } from '../billing/billing.service';
 import { Business } from '../users/schemas/business.schema';
 
 const KEY = 'biz_live_0123456789abcdef01234567';
@@ -72,6 +73,17 @@ describe('VoiceGateway tenant resolution', () => {
         },
         { provide: ConfigService, useValue: { get: () => undefined } },
         { provide: EntitlementService, useValue: entitlementService },
+        {
+          provide: BillingService,
+          useValue: {
+            incrementUsage: jest.fn().mockResolvedValue(undefined),
+            getSubscription: jest.fn().mockResolvedValue({
+              subscription: { status: 'active' },
+              plan: { limits: { voiceMinutes: 500 } },
+              usage: { voiceMinutes: 10 },
+            }),
+          },
+        },
       ],
     }).compile();
 

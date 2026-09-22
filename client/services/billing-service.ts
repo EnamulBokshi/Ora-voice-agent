@@ -18,6 +18,24 @@ export async function getSubscriptionApi(): Promise<SubscriptionDetailsResponse>
   });
 }
 
+export async function startTrialApi(payload: {
+  websiteDomain: string;
+  planId?: string;
+}): Promise<{
+  trialDays: number;
+  trialExpiresAt: string;
+  message: string;
+}> {
+  return apiClient<{
+    trialDays: number;
+    trialExpiresAt: string;
+    message: string;
+  }>('/billing/start-trial', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function subscribePlanApi(
   payload: SubscribePayload,
 ): Promise<SubscribeResponseData> {
