@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORA — Tuned to your catalogue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Archivo:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root{--ink:oklch(0.94 0.008 85);--ink-2:oklch(0.74 0.01 85);--ink-3:oklch(0.62 0.01 85);--bg:oklch(0.15 0.005 75);--card:oklch(0.182 0.005 75);--viz:oklch(0.205 0.005 75);--line:oklch(1 0 0/0.10);--hair:oklch(1 0 0/0.07);--accent:oklch(0.83 0.15 112)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Archivo,"Helvetica Neue",Helvetica,sans-serif;font-size:15px;line-height:1.5;padding:72px 32px;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{color:var(--ink)}
+.wrap{max-width:1080px;margin:0 auto}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
+h1{font-family:Newsreader,Georgia,serif;font-weight:300;font-size:clamp(32px,4.2vw,46px);line-height:1.06;letter-spacing:-0.018em;max-width:16ch}
+.head p{color:var(--ink-2);max-width:30ch}
+.split{margin-top:44px;display:grid;grid-template-columns:minmax(210px,0.58fr) minmax(0,1fr);gap:56px}
+@media(max-width:820px){.split{grid-template-columns:minmax(0,1fr);gap:32px}}
+.steps{list-style:none;margin:0;padding:0;border-left:1px solid var(--hair)}
+.step{position:relative;padding:15px 0 15px 22px;cursor:pointer;color:var(--ink-3);font-size:15px;transition:color .3s}
+.step:hover{color:var(--ink-2)}
+.step.on{color:var(--ink)}
+.step .bar{position:absolute;left:-1px;top:0;width:1px;height:0;background:var(--accent)}
+.step.on .bar{height:100%;transition:height 3s linear}
+.step em{display:block;font-style:normal;font-size:12.5px;color:var(--ink-3);margin-top:3px;opacity:0;max-height:0;transition:opacity .3s,max-height .3s}
+.step.on em{opacity:1;max-height:2em}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--card);overflow:hidden;display:flex;flex-direction:column}
+.ctop{padding:22px 26px;border-bottom:1px solid var(--hair);display:flex;justify-content:space-between;align-items:baseline;gap:18px}
+.ctop b{font-size:14.5px;font-weight:500}
+.ctop span{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;color:var(--ink-3)}
+.prod{padding:26px;display:flex;justify-content:space-between;align-items:baseline;gap:24px;border-bottom:1px solid var(--hair);background:var(--viz)}
+.prod h2{font-family:Newsreader,Georgia,serif;font-weight:300;font-size:26px;line-height:1.2;letter-spacing:-0.01em}
+.prod .sku{margin-top:8px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;color:var(--ink-3)}
+.prod b{font-family:Newsreader,Georgia,serif;font-weight:300;font-size:28px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qa{padding:24px 26px;display:flex;flex-direction:column;gap:18px;flex:1}
+.turn{display:grid;grid-template-columns:52px minmax(0,1fr);gap:14px;align-items:start}
+.who{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding-top:5px}
+.turn p{font-family:Newsreader,Georgia,serif;font-size:17px;line-height:1.5;font-weight:300;text-wrap:pretty}
+.turn.ask p{color:var(--ink-2)}
+.foot{padding:16px 26px;border-top:1px solid var(--hair);display:flex;justify-content:space-between;gap:16px;font-size:12.5px;color:var(--ink-3);flex-wrap:wrap}
+.foot b{color:var(--ink-2);font-weight:400;font-variant-numeric:tabular-nums}
+.fade{transition:opacity .16s ease}.fade.out{opacity:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="head"><h1>Tuned to your catalogue.</h1><p>Six profiles, each with its own voice and inventory rules.</p></div>
+<div class="split">
+<ul class="steps" id="steps"></ul>
+<div class="card">
+<div class="ctop"><b class="fade" id="d-name">Home &amp; Furniture</b><span class="fade" id="d-turn">298 ms turn</span></div>
+<div class="prod"><div><h2 class="fade" id="d-prod">Oak Dining Table, 6-seater</h2><div class="sku fade" id="d-sku">SKU-OAK6S · made to order</div></div><b class="fade" id="d-price">$890</b></div>
+<div class="qa">
+<div class="turn ask"><span class="who">Shopper</span><p class="fade" id="d-q">Can you deliver to Seattle by Friday?</p></div>
+<div class="turn"><span class="who">ORA</span><p class="fade" id="d-a">Freight takes three to five business days, so yes. White-glove delivery is included.</p></div>
+</div>
+<div class="foot"><span class="fade" id="d-src">Answered from shipping matrix</span><b class="fade" id="d-note">Checkout link sent</b></div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+const data=[
+ {n:'Fashion & Apparel',short:'Fashion',note2:'Sizing, care, returns',p:'Merino Crew Knit',k:'SKU-1180 · 4 left',pr:'$125',q:'Will this shrink if I machine wash it?',a:'Cold wash on wool cycle, dry flat. Machine drying shrinks it about one size.',turn:'284 ms turn',src:'Answered from care guide',note:'Added to cart'},
+ {n:'Luxury & Jewelry',short:'Jewelry',note2:'Certificates and appraisal',p:'1.80ct Solitaire Lab Diamond',k:'SKU-LG59201 · IGI certified',pr:'$2,850',q:'Does it include the certificate and resizing?',a:'Yes. The IGI certificate ships with the piece, and resizing is free within 60 days.',turn:'301 ms turn',src:'Answered from policy',note:'Vault reserved'},
+ {n:'Consumer Electronics',short:'Electronics',note2:'Specs and compatibility',p:'Studio ANC Headphones',k:'SKU-4420 · in stock',pr:'$299',q:'How long does the battery last with noise cancelling on?',a:'Thirty hours with ANC on, forty with it off. Ten minutes of charge gives five hours.',turn:'276 ms turn',src:'Answered from spec sheet',note:'Added to cart'},
+ {n:'Home & Furniture',short:'Home',note2:'Freight and lead times',p:'Oak Dining Table, 6-seater',k:'SKU-OAK6S · made to order',pr:'$890',q:'Can you deliver to Seattle by Friday?',a:'Freight takes three to five business days, so yes. White-glove delivery is included.',turn:'298 ms turn',src:'Answered from shipping matrix',note:'Checkout link sent'},
+ {n:'Sports & Outdoors',short:'Outdoors',note2:'Fit and field use',p:'Alpine 45L Pack',k:'SKU-2260 · in stock',pr:'$210',q:'Is the frame adjustable for a shorter torso?',a:'Yes, the harness adjusts from 15 to 19 inches. The small frame fits down to 14.',turn:'289 ms turn',src:'Answered from size chart',note:'Added to cart'},
+ {n:'Beauty & Skincare',short:'Beauty',note2:'Ingredients and routines',p:'10% Niacinamide Serum',k:'SKU-3120 · in stock',pr:'$48',q:'Safe to layer with my evening retinol?',a:'Yes. Apply the serum first — niacinamide reinforces the barrier retinol dries out.',turn:'312 ms turn',src:'Answered from formulary',note:'Bundle added'}
+];
+const list=document.getElementById('steps'),f={};
+['name','prod','sku','price','q','a','turn','src','note'].forEach(k=>f[k]=document.getElementById('d-'+k));
+const steps=data.map((d,i)=>{const li=document.createElement('li');li.className='step';
+ li.innerHTML='<span class="bar"></span>'+d.n+'<em>'+d.note2+'</em>';
+ li.addEventListener('click',()=>{clearInterval(timer);show(i);loop()});list.appendChild(li);return li});
+let cur=-1,timer;
+function show(i){if(i===cur)return;cur=i;const d=data[i];
+ steps.forEach((s,k)=>{const on=k===i;const b=s.querySelector('.bar');if(on){b.style.transition='none';b.style.height='0';b.offsetHeight;b.style.transition='';b.style.height='100%'}else{b.style.transition='none';b.style.height='0'}s.classList.toggle('on',on)});
+ Object.values(f).forEach(e=>e.classList.add('out'));
+ setTimeout(()=>{f.name.textContent=d.n;f.prod.textContent=d.p;f.sku.textContent=d.k;f.price.textContent=d.pr;f.q.textContent=d.q;f.a.textContent=d.a;f.turn.textContent=d.turn;f.src.textContent=d.src;f.note.textContent=d.note;
+ Object.values(f).forEach(e=>e.classList.remove('out'))},160);}
+function loop(){timer=setInterval(()=>show((cur+1)%data.length),3000)}
+show(3);loop();
+})();
+</script>
+</body>
+</html>
