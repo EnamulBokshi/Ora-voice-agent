@@ -1,5 +1,10 @@
 {
   "version": "v2",
+<<<<<<< HEAD
   "hash": "4847f41822a5",
   "bundleUrl": "/widget/v2/widget.4847f41822a5.js"
+=======
+  "hash": "2430f911f3aa",
+  "bundleUrl": "/widget/v2/widget.2430f911f3aa.js"
+>>>>>>> c10422f454a911ebe415ff2b10cdea005cf75b55
 }

@@ -89,9 +89,9 @@ export function Start2Bento() {
             </div>
             <div className="body">
               <h2>Catalogue &amp; inventory sync</h2>
-              <p>
+              {/* <p>
                 Shopify, WooCommerce, or any product feed. Stock and policies stay current without scheduled imports.
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -144,9 +144,9 @@ export function Start2Bento() {
             </div>
             <div className="body">
               <h2>Real-time telemetry</h2>
-              <p>
+              {/* <p>
                 Speech turn latency, question accuracy, and revenue attributed to voice, measured per session.
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -179,9 +179,9 @@ export function Start2Bento() {
             </div>
             <div className="body">
               <h2>In-call checkout</h2>
-              <p>
+              {/* <p>
                 The agent completes the purchase path without handing the shopper off.
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -233,9 +233,9 @@ export function Start2Bento() {
             </div>
             <div className="body">
               <h2>One script tag</h2>
-              <p>
+              {/* <p>
                 Shadow DOM isolation, so no theme conflicts. Loads async, with no PageSpeed impact.
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -270,9 +270,9 @@ export function Start2Bento() {
             </div>
             <div className="body">
               <h2>After hours</h2>
-              <p>
+              {/* <p>
                 Answers questions, recovers sold-out drop-offs, and handles returns when the store is closed.
-              </p>
+              </p> */}
             </div>
           </div>
 
