@@ -17,6 +17,10 @@ echo "🚀 Starting ORA Production Deployment ($REMOTE_HOST)"
 echo "=========================================================="
 
 echo "📦 [1/2] Syncing codebase to VPS ($REMOTE_HOST:$REMOTE_DIR)..."
+# A pattern without a leading "/" matches that name at ANY depth. Root-only
+# folders must be anchored with "/", or rsync also skips real source such as
+# client/components/agent and client/app/(marketing)/docs, and --delete leaves
+# the stale server copies of them in place.
 rsync -avz --delete \
   --exclude 'node_modules' \
   --exclude 'client/node_modules' \
@@ -29,34 +33,34 @@ rsync -avz --delete \
   --exclude '.env' \
   --exclude '*.tsbuildinfo' \
   --exclude '.agents' \
-  --exclude 'agent' \
+  --exclude '/agent' \
   --exclude '.agent' \
   --exclude 'client/.agent' \
   --exclude '.claude' \
   --exclude 'CLAUDE.md' \
   --exclude '.codex' \
-  --exclude 'codex' \
+  --exclude '/codex' \
   --exclude '.commandcode' \
   --exclude 'client/.commandcode' \
   --exclude 'server/.commandcode' \
   --exclude '.impeccable' \
   --exclude 'client/.impeccable' \
-  --exclude 'impeccable' \
-  --exclude 'agent-docs' \
+  --exclude '/impeccable' \
+  --exclude '/agent-docs' \
   --exclude '.antigravity*' \
   --exclude '.gemini' \
   --exclude '.vscode' \
   --exclude '.idea' \
   --exclude '.postman' \
   --exclude 'graphify-out' \
-  --exclude 'graphify' \
-  --exclude 'docs' \
-  --exclude 'storefront-theme' \
-  --exclude 'landing_page_design' \
+  --exclude '/graphify' \
+  --exclude '/docs' \
+  --exclude '/storefront-theme' \
+  --exclude '/landing_page_design' \
   --exclude 'client/landing_page_design' \
   --exclude 'erd.pdf' \
   --exclude 'crawlers.zip' \
-  --exclude 'scratch' \
+  --exclude '/scratch' \
   --exclude 'future-work.txt' \
   --exclude 'improve.txt' \
   --exclude 'issues.txt' \
