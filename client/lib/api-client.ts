@@ -174,6 +174,18 @@ export async function apiClient<T>(
         }
       }
 
+      // Handle 402 PAYMENT_REQUIRED / TRIAL_EXPIRED: redirect to billing page
+      if (res.status === 402 && typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        if (
+          !currentPath.startsWith('/shopify') &&
+          !currentPath.startsWith('/billing') &&
+          !currentPath.startsWith('/pricing')
+        ) {
+          window.location.href = `/billing?expired=true`;
+        }
+      }
+
       throw new ApiClientError(errCode, errMsg, correlationId, res.status);
     }
 

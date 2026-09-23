@@ -145,9 +145,9 @@ export function ConversationsClient() {
   }
 
   return (
-    <div className="flex-1 flex h-full w-full overflow-hidden bg-background divide-x divide-border/40">
+    <div className="flex-1 min-h-0 min-w-0 flex h-full w-full overflow-hidden bg-background divide-x divide-border/40">
       <div className={cn(
-        'w-full md:w-auto h-full flex flex-col',
+        'w-full md:w-auto h-full min-h-0 flex flex-col shrink-0',
         showMobileTranscript ? 'hidden md:flex' : 'flex',
       )}>
         <ConversationListPanel
@@ -165,7 +165,7 @@ export function ConversationsClient() {
       </div>
 
       <div className={cn(
-        'flex-1 h-full flex flex-col min-w-0',
+        'flex-1 h-full min-h-0 flex flex-col min-w-0 overflow-hidden',
         !showMobileTranscript ? 'hidden md:flex' : 'flex',
       )}>
         {selectedConversation ? (

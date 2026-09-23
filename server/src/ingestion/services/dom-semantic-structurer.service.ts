@@ -45,26 +45,34 @@ export class DomSemanticStructurerService {
           availability: product.availability || 'in_stock',
         });
 
-        await this.productsService.batchSync(businessId, {
-          sourceTier: SourceTier.TIER3_PASSIVE,
-          products: [
-            {
-              nativeProductId: product.sku || `dom_${Math.abs(url.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0)).toString(36)}`,
-              name: product.name,
-              description: telemetry.metaDescription || bodyTextSnippet?.slice(0, 300) || '',
-              price: product.price,
-              currency: product.currency || 'USD',
-              stockQuantity: product.availability === 'out_of_stock' ? 0 : 10,
-              availability: product.availability === 'out_of_stock' ? ProductAvailability.OUT_OF_STOCK : ProductAvailability.IN_STOCK,
-              category: 'General',
-              images: product.image ? [product.image] : [],
-              attributes: { sourceUrl: url, contentHash: pHash },
-              sourceTier: SourceTier.TIER3_PASSIVE,
-              confidenceScore: 0.8,
-            },
-          ],
-        });
-        productsCount += 1;
+        // Deduplication: if this product is already ingested via Tier 1 (e.g. Shopify connector) with real variants,
+        // do not overwrite or create a degraded Tier 3 DOM stub that lacks variant IDs.
+        const existing = typeof (this.productsService as any).resolveByIdentifier === 'function'
+          ? await (this.productsService as any).resolveByIdentifier(businessId, product.name)
+          : null;
+
+        if (!existing || existing.sourceTier === SourceTier.TIER3_PASSIVE) {
+          await this.productsService.batchSync(businessId, {
+            sourceTier: SourceTier.TIER3_PASSIVE,
+            products: [
+              {
+                nativeProductId: product.sku || `dom_${Math.abs(url.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0)).toString(36)}`,
+                name: product.name,
+                description: telemetry.metaDescription || bodyTextSnippet?.slice(0, 300) || '',
+                price: product.price,
+                currency: product.currency || 'USD',
+                stockQuantity: product.availability === 'out_of_stock' ? 0 : 10,
+                availability: product.availability === 'out_of_stock' ? ProductAvailability.OUT_OF_STOCK : ProductAvailability.IN_STOCK,
+                category: 'General',
+                images: product.image ? [product.image] : [],
+                attributes: { sourceUrl: url, contentHash: pHash },
+                sourceTier: SourceTier.TIER3_PASSIVE,
+                confidenceScore: 0.8,
+              },
+            ],
+          });
+          productsCount += 1;
+        }
       } catch (err: any) {
         this.logger.warn(`[DomStructurer] Product sync note: ${err.message}`);
       }

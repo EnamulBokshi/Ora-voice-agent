@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { BillingClient } from '@/components/billing/billing-client';
 
 export const metadata: Metadata = {
-  title: 'Billing & Subscriptions | ORA Command Center',
+  title: 'Plans & Billing | ORA Command Center',
   description:
-    'Manage your ORA subscription tier and invoices.',
+    'Manage your active subscription tier, track trial and usage quotas, and access payment receipts.',
 };
 
 export default function BillingPage() {

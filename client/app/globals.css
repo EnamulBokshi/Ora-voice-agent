@@ -569,3 +569,8 @@
     line-height: 1.6;
 }
 
+/* Shopify App Bridge custom element - hide raw DOM fallback when opened outside admin iframe */
+ui-nav-menu {
+    display: none;
+}
+

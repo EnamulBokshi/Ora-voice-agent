@@ -9,16 +9,9 @@ import {
   X,
   Activity,
   User,
-  Zap,
-  SlidersHorizontal,
   Radio,
-  Compass,
-  Layers,
-  Database,
-  ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
-import { searchRagCombinedApi } from '@/services/rag-service';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
 import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 import { useModalA11y } from '@/hooks/use-modal-a11y';
@@ -42,14 +35,10 @@ interface TranscriptEntry {
 }
 
 type SessionStatus = 'idle' | 'connecting' | 'connected' | 'listening' | 'thinking' | 'speaking' | 'error';
-type VoiceMode = 'direct-live' | 'browser-speech';
-type InspectorTab = 'transcript' | 'memory';
 
 export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestModalProps) {
   const router = useRouter();
   const [status, setStatus] = useState<SessionStatus>('idle');
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>('direct-live');
-  const [activeTab, setActiveTab] = useState<InspectorTab>('transcript');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Resolved on open rather than at module scope: it reads the document's
   // Permissions Policy, which does not exist during server rendering.
@@ -57,24 +46,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string>(() => `ses_${Math.random().toString(36).substring(2, 9)}`);
-  const [activeTools, setActiveTools] = useState<string[]>([
-    'navigate_to_page',
-    'find_products',
-    'get_product_details',
-    'add_to_cart',
-    'place_order',
-    'redirect_to_checkout',
-    'search_knowledge_base',
-    'get_store_policy',
-    'update_customer_profile',
-    'get_customer_profile',
-  ]);
 
   // Direct Live Client Ref
   const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
-  const recognitionRef = useRef<any>(null);
 
   // Auto-scroll transcript log
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
@@ -90,20 +65,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
     setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
   }, []);
 
-  const speakWithBrowserTts = useCallback((text: string, onEnd?: () => void) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    setStatus('speaking');
-    utterance.onend = () => {
-      setStatus('listening');
-      if (onEnd) onEnd();
-    };
-    window.speechSynthesis.speak(utterance);
-  }, []);
-
   // Stop session
   const stopSession = useCallback(() => {
     if (directLiveClientRef.current) {
@@ -111,17 +72,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
         directLiveClientRef.current.stop();
       } catch (e) {}
       directLiveClientRef.current = null;
-    }
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
-      recognitionRef.current = null;
-    }
-
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
     }
 
     setStatus('idle');
@@ -191,9 +141,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
         onAudioLevel: (level) => {
           setAudioLevel(level);
         },
-        onLatency: (rtt) => {
-          setLatencyMs(rtt);
-        },
         onAction: (action) => {
           if (action?.type === 'navigate' && action.destination) {
             const dest = action.destination.trim();
@@ -207,6 +154,14 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('ora:quick-setup-open-request'));
             }
+          }
+          if (action?.type === 'shopify_add_to_cart') {
+            // The real add runs in the storefront widget, not here. Say so, so a test
+            // run is never mistaken for proof that the merchant's cart works.
+            addTranscript(
+              'system',
+              `🛒 Storefront cart add requested (variant ${action.variantId}, qty ${action.quantity ?? 1}). Not executed: the cart only exists on the merchant storefront.`,
+            );
           }
         },
         onError: (err) => {
@@ -225,88 +180,12 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
     }
   };
 
-  // Start Browser Speech Recognition Assistant Mode
-  const startBrowserVoiceAssistant = async () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setErrorMessage('Browser Speech Recognition not supported in this browser. Please use Chrome/Edge.');
-      setStatus('error');
-      return;
-    }
 
-    try {
-      setErrorMessage(null);
-      setStatus('listening');
-      addTranscript('system', 'Interactive Voice Assistant active! Speak your query...');
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        setStatus('listening');
-        addTranscript('system', 'Listening via browser microphone. Speak now...');
-      };
-
-      recognition.onresult = async (event: any) => {
-        const lastResult = event.results[event.results.length - 1];
-        if (lastResult.isFinal) {
-          const userText = lastResult[0].transcript.trim();
-          if (!userText) return;
-
-          addTranscript('user', userText);
-          setStatus('thinking');
-
-          try {
-            const startT = performance.now();
-            const ragRes = await searchRagCombinedApi({ query: userText, limit: 3 });
-            const rtt = Math.round(performance.now() - startT);
-            setLatencyMs(rtt);
-
-            let answer = 'I found some details in your store catalog. How else can I assist you today?';
-            if (ragRes && ragRes.knowledge && ragRes.knowledge.length > 0) {
-              answer = `Based on your store knowledge: ${ragRes.knowledge[0].text.substring(0, 160)}...`;
-            } else if (ragRes && ragRes.products && ragRes.products.length > 0) {
-              answer = `Found matching items: ${ragRes.products.map((p) => p.text).slice(0, 2).join(', ')}.`;
-            }
-
-            addTranscript('agent', answer);
-            speakWithBrowserTts(answer);
-          } catch (e: any) {
-            const fallback = 'I received your query and I am checking your store catalog. How can I help further?';
-            addTranscript('agent', fallback);
-            speakWithBrowserTts(fallback);
-          }
-        }
-      };
-
-      recognition.onerror = (e: any) => {
-        console.error('[BrowserRecognition] Error:', e.error);
-        if (e.error !== 'no-speech') {
-          setStatus('error');
-          setErrorMessage(`Speech recognition error: ${e.error}`);
-        }
-      };
-
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch (err: any) {
-      setStatus('error');
-      setErrorMessage(err.message || 'Failed to start browser voice');
-      addTranscript('system', `Error: ${err.message}`);
-    }
-  };
 
   const handleStartSession = () => {
     // Both modes capture the microphone, so a policy block rules out either.
     if (micBlocked) return;
-
-    if (voiceMode === 'direct-live') {
-      startDirectLiveSession();
-    } else {
-      startBrowserVoiceAssistant();
-    }
+    startDirectLiveSession();
   };
 
   const toggleMute = () => {
@@ -367,42 +246,10 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
 
         {/* Body Content - Scrollable on small viewports */}
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 flex flex-col items-center gap-3.5 sm:gap-4 md:gap-5 min-h-0 custom-scrollbar">
-          {/* Mode Switcher */}
-          <div className="w-full sm:w-auto flex flex-wrap sm:flex-nowrap items-center justify-center gap-1 p-1 rounded-md bg-surface-container border border-border/50 flex-shrink-0">
-            <button
-              onClick={() => {
-                stopSession();
-                setVoiceMode('direct-live');
-              }}
-              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-md text-[11.5px] sm:text-[12px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                voiceMode === 'direct-live'
-                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Zap size={13} className={voiceMode === 'direct-live' ? 'text-primary' : ''} />
-              <span>Direct Voice</span>
-            </button>
-            <button
-              onClick={() => {
-                stopSession();
-                setVoiceMode('browser-speech');
-              }}
-              className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-md text-[11.5px] sm:text-[12px] font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                voiceMode === 'browser-speech'
-                  ? 'bg-surface-high text-foreground font-semibold shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <SlidersHorizontal size={13} />
-              <span>Browser Voice</span>
-            </button>
-          </div>
-
           {/* Living Orb Visualizer */}
-          <div className="relative flex items-center justify-center my-0 sm:my-0.5 flex-shrink-0">
+          <div className="relative flex items-center justify-center my-1 flex-shrink-0">
             <LivingOrb
-              size={105}
+              size={110}
               voiceState={status === 'connected' ? 'active' : (status as LivingOrbState)}
               energyLevel={audioLevel}
               onClick={() => {
@@ -417,12 +264,12 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
           </div>
 
           {/* Status Bar */}
-          <div className="w-full flex items-center justify-between gap-2 text-[11.5px] sm:text-[12.5px] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-surface-container/50 border border-border/60 flex-shrink-0">
+          <div className="w-full flex items-center justify-between gap-2 text-[12px] px-3.5 py-2.5 rounded-md bg-surface-container/60 border border-border/60 flex-shrink-0">
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
               <span
-                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${
                   status === 'speaking' || status === 'listening'
-                    ? 'bg-emerald-500 dark:bg-[#C8F031] animate-pulse shadow-[0_0_8px_rgba(200,240,49,0.7)]'
+                    ? 'bg-emerald-500 dark:bg-[#C8F031] animate-pulse'
                     : status === 'connecting'
                     ? 'bg-amber-400 animate-ping'
                     : status === 'error'
@@ -431,22 +278,18 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                 }`}
               />
               <span className="text-foreground/90 font-medium truncate">
-                {status === 'idle' && 'Click Test ORA Live to speak with ORA'}
+                {status === 'idle' && 'Click Test ORA Live to start customer voice simulation'}
                 {status === 'connecting' && 'Connecting audio stream…'}
-                {status === 'listening' && 'ORA is listening... Speak clearly into your mic'}
-                {status === 'speaking' && 'ORA is speaking in real-time...'}
-                {status === 'thinking' && 'Searching store catalog & policies...'}
+                {status === 'listening' && 'ORA is listening… Speak as a storefront customer'}
+                {status === 'speaking' && 'ORA is speaking in real time…'}
+                {status === 'thinking' && 'Searching store catalog & policies…'}
                 {status === 'error' && (errorMessage || 'Connection error')}
               </span>
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {latencyMs !== null && (
-                <span className="text-[10px] sm:text-[11px] text-foreground dark:text-[#C8F031] bg-surface-high dark:bg-[#C8F031]/10 px-1.5 sm:px-2 py-0.5 rounded border border-border dark:border-[#C8F031]/30 font-semibold tabular-nums">
-                  {latencyMs}ms RTT
-                </span>
-              )}
-            </div>
+            <span className="text-[10.5px] text-muted-foreground/70 font-mono flex-shrink-0">
+              {sessionId}
+            </span>
           </div>
 
           {/* Main Control Buttons */}
@@ -456,156 +299,120 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
             {micBlocked ? null : status === 'idle' || status === 'error' ? (
               <button
                 onClick={handleStartSession}
-                className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.98] transition-all shadow-md cursor-pointer"
+                className="px-5 py-2 rounded-md font-semibold text-[13px] flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] transition-all shadow-xs cursor-pointer"
               >
-                <Play size={14} fill="currentColor" />
+                <Play size={13} fill="currentColor" />
                 <span>Test ORA Live</span>
               </button>
             ) : (
               <>
                 <button
                   onClick={toggleMute}
-                  className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 border transition-all cursor-pointer ${
+                  className={`px-4 py-2 rounded-md font-semibold text-[12px] flex items-center gap-2 border transition-all cursor-pointer ${
                     isMuted
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-surface-container text-foreground border-border hover:bg-surface-high'
+                      ? 'bg-error/10 text-error border-error/30'
+                      : 'bg-surface-high text-foreground border-border hover:bg-surface-high/80'
                   }`}
                 >
-                  {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
+                  {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
                   <span>{isMuted ? 'Unmute' : 'Mute'}</span>
                 </button>
 
                 <button
                   onClick={stopSession}
-                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-semibold text-[13px] sm:text-[13.5px] flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white transition-all shadow-md cursor-pointer"
+                  className="px-4 py-2 rounded-md font-semibold text-[12px] flex items-center gap-2 bg-surface-high hover:bg-error/10 hover:text-error text-muted-foreground border border-border transition-all cursor-pointer"
                 >
-                  <Square size={14} fill="currentColor" />
+                  <Square size={13} fill="currentColor" />
                   <span>End Test</span>
                 </button>
               </>
             )}
           </div>
 
-          {/* Tabbed Inspector: Live Feed vs ORA Memory & Context */}
-          <div className="w-full bg-surface-container/30 border border-border/60 rounded-xl p-3 sm:p-4 min-h-[160px] max-h-[240px] sm:max-h-[260px] h-48 sm:h-56 flex flex-col space-y-2 flex-shrink-0">
+          {/* Suggested Shopper Prompts */}
+          <div className="w-full flex flex-wrap items-center justify-center gap-1.5 pt-1">
+            {[
+              'What is your return policy?',
+              'How long does shipping take?',
+              'Do you offer any discounts?',
+            ].map((query) => (
+              <button
+                key={query}
+                type="button"
+                onClick={() => {
+                  if (status === 'idle' || status === 'error') {
+                    handleStartSession();
+                  }
+                  if (directLiveClientRef.current) {
+                    addTranscript('user', query);
+                    directLiveClientRef.current.sendTextMessage(query);
+                  }
+                }}
+                className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-surface-high/50 border border-border/50 text-foreground hover:bg-surface-high transition-colors cursor-pointer"
+              >
+                {query}
+              </button>
+            ))}
+          </div>
+
+          {/* Conversation Panel */}
+          <div className="w-full bg-surface-container/30 border border-border/60 rounded-md p-3.5 min-h-[160px] max-h-[260px] h-52 flex flex-col space-y-2 flex-shrink-0">
             <div className="flex items-center justify-between border-b border-border/40 pb-2">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <button
-                  onClick={() => setActiveTab('transcript')}
-                  className={`text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    activeTab === 'transcript'
-                      ? 'bg-surface-high text-foreground border border-border/60'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Activity size={12} className={activeTab === 'transcript' ? 'text-primary' : ''} />
-                  <span>Live Transcript</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('memory')}
-                  className={`text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    activeTab === 'memory'
-                      ? 'bg-surface-high text-foreground border border-border/60'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Database size={12} className={activeTab === 'memory' ? 'text-primary' : ''} />
-                  <span>Memory & State</span>
-                </button>
+              <div className="flex items-center gap-2">
+                <Activity size={12} className="text-primary" />
+                <span className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
+                  Live Conversation
+                </span>
+                {transcripts.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums">({transcripts.length})</span>
+                )}
               </div>
 
-              <span className="text-[10px] sm:text-[11px] text-muted-foreground/70 tabular-nums truncate max-w-[100px] sm:max-w-none">
-                {sessionId}
-              </span>
+              <div className="flex items-center gap-1 text-[10.5px] text-emerald-500 font-medium">
+                <CheckCircle2 size={11} />
+                <span>Store Knowledge Grounding Active</span>
+              </div>
             </div>
 
-            {activeTab === 'transcript' ? (
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-[11.5px] sm:text-[12.5px] min-h-0 custom-scrollbar">
-                {transcripts.length === 0 ? (
-                  <div className="h-full min-h-[80px] flex items-center justify-center text-muted-foreground/50 text-xs italic text-center px-4">
-                    Live speech transcripts and catalog tool queries will stream here...
-                  </div>
-                ) : (
-                  transcripts.map((item) => (
-                    <div key={item.id} className="flex items-start gap-1.5 sm:gap-2 leading-relaxed">
-                      <span className="text-[9.5px] sm:text-[10px] text-muted-foreground/60 tabular-nums mt-0.5 flex-shrink-0">
-                        [{item.timestamp}]
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-[12px] min-h-0 custom-scrollbar">
+              {transcripts.length === 0 ? (
+                <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-muted-foreground/60 text-xs text-center px-4">
+                  <p className="font-medium text-foreground">Ready to test storefront dialogue.</p>
+                  <p className="text-[11px] mt-0.5">Click Test ORA Live or a prompt above to speak with ORA.</p>
+                </div>
+              ) : (
+                transcripts.map((item) => (
+                  <div key={item.id} className="flex items-start gap-2 leading-relaxed">
+                    <span className="text-[9.5px] text-muted-foreground/60 tabular-nums mt-0.5 flex-shrink-0">
+                      [{item.timestamp}]
+                    </span>
+                    {item.sender === 'user' ? (
+                      <span className="text-foreground font-semibold flex items-center gap-1 flex-shrink-0">
+                        <User size={11} /> You:
                       </span>
-                      {item.sender === 'user' ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 flex-shrink-0">
-                          <User size={11} /> You:
-                        </span>
-                      ) : item.sender === 'agent' ? (
-                        <span className="text-emerald-600 dark:text-[#C8F031] font-semibold flex items-center gap-1 flex-shrink-0">
-                          <Radio size={11} className="text-primary" /> ORA:
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-[11px] flex-shrink-0">⚡</span>
-                      )}
-                      <span
-                        className={`break-words flex-1 ${
-                          item.sender === 'agent'
-                            ? 'text-foreground'
-                            : item.sender === 'user'
-                            ? 'text-foreground/90'
-                            : 'text-muted-foreground italic'
-                        }`}
-                      >
-                        {item.text}
+                    ) : item.sender === 'agent' ? (
+                      <span className="text-foreground dark:text-[#C8F031] font-semibold flex items-center gap-1 flex-shrink-0">
+                        <Radio size={11} className="text-primary" /> ORA:
                       </span>
-                    </div>
-                  ))
-                )}
-                <div ref={transcriptEndRef} />
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-2.5 pr-1 text-[11px] sm:text-[12px] min-h-0 custom-scrollbar">
-                {/* Identity Block */}
-                <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
-                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
-                    <ShieldCheck size={12} className="text-primary flex-shrink-0" /> Active Identity & Role
+                    ) : (
+                      <span className="text-muted-foreground text-[11px] flex-shrink-0">•</span>
+                    )}
+                    <span
+                      className={`break-words flex-1 ${
+                        item.sender === 'agent'
+                          ? 'text-foreground'
+                          : item.sender === 'user'
+                          ? 'text-foreground/90'
+                          : 'text-muted-foreground text-[11px]'
+                      }`}
+                    >
+                      {item.text}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-muted-foreground text-[11px]">
-                    <div>User: <span className="text-foreground">Authenticated Merchant Owner</span></div>
-                    <div className="truncate">Key: <span className="text-foreground tabular-nums">{publishableKey ? `${publishableKey.slice(0, 14)}...` : 'Active'}</span></div>
-                  </div>
-                </div>
-
-                {/* Telemetry & Browsing State */}
-                <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
-                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
-                    <Compass size={12} className="text-primary flex-shrink-0" /> Live Browsing Telemetry
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-muted-foreground text-[11px]">
-                    <div>Route: <span className="text-foreground font-semibold">/agent</span></div>
-                    <div>Section: <span className="text-foreground">Agent Testing Workspace</span></div>
-                  </div>
-                </div>
-
-                {/* Preloaded Knowledge & Tools */}
-                <div className="p-2 sm:p-2.5 rounded-lg bg-surface-lowest border border-border/50">
-                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 flex items-center gap-1.5 mb-1">
-                    <Database size={12} className="text-primary flex-shrink-0" /> Preloaded Memory & Tools
-                  </div>
-                  <div className="text-muted-foreground space-y-1 text-[11px]">
-                    <div className="flex items-center gap-1 text-emerald-500 dark:text-[#C8F031]">
-                      <CheckCircle2 size={11} className="flex-shrink-0" />
-                      <span>Fast-path catalog inventory & store policies preloaded</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {activeTools.map((tool) => (
-                        <span
-                          key={tool}
-                          className="px-1.5 py-0.5 rounded bg-surface-high border border-border/60 text-[10px] sm:text-[10.5px] text-foreground/80"
-                        >
-                          {tool}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                ))
+              )}
+              <div ref={transcriptEndRef} />
+            </div>
           </div>
         </div>
       </div>

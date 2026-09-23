@@ -14,6 +14,10 @@ import {
   UpdatePlatformAgentPayload,
   PlatformTokenAnalyticsResponse,
   MerchantCostItem,
+  TrialLeadsResponse,
+  CampaignAudiencePreview,
+  CampaignSendResult,
+  CampaignHistoryItem,
 } from '@/types/admin';
 
 export async function fetchPlatformStats(period = '30d'): Promise<PlatformStatsData> {
@@ -240,5 +244,139 @@ export async function updateMerchantSessionLimit(
   });
 }
 
+// --- Universal Plan Management & Custom Limits ---
+
+export async function fetchAdminPlans(): Promise<any[]> {
+  return apiClient<any[]>('/admin/plans', {
+    method: 'GET',
+  });
+}
+
+export async function createAdminPlan(planData: any): Promise<any> {
+  return apiClient<any>('/admin/plans', {
+    method: 'POST',
+    body: JSON.stringify(planData),
+  });
+}
+
+export async function updateAdminPlan(planId: string, planData: any): Promise<any> {
+  return apiClient<any>(`/admin/plans/${planId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(planData),
+  });
+}
+
+export async function deleteAdminPlan(planId: string): Promise<any> {
+  return apiClient<any>(`/admin/plans/${planId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateMerchantCustomLimits(
+  businessId: string,
+  customLimits: { voiceMinutes?: number; documentLimit?: number; websiteLimit?: number },
+): Promise<any> {
+  return apiClient<any>(`/admin/businesses/${businessId}/custom-limits`, {
+    method: 'PATCH',
+    body: JSON.stringify(customLimits),
+  });
+}
 
 
+
+
+// --- Coupons ---
+
+export async function fetchAdminCoupons(): Promise<any[]> {
+  return apiClient<any[]>('/admin/coupons', {
+    method: 'GET',
+  });
+}
+
+export async function createAdminCoupon(data: any): Promise<any> {
+  return apiClient<any>('/admin/coupons', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAdminCoupon(id: string, data: any): Promise<any> {
+  return apiClient<any>(`/admin/coupons/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deactivateAdminCoupon(id: string): Promise<any> {
+  return apiClient<any>(`/admin/coupons/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function fetchAdminCouponRedemptions(id: string): Promise<any[]> {
+  return apiClient<any[]>(`/admin/coupons/${id}/redemptions`, {
+    method: 'GET',
+  });
+}
+
+// --- Trial leads ---
+
+export async function fetchTrialLeads(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+} = {}): Promise<TrialLeadsResponse> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.search) query.set('search', params.search);
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+
+  const qs = query.toString();
+  return apiClient<TrialLeadsResponse>(`/admin/trials${qs ? `?${qs}` : ''}`, {
+    method: 'GET',
+  });
+}
+
+export async function contactTrialLead(
+  businessId: string,
+  payload: { subject: string; message: string; ctaUrl?: string },
+): Promise<{ delivered: boolean; to: string; storeName: string }> {
+  return apiClient<{ delivered: boolean; to: string; storeName: string }>(
+    `/admin/trials/${businessId}/contact`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
+// --- Promotional campaigns ---
+
+export async function previewCampaignAudience(payload: {
+  businessIds?: string[];
+  audience?: string;
+}): Promise<CampaignAudiencePreview> {
+  return apiClient<CampaignAudiencePreview>('/admin/campaigns/preview', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function sendCampaign(payload: {
+  subject: string;
+  message: string;
+  couponCode?: string;
+  ctaUrl?: string;
+  businessIds?: string[];
+  audience?: string;
+}): Promise<CampaignSendResult> {
+  return apiClient<CampaignSendResult>('/admin/campaigns/send', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchCampaignHistory(limit = 25): Promise<CampaignHistoryItem[]> {
+  return apiClient<CampaignHistoryItem[]>(`/admin/campaigns?limit=${limit}`, {
+    method: 'GET',
+  });
+}

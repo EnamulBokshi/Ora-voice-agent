@@ -70,7 +70,7 @@ describe('BillingManagementService', () => {
     };
 
     mockCouponService = {
-      getCouponTelemetry: jest.fn().mockResolvedValue({
+      telemetryAdmin: jest.fn().mockResolvedValue({
         totalCoupons: 5,
         activeCoupons: 3,
         totalRedemptions: 12,
@@ -293,7 +293,7 @@ describe('BillingManagementService', () => {
       const res = await service.getSubscriptions({
         page: 1,
         limit: 10,
-        status: 'active',
+        status: SubscriptionStatus.ACTIVE,
       });
 
       expect(res.pagination.total).toBe(1);

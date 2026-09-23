@@ -533,7 +533,7 @@ export class BillingManagementService {
         .lean()
         .exec(),
       this.planModel.find().lean().exec(),
-      this.couponService.getCouponTelemetry(),
+      this.couponService.telemetryAdmin(),
     ]);
 
     const planPriceMap = new Map(plans.map((p) => [p.planId, p.priceUsdCents / 100]));

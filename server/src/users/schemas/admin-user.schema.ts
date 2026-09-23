@@ -70,6 +70,19 @@ export class AdminUser {
    */
   @Prop({ trim: true })
   shopifyStaffUserId?: string;
+
+  /**
+   * Set when this person opts out of promotional email.
+   *
+   * Only marketing sends consult it. Transactional mail — verification, OTP,
+   * receipts, security alerts — must still reach an account that opted out.
+   */
+  @Prop({ type: Boolean, default: false })
+  marketingOptOut?: boolean;
+
+  /** When they opted out, kept for audit. */
+  @Prop({ type: Date, default: null })
+  marketingOptOutAt?: Date | null;
 }
 
 export const AdminUserSchema = SchemaFactory.createForClass(AdminUser);

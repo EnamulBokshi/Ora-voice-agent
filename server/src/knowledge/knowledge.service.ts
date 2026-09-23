@@ -16,6 +16,9 @@ import {
 } from './voice-transcript-structurer.service';
 import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
 
+import { Subscription, SubscriptionDocument } from '../billing/schemas/subscription.schema';
+import { Plan, PlanDocument } from '../billing/schemas/plan.schema';
+
 @Injectable()
 export class KnowledgeService {
   private readonly logger = new Logger(KnowledgeService.name);
@@ -25,6 +28,10 @@ export class KnowledgeService {
     private readonly knowledgeBaseModel: Model<KnowledgeBaseDocument>,
     @InjectModel(KnowledgeChunk.name)
     private readonly knowledgeChunkModel: Model<KnowledgeChunkDocument>,
+    @InjectModel(Subscription.name)
+    private readonly subscriptionModel: Model<SubscriptionDocument>,
+    @InjectModel(Plan.name)
+    private readonly planModel: Model<PlanDocument>,
     private readonly agentProfileService: AgentProfileService,
     @Optional()
     @Inject(forwardRef(() => VectorStoreService))
@@ -34,6 +41,39 @@ export class KnowledgeService {
     @Optional()
     private readonly voiceStructurer?: VoiceTranscriptStructurerService,
   ) {}
+
+  /**
+   * Asserts that the tenant has not exceeded their plan or custom document limit.
+   */
+  async assertDocumentLimit(businessId: string): Promise<void> {
+    const sub = await this.subscriptionModel.findOne({ businessId: businessId as any }).exec();
+    let limit = 5; // Default free limit
+    if (sub) {
+      if (sub.customLimits?.documentLimit !== undefined) {
+        limit = sub.customLimits.documentLimit;
+      } else {
+        const plan = await this.planModel.findOne({ planId: sub.planId }).exec();
+        if (plan && plan.limits?.documentLimit !== undefined) {
+          limit = plan.limits.documentLimit;
+        }
+      }
+    }
+
+    const currentDocCount = await this.knowledgeBaseModel
+      .countDocuments({
+        businessId: businessId as any,
+        isActive: true,
+      })
+      .exec();
+
+    if (currentDocCount >= limit) {
+      throw new DomainException(
+        'DOCUMENT_LIMIT_REACHED',
+        `Your current plan allows up to ${limit} knowledge documents. You currently have ${currentDocCount}. Please upgrade your plan or custom limits to ingest more documents.`,
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+  }
 
   private invalidateRagCache(businessId: string): void {
     if (this.redisService) {
@@ -48,6 +88,8 @@ export class KnowledgeService {
     businessId: string,
     dto: CreateKnowledgeDocDto,
   ): Promise<{ document: KnowledgeBaseDocument; chunksCount: number }> {
+    await this.assertDocumentLimit(businessId);
+
     const bId = new Types.ObjectId(businessId);
     const archetype = await this.agentProfileService.getActiveArchetype(businessId);
 

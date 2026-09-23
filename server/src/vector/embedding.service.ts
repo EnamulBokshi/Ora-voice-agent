@@ -38,7 +38,7 @@ export class EmbeddingService {
     if (apiKey) {
       const rawModel =
         this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
-        'models/text-embedding-004';
+        'models/gemini-embedding-001';
       const fullModel = rawModel.startsWith('models/')
         ? rawModel
         : `models/${rawModel}`;
@@ -79,7 +79,7 @@ export class EmbeddingService {
       try {
         const rawModel =
           this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
-          'models/text-embedding-004';
+          'models/gemini-embedding-001';
         const fullModel = rawModel.startsWith('models/')
           ? rawModel
           : `models/${rawModel}`;
@@ -94,6 +94,7 @@ export class EmbeddingService {
             body: JSON.stringify({
               model: fullModel,
               content: { parts: [{ text: trimmed }] },
+              outputDimensionality: 768,
             }),
           },
         );
@@ -117,6 +118,11 @@ export class EmbeddingService {
 
             return result;
           }
+        } else {
+          const errText = await response.text().catch(() => '');
+          this.logger.warn(
+            `Gemini Embedding API call returned ${response.status}: ${errText.slice(0, 200)}. Using fallback vectorizer.`,
+          );
         }
       } catch (err: any) {
         this.logger.warn(
@@ -175,7 +181,7 @@ export class EmbeddingService {
       try {
         const rawModel =
           this.configService.get<string>('GEMINI_EMBEDDING_MODEL') ||
-          'models/text-embedding-004';
+          'models/gemini-embedding-001';
         const fullModel = rawModel.startsWith('models/') ? rawModel : `models/${rawModel}`;
         const modelPath = fullModel.replace('models/', '');
 
@@ -186,6 +192,7 @@ export class EmbeddingService {
           const requests = batchIndices.map((idx) => ({
             model: fullModel,
             content: { parts: [{ text: texts[idx].trim() }] },
+            outputDimensionality: 768,
           }));
 
           const response = await fetch(

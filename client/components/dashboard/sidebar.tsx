@@ -385,6 +385,41 @@ export function Sidebar({
             >
               <Users size={16} />
             </Link>
+
+            <div className="h-px bg-border/40 w-6 my-1.5" />
+
+            <Link
+              href="/billing"
+              title="Plans & Billing"
+              className={cn(
+                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
+                pathname.startsWith('/billing') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+              )}
+            >
+              <Receipt size={16} />
+            </Link>
+
+            <Link
+              href="/usage"
+              title="Usage"
+              className={cn(
+                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
+                pathname.startsWith('/usage') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+              )}
+            >
+              <BarChart2 size={16} />
+            </Link>
+
+            <Link
+              href="/profile"
+              title="Settings"
+              className={cn(
+                'w-9 h-9 rounded-md flex items-center justify-center transition-colors',
+                pathname.startsWith('/profile') ? 'bg-surface-high text-foreground dark:text-[#C8F031]' : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
+              )}
+            >
+              <Settings size={16} />
+            </Link>
           </div>
         ) : (
           /* ── Full Expanded Mode with Rich Sub-Sidebars ── */
@@ -686,6 +721,54 @@ export function Sidebar({
             >
               <Users size={15} className={pathname.startsWith('/customers') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
               <span className="truncate flex-1">Customers</span>
+            </Link>
+
+            {/* ── Section Divider ── */}
+            <div className="h-px bg-border/40 my-2" />
+
+            {/* 6. Plans & Billing */}
+            <Link
+              href="/billing"
+              className={cn(
+                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
+                pathname.startsWith('/billing')
+                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+              )}
+            >
+              <Receipt size={15} className={pathname.startsWith('/billing') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <span className="truncate flex-1">Plans & Billing</span>
+            </Link>
+
+            {/* 7. Usage */}
+            <Link
+              href="/usage"
+              className={cn(
+                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
+                pathname.startsWith('/usage')
+                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+              )}
+            >
+              <BarChart2 size={15} className={pathname.startsWith('/usage') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <span className="truncate flex-1">Usage</span>
+            </Link>
+
+            {/* ── Section Divider ── */}
+            <div className="h-px bg-border/40 my-2" />
+
+            {/* Settings */}
+            <Link
+              href="/profile"
+              className={cn(
+                'group flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors border-l-2 pl-[calc(0.75rem-2px)]',
+                pathname.startsWith('/profile')
+                  ? 'bg-surface-high text-foreground border-foreground dark:border-[#C8F031] font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/50 border-transparent',
+              )}
+            >
+              <Settings size={15} className={pathname.startsWith('/profile') ? 'text-foreground dark:text-[#C8F031]' : 'text-muted-foreground group-hover:text-foreground'} />
+              <span className="truncate flex-1">Settings</span>
             </Link>
           </>
         )}

@@ -23,6 +23,7 @@ import {
   DEFAULT_SESSION_DURATION_SECONDS,
   IDLE_TERMINATE_SECONDS,
 } from './session-timer.service';
+import { EntitlementService } from '../common/entitlement/entitlement.service';
 
 /**
  * Fix 2 — Verification Parity:
@@ -54,6 +55,7 @@ export class ConversationGateway
     private readonly redisService: RedisService,
     private readonly sessionTimerService: SessionTimerService,
     private readonly configService: ConfigService,
+    private readonly entitlementService: EntitlementService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -81,6 +83,20 @@ export class ConversationGateway
     const business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
     if (!business) {
       client.emit('error', { message: 'Invalid or inactive publishable widget key.' });
+      return;
+    }
+
+    const entitlement = await this.entitlementService.decide(business._id.toString());
+    if (!entitlement.entitled) {
+      this.logger.warn(
+        `[ConversationGateway] Connection rejected: business ${business._id} is not entitled (${entitlement.code})`,
+      );
+      client.emit('error', {
+        message:
+          entitlement.code === 'TRIAL_EXPIRED'
+            ? 'The 14-day free trial for this store has expired. Please upgrade in the dashboard.'
+            : 'The AI sales agent is currently unavailable for this store.',
+      });
       return;
     }
 

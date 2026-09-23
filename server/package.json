@@ -24,7 +24,8 @@
     "migrate:hash-keys": "ts-node scripts/migrate-hash-secret-keys.ts",
     "migrate:archetype-profiles": "ts-node scripts/migrate-archetype-profiles.ts",
     "shopify:queue-sync": "ts-node scripts/queue-shopify-sync.ts",
-    "shopify:backfill-domain": "ts-node scripts/backfill-shopify-shop-domain.ts"
+    "shopify:backfill-domain": "ts-node scripts/backfill-shopify-shop-domain.ts",
+    "test:latency": "ts-node scripts/test-search-latency.ts"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

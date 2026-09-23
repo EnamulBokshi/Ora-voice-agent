@@ -9,6 +9,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminUser, AdminUserDocument } from '../users/schemas/admin-user.schema';
 import { GeminiVoiceService, GeminiVoiceSessionControls } from './gemini-voice.service';
+import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { RedisService } from '../common/redis/redis.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ConversationChannel, ConversationStatus } from '../conversations/schemas/conversation.schema';
@@ -122,6 +123,7 @@ interface ProxySession {
   pendingContextUpdate: ClientBrowsingContext | null;
   /** Safety net so a held update is not lost if turnComplete never arrives. */
   pendingContextTimer: NodeJS.Timeout | null;
+  lastClientContext?: ClientBrowsingContext;
   userId?: string;
   authenticatedUser?: { id: string; name: string; email: string; role: string; businessId?: string };
   sessionMode?: 'customer' | 'training';
@@ -134,6 +136,10 @@ interface ClientBrowsingContext {
   title?: string;
   history?: string[];
   activeSection?: string;
+  product?: any;
+  selectedVariantId?: string;
+  cartItemCount?: number;
+  cartTotal?: number;
 }
 
 @Injectable()
@@ -156,6 +162,7 @@ export class VoiceProxyGateway {
     private readonly customersService: CustomersService,
     private readonly conversationsService: ConversationsService,
     private readonly sessionTimerService: SessionTimerService,
+    private readonly aiToolsExecutor: AiToolsExecutor,
     private readonly usageTrackingService?: UsageTrackingService,
   ) { }
 
@@ -652,12 +659,19 @@ export class VoiceProxyGateway {
      */
     const clientGatesAudio = parsedUrl.query.gatedAudio === 'true';
 
-    const initialClientContext = {
+    const initialClientContext: ClientBrowsingContext = {
       currentPath: currentPathParam,
       title: pageTitleParam,
       history: historyParam ? historyParam.split(',') : [currentPathParam],
       activeSection: activeSectionParam,
     };
+
+    if (this.redisService) {
+      this.redisService
+        .getClient()
+        .set(`session:${sessionId}:context`, JSON.stringify(initialClientContext), 'EX', 24 * 60 * 60)
+        .catch(() => {});
+    }
 
     // ── Adopt a parked session, or replace a live one ────────────────────────
     const existingSession = this.sessions.get(sessionId);
@@ -1479,6 +1493,60 @@ export class VoiceProxyGateway {
           return;
         }
 
+        if (msg.type === 'cart_telemetry') {
+          if (msg.cart && session.businessId) {
+            this.aiToolsExecutor
+              .syncStorefrontCartTelemetry(session.businessId, sessionId, msg.cart)
+              .then(() => {
+                const count =
+                  msg.cart.item_count ??
+                  (Array.isArray(msg.cart.items) ? msg.cart.items.length : 0);
+                const total = (msg.cart.total_price || 0) / 100;
+                session.lastClientContext = {
+                  ...(session.lastClientContext || {}),
+                  cartItemCount: count,
+                  cartTotal: total,
+                };
+                if (!session.isAgentSpeaking) {
+                  sessionControls.sendContextUpdate(session.lastClientContext);
+                } else {
+                  session.pendingContextUpdate = session.lastClientContext;
+                }
+              })
+              .catch((err: any) => {
+                this.logger.warn(
+                  `[VoiceProxyGateway] Cart telemetry sync failed for ${sessionId}: ${err.message}`,
+                );
+              });
+          }
+          return;
+        }
+
+        if (msg.type === 'cart_sync') {
+          // If the storefront cart accepted the item, no correction is needed.
+          if (msg.ok === true) return;
+
+          // On failure (e.g. sold out, unavailable), reconcile ORA's cart and inform the model
+          try {
+            const correction = await this.aiToolsExecutor.syncStorefrontCart(
+              session.businessId,
+              sessionId,
+              {
+                ok: false,
+                variantId: msg.variantId,
+                productId: msg.productId,
+                reason: msg.reason,
+              },
+            );
+            if (correction) {
+              sessionControls.sendTextMessage(correction);
+            }
+          } catch (e: any) {
+            this.logger.warn(`[VoiceProxyGateway] Cart sync reconciliation failed for ${sessionId}: ${e.message}`);
+          }
+          return;
+        }
+
         if (msg.type === 'client_idle_suspend') {
           this.logger.log(`[VoiceProxyGateway] Session ${sessionId} suspended on client idle.`);
           flushBufferedAiText();
@@ -1516,7 +1584,23 @@ export class VoiceProxyGateway {
             title: msg.title,
             history: msg.history,
             activeSection: msg.activeSection,
+            product: msg.product,
+            selectedVariantId: msg.selectedVariantId,
+            cartItemCount: msg.cartItemCount ?? session.lastClientContext?.cartItemCount,
+            cartTotal: msg.cartTotal ?? session.lastClientContext?.cartTotal,
           };
+          session.lastClientContext = context;
+          if (msg.cart && session.businessId) {
+            this.aiToolsExecutor
+              .syncStorefrontCartTelemetry(session.businessId, sessionId, msg.cart)
+              .catch(() => {});
+          }
+          if (this.redisService) {
+            this.redisService
+              .getClient()
+              .set(`session:${sessionId}:context`, JSON.stringify(context), 'EX', 24 * 60 * 60)
+              .catch(() => {});
+          }
           if (session.isAgentSpeaking) {
             session.pendingContextUpdate = context;
             // Gemini does not always emit turnComplete (a dropped or truncated

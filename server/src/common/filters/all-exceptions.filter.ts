@@ -18,6 +18,17 @@ export interface ErrorEnvelope {
   };
 }
 
+/** A Mongoose document-validation failure, recognised without importing mongoose. */
+function isMongooseValidationError(
+  exception: unknown,
+): exception is Error & { errors?: Record<string, unknown> } {
+  return (
+    exception instanceof Error &&
+    exception.name === 'ValidationError' &&
+    typeof (exception as any).errors === 'object'
+  );
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -53,6 +64,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else {
         errorMessage = exception.message;
       }
+    } else if (isMongooseValidationError(exception)) {
+      // Mongoose speaks in schema paths: "Coupon validation failed: percentOff: Path
+      // `percentOff` (0) is less than minimum allowed value (1)." That is a message for
+      // whoever wrote the schema, not for the person filling in a form, and it names
+      // internal fields. Report which fields were rejected and log the detail.
+      status = HttpStatus.BAD_REQUEST;
+      errorCode = 'VALIDATION_ERROR';
+      const fields = Object.keys(exception.errors ?? {});
+      errorMessage =
+        fields.length > 0
+          ? `Some values were not accepted: ${fields.join(', ')}. Check them and try again.`
+          : 'Some values were not accepted. Check them and try again.';
+      this.logger.warn(
+        `Mongoose validation error [${correlationId}]: ${(exception as Error).message}`,
+      );
     } else if (exception instanceof Error) {
       const isProduction = process.env.NODE_ENV === 'production';
       errorMessage = isProduction

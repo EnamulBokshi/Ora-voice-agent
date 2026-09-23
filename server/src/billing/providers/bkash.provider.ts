@@ -39,6 +39,18 @@ export class BkashProvider implements PaymentProvider {
     );
   }
 
+  /** True only when every bKash tokenized-checkout credential is present. */
+  get isConfigured(): boolean {
+    return Boolean(
+      this.appKey &&
+        this.appSecret &&
+        this.username &&
+        this.password &&
+        !this.appKey.includes('your_bkash') &&
+        !this.appSecret.includes('your_bkash'),
+    );
+  }
+
   /**
    * Fetches or refreshes bKash Bearer ID Token using Grant Token API
    */

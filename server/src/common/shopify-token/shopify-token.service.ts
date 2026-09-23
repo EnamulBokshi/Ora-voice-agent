@@ -40,6 +40,12 @@ export interface ShopifyRefreshedTokens {
 export class ShopifyTokenService {
   private readonly logger = new Logger(ShopifyTokenService.name);
 
+  /**
+   * In-memory cache of domains whose refresh failed with a 401 / invalid token error.
+   * Suppresses repeated 700ms OAuth refresh roundtrips for 5 minutes.
+   */
+  private readonly deadTokenCache = new Map<string, number>();
+
   constructor(
     private readonly configService: ConfigService,
     @InjectModel(Business.name)
@@ -84,6 +90,11 @@ export class ShopifyTokenService {
       return current;
     }
 
+    // Fast-path: If the refresh token previously failed with 401, skip the 700ms roundtrip
+    if (shopDomain && (this.deadTokenCache.get(shopDomain) ?? 0) > Date.now()) {
+      return this.isExpired(business) ? undefined : current;
+    }
+
     if (
       business.shopifyRefreshTokenExpiresAt &&
       business.shopifyRefreshTokenExpiresAt.getTime() <= Date.now()
@@ -97,6 +108,7 @@ export class ShopifyTokenService {
     try {
       const refreshed = await this.refresh(shopDomain, refreshToken);
       await this.persist(business, refreshed);
+      this.deadTokenCache.delete(shopDomain);
       this.logger.log(
         `[ShopifyToken] Refreshed the access token for ${shopDomain}.`,
       );
@@ -105,6 +117,11 @@ export class ShopifyTokenService {
       this.logger.error(
         `[ShopifyToken] Refresh for ${shopDomain} failed: ${err.message}`,
       );
+      // If the refresh token was rejected by Shopify (e.g. 401 / invalid_request),
+      // cache the failure for 5 minutes so subsequent tool calls don't stall.
+      if (shopDomain && (err.message?.includes('401') || err.message?.includes('invalid_request'))) {
+        this.deadTokenCache.set(shopDomain, Date.now() + 5 * 60 * 1000);
+      }
       // An expired token is worse than no token: the caller would spend a
       // request to learn that. Only hand back a token that has not expired.
       return this.isExpired(business) ? undefined : current;
@@ -123,6 +140,9 @@ export class ShopifyTokenService {
     business: BusinessDocument,
     tokens: ShopifyRefreshedTokens,
   ): void {
+    if (business.shopifyShopDomain) {
+      this.deadTokenCache.delete(business.shopifyShopDomain);
+    }
     business.shopifyAccessToken = BusinessCredentialsUtil.protect(
       tokens.accessToken,
     );

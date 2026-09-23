@@ -11,6 +11,7 @@ import { VectorStoreService } from '../../vector/vector-store.service';
 import { EntityType } from '../../vector/interfaces/vector-entry.interface';
 import { SHOPIFY_API_VERSION } from '../../shopify/shopify.constants';
 import { ShopifyTokenService } from '../../common/shopify-token/shopify-token.service';
+import { mapShopifyVariants } from '../../common/utils/shopify-variant.util';
 
 @Injectable()
 export class ShopifyConnectorService {
@@ -138,6 +139,8 @@ export class ShopifyConnectorService {
       products: [
         {
           nativeProductId,
+          // Dot path so a sync never clobbers merchant overrides in `attributes`.
+          'attributes.shopify': mapShopifyVariants(payload),
           name: payload.title || 'Untitled Product',
           description: payload.body_html || '',
           price: parseFloat(variant.price || '0'),
@@ -152,7 +155,7 @@ export class ShopifyConnectorService {
           confidenceScore: 1.0,
           images: payload.images ? payload.images.map((img: any) => img.src) : [],
         },
-      ],
+      ] as any,
     });
 
     // Auto-embed into VectorIndex for instant RAG search availability
@@ -227,14 +230,118 @@ export class ShopifyConnectorService {
     }
 
     const storeUrl = business.shopifyStoreUrl.replace(/\/$/, '');
-    const url = `${storeUrl}/admin/api/${SHOPIFY_API_VERSION}/products.json?title=${encodeURIComponent(query)}&limit=5&status=active`;
+    const cleanTerms = (query || '')
+      .replace(/[^\w\s-]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length >= 2);
 
+    // 1. Try Shopify Admin GraphQL product search first (supports full-text wildcard across title & tags)
+    try {
+      const gqlQuery =
+        cleanTerms.length > 0
+          ? `status:ACTIVE AND (${cleanTerms.map((t) => `title:*${t}* OR tag:*${t}*`).join(' OR ')})`
+          : 'status:ACTIVE';
+
+      const graphqlEndpoint = `${storeUrl}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
+      const gqlResponse = await fetch(graphqlEndpoint, {
+        method: 'POST',
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `query SearchProducts($query: String!) {
+            products(first: 5, query: $query) {
+              edges {
+                node {
+                  id
+                  title
+                  descriptionHtml
+                  productType
+                  images(first: 3) {
+                    edges {
+                      node {
+                        url
+                      }
+                    }
+                  }
+                  variants(first: 10) {
+                    edges {
+                      node {
+                        id
+                        title
+                        price
+                        availableForSale
+                        inventoryQuantity
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }`,
+          variables: { query: gqlQuery },
+        }),
+      });
+
+      if (gqlResponse.ok) {
+        const gqlData: any = await gqlResponse.json();
+        const edges = gqlData?.data?.products?.edges || [];
+        if (edges.length > 0) {
+          return edges.map(({ node }: any) => {
+            const rawGqlId = node.id || '';
+            const numericId = rawGqlId.split('/').pop() || rawGqlId;
+            const variantEdges = node.variants?.edges || [];
+            const firstVariant = variantEdges[0]?.node || {};
+            const variants = variantEdges.map(({ node: v }: any) => {
+              const vId = (v.id || '').split('/').pop() || v.id;
+              return {
+                variantId: vId,
+                title: v.title,
+                price: parseFloat(v.price || '0'),
+                available: v.availableForSale ?? true,
+                inventoryQuantity: v.inventoryQuantity ?? 0,
+              };
+            });
+
+            return {
+              nativeProductId: String(numericId),
+              'attributes.shopify': {
+                variants,
+                requiresVariantSelection: variants.length > 1,
+              },
+              name: node.title || 'Untitled Product',
+              description: node.descriptionHtml || '',
+              price: parseFloat(firstVariant.price || '0'),
+              currency: 'USD',
+              stockQuantity: firstVariant.inventoryQuantity || 0,
+              availability:
+                (firstVariant.inventoryQuantity || 0) > 0 || firstVariant.availableForSale
+                  ? ProductAvailability.IN_STOCK
+                  : ProductAvailability.OUT_OF_STOCK,
+              category: node.productType || 'General',
+              sourceTier: SourceTier.TIER1_CONNECTOR,
+              confidenceScore: 1.0,
+              images: (node.images?.edges || []).map(({ node: img }: any) => img.url),
+            };
+          });
+        }
+      }
+    } catch (gqlErr: any) {
+      this.logger.warn(
+        `[ShopifyConnector] GraphQL live search notice for business ${businessId}: ${gqlErr.message}`,
+      );
+    }
+
+    // 2. Fallback to REST search if GraphQL yields no candidates
+    const restUrl = `${storeUrl}/admin/api/${SHOPIFY_API_VERSION}/products.json?limit=5&status=active${cleanTerms[0] ? `&title=${encodeURIComponent(cleanTerms[0])}` : ''}`;
     try {
       this.logger.log(
-        `[ShopifyConnector] Gap B live search: GET ${storeUrl}/admin/api/${SHOPIFY_API_VERSION}/products.json?title=${query}`,
+        `[ShopifyConnector] Gap B live REST search fallback: GET ${restUrl}`,
       );
 
-      const response = await fetch(url, {
+      const response = await fetch(restUrl, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
           'Content-Type': 'application/json',
@@ -255,6 +362,7 @@ export class ShopifyConnectorService {
         const variant = p.variants?.[0] || {};
         return {
           nativeProductId: String(p.id),
+          'attributes.shopify': mapShopifyVariants(p),
           name: p.title || 'Untitled Product',
           description: p.body_html || '',
           price: parseFloat(variant.price || '0'),

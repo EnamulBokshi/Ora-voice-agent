@@ -247,7 +247,14 @@ export interface GeminiVoiceSessionOptions {
 export interface GeminiVoiceSessionControls {
   sendAudioChunk: (base64Pcm16k: string) => void;
   sendTextMessage: (text: string) => void;
-  sendContextUpdate: (context: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => void;
+  sendContextUpdate: (context: {
+    currentPath?: string;
+    title?: string;
+    history?: string[];
+    activeSection?: string;
+    cartItemCount?: number;
+    cartTotal?: number;
+  }) => void;
   closeSession: () => void;
 }
 
@@ -523,7 +530,14 @@ export class GeminiVoiceService {
             ws.send(JSON.stringify(clientContent));
           }
         },
-        sendContextUpdate: (ctx: { currentPath?: string; title?: string; history?: string[]; activeSection?: string }) => {
+        sendContextUpdate: (ctx: {
+          currentPath?: string;
+          title?: string;
+          history?: string[];
+          activeSection?: string;
+          cartItemCount?: number;
+          cartTotal?: number;
+        }) => {
           if (ws.readyState === WebSocket.OPEN) {
             const histStr = ctx.history && ctx.history.length > 0 ? ctx.history.join(' -> ') : ctx.currentPath || '/';
             // Deliberately terse and free of instructions. This arrives in the
@@ -533,7 +547,16 @@ export class GeminiVoiceService {
             // explanation of her own rules. The behavioural rule that used to
             // live in this string now sits in the system instruction, where it
             // is stated once instead of being re-delivered on every scroll.
-            const contextText = `[PAGE_STATE] path=${ctx.currentPath || '/'}${ctx.title ? ` | title=${ctx.title}` : ''}${ctx.activeSection ? ` | section=${ctx.activeSection}` : ''} | visited=${histStr}`;
+            let productSnippet = '';
+            if (ctx.currentPath && ctx.currentPath.includes('/products/')) {
+              const slug = ctx.currentPath.split('/products/')[1]?.split(/[?#]/)[0]?.replace(/\/$/, '');
+              if (slug) productSnippet = ` | active_product_slug=${slug}`;
+            }
+            let cartSnippet = '';
+            if (ctx.cartItemCount !== undefined && ctx.cartItemCount !== null) {
+              cartSnippet = ` | cart_items=${ctx.cartItemCount}${ctx.cartTotal !== undefined ? ` | cart_total=$${ctx.cartTotal}` : ''}`;
+            }
+            const contextText = `[PAGE_STATE] path=${ctx.currentPath || '/'}${ctx.title ? ` | title=${ctx.title}` : ''}${productSnippet}${cartSnippet}${ctx.activeSection ? ` | section=${ctx.activeSection}` : ''} | visited=${histStr}`;
             const clientContent = {
               clientContent: {
                 turns: [
@@ -882,7 +905,7 @@ export class GeminiVoiceService {
             .exec()
             .catch(() => null)
           : Promise.resolve(null),
-        this.productsService ? this.productsService.findAll(businessId, { limit: 12 }).catch(() => null) : Promise.resolve(null),
+        this.productsService ? this.productsService.findAll(businessId, { limit: 24 }).catch(() => null) : Promise.resolve(null),
         this.knowledgeService
           ? this.knowledgeService.findAll(businessId, undefined, undefined, { limit: 10 }).catch(() => null)
           : Promise.resolve(null),
@@ -988,16 +1011,24 @@ export class GeminiVoiceService {
       const isEcommerce = capability.isCommerce;
 
       let catalogSummary = '';
+      let sampleProductNames = '';
       if (isEcommerce) {
         if (productsRes && productsRes.items && productsRes.items.length > 0) {
+          sampleProductNames = productsRes.items
+            .slice(0, 8)
+            .map((p: any) => p.name)
+            .filter(Boolean)
+            .join(', ');
           const categories = Array.from(
             new Set(productsRes.items.map((p) => p.category).filter(Boolean)),
           );
           const sampleLines = productsRes.items
-            .map(
-              (p) =>
-                `  • ${p.name} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`,
-            )
+            .map((p) => {
+              const handle = (p as any).attributes?.shopify?.handle;
+              const handleStr = handle ? `, handle: "${handle}"` : '';
+              const idStr = p._id ? ` (ID: ${p._id.toString()}${handleStr})` : '';
+              return `  • ${p.name}${idStr} — ${p.currency || 'USD'} ${p.price} (${p.availability || 'in stock'}${p.category ? `, ${p.category}` : ''})`;
+            })
             .join('\n');
 
           catalogSummary = `\nSTORE CATALOG CONTEXT (Preloaded in your memory):\n- Categories: ${categories.join(', ') || 'General'}\n- Featured Inventory Items:\n${sampleLines}\n- Total Catalog Size: ${productsRes.pagination.total} items\n* Note: You can answer questions about these featured items directly without searching!`;
@@ -1183,7 +1214,13 @@ DOMAIN SCOPE, CAPABILITIES & OFF-TOPIC GUARDRAIL RULES:
      • English: "That's an interesting topic, but I'm here as ORA's Voice AI specialist! I'd love to show you how our voice agents can assist your visitors and grow your business or website. What kind of project or business are you working on?"
      • Bengali (if user is speaking Bengali): "বিষয়টি চমৎকার, তবে আমি ORA প্ল্যাটফর্মের এআই স্পেশালিস্ট! আমাদের ভয়েস এজেন্ট কীভাবে আপনার বিজনেসের কাজে আসতে পারে তা দেখতে কি আগ্রহী?"
    - MULTI-TURN OFF-TOPIC PERSISTENCE: If the visitor persists with off-topic chatting, politely and firmly hold the boundary: "I'd love to chat, but my only role here is helping you with ORA's voice solutions! What can I help you explore today?"
-   - NEVER get sidetracked into multi-turn off-topic discussions. Always steer the visitor back to ORA.`;
+   - NEVER get sidetracked into multi-turn off-topic discussions. Always steer the visitor back to ORA.
+
+3. COUPONS & DISCOUNTS:
+   - You CANNOT create, generate, invent, or promise a coupon code, a discount percentage, or any price that is not published. You have no authority to discount anything.
+   - You CAN pass along a code the visitor already has: call apply_coupon with the code exactly as they said it, and it is filled into the checkout form for them.
+   - Only state a discount amount that the apply_coupon tool returned to you. If the tool refuses the code, say plainly that it was not accepted — never say a discount was applied.
+   - If the visitor asks you to make them a code or give them a special price, say warmly that you cannot create discount codes, and offer to apply any code they have or to walk them through the plans.`;
 
         const salesPlaybook = `
 SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
@@ -1336,7 +1373,9 @@ SALES CONVERSION & OBJECTION HANDLING PLAYBOOK:
           '3. You are speaking out loud in a real-time voice conversation. Keep responses CONCISE (1-3 sentences max). Speak naturally, empathetically, and enthusiastically like a top human sales representative.',
           '4. NEVER output markdown (no **, no ##, no bullet points, no asterisks). You are SPEAKING out loud, not typing text.',
           '5. NEVER NARRATE YOUR OWN MACHINERY. Speak only as a human representative would. NEVER mention tools, functions, calls, lookups, searches, databases, prompts, instructions, rules, guardrails, system messages, context updates, or your configuration. NEVER explain why you chose to do something, what you are about to do internally, or what you are permitted to do. NEVER say things like "Hold on while I check", "Querying database", "Let me call the search function", "Based on my instructions", "My rules say", "I received an update", or "Since you are on this page, I will not...". Perform the action silently and speak only the result, exactly as a human colleague would.',
-          '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): If the customer asks about contact info, creator bio, company policies, or preloaded topics above, answer IMMEDIATELY from your preloaded memory.',
+          isEcommerce && sampleProductNames
+            ? `6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): You have our store inventory and catalog preloaded in your memory above (including: ${sampleProductNames}). Answer questions about them IMMEDIATELY from your preloaded memory with sub-second voice latency! Do NOT call find_products or block the voice stream for items already in your memory. ONLY call find_products if the customer specifically asks for items not in your preloaded memory or explicitly asks for deep variant/live stock checks.`
+            : '6. FAST-PATH DIRECT ANSWERS (ZERO-TOOL DELAY): Answer questions covered by your preloaded memory above with sub-second voice latency! Do not call search tools or block the voice stream for information already in your memory.',
           '7. WHEN TO USE TOOLS (WHILE SPEAKING):',
           ...toolRules,
           '8. TOOL-CALL HONESTY (applies ONLY to tool execution results — NOT to sales talk):',
@@ -1448,16 +1487,29 @@ ${guestPlaybook}`;
         clientContext.history && clientContext.history.length > 0
           ? clientContext.history.join(' -> ')
           : clientContext.currentPath || '/';
+      let productPageSnippet = '';
+      const curPath = clientContext.currentPath || '';
+      if (curPath.includes('/products/')) {
+        const slug = curPath.split('/products/')[1]?.split(/[?#]/)[0]?.replace(/\/$/, '') || '';
+        if (slug) {
+          productPageSnippet = `\n• ACTIVE PRODUCT ON THIS PAGE (Customer is viewing this right now!):
+  - Product Handle: "${slug}"
+  - Page Title: "${clientContext.title || ''}"
+  - When the customer says "add this product", "add to cart", "buy this", or asks questions about "this", they mean THIS item! Call add_to_cart using productId: "${slug}" or the product name!`;
+        }
+      }
+
       browsingContext = `
 REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
 • Current Page: ${clientContext.currentPath || '/'} (${clientContext.title || 'Active Page'})
 • Visible Section: ${clientContext.activeSection || 'Top of Page'}
-• Session Browsing History: ${histStr}
+• Session Browsing History: ${histStr}${productPageSnippet}
 
 * REAL-TIME BROWSING AWARENESS RULES:
 1. You are 100% aware of where the visitor is in the web app right now.
 2. If the visitor is ALREADY on the requested page (e.g. they ask about pricing while on /pricing, or about features while looking at features), acknowledge that they are currently on it (e.g. "As you can see right here on our pricing page...") and NEVER ask if they want to navigate there!
-3. If they ask "where am I?", "what page is this?", or "what was the last page I visited?", answer accurately from the real-time browsing state above.`;
+3. If they ask "where am I?", "what page is this?", or "what was the last page I visited?", answer accurately from the real-time browsing state above.
+4. If they ask to add "this product" to cart while on a product page, call add_to_cart immediately using the active product handle or title!`;
     }
 
     return [baseInstruction, customerContext, browsingContext].filter(Boolean).join('\n\n');
@@ -1594,3 +1646,5 @@ REAL-TIME VISITOR BROWSING STATE (Live Telemetry from Visitor's Browser):
     return baseInstruction;
   }
 }
+// Cache refreshed for modern catalog sync
+

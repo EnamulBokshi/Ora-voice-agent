@@ -37,10 +37,7 @@ export const SETUP_GUIDE_ENABLED = false;
 export const AGENT_GET_STARTED_ENABLED = false;
 
 /**
- * The standalone "Test ORA" page inside Agent Configuration.
- *
- * It was a second route to one feature: the Test Voice button on the persona
- * page opens the same live call in a modal. The page's own blocks are kept and
- * gated rather than deleted.
+ * The standalone "Test ORA" view inside Agent Configuration.
+ * Now an active, first-class in-page interactive test playground.
  */
-export const AGENT_TEST_PAGE_ENABLED = false;
+export const AGENT_TEST_PAGE_ENABLED = true;

@@ -5,118 +5,85 @@ import { AdminUser } from '../../users/schemas/admin-user.schema';
 export type CouponDocument = Coupon & Document;
 
 export enum CouponDiscountType {
-  PERCENTAGE = 'percentage',
-  FIXED_AMOUNT = 'fixed_amount',
+  /** A percentage taken off the plan price, in whole percent. */
+  PERCENT = 'percent',
+  /** A flat amount taken off, carried per currency in minor units. */
+  FIXED = 'fixed',
 }
 
-export enum CouponDuration {
-  ONCE = 'once',
-  FOREVER = 'forever',
-  REPEATING = 'repeating',
-}
-
-export enum CouponCurrency {
-  USD = 'USD',
-  BDT = 'BDT',
-  ALL = 'ALL',
-}
-
+/**
+ * A discount a merchant can apply at checkout.
+ *
+ * Every field that decides the price lives here and nowhere else: the client sends
+ * a code and never an amount, and the server recomputes the discount from this
+ * document on each validate and each subscribe.
+ */
 @Schema({ timestamps: true })
 export class Coupon {
-  @Prop({
-    type: String,
-    required: true,
-    unique: true,
-    uppercase: true,
-    trim: true,
-    index: true,
-  })
+  /**
+   * Normalized to upper case on write, so `SAVE20` and `save20` are one coupon and
+   * the unique index cannot be bypassed by casing.
+   */
+  @Prop({ required: true, unique: true, uppercase: true, trim: true, index: true })
   code: string;
 
-  @Prop({ type: String, required: true, trim: true })
-  description: string;
-
-  @Prop({
-    type: String,
-    enum: Object.values(CouponDiscountType),
-    required: true,
-  })
+  @Prop({ type: String, enum: Object.values(CouponDiscountType), required: true })
   discountType: CouponDiscountType;
 
   /**
-   * Value of discount:
-   * - If discountType is 'percentage', this is 1..100 (e.g. 20 for 20%).
-   * - If discountType is 'fixed_amount', this is in smallest currency units (cents / paisa).
+   * 1–100 when discountType is 'percent'.
+   *
+   * The floor is 0, not 1: a fixed coupon stores 0 here to say "unused", which is what
+   * CouponService writes when it normalizes the discount fields. A `min: 1` bound
+   * rejected that write, so no fixed coupon could be created at all. The real 1–100
+   * range for a percentage coupon is enforced by CreateCouponDto and assertCoherent.
    */
-  @Prop({ type: Number, required: true, min: 0 })
-  discountAmount: number;
+  @Prop({ type: Number, min: 0, max: 100, default: 0 })
+  percentOff: number;
 
-  @Prop({
-    type: String,
-    enum: Object.values(CouponCurrency),
-    default: CouponCurrency.ALL,
-  })
-  currency: CouponCurrency;
+  /** Flat discount in USD cents. Used only when discountType is 'fixed'. */
+  @Prop({ type: Number, min: 0, default: 0 })
+  amountOffUsdCents: number;
 
-  /**
-   * Target plan IDs (e.g., ['growth', 'scale']). Empty array means applicable to all plans.
-   */
+  /** Flat discount in BDT paisa. Used only when discountType is 'fixed'. */
+  @Prop({ type: Number, min: 0, default: 0 })
+  amountOffBdtPaisa: number;
+
+  /** Empty means the coupon applies to every paid plan. */
   @Prop({ type: [String], default: [] })
-  applicablePlans: string[];
+  appliesToPlanIds: string[];
 
-  @Prop({
-    type: String,
-    enum: Object.values(CouponDuration),
-    default: CouponDuration.ONCE,
-  })
-  duration: CouponDuration;
-
-  @Prop({ type: Number, default: 0 })
-  durationInMonths?: number;
-
-  /**
-   * Maximum redemptions allowed across the platform. Null or undefined means unlimited.
-   */
+  /** Null means unlimited total redemptions. */
   @Prop({ type: Number, default: null })
-  maxRedemptions?: number | null;
+  maxRedemptions: number | null;
 
-  @Prop({ type: Number, default: 0 })
-  redemptionsCount: number;
+  /** Incremented atomically when a checkout reserves the coupon. */
+  @Prop({ type: Number, default: 0, min: 0 })
+  redeemedCount: number;
 
-  /**
-   * Maximum times a single business tenant can redeem this coupon.
-   */
-  @Prop({ type: Number, default: 1 })
-  maxRedemptionsPerTenant: number;
-
-  /**
-   * Minimum plan cost required to apply coupon (in cents/paisa).
-   */
-  @Prop({ type: Number, default: 0 })
-  minPlanPriceCents?: number;
-
-  @Prop({ type: Date, default: Date.now })
-  validFrom: Date;
+  /** How many times one tenant may redeem this code. */
+  @Prop({ type: Number, default: 1, min: 1 })
+  maxRedemptionsPerBusiness: number;
 
   @Prop({ type: Date, default: null })
-  validUntil?: Date | null;
+  validFrom: Date | null;
 
-  @Prop({ type: Boolean, default: true, index: true })
+  @Prop({ type: Date, default: null })
+  expiresAt: Date | null;
+
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
+
+  /** Internal note for the admin console; never returned to merchants. */
+  @Prop({ type: String, default: '', trim: true })
+  notes: string;
 
   @Prop({
     type: MongooseSchema.Types.ObjectId,
     ref: AdminUser.name,
-    required: false,
+    default: null,
   })
-  createdBy?: MongooseSchema.Types.ObjectId;
-
-  @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
-  metadata?: Record<string, any>;
+  createdBy: MongooseSchema.Types.ObjectId | null;
 }
 
 export const CouponSchema = SchemaFactory.createForClass(Coupon);
-
-// Helpful compound indexes
-CouponSchema.index({ code: 1, isActive: 1 });
-CouponSchema.index({ validFrom: 1, validUntil: 1 });

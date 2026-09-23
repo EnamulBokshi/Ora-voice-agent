@@ -97,11 +97,14 @@ export class ProductsService {
 
       // Conversational stop words to filter out of voice search queries
       const STOP_WORDS = new Set([
-        'do', 'you', 'have', 'show', 'me', 'any', 'what', 'is', 'the', 'price', 'of',
+        'do', 'you', 'have', 'show', 'me', 'any', 'what', 'is', 'are', 'the', 'price', 'of',
         'can', 'i', 'get', 'for', 'in', 'store', 'stock', 'tell', 'about', 'looking',
         'need', 'want', 'please', 'give', 'check', 'available', 'product', 'products',
         'item', 'items', 'much', 'cost', 'buy', 'purchase', 'order', 'a', 'an', 'and', 'or',
-        'some', 'with', 'under', 'category', 'find', 'which', 'shop',
+        'some', 'with', 'under', 'category', 'find', 'which', 'shop', 'there', 'got',
+        'does', 'did', 'their', 'your', 'our', 'all', 'like', 'how', 'would', 'could',
+        'see', 'look', 'view', 'let', 'take', 'know', 'browse', 'kind', 'type', 'kinds', 'types',
+        'one', 'ones', 'nice', 'best', 'good', 'cool', 'top', 'new', 'latest',
       ]);
 
       const rawTerms = trimmed
@@ -110,7 +113,27 @@ export class ProductsService {
         .filter(Boolean);
 
       const meaningfulTerms = rawTerms.filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
-      const searchTerms = meaningfulTerms.length > 0 ? meaningfulTerms : rawTerms.filter((t) => t.length >= 2);
+      const baseTerms = meaningfulTerms.length > 0 ? meaningfulTerms : rawTerms.filter((t) => t.length >= 2);
+
+      // Expand terms with singular / plural morphological stems so "hoodies" matches "hoodie", "shoes" matches "shoe"
+      const expandTermsWithStems = (terms: string[]): string[] => {
+        const set = new Set<string>();
+        for (const term of terms) {
+          set.add(term);
+          if (term.length >= 4 && term.endsWith('ies')) {
+            set.add(term.slice(0, -1)); // "hoodies" -> "hoodie", "cookies" -> "cookie"
+            set.add(term.slice(0, -3) + 'y'); // "batteries" -> "battery"
+          } else if (term.length >= 5 && term.endsWith('es')) {
+            set.add(term.slice(0, -2));
+            set.add(term.slice(0, -1));
+          } else if (term.length >= 4 && term.endsWith('s') && !term.endsWith('ss')) {
+            set.add(term.slice(0, -1));
+          }
+        }
+        return Array.from(set);
+      };
+
+      const searchTerms = expandTermsWithStems(baseTerms);
 
       // Dynamic Word-Boundary Regex Creator:
       // Prevents short words (like "ac", "fan", "ips", "led") from matching inside words like "Machine", "Pack", "Backup"
@@ -209,7 +232,12 @@ export class ProductsService {
       query.nativeProductId = id;
     }
 
-    const product = await this.productModel.findOne(query).exec();
+    let product = await this.productModel.findOne(query).exec();
+
+    // Fallback: If not found by direct _id or nativeProductId, try resolving by handle or name
+    if (!product && id) {
+      product = (await this.resolveByIdentifier(businessId, id)) as any;
+    }
 
     if (!product) {
       throw new DomainException(
@@ -220,6 +248,51 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  async resolveByIdentifier(businessId: string, identifier: string): Promise<any> {
+    if (!identifier) return null;
+    const clean = String(identifier).trim();
+    const bId = new Types.ObjectId(businessId);
+
+    // 1. Direct _id or nativeProductId
+    const isObjectId = Types.ObjectId.isValid(clean) && clean.length === 24;
+    if (isObjectId) {
+      const byId = await this.productModel.findOne({ businessId: bId as any, _id: new Types.ObjectId(clean) }).exec();
+      if (byId) return byId;
+    }
+    const byNative = await this.productModel.findOne({ businessId: bId as any, nativeProductId: clean }).exec();
+    if (byNative) return byNative;
+
+    // 2. Handle or Name match (combined single query with fallback ranking)
+    const slug = clean.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const orClauses: any[] = [
+      { 'attributes.shopify.handle': clean },
+      ...(slug
+        ? [
+            { 'attributes.shopify.handle': slug },
+            { 'attributes.shopify.handle': new RegExp(slug.replace(/-/g, '.*'), 'i') },
+          ]
+        : []),
+      { name: { $regex: escaped, $options: 'i' } },
+    ];
+
+    const query = this.productModel.find({
+      businessId: bId as any,
+      isActive: true,
+      $or: orClauses,
+    });
+    const match =
+      query && typeof query.sort === 'function'
+        ? await query.sort({ sourceTier: 1, updatedAt: -1 }).limit(1).exec()
+        : await (query as any).exec();
+
+    if (Array.isArray(match) && match.length > 0) return match[0];
+    if (match && !Array.isArray(match)) return match;
+
+    return null;
   }
 
   async findManyByIds(businessId: string, ids: string[]): Promise<ProductDocument[]> {

@@ -1,6 +1,6 @@
-import { Injectable, OnModuleInit, HttpStatus, Logger, Inject, Optional, forwardRef } from '@nestjs/common';
+import { Injectable, OnModuleInit, HttpStatus, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Plan, PlanDocument, PlanId } from './schemas/plan.schema';
@@ -27,7 +27,13 @@ import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { AdminRole } from '../users/enums/admin-role.enum';
 import { OnboardingEmailService } from '../auth/services/onboarding-email.service';
 import { EntitlementService } from '../common/entitlement/entitlement.service';
-import { CouponService } from './services/coupon.service';
+
+import { CouponService, CouponQuote } from './services/coupon.service';
+import { CouponRedemptionDocument } from './schemas/coupon-redemption.schema';
+import { CouponDiscountType } from './schemas/coupon.schema';
+import { TrialLog, TrialLogDocument } from './schemas/trial-log.schema';
+import { KnowledgeBase, KnowledgeBaseDocument } from '../knowledge/schemas/knowledge-base.schema';
+import { normalizeWebsiteDomain } from '../auth/services/disposable-email-validator.service';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -44,6 +50,10 @@ export class BillingService implements OnModuleInit {
     private readonly adminUserModel: Model<AdminUserDocument>,
     @InjectModel(Business.name)
     private readonly businessModel: Model<BusinessDocument>,
+    @InjectModel(TrialLog.name)
+    private readonly trialLogModel: Model<TrialLogDocument>,
+    @InjectModel(KnowledgeBase.name)
+    private readonly knowledgeModel: Model<KnowledgeBaseDocument>,
     private readonly stripeProvider: StripeProvider,
     private readonly bkashProvider: BkashProvider,
     private readonly invoicesService: InvoicesService,
@@ -53,16 +63,36 @@ export class BillingService implements OnModuleInit {
     @Inject(forwardRef(() => OnboardingEmailService))
     private readonly onboardingEmailService: OnboardingEmailService,
     private readonly entitlementService: EntitlementService,
-    @Optional()
-    private readonly couponService?: CouponService,
+    private readonly couponService: CouponService,
   ) {}
+
+  /** Which gateways a merchant can actually pay with right now. */
+  getPaymentMethods() {
+    return [
+      {
+        provider: BillingProvider.STRIPE,
+        label: 'Card (Stripe)',
+        currency: 'USD',
+        available: this.stripeProvider.isConfigured,
+      },
+      {
+        provider: BillingProvider.BKASH,
+        label: 'bKash',
+        currency: 'BDT',
+        available: this.bkashProvider.isConfigured,
+      },
+    ];
+  }
 
   async onModuleInit() {
     await this.seedDefaultPlans();
   }
 
   async getPlans(): Promise<PlanDocument[]> {
-    return this.planModel.find({ isActive: true }).exec();
+    return this.planModel
+      .find({ isActive: true, planId: { $ne: PlanId.FREE } })
+      .sort({ priceUsdCents: 1 })
+      .exec();
   }
 
   async getSubscription(businessId: string) {
@@ -70,51 +100,102 @@ export class BillingService implements OnModuleInit {
       .findOne({ businessId: businessId as any })
       .exec();
 
-    if (!sub) {
-      // Default initial Free tier subscription
-      const freePlan = await this.planModel.findOne({ planId: PlanId.FREE }).exec();
-      sub = await new this.subscriptionModel({
-        businessId: businessId as any,
-        planId: PlanId.FREE,
-        billingProvider: BillingProvider.STRIPE,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      }).save();
-    }
-
-    const plan = await this.planModel.findOne({ planId: sub.planId as any }).exec();
+    const plan = sub ? await this.planModel.findOne({ planId: sub.planId as any }).exec() : null;
 
     // Fetch Redis usage counters
     const currentPeriod = new Date().toISOString().substring(0, 7);
     const redisClient = this.redisService.getClient();
 
-    const [mins, orders, business, seatsCount] = await Promise.all([
+    const [mins, orders, business, seatsCount, knowledgeCount] = await Promise.all([
       redisClient.get(`usage:${businessId}:${currentPeriod}:conversationMinutes`),
       redisClient.get(`usage:${businessId}:${currentPeriod}:ordersPerMonth`),
       this.businessModel.findById(businessId).exec(),
       this.adminUserModel.countDocuments({ businessId: businessId as any }).exec(),
+      this.knowledgeModel.countDocuments({ businessId: businessId as any }).exec(),
     ]);
 
     let connectedStoresCount = 0;
     if (business) {
       if (business.shopifyStoreUrl) connectedStoresCount++;
       if (business.woocommerceStoreUrl) connectedStoresCount++;
+      if (business.domain || business.normalizedDomain) {
+        if (connectedStoresCount === 0) connectedStoresCount = 1;
+      }
       if (connectedStoresCount === 0 && business.connectedPlatform && business.connectedPlatform !== 'none') {
         connectedStoresCount = 1;
       }
+    }
+    if (connectedStoresCount === 0) connectedStoresCount = 1;
+
+    const usedVoiceMins = mins ? parseInt(mins, 10) : 0;
+
+    // Check whether this business has ever utilized a trial (anti-abuse verification)
+    const trialLog = await this.trialLogModel.findOne({ businessId: businessId as any }).exec();
+    const isTrialing = sub?.status === SubscriptionStatus.TRIALING;
+    const hasUsedTrial = Boolean(
+      business?.trialGrantedAt ||
+      trialLog ||
+      isTrialing ||
+      (sub as any)?.hasUsedTrial,
+    );
+
+    let trialDaysRemaining: number | null = null;
+    let trialHoursRemaining: number | null = null;
+    if (isTrialing && sub?.currentPeriodEnd) {
+      const msLeft = new Date(sub.currentPeriodEnd).getTime() - Date.now();
+      trialDaysRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+      trialHoursRemaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60)));
     }
 
     return {
       subscription: sub,
       plan,
       usage: {
-        conversationMinutes: mins ? parseInt(mins, 10) : 0,
-        ordersPerMonth: orders ? parseInt(orders, 10) : 0,
+        voiceMinutes: usedVoiceMins,
+        conversationMinutes: usedVoiceMins,
+        documentCount: knowledgeCount || 0,
+        websiteCount: connectedStoresCount,
         connectedStores: connectedStoresCount,
+        ordersPerMonth: orders ? parseInt(orders, 10) : 0,
         seats: seatsCount || 1,
       },
+      hasUsedTrial,
+      isTrialing,
+      trialDaysRemaining,
+      trialHoursRemaining,
+      trialExpiresAt: sub?.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : undefined,
     };
+  }
+
+  /**
+   * Coupon preview for the checkout screen. Runs exactly the same validation and
+   * arithmetic as subscribe, but takes no redemption slot.
+   */
+  async previewCoupon(
+    businessId: string,
+    dto: { code: string; planId: string; billingProvider?: BillingProvider },
+  ) {
+    const plan = await this.planModel.findOne({ planId: dto.planId as any }).exec();
+    if (!plan) {
+      throw new DomainException(
+        'PLAN_NOT_FOUND',
+        `Plan '${dto.planId}' not found.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const provider =
+      dto.billingProvider === BillingProvider.BKASH
+        ? BillingProvider.BKASH
+        : BillingProvider.STRIPE;
+
+    const coupon = await this.couponService.validate(
+      dto.code,
+      businessId,
+      dto.planId,
+    );
+
+    return this.couponService.quote(plan, coupon, provider);
   }
 
   async subscribe(
@@ -147,60 +228,26 @@ export class BillingService implements OnModuleInit {
       }
     }
 
-    // Validate coupon code if supplied
-    let couponValidation: any = null;
-    if (dto.couponCode && this.couponService) {
-      couponValidation = await this.couponService.validateCoupon(
-        dto.couponCode,
-        dto.planId,
-        businessId,
-        dto.billingProvider === BillingProvider.BKASH ? 'BDT' : 'USD',
-      );
-    }
-
-    // 1. Handle Free Tier Subscription or 100% Discounted Coupon (0 cost — instant activation)
-    const isFreePlan = dto.planId === PlanId.FREE || (plan.priceUsdCents === 0 && plan.priceBdtPaisa === 0);
-    const isFullyDiscounted = couponValidation && couponValidation.finalAmount === 0;
-
-    if (isFreePlan || isFullyDiscounted) {
+    // 1. Handle Free Tier Subscription (0 cost — instant activation)
+    if (dto.planId === PlanId.FREE || (plan.priceUsdCents === 0 && plan.priceBdtPaisa === 0)) {
       const periodStart = new Date();
       const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-      const updateSet: Record<string, any> = {
-        planId: dto.planId,
-        billingProvider: dto.billingProvider || BillingProvider.STRIPE,
-        providerRef: isFullyDiscounted ? `coupon_${couponValidation.code}` : 'free_tier',
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: periodStart,
-        currentPeriodEnd: periodEnd,
-        cancelAtPeriodEnd: false,
-      };
-
-      if (couponValidation) {
-        updateSet.appliedCoupon = {
-          couponId: new Types.ObjectId(couponValidation.couponId),
-          code: couponValidation.code,
-          discountType: couponValidation.discountType,
-          discountAmount: couponValidation.discountAmount,
-          appliedAt: new Date(),
-        };
-      }
-
       const sub = await this.subscriptionModel.findOneAndUpdate(
         { businessId: bId },
-        { $set: updateSet },
+        {
+          $set: {
+            planId: PlanId.FREE,
+            billingProvider: BillingProvider.STRIPE,
+            providerRef: 'free_tier',
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: false,
+          },
+        },
         { upsert: true, returnDocument: 'after' },
       ).exec();
-
-      if (couponValidation && this.couponService) {
-        await this.couponService.redeemCoupon({
-          code: couponValidation.code,
-          planId: dto.planId,
-          businessId,
-          subscriptionId: sub._id.toString(),
-          currency: couponValidation.currency,
-        });
-      }
 
       // Activate business & generate key if needed
       const business = await this.businessModel.findById(bId).exec();
@@ -213,7 +260,13 @@ export class BillingService implements OnModuleInit {
         await business.save();
       }
 
-      // Upgrade subscriber role from 'user' to 'owner'
+      // Upgrade subscriber role from 'user' to 'owner'.
+      //
+      // Scoped to USER on purpose. This used to promote every account in the
+      // tenant that was not a SUPER_ADMIN, so activating a plan handed OWNER
+      // rights — billing, secret key, connector config — to every staff member
+      // the tenant had. Shopify tenants provision non-owner staff as STAFF,
+      // and a promotion here would undo that on the first charge.
       await this.adminUserModel.updateMany(
         { businessId: bId, role: AdminRole.USER },
         { $set: { role: AdminRole.OWNER } },
@@ -225,19 +278,67 @@ export class BillingService implements OnModuleInit {
       return {
         requiresRedirect: false,
         subscription: sub,
-        message: isFullyDiscounted
-          ? `Plan '${plan.name}' activated with 100% discount coupon '${couponValidation.code}'.`
-          : 'Free tier activated successfully.',
+        message: 'Free tier activated successfully.',
       };
     }
 
-    // 2. Handle bKash Subscription Initiation
-    if (dto.billingProvider === BillingProvider.BKASH) {
-      const subRef = await this.bkashProvider.createSubscription(businessId, dto.planId, {
-        email: customerEmail,
-        name: customerName,
-      });
-      
+    // 2. Price the coupon, if one was sent.
+    //
+    // The request carries a code and nothing else. The discount, the plan price and
+    // the resulting total are all read from the database here, so a tampered body
+    // can only choose which coupon is attempted, never what it is worth.
+    const provider =
+      dto.billingProvider === BillingProvider.BKASH
+        ? BillingProvider.BKASH
+        : BillingProvider.STRIPE;
+
+    let couponQuote: CouponQuote | null = null;
+    let redemption: CouponRedemptionDocument | null = null;
+
+    if (dto.couponCode) {
+      const coupon = await this.couponService.validate(
+        dto.couponCode,
+        businessId,
+        dto.planId,
+      );
+      couponQuote = this.couponService.quote(plan, coupon, provider);
+      redemption = await this.couponService.reserve(
+        coupon,
+        businessId,
+        dto.planId,
+        provider,
+        couponQuote,
+      );
+    }
+
+    // A coupon that covers the whole price leaves nothing for a gateway to charge,
+    // so the plan is comped here and recorded as a zero-amount transaction.
+    if (couponQuote?.coversFullPrice && redemption) {
+      return this.activateCompedSubscription(businessId, plan, provider, redemption);
+    }
+
+    // 3. Handle bKash Subscription Initiation
+    if (provider === BillingProvider.BKASH) {
+      if (!this.bkashProvider.isConfigured) {
+        throw new DomainException(
+          'PAYMENT_PROVIDER_UNAVAILABLE',
+          'bKash is not available right now. Choose another payment method or contact support.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      let subRef;
+      try {
+        subRef = await this.bkashProvider.createSubscription(businessId, dto.planId, {
+          email: customerEmail,
+          name: customerName,
+        });
+      } catch (err) {
+        // The gateway never opened, so the coupon slot goes back to the pool.
+        if (redemption) await this.couponService.release(String(redemption._id));
+        throw err;
+      }
+
       let bkashURL = '';
       let paymentID = '';
       if (subRef.providerRef) {
@@ -250,102 +351,164 @@ export class BillingService implements OnModuleInit {
         }
       }
 
+      // The discounted amount is charged later, in executeBkashAgreement. It finds
+      // this reservation by paymentID rather than trusting anything from the callback.
+      if (redemption && paymentID) {
+        await this.couponService.attachProviderRef(String(redemption._id), paymentID);
+      }
+
       return {
         requiresRedirect: true,
         billingProvider: BillingProvider.BKASH,
         bkashURL,
         paymentID,
+        discount: couponQuote
+          ? {
+              code: couponQuote.code,
+              currency: couponQuote.currency,
+              discountMinor: couponQuote.discountMinor,
+              amountAfterMinor: couponQuote.amountAfterMinor,
+            }
+          : null,
         message: 'Please complete agreement authorization on bKash redirect URL.',
       };
     }
 
-    // 3. Handle Stripe Subscription Flow
-    const subRef = await this.stripeProvider.createSubscription(businessId, dto.planId, {
-      email: customerEmail,
-      name: customerName,
-    });
+    // 4. Handle Stripe Subscription Flow
+    if (!this.stripeProvider.isConfigured) {
+      if (redemption) await this.couponService.release(String(redemption._id));
+      throw new DomainException(
+        'PAYMENT_PROVIDER_UNAVAILABLE',
+        'Card payments are not available right now. Choose another payment method or contact support.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    let subRef;
+    try {
+      subRef = await this.stripeProvider.createSubscription(
+        businessId,
+        dto.planId,
+        { email: customerEmail, name: customerName },
+        couponQuote
+          ? {
+              code: couponQuote.code,
+              ...(couponQuote.discountType === CouponDiscountType.PERCENT
+                ? {
+                    percentOff: Math.round(
+                      (couponQuote.discountMinor / couponQuote.amountBeforeMinor) * 100,
+                    ),
+                  }
+                : { amountOffUsdCents: couponQuote.discountMinor }),
+            }
+          : undefined,
+      );
+    } catch (err) {
+      if (redemption) await this.couponService.release(String(redemption._id));
+      throw err;
+    }
 
     // If Stripe created an online Hosted Checkout URL
     if (
       subRef.providerRef &&
       (subRef.providerRef.startsWith('http://') || subRef.providerRef.startsWith('https://'))
     ) {
+      // The webhook marks the redemption applied once Stripe confirms the charge.
+      if (redemption && subRef.subscriptionId) {
+        await this.couponService.attachProviderRef(String(redemption._id), subRef.subscriptionId);
+      }
+
       return {
         requiresRedirect: true,
         billingProvider: BillingProvider.STRIPE,
         checkoutUrl: subRef.providerRef,
         subscriptionId: subRef.subscriptionId,
+        discount: couponQuote
+          ? {
+              code: couponQuote.code,
+              currency: couponQuote.currency,
+              discountMinor: couponQuote.discountMinor,
+              amountAfterMinor: couponQuote.amountAfterMinor,
+            }
+          : null,
         message: 'Please complete subscription checkout on Stripe.',
       };
     }
 
-    // 4. Development / Mock fallback when Stripe credentials are not live
+    // 5. No checkout session came back.
+    //
+    // There is deliberately no local-activation fallback here. This branch used to
+    // mark a paid plan active, write a SUCCEEDED transaction and issue an invoice
+    // whenever the gateway had no live key, which meant one click bought a plan for
+    // nothing. A plan now becomes active only when a gateway confirms the money, or
+    // when a coupon covers the whole price.
+    if (redemption) await this.couponService.release(String(redemption._id));
+    throw new DomainException(
+      'CHECKOUT_NOT_STARTED',
+      'The payment gateway did not return a checkout session. No charge was made and your plan is unchanged.',
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
+
+  /**
+   * Activates a plan whose price a coupon covered in full.
+   *
+   * The zero-amount transaction and invoice are written on purpose: a comped period
+   * still has to appear in the tenant's billing history, tied to the redemption that
+   * paid for it.
+   */
+  private async activateCompedSubscription(
+    businessId: string,
+    plan: PlanDocument,
+    provider: BillingProvider,
+    redemption: CouponRedemptionDocument,
+  ) {
+    const bId = businessId as any;
     const periodStart = new Date();
     const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    const chargeAmountUsd = couponValidation
-      ? couponValidation.finalAmount / 100
-      : plan.priceUsdCents / 100;
-
-    const subUpdate: Record<string, any> = {
-      planId: dto.planId,
-      billingProvider: BillingProvider.STRIPE,
-      providerRef: subRef.providerRef,
-      status: SubscriptionStatus.ACTIVE,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
-      cancelAtPeriodEnd: false,
-    };
-
-    if (couponValidation) {
-      subUpdate.appliedCoupon = {
-        couponId: new Types.ObjectId(couponValidation.couponId),
-        code: couponValidation.code,
-        discountType: couponValidation.discountType,
-        discountAmount: couponValidation.discountAmount,
-        appliedAt: new Date(),
-      };
-    }
-
     const sub = await this.subscriptionModel.findOneAndUpdate(
       { businessId: bId },
-      { $set: subUpdate },
+      {
+        $set: {
+          planId: plan.planId,
+          billingProvider: provider,
+          providerRef: `coupon_${redemption.code}`,
+          status: SubscriptionStatus.ACTIVE,
+          hasUsedTrial: true,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: false,
+        },
+      },
       { upsert: true, returnDocument: 'after' },
     ).exec();
 
-    if (couponValidation && this.couponService) {
-      await this.couponService.redeemCoupon({
-        code: couponValidation.code,
-        planId: dto.planId,
-        businessId,
-        subscriptionId: sub._id.toString(),
-        currency: couponValidation.currency,
-      });
-    }
-
-    // Record append-only PaymentTransaction
     const transaction = await new this.transactionModel({
       businessId: bId,
       subscriptionId: sub._id as any,
-      billingProvider: BillingProvider.STRIPE,
-      providerTransactionId: subRef.subscriptionId,
-      amount: chargeAmountUsd,
-      currency: 'USD',
+      billingProvider: provider,
+      providerTransactionId: `coupon_${redemption.code}_${String(redemption._id)}`,
+      amount: 0,
+      currency: redemption.currency,
       status: TransactionStatus.SUCCEEDED,
       billingPeriodStart: periodStart,
     }).save();
 
-    // Trigger sequential human-readable invoice generation (ORA-2026-000123)
     const invoice = await this.invoicesService.generateInvoice({
       businessId,
       subscriptionId: sub._id.toString(),
       transactionId: transaction._id.toString(),
-      amountUsdCents: Math.round(chargeAmountUsd * 100),
-      amountBdtPaisa: couponValidation && couponValidation.currency === 'BDT' ? couponValidation.finalAmount : plan.priceBdtPaisa,
-      currency: 'USD',
+      amountUsdCents: 0,
+      amountBdtPaisa: 0,
+      currency: redemption.currency,
     });
 
-    // Generate publishable key if none exists for this business & activate business
+    await this.couponService.markApplied(String(redemption._id), {
+      subscriptionId: sub._id.toString(),
+      transactionId: transaction._id.toString(),
+    });
+
     const business = await this.businessModel.findById(bId).exec();
     if (business) {
       if (!business.publishableKey) {
@@ -356,13 +519,11 @@ export class BillingService implements OnModuleInit {
       await business.save();
     }
 
-    // Upgrade subscriber role from 'user' to 'owner' upon active subscription
     await this.adminUserModel.updateMany(
       { businessId: bId, role: AdminRole.USER },
       { $set: { role: AdminRole.OWNER } },
     ).exec();
 
-    // Dispatch Congratulations email and ORA credentials & widget embed manual email
     await this.sendSubscriberWelcomeEmail(businessId, plan.name);
 
     return {
@@ -370,9 +531,12 @@ export class BillingService implements OnModuleInit {
       subscription: sub,
       transaction,
       invoice,
-      message: couponValidation
-        ? `Subscription activated in sandbox mode with coupon '${couponValidation.code}' (${couponValidation.effectivePercentage}% off).`
-        : 'Subscription activated in sandbox development mode.',
+      coupon: {
+        code: redemption.code,
+        discountMinor: redemption.discountMinor,
+        currency: redemption.currency,
+      },
+      message: `Coupon ${redemption.code} covered the full price. Your plan is active.`,
     };
   }
 
@@ -421,8 +585,15 @@ export class BillingService implements OnModuleInit {
     const agreementID = agreementRes.agreementID;
 
     // Step 2: Execute Initial Payment for Subscription
+    //
+    // The amount comes from the reservation made at checkout, looked up by the
+    // paymentID bKash echoes back. The callback never states a price of its own.
+    const reserved = await this.couponService.findReservedByProviderRef(paymentID);
     const invoiceNumber = `ORA-BKASH-${Date.now()}`;
-    const amountBdt = plan.priceBdtPaisa / 100;
+    const amountBdt =
+      reserved && reserved.currency === 'BDT'
+        ? reserved.amountAfterMinor / 100
+        : plan.priceBdtPaisa / 100;
     const paymentRes = await this.bkashProvider.executePaymentWithAgreement(
       agreementID,
       amountBdt,
@@ -462,6 +633,13 @@ export class BillingService implements OnModuleInit {
       status: TransactionStatus.SUCCEEDED,
       billingPeriodStart: periodStart,
     }).save();
+
+    if (reserved) {
+      await this.couponService.markApplied(String(reserved._id), {
+        subscriptionId: sub._id.toString(),
+        transactionId: transaction._id.toString(),
+      });
+    }
 
     // Step 5: Generate Sequential Invoice
     const invoice = await this.invoicesService.generateInvoice({
@@ -615,13 +793,7 @@ export class BillingService implements OnModuleInit {
   }
 
   private async seedDefaultPlans() {
-    const count = await this.planModel.countDocuments().exec();
-    if (count > 0) {
-      await this.backfillTrialDays();
-      return;
-    }
-
-    this.logger.log('[BillingService] Seeding default plan tiers (Free, Growth, Scale)...');
+    this.logger.log('[BillingService] Syncing default universal plan tiers (Starter, Growth, Scale, Free)...');
 
     const defaultPlans = [
       {
@@ -631,28 +803,74 @@ export class BillingService implements OnModuleInit {
         priceBdtPaisa: 0,
         billingInterval: 'month',
         limits: {
-          conversationMinutes: 100,
-          ordersPerMonth: 20,
+          voiceMinutes: 150,
+          documentLimit: 5,
+          websiteLimit: 1,
+          conversationMinutes: 150,
           connectedStores: 1,
+          ordersPerMonth: 0,
           seats: 1,
         },
-        features: ['100 conversation minutes', '20 Tier 1 orders', '1 store connector', 'Basic RAG search'],
+        features: [
+          '150 live voice minutes / month',
+          '5 knowledge base documents',
+          '1 verified website domain',
+          'Standard RAG knowledge search',
+          'Universal embed widget',
+        ],
         trialDays: 0,
+        isActive: false, // Retired in favor of 14-day free trial on Starter, Growth, and Scale
+      },
+      {
+        planId: PlanId.STARTER,
+        name: 'Starter Plan',
+        priceUsdCents: 2900,
+        priceBdtPaisa: 320000,
+        billingInterval: 'month',
+        limits: {
+          voiceMinutes: 500,
+          documentLimit: 15,
+          websiteLimit: 1,
+          conversationMinutes: 500,
+          connectedStores: 1,
+          ordersPerMonth: 0,
+          seats: 1,
+        },
+        features: [
+          '500 live voice minutes / month',
+          '15 knowledge base documents',
+          '1 verified website domain',
+          'Full knowledge RAG vector search',
+          'Real-time low-latency voice streaming',
+          'Email support',
+        ],
+        trialDays: 14,
         isActive: true,
       },
       {
         planId: PlanId.GROWTH,
         name: 'Growth Plan',
-        priceUsdCents: 4900,
-        priceBdtPaisa: 550000,
+        priceUsdCents: 7900,
+        priceBdtPaisa: 850000,
         billingInterval: 'month',
         limits: {
-          conversationMinutes: 2000,
-          ordersPerMonth: 500,
+          voiceMinutes: 2500,
+          documentLimit: 50,
+          websiteLimit: 3,
+          conversationMinutes: 2500,
           connectedStores: 3,
+          ordersPerMonth: 0,
           seats: 5,
         },
-        features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', '5 staff seats', 'Full RAG vector search'],
+        features: [
+          '2,500 live voice minutes / month',
+          '50 knowledge base documents',
+          'Up to 3 connected websites/domains',
+          'Custom voice persona & tone tuning',
+          'Live Desk human operator takeover',
+          'PDF, catalog & manual ingestion',
+          'Priority support (<4h response)',
+        ],
         trialDays: 14,
         isActive: true,
       },
@@ -663,48 +881,226 @@ export class BillingService implements OnModuleInit {
         priceBdtPaisa: 2200000,
         billingInterval: 'month',
         limits: {
-          conversationMinutes: 100000,
-          ordersPerMonth: 100000,
-          connectedStores: 99,
+          voiceMinutes: 10000,
+          documentLimit: 200,
+          websiteLimit: 10,
+          conversationMinutes: 10000,
+          connectedStores: 10,
+          ordersPerMonth: 0,
           seats: 99,
         },
-        features: ['Unlimited conversation minutes', 'Unlimited orders', 'Unlimited store connectors', 'Unlimited seats', 'Priority support'],
+        features: [
+          '10,000+ live voice minutes (customizable)',
+          '200+ knowledge base documents',
+          'Up to 10 connected websites/domains',
+          'Custom LLM sales & support playbooks',
+          'Dedicated Gemini Live audio bandwidth',
+          'Developer Webhooks & OAuth API',
+          'Dedicated account manager & 99.9% SLA',
+        ],
         trialDays: 14,
         isActive: true,
       },
     ];
 
-    await this.planModel.insertMany(defaultPlans);
+    for (const plan of defaultPlans) {
+      await this.planModel.findOneAndUpdate(
+        { planId: plan.planId },
+        { $set: plan },
+        { upsert: true },
+      );
+    }
   }
 
   /**
-   * Gives an already-seeded deployment the trial it was advertising.
-   *
-   * `trialDays` was added after these documents existed, and a Mongoose default
-   * applies only to new ones — so a plan seeded earlier reads back `undefined`
-   * and Shopify charges on approval. The paid tiers get 14 days; nothing that
-   * already carries a value is touched.
+   * Activates a strict 14-day free trial for a verified website domain.
+   * Enforces domain uniqueness via TrialLog to prevent trial abuse.
+   * Strictly enforces that an account receives only ONE trial across all tiers.
    */
-  private async backfillTrialDays(): Promise<void> {
-    const result = await this.planModel
-      .updateMany(
-        { trialDays: { $exists: false }, planId: { $ne: PlanId.FREE } },
-        { $set: { trialDays: 14 } },
-      )
-      .exec();
-
-    if (result.modifiedCount) {
-      this.logger.log(
-        `[BillingService] Backfilled trialDays on ${result.modifiedCount} plan(s).`,
+  async startFreeTrial(
+    businessId: string,
+    websiteDomain: string,
+    ipAddress?: string,
+    userContext?: { email?: string; userId?: string },
+    planId?: string,
+  ) {
+    if (!websiteDomain || typeof websiteDomain !== 'string' || !websiteDomain.trim()) {
+      throw new DomainException(
+        'DOMAIN_REQUIRED',
+        'A valid website host or domain (e.g. yourstore.com) is required to activate a 14-day free trial.',
+        HttpStatus.BAD_REQUEST,
       );
     }
 
-    await this.planModel
-      .updateMany(
-        { trialDays: { $exists: false }, planId: PlanId.FREE },
-        { $set: { trialDays: 0 } },
-      )
-      .exec();
+    const normalizedDomain = normalizeWebsiteDomain(websiteDomain);
+    if (!normalizedDomain || !normalizedDomain.includes('.')) {
+      throw new DomainException(
+        'INVALID_DOMAIN',
+        'Please enter a valid website domain name (e.g. yourstore.com).',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const bId = businessId as any;
+    const business = await this.businessModel.findById(bId).exec();
+    if (!business) {
+      throw new DomainException('BUSINESS_NOT_FOUND', 'Business profile not found.', HttpStatus.NOT_FOUND);
+    }
+
+    // 1. Anti-Abuse Check: Has this domain ever received a free trial on ANY account?
+    const existingTrial = await this.trialLogModel.findOne({ normalizedDomain }).exec();
+    if (existingTrial) {
+      throw new DomainException(
+        'TRIAL_ALREADY_USED',
+        `A 14-day free trial has already been utilized for domain '${normalizedDomain}'. To use ORA on this website, please select a paid subscription plan.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 2. Check if this business already had a trial across ANY plan
+    const existingBusinessTrial = await this.trialLogModel.findOne({ businessId: bId }).exec();
+    if (business.trialGrantedAt || existingBusinessTrial) {
+      throw new DomainException(
+        'TRIAL_ALREADY_GRANTED',
+        'A 14-day free trial has already been utilized by this account. Switching plans requires a paid subscription.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 3. Check if existing subscription has already used trial or is active
+    const existingSub = await this.subscriptionModel.findOne({ businessId: bId }).exec();
+    if (existingSub && (existingSub.status === SubscriptionStatus.TRIALING || existingSub.hasUsedTrial)) {
+      throw new DomainException(
+        'TRIAL_ALREADY_GRANTED',
+        'Your account has already utilized its 14-day free trial. Switching plans requires an immediate paid subscription.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Determine target plan (Starter, Growth, or Scale)
+    const allowedPlanIds = [PlanId.STARTER, PlanId.GROWTH, PlanId.SCALE];
+    const targetPlanId = planId && allowedPlanIds.includes(planId as any) ? planId : PlanId.GROWTH;
+
+    // Resolve user details
+    let customerEmail = userContext?.email;
+    let customerUserId = userContext?.userId;
+    if (!customerEmail || !customerUserId) {
+      const user = await this.adminUserModel.findOne({ businessId: bId }).sort({ createdAt: 1 }).exec();
+      if (user) {
+        customerEmail = customerEmail || user.email;
+        customerUserId = customerUserId || user._id.toString();
+      }
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+
+    // 4. Record immutable TrialLog
+    await new this.trialLogModel({
+      normalizedDomain,
+      businessId: bId,
+      adminUserId: customerUserId as any,
+      registeredEmail: customerEmail || 'unknown@domain.com',
+      ipAddress,
+      grantedAt: now,
+      trialExpiresAt: periodEnd,
+    }).save();
+
+    // 5. Update Business Record
+    if (!business.publishableKey) {
+      const randomHex = crypto.randomBytes(12).toString('hex');
+      business.publishableKey = `biz_live_${randomHex}`;
+    }
+    business.domain = websiteDomain.trim();
+    business.normalizedDomain = normalizedDomain;
+    business.status = 'active';
+    business.trialGrantedAt = now;
+    business.trialExpiresAt = periodEnd;
+    await business.save();
+
+    // 6. Create or Update Subscription as TRIALING on selected tier
+    const sub = await this.subscriptionModel.findOneAndUpdate(
+      { businessId: bId },
+      {
+        $set: {
+          planId: targetPlanId,
+          billingProvider: BillingProvider.STRIPE,
+          providerRef: 'free_trial',
+          status: SubscriptionStatus.TRIALING,
+          hasUsedTrial: true,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: false,
+        },
+      },
+      { upsert: true, returnDocument: 'after' },
+    ).exec();
+
+    // 6. Upgrade subscriber to OWNER
+    await this.adminUserModel.updateMany(
+      { businessId: bId, role: AdminRole.USER },
+      { $set: { role: AdminRole.OWNER } },
+    ).exec();
+
+    // 7. Invalidate entitlement cache so access is active immediately
+    await this.entitlementService.invalidate(businessId);
+
+    this.logger.log(`[BillingService] 14-day free trial activated for business ${businessId} (${normalizedDomain})`);
+
+    return {
+      success: true,
+      trialDays: 14,
+      trialExpiresAt: periodEnd,
+      subscription: sub,
+      message: '14-day free trial activated successfully.',
+    };
+  }
+
+  // --- SuperAdmin Plan Management & Custom Limits ---
+
+  async getAllPlansAdmin(): Promise<any[]> {
+    const plans = await this.planModel.find().exec();
+    const subCounts = await this.subscriptionModel.aggregate([
+      { $match: { status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] } } },
+      { $group: { _id: '$planId', count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(subCounts.map((s) => [s._id, s.count]));
+    return plans.map((p) => ({
+      ...p.toObject(),
+      activeSubscribers: countMap.get(p.planId) || 0,
+    }));
+  }
+
+  async createPlanAdmin(planData: Partial<Plan>): Promise<PlanDocument> {
+    const plan = new this.planModel(planData);
+    return plan.save();
+  }
+
+  async updatePlanAdmin(planId: string, updateData: Partial<Plan>): Promise<PlanDocument | null> {
+    return this.planModel.findOneAndUpdate(
+      { planId },
+      { $set: updateData },
+      { returnDocument: 'after' },
+    ).exec();
+  }
+
+  async deletePlanAdmin(planId: string): Promise<boolean> {
+    const res = await this.planModel.deleteOne({ planId }).exec();
+    return (res.deletedCount || 0) > 0;
+  }
+
+  async setMerchantCustomLimits(
+    businessId: string,
+    customLimits: { voiceMinutes?: number; documentLimit?: number; websiteLimit?: number },
+  ) {
+    const sub = await this.subscriptionModel.findOneAndUpdate(
+      { businessId: businessId as any },
+      { $set: { customLimits } },
+      { returnDocument: 'after' },
+    ).exec();
+
+    await this.entitlementService.invalidate(businessId);
+    return sub;
   }
 
   private async sendSubscriberWelcomeEmail(businessId: string, planName = 'Growth Plan') {
@@ -792,7 +1188,8 @@ export class BillingService implements OnModuleInit {
           { upsert: true, returnDocument: 'after' },
         ).exec();
 
-        // 2. Record Payment Transaction
+        // 2. Record Payment Transaction. `amount_total` is what Stripe actually
+        // charged, so a discounted checkout records the discounted figure.
         const amountUsd = session.amount_total ? session.amount_total / 100 : (plan ? plan.priceUsdCents / 100 : 49);
         const transaction = await new this.transactionModel({
           businessId: bId,
@@ -814,6 +1211,17 @@ export class BillingService implements OnModuleInit {
           amountBdtPaisa: plan ? plan.priceBdtPaisa : 550000,
           currency: 'USD',
         });
+
+        // 3b. Settle the coupon reservation this checkout session was holding.
+        const reservedForSession = await this.couponService.findReservedByProviderRef(
+          session.id,
+        );
+        if (reservedForSession) {
+          await this.couponService.markApplied(String(reservedForSession._id), {
+            subscriptionId: sub._id.toString(),
+            transactionId: transaction._id.toString(),
+          });
+        }
 
         // 4. Activate Business & Generate Key
         const business = await this.businessModel.findById(bId).exec();

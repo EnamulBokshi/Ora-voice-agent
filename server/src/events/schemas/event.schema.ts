@@ -12,6 +12,8 @@ export enum EventType {
   AUTHORITY_ESCALATION_FLAGGED = 'authority_escalation_flagged',
   INVENTORY_WARNING = 'inventory_warning',
   SALES_LEAD_CAPTURED = 'sales_lead_captured',
+  /** The agent passed a visitor's coupon code to the checkout form. */
+  COUPON_CODE_OFFERED = 'coupon_code_offered',
 }
 
 @Schema({ timestamps: true })

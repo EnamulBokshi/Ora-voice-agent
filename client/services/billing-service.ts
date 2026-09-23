@@ -4,6 +4,7 @@ import {
   SubscriptionDetailsResponse,
   SubscribePayload,
   SubscribeResponseData,
+  CouponQuote,
 } from '@/types/billing';
 
 export async function getBillingPlansApi(): Promise<Plan[]> {
@@ -18,12 +19,31 @@ export async function getSubscriptionApi(): Promise<SubscriptionDetailsResponse>
   });
 }
 
+export async function startTrialApi(payload: {
+  websiteDomain: string;
+  planId?: string;
+}): Promise<{
+  trialDays: number;
+  trialExpiresAt: string;
+  message: string;
+}> {
+  return apiClient<{
+    trialDays: number;
+    trialExpiresAt: string;
+    message: string;
+  }>('/billing/start-trial', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function subscribePlanApi(
   payload: SubscribePayload,
 ): Promise<SubscribeResponseData> {
   const body: Record<string, any> = {
     planId: payload.planId,
     billingProvider: payload.billingProvider || payload.provider || 'stripe',
+    ...(payload.couponCode ? { couponCode: payload.couponCode } : {}),
   };
   if (payload.couponCode) {
     body.couponCode = payload.couponCode;
@@ -31,29 +51,6 @@ export async function subscribePlanApi(
   return apiClient<SubscribeResponseData>('/billing/subscribe', {
     method: 'POST',
     body: JSON.stringify(body),
-  });
-}
-
-export async function validateCouponApi(
-  code: string,
-  planId: string,
-  currency = 'USD',
-): Promise<{
-  valid: boolean;
-  code: string;
-  couponId: string;
-  discountType: string;
-  discountValue: number;
-  discountAmount: number;
-  originalAmount: number;
-  finalAmount: number;
-  effectivePercentage: number;
-  currency: string;
-  message: string;
-}> {
-  return apiClient('/billing/coupons/validate', {
-    method: 'POST',
-    body: JSON.stringify({ code, planId, currency }),
   });
 }
 
@@ -122,3 +119,28 @@ export async function subscribeShopifyBillingApi(
   });
 }
 
+
+export interface PaymentMethodOption {
+  provider: 'stripe' | 'bkash';
+  label: string;
+  currency: 'USD' | 'BDT';
+  available: boolean;
+}
+
+export async function getPaymentMethodsApi(): Promise<PaymentMethodOption[]> {
+  return apiClient<PaymentMethodOption[]>('/billing/payment-methods', {
+    method: 'GET',
+  });
+}
+
+/** Prices a coupon for the signed-in tenant. The amounts come from the server. */
+export async function validateCouponApi(payload: {
+  code: string;
+  planId: string;
+  billingProvider?: 'stripe' | 'bkash';
+}): Promise<CouponQuote> {
+  return apiClient<CouponQuote>('/billing/coupons/validate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

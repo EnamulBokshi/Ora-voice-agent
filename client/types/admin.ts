@@ -16,16 +16,25 @@ export interface PlatformOverviewStats {
   totalProducts: number;
   platformMRR: number;
   platformARR: number;
-  planDistribution: {
-    free: number;
-    growth: number;
-    scale: number;
-  };
+  /** Active subscriptions per planId, whatever tiers exist. */
+  planDistribution: Record<string, number>;
+  /** The live tier catalogue, so the console never hardcodes a price. */
+  planCatalogue: PlanCatalogueEntry[];
   growth: {
-    mrrTrend: string;
-    storeTrend: string;
-    voiceTrend: string;
+    /** Null when the previous period had nothing to compare against. */
+    mrrTrend: string | null;
+    storeTrend: string | null;
+    voiceTrend: string | null;
+    comparedToDays: number;
   };
+}
+
+export interface PlanCatalogueEntry {
+  planId: string;
+  name: string;
+  priceUsd: number;
+  priceBdt: number;
+  subscribers: number;
 }
 
 export interface SystemStatus {
@@ -418,3 +427,78 @@ export interface MerchantCostItem {
 
 
 
+
+export type TrialLeadStatus =
+  | 'active'
+  | 'expiring_soon'
+  | 'expired'
+  | 'lapsed'
+  | 'converted';
+
+export interface TrialLead {
+  businessId: string;
+  storeName: string;
+  domain: string;
+  status: TrialLeadStatus;
+  planId: string;
+  planName: string;
+  planPriceUsd: number;
+  ownerName: string | null;
+  ownerEmail: string;
+  registeredEmail: string;
+  lastLoginAt: string | null;
+  startedAt: string;
+  expiresAt: string;
+  daysRemaining: number;
+  hoursRemaining: number;
+  subscriptionStatus: string;
+  billingProvider: string | null;
+  ipAddress: string | null;
+  businessStatus: string;
+  connectedPlatform: string;
+}
+
+export interface TrialLeadsStats {
+  totalTrials: number;
+  active: number;
+  expiringSoon: number;
+  expired: number;
+  converted: number;
+  conversionRate: number;
+  convertedMrrUsd: number;
+}
+
+export interface TrialLeadsResponse {
+  leads: TrialLead[];
+  stats: TrialLeadsStats;
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface CampaignAudiencePreview {
+  total: number;
+  sendable: number;
+  optedOut: number;
+  sample: Array<{ email: string; storeName: string }>;
+}
+
+export interface CampaignSendResult {
+  campaignId: string;
+  recipientCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  skippedOptOutCount: number;
+  failures: Array<{ businessId: string; email: string; reason?: string }>;
+}
+
+export interface CampaignHistoryItem {
+  _id: string;
+  subject: string;
+  couponCode: string | null;
+  audience: string;
+  recipientCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  skippedOptOutCount: number;
+  sentByEmail: string | null;
+  createdAt: string;
+}

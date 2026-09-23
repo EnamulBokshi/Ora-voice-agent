@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { KnowledgeService } from './knowledge.service';
 import { VoiceTranscriptStructurerService } from './voice-transcript-structurer.service';
-import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeBase, KnowledgeBaseSchema } from './schemas/knowledge-base.schema';
 import { KnowledgeChunk, KnowledgeChunkSchema } from './schemas/knowledge-chunk.schema';
+import { Subscription, SubscriptionSchema } from '../billing/schemas/subscription.schema';
+import { Plan, PlanSchema } from '../billing/schemas/plan.schema';
 import { VectorModule } from '../vector/vector.module';
 import { RedisModule } from '../common/redis/redis.module';
+import { KnowledgeController } from './knowledge.controller';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { RedisModule } from '../common/redis/redis.module';
     MongooseModule.forFeature([
       { name: KnowledgeBase.name, schema: KnowledgeBaseSchema },
       { name: KnowledgeChunk.name, schema: KnowledgeChunkSchema },
+      { name: Subscription.name, schema: SubscriptionSchema },
+      { name: Plan.name, schema: PlanSchema },
     ]),
   ],
   controllers: [KnowledgeController],

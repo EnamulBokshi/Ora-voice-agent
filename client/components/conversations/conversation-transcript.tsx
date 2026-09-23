@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { ConversationItem } from './conversation-types';
 import { TranscriptHeader } from './subcomponents/transcript-header';
 import { TranscriptBubble } from './subcomponents/transcript-bubble';
@@ -20,9 +21,15 @@ export function ConversationTranscript({
   isLoadingTranscript,
   onBack,
 }: ConversationTranscriptProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [conversation.id, conversation.transcript.length]);
+
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent">
-      {/* ── Top Header ── */}
+    <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden bg-transparent">
+      {/* ── Top Header (Fixed, non-scrolling) ── */}
       <TranscriptHeader
         conversation={conversation}
         onCloseSession={onCloseSession}
@@ -30,8 +37,8 @@ export function ConversationTranscript({
         onBack={onBack}
       />
 
-      {/* ── Message Transcript Scroll Stream ── */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-transparent">
+      {/* ── Message Transcript Scroll Stream (Independently scrollable) ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 bg-transparent">
         {isLoadingTranscript ? (
           <div className="flex flex-col items-center justify-center h-full text-xs text-muted-foreground gap-2">
             <Loader2 className="animate-spin text-muted-foreground" size={16} />
@@ -54,6 +61,7 @@ export function ConversationTranscript({
                 customerName={conversation.customerName}
               />
             ))}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </div>

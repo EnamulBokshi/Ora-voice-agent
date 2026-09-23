@@ -36,10 +36,21 @@ export class StripeProvider implements PaymentProvider {
     }
   }
 
+  /** True only when a real (non-placeholder) STRIPE_SECRET_KEY is configured. */
+  get isConfigured(): boolean {
+    return this.stripe !== null;
+  }
+
   async createSubscription(
     businessId: string,
     planId: string,
     customerDetails?: CustomerBillingDetails,
+    /**
+     * A first-payment discount, already validated and priced by CouponService.
+     * It is turned into a Stripe coupon with `duration: 'once'`, so the checkout
+     * total drops but renewals still bill the full plan price.
+     */
+    discount?: { percentOff?: number; amountOffUsdCents?: number; code?: string },
   ): Promise<ProviderSubscriptionRef> {
     this.logger.log(
       `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId}, email: ${customerDetails?.email || 'unspecified'})`,
@@ -99,8 +110,35 @@ export class StripeProvider implements PaymentProvider {
             ? 'https://tryora.live'
             : 'http://localhost:3000');
 
+        // Translate our coupon into a one-off Stripe coupon. Doing it here, from the
+        // server-computed discount, keeps the checkout total and our own records in
+        // agreement without ever trusting a client-side amount.
+        let stripeDiscounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+        if (discount && (discount.percentOff || discount.amountOffUsdCents)) {
+          try {
+            const stripeCoupon = await this.stripe.coupons.create({
+              duration: 'once',
+              name: discount.code ? `ORA ${discount.code}` : 'ORA discount',
+              ...(discount.percentOff
+                ? { percent_off: discount.percentOff }
+                : { amount_off: discount.amountOffUsdCents, currency: 'usd' }),
+            });
+            stripeDiscounts = [{ coupon: stripeCoupon.id }];
+          } catch (err: any) {
+            this.logger.error(
+              `[StripeProvider] Could not create the discount for ${discount.code || 'coupon'}: ${err.message}`,
+            );
+            throw new DomainException(
+              'COUPON_GATEWAY_ERROR',
+              'The discount could not be applied at checkout. No charge was made.',
+              HttpStatus.BAD_GATEWAY,
+            );
+          }
+        }
+
         const session = await this.stripe.checkout.sessions.create({
           customer: customer.id,
+          ...(stripeDiscounts ? { discounts: stripeDiscounts } : {}),
           customer_update: {
             name: 'auto',
             address: 'auto',
@@ -125,7 +163,11 @@ export class StripeProvider implements PaymentProvider {
           ],
           success_url: `${frontendUrl}/pricing?session_id={CHECKOUT_SESSION_ID}&status=success`,
           cancel_url: `${frontendUrl}/pricing?canceled=true`,
-          metadata: { businessId, planId },
+          metadata: {
+            businessId,
+            planId,
+            ...(discount?.code ? { couponCode: discount.code } : {}),
+          },
         });
 
         return {
@@ -133,16 +175,19 @@ export class StripeProvider implements PaymentProvider {
           providerRef: session.url || session.id,
         };
       } catch (err: any) {
+        if (err instanceof DomainException) throw err;
         this.logger.error(`[StripeProvider] Stripe API error: ${err.message}`);
       }
     }
 
-    // Fallback development reference ID
-    const mockSubId = `sub_stripe_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    return {
-      subscriptionId: mockSubId,
-      providerRef: mockSubId,
-    };
+    // No SDK means no checkout. This used to mint a `sub_stripe_<timestamp>` id that
+    // BillingService then treated as a completed purchase, which is how paid plans
+    // were activated without a charge.
+    throw new DomainException(
+      'PAYMENT_PROVIDER_UNAVAILABLE',
+      'Card payments are not available right now. Choose another payment method or contact support.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
   }
 
   async cancelSubscription(ref: ProviderSubscriptionRef): Promise<void> {

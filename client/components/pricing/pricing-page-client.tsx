@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Shield, Zap, ArrowRight, Loader2, CheckCircle2, AlertCircle, XCircle, Globe, CreditCard, LogOut, User } from 'lucide-react';
-import { getBillingPlansApi, subscribePlanApi } from '@/services/billing-service';
+import { getBillingPlansApi } from '@/services/billing-service';
+import { StartTrialModal } from '@/components/billing/start-trial-modal';
 import { getMeApi, refreshApi, logoutApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
@@ -26,11 +27,15 @@ export function PricingPageClient() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [trialPlan, setTrialPlan] = useState<Plan | null>(null);
 
   useEffect(() => {
-    // 1. Fetch plans
+    // 1. Fetch plans (Starter, Growth, Scale)
     getBillingPlansApi()
-      .then((data) => setPlans(data && data.length > 0 ? data : demoPlans))
+      .then((data) => {
+        const filtered = (data || []).filter((p) => p.planId !== 'free' && p.isActive !== false);
+        setPlans(filtered.length > 0 ? filtered : demoPlans);
+      })
       .catch(() => setPlans(demoPlans))
       .finally(() => setLoading(false));
 
@@ -55,7 +60,7 @@ export function PricingPageClient() {
 
     // 3. Handle incoming Stripe / Gateway return callback
     if (statusParam === 'success' || sessionIdParam) {
-      setSuccessMessage('🎉 Payment & subscription confirmed! Activating your dashboard...');
+      setSuccessMessage('🎉 Payment & subscription confirmed! Activating your merchant dashboard...');
       setErrorMessage(null);
       if (typeof document !== 'undefined') {
         const isProd = process.env.NODE_ENV === 'production';
@@ -89,58 +94,57 @@ export function PricingPageClient() {
       return;
     }
 
+    // An account that has not subscribed yet still has the `user` role, and the
+    // dashboard guard bounces that role straight back to /pricing. Sending it to
+    // /billing/checkout was a round trip to nowhere that left this button spinning
+    // forever and never started a trial. The trial is claimed here instead.
+    if (userRole === 'user') {
+      setTrialPlan(plan);
+      return;
+    }
+
+    // A merchant who already has a workspace finishes a paid upgrade on the
+    // dashboard checkout page, where the gateway is chosen.
     setSubscribingId(plan.planId);
-    setSuccessMessage(null);
-    setErrorMessage(null);
+    router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
+  };
+
+  /**
+   * The trial is live, so this account is now a merchant. Its JWT still carries the
+   * old role, which is what the dashboard guard reads, so the token is refreshed
+   * before navigating rather than after being bounced back here.
+   */
+  const handleTrialStarted = async (plan: Plan) => {
+    setTrialPlan(null);
+    setSuccessMessage(
+      `🎉 Your 14-day ${plan.name} trial is active. Opening your dashboard…`,
+    );
+
+    if (typeof document !== 'undefined') {
+      const isProd = process.env.NODE_ENV === 'production';
+      document.cookie = `userRole=owner; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
+    }
+    setUserRole('owner');
 
     try {
-      const res = await subscribePlanApi({
-        planId: plan.planId,
-        provider: provider,
-      });
-
-      // 1. If bKash gateway redirect is required
-      if (res.requiresRedirect && res.bkashURL) {
-        window.location.href = res.bkashURL;
-        return;
+      const refreshed = await refreshApi();
+      if (refreshed?.accessToken && typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', refreshed.accessToken);
       }
-
-      // 2. If Stripe Checkout hosted session redirect is required
-      if (res.requiresRedirect && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
-        return;
-      }
-
-      // 3. Free Plan or Direct Sandbox Activation
-      if (typeof document !== 'undefined') {
-        const isProd = process.env.NODE_ENV === 'production';
-        document.cookie = `userRole=owner; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax${isProd ? '; Secure' : ''}`;
-      }
-
-      setUserRole('owner');
-      setSuccessMessage(
-        `🎉 Congratulations! You have successfully subscribed to the ${plan.name}. Redirecting to your dashboard...`
-      );
-
-      // Refresh JWT token to owner payload
-      refreshApi()
-        .then((refreshRes) => {
-          if (refreshRes?.accessToken && typeof window !== 'undefined') {
-            localStorage.setItem('accessToken', refreshRes.accessToken);
-          }
-        })
-        .catch(() => null);
-
-      // Brief delay to display celebration toast, then navigate to dashboard
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 2500);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Subscription initiation failed. Please try again.');
-    } finally {
-      setSubscribingId(null);
+    } catch {
+      // The trial is active either way; the dashboard will re-check the session.
     }
+
+    window.location.href = '/dashboard';
   };
+
+  // A client-side push that gets redirected away leaves this button disabled with no
+  // way back, so the spinner is given a hard stop.
+  useEffect(() => {
+    if (!subscribingId) return;
+    const timer = setTimeout(() => setSubscribingId(null), 8000);
+    return () => clearTimeout(timer);
+  }, [subscribingId]);
 
   const handleLogout = async () => {
     if (loggingOut) return;
@@ -264,7 +268,7 @@ export function PricingPageClient() {
               letterSpacing: '-0.025em',
             }}
           >
-            Put a voice agent on <br className="hidden sm:inline" />
+            Supercharge Your Store With <br className="hidden sm:inline" />
             <span style={{ color: 'var(--lp-primary)', WebkitTextFillColor: 'var(--lp-primary)' }}>
               Autonomous Voice AI
             </span>
@@ -280,7 +284,7 @@ export function PricingPageClient() {
               margin: '0 auto 1.5rem',
             }}
           >
-            Choose the plan that fits your business scale. Real-time voice answers on your own site, trained by talking to it.
+            Choose the plan that fits your business scale. Unlock real-time voice selling, live inventory syncing, and automated instant checkout.
           </p>
 
           {/* Currency / Provider Selector Pill */}
@@ -364,10 +368,13 @@ export function PricingPageClient() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
               gap: '2rem',
               alignItems: 'stretch',
               marginTop: '1rem',
+              maxWidth: '74rem',
+              marginLeft: 'auto',
+              marginRight: 'auto',
             }}
           >
             {plans.map((plan) => {
@@ -439,11 +446,11 @@ export function PricingPageClient() {
                         minHeight: '2.5rem',
                       }}
                     >
-                      {plan.planId === 'growth'
-                        ? 'For a working business handling real enquiry volume.'
-                        : isScale
-                        ? 'For larger teams needing unlimited conversations.'
-                        : 'Starter tier for testing and light sandbox interactions.'}
+                      {plan.planId === 'starter'
+                        ? 'For businesses and startups launching their first autonomous AI sales agent.'
+                        : plan.planId === 'growth'
+                        ? 'For growing stores wanting autonomous voice sales conversions and higher traffic.'
+                        : 'For high-volume merchants demanding dedicated quotas and custom limits.'}
                     </p>
                   </div>
 
@@ -512,9 +519,9 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.conversationMinutes.toLocaleString()}
+                            {(plan.limits?.voiceMinutes || plan.limits?.conversationMinutes || 0).toLocaleString()}
                           </strong>{' '}
-                          Voice AI conversation minutes
+                          Voice AI minutes / month
                         </span>
                       </li>
                       <li
@@ -529,9 +536,9 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.ordersPerMonth.toLocaleString()}
+                            {(plan.limits?.documentLimit || 5).toLocaleString()}
                           </strong>{' '}
-                          Orders handled/mo
+                          Knowledge base documents limit
                         </span>
                       </li>
                       <li
@@ -546,12 +553,11 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>
                           <strong style={{ color: isSelected ? '#ffffff' : 'inherit' }}>
-                            {plan.limits.connectedStores}
+                            {plan.limits?.websiteLimit || plan.limits?.connectedStores || 1}
                           </strong>{' '}
-                          Store connector{plan.limits.connectedStores > 1 ? 's' : ''} (Shopify / WooCommerce)
+                          Verified website / domain connector{(plan.limits?.websiteLimit || plan.limits?.connectedStores || 1) > 1 ? 's' : ''}
                         </span>
                       </li>
-
                       <li
                         style={{
                           display: 'flex',
@@ -562,7 +568,7 @@ export function PricingPageClient() {
                         }}
                       >
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
-                        <span>Full RAG catalog vector indexing & live search</span>
+                        <span>Real-time voice AI agent with low latency streaming</span>
                       </li>
                       <li
                         style={{
@@ -576,6 +582,36 @@ export function PricingPageClient() {
                         <Check size={16} style={{ color: 'var(--lp-primary)', flexShrink: 0, marginTop: '0.15rem' }} />
                         <span>Instant publishable widget key & embed script</span>
                       </li>
+                      {Boolean(plan.trialDays && plan.trialDays > 0) && (
+                        <li
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.65rem',
+                            fontSize: '0.8125rem',
+                            color: 'var(--lp-primary)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Zap size={16} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+                          <span>{plan.trialDays}-day free trial included (no immediate charge)</span>
+                        </li>
+                      )}
+                      {isScale && (
+                        <li
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.65rem',
+                            fontSize: '0.8125rem',
+                            color: 'var(--lp-primary)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Zap size={16} style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+                          <span>Customizable quotas & SLA on demand</span>
+                        </li>
+                      )}
                     </ul>
                   </div>
 
@@ -606,16 +642,16 @@ export function PricingPageClient() {
                     {isSubscribing ? (
                       <>
                         <Loader2 className="animate-spin" size={16} />
-                        Connecting Gateway...
+                        Opening checkout...
                       </>
                     ) : !isLoggedIn ? (
                       <>
-                        Get Started
+                        Start 14-Day Free Trial
                         <ArrowRight size={15} />
                       </>
                     ) : userRole === 'user' ? (
                       <>
-                        {plan.planId === 'free' ? 'Activate Free Tier' : 'Subscribe'}
+                        Start 14-Day Free Trial
                         <Zap size={15} />
                       </>
                     ) : (
@@ -692,10 +728,10 @@ export function PricingPageClient() {
               </div>
               <div>
                 <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--lp-text-primary)', marginBottom: '0.25rem' }}>
-                  Encrypted in transit and at rest
+                  Bank-Grade Encryption
                 </h4>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.5 }}>
-                  All payment transactions and your credentials are protected with AES-256 field-level encryption and strict tenant scoping.
+                  All payment transactions and store credentials are protected with AES-256 field-level encryption and strict tenant scoping.
                 </p>
               </div>
             </div>
@@ -729,6 +765,16 @@ export function PricingPageClient() {
           </div>
         </div>
       </div>
+
+      {/* Trial activation, for an account that has not subscribed yet. */}
+      <StartTrialModal
+        isOpen={Boolean(trialPlan)}
+        plan={trialPlan}
+        onClose={() => setTrialPlan(null)}
+        onSuccess={() => {
+          if (trialPlan) handleTrialStarted(trialPlan);
+        }}
+      />
     </div>
   );
 }

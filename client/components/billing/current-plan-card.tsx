@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Check, AlertCircle, CreditCard, Clock } from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
 import { cancelSubscriptionApi } from '@/services/billing-service';
 import { formatCurrency, formatDateTime } from '@/lib/format';
@@ -13,13 +14,35 @@ interface CurrentPlanCardProps {
 }
 
 export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps) {
+  const router = useRouter();
   const [cancelling, setCancelling] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [cancelResult, setCancelResult] = useState<
     { ok: true } | { ok: false; message: string } | null
   >(null);
 
+  const plan = subscription.plan;
+  const sub = subscription.subscription;
+  const usage = subscription.usage;
+
+  const isTrialing = sub?.status === 'trialing';
+  const currentPeriodEnd = sub?.currentPeriodEnd;
+  const endMs = currentPeriodEnd ? new Date(currentPeriodEnd).getTime() : 0;
+  const diffMs = endMs - Date.now();
+  const daysRemaining = subscription.trialDaysRemaining ?? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  const hoursRemaining = subscription.trialHoursRemaining ?? Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
+
+  // Payment starts on the checkout page, which is where a gateway is chosen.
+  const handlePayAndActivate = () => {
+    if (!plan) return;
+    setActivating(true);
+    setActionError(null);
+    router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
+    setTimeout(() => setActivating(false), 8000);
+  };
+
   const handleCancel = async () => {
-    // Names the consequence for a voice product: the agent stops answering shoppers.
     if (
       !confirm(
         'Cancel your subscription?\n\nORA will keep serving your storefront until the end of the current billing cycle, then stop answering shoppers. Your catalog and conversation history are kept.',
@@ -34,8 +57,6 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       setCancelResult({ ok: true });
       onReload();
     } catch (err) {
-      // Previously `catch { // silent }`: the spinner stopped and the merchant had no
-      // idea whether their storefront agent was still paid for.
       setCancelResult({
         ok: false,
         message:
@@ -47,10 +68,6 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       setCancelling(false);
     }
   };
-
-  const plan = subscription.plan;
-  const sub = subscription.subscription;
-  const usage = subscription.usage;
 
   const providerName =
     sub?.billingProvider === 'bkash'
@@ -64,21 +81,50 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
       {/* Section Sub-Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-[2px] bg-foreground dark:bg-[#C8F031] flex-shrink-0" />
-          <h2 className="text-[13.5px] font-semibold text-foreground tracking-tight">
-            Current Plan
+          <span className="w-2 h-2 rounded-[2px] bg-primary flex-shrink-0" />
+          <h2 className="text-[13.5px] font-semibold text-foreground font-serif tracking-tight">
+            Active Plan & Billing Cycle
           </h2>
+          {sub?.customLimits && (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-[3px] bg-primary/20 text-primary border border-primary/30 font-semibold">
+              Scale Custom Limits Active
+            </span>
+          )}
         </div>
-        {sub && sub.status !== 'canceled' && (
-          <button
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="self-start sm:self-auto px-3 py-1.5 rounded-md text-[12px] font-medium border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer font-sans touch-manipulation"
-          >
-            {cancelling && <Loader2 className="animate-spin text-foreground" size={12} />}
-            Cancel subscription
-          </button>
-        )}
+
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {isTrialing && plan && (
+            <button
+              type="button"
+              onClick={handlePayAndActivate}
+              disabled={activating || cancelling}
+              className="px-3.5 py-1.5 rounded-md text-[12px] font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 touch-manipulation"
+            >
+              {activating ? (
+                <>
+                  <Loader2 className="animate-spin text-primary-foreground" size={12} />
+                  <span>Connecting…</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard size={13} />
+                  <span>Pay & Activate Plan</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {sub && sub.status !== 'canceled' && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling || activating}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-border/60 bg-surface-high/40 text-muted-foreground hover:text-rose-400 hover:border-rose-400/40 hover:bg-rose-500/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer font-sans touch-manipulation"
+            >
+              {cancelling && <Loader2 className="animate-spin text-foreground" size={12} />}
+              Cancel subscription
+            </button>
+          )}
+        </div>
       </div>
 
       {/* The outcome of the highest-stakes action on this surface, stated plainly. */}
@@ -115,47 +161,92 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
         {/* Col 1: Plan & Price */}
         <div className="py-2 md:py-0 md:pr-6 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[16px] font-semibold text-foreground">
-              {plan ? plan.name : 'Free Tier'}
+            <span className="text-[16px] font-semibold text-foreground font-serif">
+              {plan ? plan.name : 'No Active Subscription'}
             </span>
             {sub && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--status-online)]" />
-                {sub.status.replace('_', ' ')}
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-foreground uppercase">
+                <span
+                  className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    sub.status === 'active' || sub.status === 'trialing'
+                      ? 'bg-[color:var(--status-online)]'
+                      : 'bg-destructive',
+                  )}
+                />
+                {sub.status === 'trialing' ? '14-Day Free Trial' : sub.status.replace('_', ' ')}
               </span>
             )}
           </div>
           {plan && (
             <div className="text-[13px] text-muted-foreground">
-              <span className="text-2xl lg:text-[28px] font-bold text-foreground tabular-nums leading-none tracking-tight">
-                {formatCurrency(plan.priceUsdCents / 100, 'USD')}
+              <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
+                {sub?.billingProvider === 'bkash'
+                  ? `৳${Math.round(plan.priceBdtPaisa / 100).toLocaleString()}`
+                  : formatCurrency(plan.priceUsdCents / 100, 'USD')}
               </span>
               <span> / month · {providerName}</span>
             </div>
           )}
+
+          {isTrialing && sub?.currentPeriodEnd && (
+            <div
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11.5px] font-medium border mt-1',
+                daysRemaining <= 3
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                  : 'border-primary/30 bg-primary/10 text-primary',
+              )}
+            >
+              <Clock size={12} className="shrink-0" />
+              <span>
+                {daysRemaining === 0
+                  ? `${hoursRemaining}h left in trial`
+                  : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining in trial`}
+              </span>
+            </div>
+          )}
+
           <p className="text-[11.5px] text-muted-foreground pt-1">
-            {sub?.currentPeriodStart && sub?.currentPeriodEnd
+            {sub?.status === 'trialing' && sub?.currentPeriodEnd
+              ? `Trial ends: ${formatDateTime(sub.currentPeriodEnd)}`
+              : sub?.currentPeriodStart && sub?.currentPeriodEnd
               ? `Cycle: ${formatDateTime(sub.currentPeriodStart)} – ${formatDateTime(sub.currentPeriodEnd)}`
-              : 'Free tier.'}
+              : 'Choose a plan below to activate your 14-day risk-free trial.'}
           </p>
+
+          {actionError && <p className="text-[11px] text-destructive font-medium">{actionError}</p>}
         </div>
 
         {/* Col 2: Usage this period */}
         <div className="py-3 md:py-0 md:px-6 space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">
-            Usage
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+            Usage This Period
           </span>
           <div className="space-y-2 text-[12.5px]">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Voice minutes:</span>
+              <span className="text-muted-foreground">Voice conversation:</span>
               <span className="font-medium text-foreground tabular-nums">
-                {usage.conversationMinutes.toLocaleString()} / {plan ? plan.limits.conversationMinutes.toLocaleString() : '100'}
+                {(usage.voiceMinutes ?? usage.conversationMinutes ?? 0).toLocaleString()} /{' '}
+                {(
+                  sub?.customLimits?.voiceMinutes ??
+                  plan?.limits?.voiceMinutes ??
+                  plan?.limits?.conversationMinutes ??
+                  150
+                ).toLocaleString()}{' '}
+                mins
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Orders:</span>
+              <span className="text-muted-foreground">Knowledge base documents:</span>
               <span className="font-medium text-foreground tabular-nums">
-                {usage.ordersPerMonth.toLocaleString()} / {plan ? plan.limits.ordersPerMonth.toLocaleString() : '25'}
+                {(usage.documentCount ?? 0).toLocaleString()} /{' '}
+                {(
+                  sub?.customLimits?.documentLimit ??
+                  plan?.limits?.documentLimit ??
+                  5
+                ).toLocaleString()}{' '}
+                docs
               </span>
             </div>
           </div>
@@ -163,20 +254,26 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
 
         {/* Col 3: Quotas & Capacity */}
         <div className="py-3 md:py-0 md:pl-6 space-y-2">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">
-            Capacity
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+            Connected Domains & Capacity
           </span>
           <div className="space-y-2 text-[12.5px]">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Stores:</span>
+              <span className="text-muted-foreground">Verified websites / domains:</span>
               <span className="font-medium text-foreground tabular-nums">
-                {usage.connectedStores ?? 1} / {plan ? plan.limits.connectedStores : 1}
+                {(usage.websiteCount ?? usage.connectedStores ?? 1).toLocaleString()} /{' '}
+                {(
+                  sub?.customLimits?.websiteLimit ??
+                  plan?.limits?.websiteLimit ??
+                  plan?.limits?.connectedStores ??
+                  1
+                ).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Voice engine:</span>
-              <span className="font-medium text-foreground">
-                Active
+              <span className="text-muted-foreground">Voice AI engine:</span>
+              <span className="font-medium text-primary tabular-nums">
+                Real-Time Streaming Active
               </span>
             </div>
           </div>

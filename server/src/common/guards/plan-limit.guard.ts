@@ -4,12 +4,16 @@ import {
   ExecutionContext,
   HttpStatus,
   Logger,
+  Inject,
+  forwardRef,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { METERED_METRIC_KEY } from '../decorators/metered.decorator';
 import { RedisService } from '../redis/redis.service';
 import { JwtPayloadUser } from '../decorators/current-user.decorator';
 import { DomainException } from '../exceptions/domain.exception';
+import { BillingService } from '../../billing/billing.service';
 
 @Injectable()
 export class PlanLimitGuard implements CanActivate {
@@ -18,6 +22,9 @@ export class PlanLimitGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly redisService: RedisService,
+    @Optional()
+    @Inject(forwardRef(() => BillingService))
+    private readonly billingService?: BillingService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,8 +50,28 @@ export class PlanLimitGuard implements CanActivate {
     const usageCountStr = await this.redisService.getClient().get(redisKey);
     const currentUsage = usageCountStr ? parseInt(usageCountStr, 10) : 0;
 
-    // Hard limit default fallback checks (Free tier: 100 mins, 20 orders)
-    const limit = metricKey === 'conversationMinutes' ? 100 : metricKey === 'ordersPerMonth' ? 20 : 10;
+    // Dynamic limit lookup based on subscription and plan
+    let limit = metricKey === 'conversationMinutes' || metricKey === 'voiceMinutes' ? 150 : 10;
+
+    if (this.billingService) {
+      try {
+        const { subscription, plan } = await this.billingService.getSubscription(user.businessId);
+        const limits: any = subscription?.customLimits || plan?.limits;
+        if (limits) {
+          if (metricKey === 'conversationMinutes' || metricKey === 'voiceMinutes') {
+            limit = limits.voiceMinutes || limits.conversationMinutes || 150;
+          } else if (metricKey === 'documentLimit' || metricKey === 'documents') {
+            limit = limits.documentLimit || 5;
+          } else if (metricKey === 'websiteLimit' || metricKey === 'connectedStores') {
+            limit = limits.websiteLimit || limits.connectedStores || 1;
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(
+          `[PlanLimitGuard] Failed to fetch subscription limits for business ${user.businessId}: ${err.message}`,
+        );
+      }
+    }
 
     if (currentUsage >= limit) {
       this.logger.warn(
@@ -52,7 +79,7 @@ export class PlanLimitGuard implements CanActivate {
       );
       throw new DomainException(
         'PLAN_LIMIT_EXCEEDED',
-        `Plan limit exceeded for '${metricKey}'. Current usage: ${currentUsage}/${limit}. Please upgrade your subscription.`,
+        `Plan limit exceeded for '${metricKey}'. Current usage: ${currentUsage}/${limit}. Please upgrade your subscription or contact support.`,
         HttpStatus.FORBIDDEN,
       );
     }

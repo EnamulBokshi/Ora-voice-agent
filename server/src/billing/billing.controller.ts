@@ -3,18 +3,18 @@ import {
   Get,
   Post,
   Body,
-  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
   Req,
+  Query,
   Headers,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { BillingService } from './billing.service';
-import { CouponService } from './services/coupon.service';
 import { SubscribeDto } from './dto/subscribe.dto';
-import { ValidateCouponDto } from './dto/validate-coupon.dto';
+import { ValidateCouponDto } from './dto/coupon.dto';
+import { CouponService } from './services/coupon.service';
 import { StripeProvider } from './providers/stripe.provider';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -27,7 +27,7 @@ import { AdminRole } from '../users/enums/admin-role.enum';
 import { NoSubscriptionRequired } from '../common/decorators/no-subscription-required.decorator';
 
 /**
- * Plans, checkout, coupon validation and subscription state must stay reachable for a tenant
+ * Plans, checkout and subscription state must stay reachable for a tenant
  * that has no plan yet — that is how it buys one.
  */
 @NoSubscriptionRequired()
@@ -44,28 +44,9 @@ export class BillingController {
     return this.billingService.getPlans();
   }
 
-  /**
-   * Validates a coupon code and returns calculated discount details.
-   */
-  @Post('coupons/validate')
-  @HttpCode(HttpStatus.OK)
-  async validateCoupon(
-    @Body() dto: ValidateCouponDto,
-    @Req() req: any,
-  ) {
-    const businessId = req?.user?.businessId;
-    return this.couponService.validateCoupon(
-      dto.code,
-      dto.planId,
-      businessId,
-      dto.currency || 'USD',
-    );
-  }
-
-  @UseGuards(JwtAuthGuard, TenantScopeGuard)
-  @Get('subscription')
-  async getSubscription(@CurrentUser() user: JwtPayloadUser) {
-    return this.billingService.getSubscription(user.businessId);
+  @Get('payment-methods')
+  async getPaymentMethods() {
+    return this.billingService.getPaymentMethods();
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard)
@@ -76,6 +57,49 @@ export class BillingController {
     @Query('limit') limit?: number,
   ) {
     return this.billingService.getTenantBillingHistory(user.businessId, page, limit);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard)
+  @Get('subscription')
+  async getSubscription(@CurrentUser() user: JwtPayloadUser) {
+    return this.billingService.getSubscription(user.businessId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
+  @Post('start-trial')
+  @HttpCode(HttpStatus.OK)
+  async startTrial(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() body: { websiteDomain: string; planId?: string },
+    @Req() req: Request,
+  ) {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || undefined;
+    return this.billingService.startFreeTrial(
+      user.businessId,
+      body.websiteDomain,
+      ip,
+      {
+        email: user.email,
+        userId: user.sub,
+      },
+      body.planId,
+    );
+  }
+
+  /**
+   * Prices a coupon for the caller's own tenant. The response carries amounts the
+   * server computed; it is a preview only, and subscribe revalidates from scratch.
+   */
+  @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)
+  @Roles(AdminRole.USER, AdminRole.OWNER, AdminRole.ADMIN)
+  @Post('coupons/validate')
+  @HttpCode(HttpStatus.OK)
+  async validateCoupon(
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: ValidateCouponDto,
+  ) {
+    return this.billingService.previewCoupon(user.businessId, dto);
   }
 
   @UseGuards(JwtAuthGuard, TenantScopeGuard, RolesGuard)

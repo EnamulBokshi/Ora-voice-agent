@@ -1,8 +1,18 @@
 export interface PlanLimits {
-  conversationMinutes: number;
-  ordersPerMonth: number;
-  connectedStores: number;
-  seats: number;
+  voiceMinutes: number;
+  documentLimit: number;
+  websiteLimit: number;
+  // Legacy optional fields for backward compatibility
+  conversationMinutes?: number;
+  ordersPerMonth?: number;
+  connectedStores?: number;
+  seats?: number;
+}
+
+export interface CustomPlanLimits {
+  voiceMinutes?: number;
+  documentLimit?: number;
+  websiteLimit?: number;
 }
 
 export interface Plan {
@@ -14,28 +24,36 @@ export interface Plan {
   billingInterval: 'monthly' | 'yearly';
   limits: PlanLimits;
   features: string[];
-  /** Free-trial length Shopify applies before the first charge. */
+  /** Free-trial length applied before the first charge. */
   trialDays?: number;
   isActive: boolean;
+  activeSubscribers?: number;
 }
 
 export interface Subscription {
   _id: string;
   businessId: string;
   planId: string;
-  billingProvider: 'stripe' | 'bkash';
+  billingProvider: 'stripe' | 'bkash' | 'shopify';
   providerRef?: string;
   status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled';
   currentPeriodStart: string;
   currentPeriodEnd: string;
+  trialDays?: number;
+  trialExpiresAt?: string;
+  hasUsedTrial?: boolean;
   cancelAtPeriodEnd: boolean;
+  customLimits?: CustomPlanLimits;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface SubscriptionUsage {
-  conversationMinutes: number;
-  ordersPerMonth: number;
+  voiceMinutes: number;
+  documentCount: number;
+  websiteCount: number;
+  conversationMinutes?: number;
+  ordersPerMonth?: number;
   connectedStores?: number;
   seats?: number;
 }
@@ -44,6 +62,22 @@ export interface SubscriptionDetailsResponse {
   subscription: Subscription | null;
   plan: Plan | null;
   usage: SubscriptionUsage;
+  hasUsedTrial?: boolean;
+  isTrialing?: boolean;
+  trialDaysRemaining?: number | null;
+  trialHoursRemaining?: number | null;
+  trialExpiresAt?: string;
+}
+
+export interface StartTrialPayload {
+  websiteDomain: string;
+  planId?: string;
+}
+
+export interface StartTrialResponse {
+  trialDays: number;
+  trialExpiresAt: string;
+  message: string;
 }
 
 export interface SubscribePayload {
@@ -51,7 +85,39 @@ export interface SubscribePayload {
   provider?: 'stripe' | 'bkash';
   billingProvider?: 'stripe' | 'bkash';
   paymentMethodId?: string;
+  /** Code only. The server recomputes the discount from its own records. */
   couponCode?: string;
+}
+
+export type CouponDiscountType = 'percent' | 'fixed';
+
+/** Server-computed pricing for a coupon. Never assembled on the client. */
+export interface CouponQuote {
+  code: string;
+  discountType: CouponDiscountType;
+  currency: 'USD' | 'BDT';
+  amountBeforeMinor: number;
+  discountMinor: number;
+  amountAfterMinor: number;
+  coversFullPrice: boolean;
+}
+
+export interface Coupon {
+  _id: string;
+  code: string;
+  discountType: CouponDiscountType;
+  percentOff: number;
+  amountOffUsdCents: number;
+  amountOffBdtPaisa: number;
+  appliesToPlanIds: string[];
+  maxRedemptions: number | null;
+  redeemedCount: number;
+  maxRedemptionsPerBusiness: number;
+  validFrom: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  notes: string;
+  createdAt?: string;
 }
 
 export interface SubscribeResponseData {
@@ -65,5 +131,17 @@ export interface SubscribeResponseData {
   message?: string;
   transaction?: any;
   invoice?: any;
+  discount?: {
+    code: string;
+    currency: 'USD' | 'BDT';
+    discountMinor: number;
+    amountAfterMinor: number;
+  } | null;
+  coupon?: {
+    code: string;
+    discountMinor: number;
+    currency: string;
+  };
 }
+
 

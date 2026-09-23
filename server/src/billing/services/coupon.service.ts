@@ -1,43 +1,34 @@
-import { Injectable, HttpStatus, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import {
-  Coupon,
-  CouponDocument,
-  CouponDiscountType,
-} from '../schemas/coupon.schema';
+import { Model } from 'mongoose';
+import { Coupon, CouponDocument, CouponDiscountType } from '../schemas/coupon.schema';
 import {
   CouponRedemption,
   CouponRedemptionDocument,
+  CouponRedemptionStatus,
 } from '../schemas/coupon-redemption.schema';
-import { Plan, PlanDocument } from '../schemas/plan.schema';
-import { CreateCouponDto } from '../dto/create-coupon.dto';
-import { UpdateCouponDto } from '../dto/update-coupon.dto';
-import { QueryCouponsDto } from '../dto/query-coupons.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
-import {
-  createPaginatedResponse,
-  PaginatedResponse,
-} from '../../common/utils/pagination.util';
-import { calculateDiscount } from '../utils/discount-calculator.util';
+import { PlanDocument } from '../schemas/plan.schema';
+import { BillingProvider } from '../schemas/subscription.schema';
 import { DomainException } from '../../common/exceptions/domain.exception';
 
-export interface CouponValidationResult {
-  valid: boolean;
+export interface CouponQuote {
   code: string;
-  couponId: string;
   discountType: CouponDiscountType;
-  discountValue: number;
-  discountAmount: number;
-  originalAmount: number;
-  finalAmount: number;
-  effectivePercentage: number;
-  currency: string;
-  duration: string;
-  durationInMonths?: number;
-  message: string;
+  currency: 'USD' | 'BDT';
+  amountBeforeMinor: number;
+  discountMinor: number;
+  amountAfterMinor: number;
+  /** True when the discount covers the whole price, so no gateway charge is due. */
+  coversFullPrice: boolean;
 }
 
+/**
+ * Coupon validation, pricing and redemption accounting.
+ *
+ * Trust rule for the whole feature: a caller may send a code, a plan and a
+ * provider. Every amount is derived here from the stored coupon and the stored
+ * plan. No discount value ever enters from a request body.
+ */
 @Injectable()
 export class CouponService {
   private readonly logger = new Logger(CouponService.name);
@@ -47,516 +38,449 @@ export class CouponService {
     private readonly couponModel: Model<CouponDocument>,
     @InjectModel(CouponRedemption.name)
     private readonly redemptionModel: Model<CouponRedemptionDocument>,
-    @InjectModel(Plan.name)
-    private readonly planModel: Model<PlanDocument>,
   ) {}
 
+  private normalize(code: string): string {
+    return (code || '').trim().toUpperCase();
+  }
+
   /**
-   * Creates a new coupon code.
+   * Resolves a code to a coupon the given tenant may use for the given plan.
+   *
+   * Every rejection is a DomainException with a distinct code, and none of them
+   * reveal anything about a coupon the merchant is not entitled to beyond the fact
+   * that this code is not usable by them now.
    */
-  async createCoupon(
-    dto: CreateCouponDto,
-    adminUserId?: string,
+  async validate(
+    rawCode: string,
+    businessId: string,
+    planId: string,
   ): Promise<CouponDocument> {
-    const normalizedCode = dto.code.trim().toUpperCase();
+    const coupon = await this.resolveUsableCoupon(rawCode, planId);
 
-    const existing = await this.couponModel.findOne({ code: normalizedCode }).exec();
-    if (existing) {
-      throw new DomainException(
-        'COUPON_ALREADY_EXISTS',
-        `Coupon code '${normalizedCode}' already exists.`,
-        HttpStatus.CONFLICT,
-      );
-    }
+    const usedByTenant = await this.redemptionModel
+      .countDocuments({
+        couponId: coupon._id as any,
+        businessId: businessId as any,
+        status: {
+          $in: [CouponRedemptionStatus.RESERVED, CouponRedemptionStatus.APPLIED],
+        },
+      })
+      .exec();
 
-    if (
-      dto.discountType === CouponDiscountType.PERCENTAGE &&
-      (dto.discountAmount <= 0 || dto.discountAmount > 100)
-    ) {
+    if (usedByTenant >= (coupon.maxRedemptionsPerBusiness ?? 1)) {
       throw new DomainException(
-        'INVALID_PERCENTAGE_DISCOUNT',
-        'Percentage discount must be between 1 and 100.',
+        'COUPON_ALREADY_USED',
+        'You have already used that coupon.',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    const created = new this.couponModel({
-      ...dto,
-      code: normalizedCode,
-      createdBy: adminUserId ? new Types.ObjectId(adminUserId) : undefined,
-      validFrom: dto.validFrom ? new Date(dto.validFrom) : new Date(),
-      validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
-    });
-
-    return created.save();
-  }
-
-  /**
-   * Retrieves paginated coupon list with status, search, and type filters.
-   */
-  async getCoupons(
-    query: QueryCouponsDto,
-  ): Promise<PaginatedResponse<CouponDocument>> {
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query.limit) || 15));
-    const skip = (page - 1) * limit;
-
-    const filter: Record<string, any> = {};
-    const now = new Date();
-
-    if (query.search) {
-      const searchRegex = new RegExp(query.search.trim(), 'i');
-      filter.$or = [{ code: searchRegex }, { description: searchRegex }];
-    }
-
-    if (query.discountType && query.discountType !== 'all') {
-      filter.discountType = query.discountType;
-    }
-
-    if (query.currency && query.currency !== 'all') {
-      filter.currency = { $in: [query.currency, 'ALL'] };
-    }
-
-    if (query.status && query.status !== 'all') {
-      switch (query.status) {
-        case 'active':
-          filter.isActive = true;
-          filter.validFrom = { $lte: now };
-          filter.$and = [
-            { $or: [{ validUntil: null }, { validUntil: { $gte: now } }] },
-            {
-              $or: [
-                { maxRedemptions: null },
-                { $expr: { $lt: ['$redemptionsCount', '$maxRedemptions'] } },
-              ],
-            },
-          ];
-          break;
-        case 'inactive':
-          filter.isActive = false;
-          break;
-        case 'expired':
-          filter.validUntil = { $lt: now, $ne: null };
-          break;
-        case 'depleted':
-          filter.maxRedemptions = { $ne: null };
-          filter.$expr = { $gte: ['$redemptionsCount', '$maxRedemptions'] };
-          break;
-      }
-    }
-
-    const sortField = query.sortBy || 'createdAt';
-    const sortOrder =
-      String(query.sortOrder || 'desc').toLowerCase() === 'asc' ? 1 : -1;
-    const sort = { [sortField]: sortOrder };
-
-    const [total, items] = await Promise.all([
-      this.couponModel.countDocuments(filter).exec(),
-      this.couponModel.find(filter).sort(sort as any).skip(skip).limit(limit).exec(),
-    ]);
-
-    return createPaginatedResponse(items, total, page, limit);
-  }
-
-  /**
-   * Retrieves single coupon by ID.
-   */
-  async getCouponById(id: string): Promise<CouponDocument> {
-    const coupon = await this.couponModel.findById(id).exec();
-    if (!coupon) {
-      throw new DomainException(
-        'COUPON_NOT_FOUND',
-        `Coupon with ID '${id}' not found.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
     return coupon;
   }
 
   /**
-   * Retrieves single coupon by code.
+   * Checks a code for a visitor who has no tenant yet.
+   *
+   * Everything that does not depend on who is asking is checked here: the code, its
+   * window, its plan scope and the global limit. The per-tenant limit cannot be
+   * evaluated without a tenant, and is enforced later by `validate` at checkout, so
+   * a code that passes here can still be refused when the visitor signs in.
    */
-  async getCouponByCode(code: string): Promise<CouponDocument | null> {
-    return this.couponModel
-      .findOne({ code: code.trim().toUpperCase() })
-      .exec();
+  async previewPublic(rawCode: string, planId: string): Promise<CouponDocument> {
+    return this.resolveUsableCoupon(rawCode, planId);
   }
 
-  /**
-   * Updates an existing coupon.
-   */
-  async updateCoupon(
-    id: string,
-    dto: UpdateCouponDto,
+  /** Every check that does not depend on which tenant is asking. */
+  private async resolveUsableCoupon(
+    rawCode: string,
+    planId: string,
   ): Promise<CouponDocument> {
-    if (dto.code) {
-      dto.code = dto.code.trim().toUpperCase();
-      const duplicate = await this.couponModel
-        .findOne({ code: dto.code, _id: { $ne: id } })
-        .exec();
-      if (duplicate) {
-        throw new DomainException(
-          'COUPON_ALREADY_EXISTS',
-          `Coupon code '${dto.code}' is already in use by another coupon.`,
-          HttpStatus.CONFLICT,
-        );
-      }
+    const code = this.normalize(rawCode);
+    if (!code) {
+      throw new DomainException(
+        'COUPON_INVALID',
+        'Enter a coupon code.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const coupon = await this.couponModel.findOne({ code }).exec();
+    if (!coupon || !coupon.isActive) {
+      throw new DomainException(
+        'COUPON_INVALID',
+        'That coupon code is not valid.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const now = Date.now();
+    if (coupon.validFrom && new Date(coupon.validFrom).getTime() > now) {
+      throw new DomainException(
+        'COUPON_NOT_STARTED',
+        'That coupon is not active yet.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() <= now) {
+      throw new DomainException(
+        'COUPON_EXPIRED',
+        'That coupon has expired.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // A coupon whose own figures do not match its type would silently discount
+    // nothing (or the wrong amount), so it is refused rather than half-applied.
+    const hasUsableDiscount =
+      coupon.discountType === CouponDiscountType.PERCENT
+        ? coupon.percentOff >= 1 && coupon.percentOff <= 100
+        : coupon.amountOffUsdCents > 0 || coupon.amountOffBdtPaisa > 0;
+
+    if (!hasUsableDiscount) {
+      throw new DomainException(
+        'COUPON_INVALID',
+        'That coupon code is not valid.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (
-      dto.discountType === CouponDiscountType.PERCENTAGE &&
-      dto.discountAmount !== undefined &&
-      (dto.discountAmount <= 0 || dto.discountAmount > 100)
+      coupon.appliesToPlanIds?.length > 0 &&
+      !coupon.appliesToPlanIds.includes(planId)
     ) {
       throw new DomainException(
-        'INVALID_PERCENTAGE_DISCOUNT',
-        'Percentage discount must be between 1 and 100.',
+        'COUPON_NOT_APPLICABLE',
+        'That coupon cannot be used on this plan.',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    const updated = await this.couponModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
-      .exec();
-
-    if (!updated) {
-      throw new DomainException(
-        'COUPON_NOT_FOUND',
-        `Coupon with ID '${id}' not found.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    return updated;
-  }
-
-  /**
-   * Deletes a coupon (deactivates if redemptions exist, hard-deletes if unused).
-   */
-  async deleteCoupon(id: string): Promise<{ deleted: boolean; deactivated: boolean; message: string }> {
-    const coupon = await this.getCouponById(id);
-
-    const redemptionsCount = await this.redemptionModel.countDocuments({
-      couponId: coupon._id as any,
-    }).exec();
-
-    if (redemptionsCount > 0) {
-      coupon.isActive = false;
-      await coupon.save();
-      return {
-        deleted: false,
-        deactivated: true,
-        message: `Coupon has ${redemptionsCount} recorded redemptions. Deactivated instead of permanent deletion.`,
-      };
-    }
-
-    await this.couponModel.findByIdAndDelete(id).exec();
-    return {
-      deleted: true,
-      deactivated: false,
-      message: 'Coupon permanently deleted.',
-    };
-  }
-
-  /**
-   * Validates a coupon code against a plan and optional business tenant.
-   * Throws DomainException on error or returns calculated discount breakdown.
-   */
-  async validateCoupon(
-    code: string,
-    planId: string,
-    businessId?: string,
-    targetCurrency?: string,
-  ): Promise<CouponValidationResult> {
-    const normalizedCode = (code || '').trim().toUpperCase();
-    if (!normalizedCode) {
-      throw new DomainException(
-        'COUPON_REQUIRED',
-        'Coupon code is required.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const coupon = await this.couponModel.findOne({ code: normalizedCode }).exec();
-    if (!coupon) {
-      throw new DomainException(
-        'COUPON_NOT_FOUND',
-        `Coupon code '${normalizedCode}' does not exist.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    if (!coupon.isActive) {
-      throw new DomainException(
-        'COUPON_INACTIVE',
-        `Coupon code '${normalizedCode}' is currently inactive.`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const now = new Date();
-    if (coupon.validFrom && now < coupon.validFrom) {
-      throw new DomainException(
-        'COUPON_NOT_STARTED',
-        `Coupon code '${normalizedCode}' is not active yet.`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (coupon.validUntil && now > coupon.validUntil) {
-      throw new DomainException(
-        'COUPON_EXPIRED',
-        `Coupon code '${normalizedCode}' has expired.`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Platform-wide redemption limit check
     if (
       coupon.maxRedemptions !== null &&
       coupon.maxRedemptions !== undefined &&
-      coupon.redemptionsCount >= coupon.maxRedemptions
+      coupon.redeemedCount >= coupon.maxRedemptions
     ) {
       throw new DomainException(
-        'COUPON_MAX_REDEMPTIONS_REACHED',
-        `Coupon code '${normalizedCode}' has reached its maximum total redemptions.`,
+        'COUPON_EXHAUSTED',
+        'That coupon has reached its redemption limit.',
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    // Tenant-specific redemption limit check
-    if (businessId) {
-      const tenantUses = await this.redemptionModel
-        .countDocuments({
-          couponId: coupon._id as any,
-          businessId: new Types.ObjectId(businessId) as any,
-        } as any)
-        .exec();
+    return coupon;
+  }
 
-      if (tenantUses >= coupon.maxRedemptionsPerTenant) {
-        throw new DomainException(
-          'COUPON_TENANT_LIMIT_REACHED',
-          `Your store has already used coupon code '${normalizedCode}' the maximum allowable number of times (${coupon.maxRedemptionsPerTenant}).`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+  /** Prices a plan under a coupon. Discounts never push a price below zero. */
+  quote(
+    plan: PlanDocument,
+    coupon: CouponDocument,
+    provider: BillingProvider,
+  ): CouponQuote {
+    const currency: 'USD' | 'BDT' =
+      provider === BillingProvider.BKASH ? 'BDT' : 'USD';
+    const amountBeforeMinor =
+      currency === 'BDT' ? plan.priceBdtPaisa : plan.priceUsdCents;
+
+    // The stored discountType alone decides the arithmetic. A fixed coupon reads its
+    // per-currency amount and never its percentOff field, and vice versa.
+    let discountMinor: number;
+    if (coupon.discountType === CouponDiscountType.FIXED) {
+      discountMinor =
+        currency === 'BDT'
+          ? (coupon.amountOffBdtPaisa ?? 0)
+          : (coupon.amountOffUsdCents ?? 0);
+    } else {
+      discountMinor = Math.round((amountBeforeMinor * (coupon.percentOff ?? 0)) / 100);
     }
 
-    // Applicable plans check
-    if (
-      coupon.applicablePlans &&
-      coupon.applicablePlans.length > 0 &&
-      !coupon.applicablePlans.includes('all') &&
-      !coupon.applicablePlans.includes(planId)
-    ) {
-      throw new DomainException(
-        'COUPON_NOT_APPLICABLE_TO_PLAN',
-        `Coupon code '${normalizedCode}' is not applicable to the '${planId}' plan.`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Currency check
-    const curr = (targetCurrency || 'USD').toUpperCase();
-    if (coupon.currency !== 'ALL' && coupon.currency !== curr) {
-      throw new DomainException(
-        'COUPON_CURRENCY_MISMATCH',
-        `Coupon code '${normalizedCode}' is only valid for currency '${coupon.currency}'.`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Fetch plan details to calculate accurate discount
-    const plan = await this.planModel.findOne({ planId }).exec();
-    if (!plan) {
-      throw new DomainException(
-        'PLAN_NOT_FOUND',
-        `Plan '${planId}' not found.`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    const isBdt = curr === 'BDT';
-    const originalAmount = isBdt ? plan.priceBdtPaisa : plan.priceUsdCents;
-
-    // Minimum price requirement check
-    if (coupon.minPlanPriceCents && originalAmount < coupon.minPlanPriceCents) {
-      throw new DomainException(
-        'COUPON_MIN_PRICE_NOT_MET',
-        `Coupon requires a minimum plan value of ${coupon.minPlanPriceCents / 100} ${curr}.`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Calculate discount using reusable utility
-    const calc = calculateDiscount(
-      originalAmount,
-      coupon.discountType as any,
-      coupon.discountAmount,
-    );
+    discountMinor = Math.max(0, Math.min(amountBeforeMinor, discountMinor));
+    const amountAfterMinor = amountBeforeMinor - discountMinor;
 
     return {
-      valid: true,
       code: coupon.code,
-      couponId: (coupon._id as Types.ObjectId).toString(),
       discountType: coupon.discountType,
-      discountValue: coupon.discountAmount,
-      discountAmount: calc.discountAmount,
-      originalAmount: calc.originalAmount,
-      finalAmount: calc.finalAmount,
-      effectivePercentage: calc.effectivePercentage,
-      currency: curr,
-      duration: coupon.duration,
-      durationInMonths: coupon.durationInMonths,
-      message: `Coupon '${coupon.code}' applied successfully. Saved ${calc.discountAmount / 100} ${curr} (${calc.effectivePercentage}% off).`,
+      currency,
+      amountBeforeMinor,
+      discountMinor,
+      amountAfterMinor,
+      coversFullPrice: amountAfterMinor === 0,
     };
   }
 
   /**
-   * Executes coupon redemption, records audit log, and increments coupon count.
+   * Takes one redemption slot and records a reservation.
+   *
+   * The `$expr` guard makes the increment conditional on the stored count inside a
+   * single atomic update, so two checkouts racing for the last slot cannot both win.
    */
-  async redeemCoupon(params: {
-    code: string;
-    planId: string;
-    businessId: string;
-    subscriptionId?: string;
-    adminUserId?: string;
-    currency?: string;
-  }): Promise<CouponRedemptionDocument> {
-    const validation = await this.validateCoupon(
-      params.code,
-      params.planId,
-      params.businessId,
-      params.currency,
-    );
+  async reserve(
+    coupon: CouponDocument,
+    businessId: string,
+    planId: string,
+    provider: BillingProvider,
+    quote: CouponQuote,
+  ): Promise<CouponRedemptionDocument> {
+    const claimed = await this.couponModel
+      .findOneAndUpdate(
+        {
+          _id: coupon._id as any,
+          isActive: true,
+          $or: [
+            { maxRedemptions: null },
+            { $expr: { $lt: ['$redeemedCount', '$maxRedemptions'] } },
+          ],
+        },
+        { $inc: { redeemedCount: 1 } },
+        { returnDocument: 'after' },
+      )
+      .exec();
 
-    // Create redemption record
-    const redemption = new this.redemptionModel({
-      couponId: new Types.ObjectId(validation.couponId),
-      couponCode: validation.code,
-      businessId: new Types.ObjectId(params.businessId),
-      adminUserId: params.adminUserId ? new Types.ObjectId(params.adminUserId) : undefined,
-      subscriptionId: params.subscriptionId ? new Types.ObjectId(params.subscriptionId) : undefined,
-      planId: params.planId,
-      originalAmount: validation.originalAmount,
-      discountAmount: validation.discountAmount,
-      finalAmount: validation.finalAmount,
-      currency: validation.currency,
-      redeemedAt: new Date(),
-    });
+    if (!claimed) {
+      throw new DomainException(
+        'COUPON_EXHAUSTED',
+        'That coupon has reached its redemption limit.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
-    await redemption.save();
+    return new this.redemptionModel({
+      couponId: coupon._id as any,
+      code: coupon.code,
+      businessId: businessId as any,
+      planId,
+      billingProvider: provider,
+      currency: quote.currency,
+      amountBeforeMinor: quote.amountBeforeMinor,
+      discountMinor: quote.discountMinor,
+      amountAfterMinor: quote.amountAfterMinor,
+      status: CouponRedemptionStatus.RESERVED,
+    }).save();
+  }
 
-    // Increment redemptions counter atomically
-    await this.couponModel.findByIdAndUpdate(validation.couponId, {
-      $inc: { redemptionsCount: 1 },
-    });
+  /** Attaches the gateway reference so a webhook can find this reservation. */
+  async attachProviderRef(
+    redemptionId: string,
+    providerRef: string,
+  ): Promise<void> {
+    await this.redemptionModel
+      .updateOne({ _id: redemptionId as any }, { $set: { providerRef } })
+      .exec();
+  }
 
-    this.logger.log(
-      `[CouponService] Coupon '${validation.code}' redeemed by business '${params.businessId}' on plan '${params.planId}'. Discount: ${validation.discountAmount / 100} ${validation.currency}`,
-    );
+  async markApplied(
+    redemptionId: string,
+    refs: { subscriptionId?: string; transactionId?: string } = {},
+  ): Promise<void> {
+    await this.redemptionModel
+      .updateOne(
+        { _id: redemptionId as any, status: CouponRedemptionStatus.RESERVED },
+        {
+          $set: {
+            status: CouponRedemptionStatus.APPLIED,
+            ...(refs.subscriptionId
+              ? { subscriptionId: refs.subscriptionId as any }
+              : {}),
+            ...(refs.transactionId
+              ? { transactionId: refs.transactionId as any }
+              : {}),
+          },
+        },
+      )
+      .exec();
+  }
 
-    return redemption;
+  /** Finds a reserved redemption by the gateway reference recorded at checkout. */
+  async findReservedByProviderRef(
+    providerRef: string,
+  ): Promise<CouponRedemptionDocument | null> {
+    if (!providerRef) return null;
+    return this.redemptionModel
+      .findOne({ providerRef, status: CouponRedemptionStatus.RESERVED })
+      .exec();
   }
 
   /**
-   * Retrieves paginated redemptions for a specific coupon.
+   * Returns an unused slot to the pool. Guarded on the RESERVED status so a double
+   * release cannot drive `redeemedCount` below the number of real redemptions.
    */
-  async getCouponRedemptions(
-    couponId: string,
-    query: PaginationQueryDto,
-  ): Promise<PaginatedResponse<any>> {
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query.limit) || 15));
-    const skip = (page - 1) * limit;
+  async release(redemptionId: string): Promise<void> {
+    const released = await this.redemptionModel
+      .findOneAndUpdate(
+        { _id: redemptionId as any, status: CouponRedemptionStatus.RESERVED },
+        { $set: { status: CouponRedemptionStatus.RELEASED } },
+        { returnDocument: 'after' },
+      )
+      .exec();
 
-    const filter: any = { couponId: new Types.ObjectId(couponId) };
+    if (!released) return;
 
-    const [total, redemptions] = await Promise.all([
-      this.redemptionModel.countDocuments(filter).exec(),
-      this.redemptionModel
-        .find(filter)
-        .sort({ redeemedAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('businessId', 'name domain status')
-        .populate('adminUserId', 'email name role')
-        .lean()
-        .exec(),
-    ]);
+    await this.couponModel
+      .updateOne(
+        { _id: released.couponId as any, redeemedCount: { $gt: 0 } },
+        { $inc: { redeemedCount: -1 } },
+      )
+      .exec();
+  }
 
-    const formatted = redemptions.map((r: any) => ({
-      id: r._id.toString(),
-      couponCode: r.couponCode,
-      business: r.businessId
-        ? {
-            id: r.businessId._id?.toString(),
-            name: r.businessId.name,
-            domain: r.businessId.domain,
-            status: r.businessId.status,
-          }
-        : null,
-      redeemedBy: r.adminUserId
-        ? {
-            id: r.adminUserId._id?.toString(),
-            email: r.adminUserId.email,
-            name: r.adminUserId.name,
-          }
-        : null,
-      planId: r.planId,
-      originalAmount: r.originalAmount,
-      discountAmount: r.discountAmount,
-      finalAmount: r.finalAmount,
-      currency: r.currency,
-      redeemedAt: r.redeemedAt,
-    }));
+  // ── Admin surface ────────────────────────────────────────────────────────────
 
-    return createPaginatedResponse(formatted, total, page, limit);
+  async listAdmin(): Promise<CouponDocument[]> {
+    return this.couponModel.find().sort({ createdAt: -1 }).exec();
+  }
+
+  async createAdmin(
+    data: Partial<Coupon>,
+    createdBy?: string,
+  ): Promise<CouponDocument> {
+    const code = this.normalize(data.code as string);
+    const existing = await this.couponModel.findOne({ code }).exec();
+    if (existing) {
+      throw new DomainException(
+        'COUPON_CODE_TAKEN',
+        `The code ${code} is already in use. Pick a different code.`,
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    this.assertCoherent(data);
+
+    return new this.couponModel({
+      ...this.normalizeDiscountFields(data),
+      code,
+      redeemedCount: 0,
+      createdBy: (createdBy as any) ?? null,
+    }).save();
+  }
+
+  async updateAdmin(
+    id: string,
+    data: Partial<Coupon>,
+  ): Promise<CouponDocument | null> {
+    // `code` and `redeemedCount` are immutable: editing either would detach a live
+    // coupon from the redemptions already recorded against it.
+    const { code, redeemedCount, ...rest } = data as any;
+
+    if (Object.keys(rest).length > 0) {
+      this.assertCoherent(rest, true);
+    }
+
+    return this.couponModel
+      .findByIdAndUpdate(
+        id,
+        { $set: rest.discountType ? this.normalizeDiscountFields(rest) : rest },
+        { new: true },
+      )
+      .exec();
+  }
+
+  async deleteAdmin(id: string): Promise<boolean> {
+    // Deactivation, not deletion: redemptions must keep pointing at a real coupon.
+    const res = await this.couponModel
+      .findByIdAndUpdate(id, { $set: { isActive: false } }, { new: true })
+      .exec();
+    return Boolean(res);
   }
 
   /**
-   * Platform-wide coupon metrics.
+   * Aggregate counters for the admin billing dashboard. Discount volume is summed
+   * from applied redemptions only, so a reserved-but-abandoned checkout never
+   * inflates the figure.
    */
-  async getCouponTelemetry(): Promise<{
+  async telemetryAdmin(): Promise<{
     totalCoupons: number;
     activeCoupons: number;
     totalRedemptions: number;
     totalDiscountVolumeUsd: number;
     totalDiscountVolumeBdt: number;
   }> {
-    const [totalCoupons, activeCoupons, redemptionsAgg] = await Promise.all([
-      this.couponModel.countDocuments().exec(),
-      this.couponModel.countDocuments({ isActive: true }).exec(),
-      this.redemptionModel.aggregate([
-        {
-          $group: {
-            _id: '$currency',
-            totalDiscount: { $sum: '$discountAmount' },
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-    ]);
+    const [totalCoupons, activeCoupons, totalRedemptions, volumes] =
+      await Promise.all([
+        this.couponModel.countDocuments().exec(),
+        this.couponModel.countDocuments({ isActive: true }).exec(),
+        this.redemptionModel
+          .countDocuments({ status: CouponRedemptionStatus.APPLIED })
+          .exec(),
+        this.redemptionModel
+          .aggregate([
+            { $match: { status: CouponRedemptionStatus.APPLIED } },
+            {
+              $group: {
+                _id: '$currency',
+                discountMinor: { $sum: '$discountMinor' },
+              },
+            },
+          ])
+          .exec(),
+      ]);
 
-    let totalRedemptions = 0;
     let totalDiscountVolumeUsd = 0;
     let totalDiscountVolumeBdt = 0;
-
-    for (const item of redemptionsAgg) {
-      totalRedemptions += item.count || 0;
-      if (item._id === 'USD') {
-        totalDiscountVolumeUsd += (item.totalDiscount || 0) / 100;
-      } else if (item._id === 'BDT') {
-        totalDiscountVolumeBdt += (item.totalDiscount || 0) / 100;
-      }
+    for (const row of volumes as Array<{ _id: string; discountMinor: number }>) {
+      if (row._id === 'BDT') totalDiscountVolumeBdt += (row.discountMinor || 0) / 100;
+      else totalDiscountVolumeUsd += (row.discountMinor || 0) / 100;
     }
 
     return {
       totalCoupons,
       activeCoupons,
       totalRedemptions,
-      totalDiscountVolumeUsd: Math.round(totalDiscountVolumeUsd * 100) / 100,
-      totalDiscountVolumeBdt: Math.round(totalDiscountVolumeBdt * 100) / 100,
+      totalDiscountVolumeUsd,
+      totalDiscountVolumeBdt,
     };
+  }
+
+  async redemptionsAdmin(couponId: string): Promise<CouponRedemptionDocument[]> {
+    return this.redemptionModel
+      .find({ couponId: couponId as any })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .exec();
+  }
+
+  /**
+   * Keeps exactly one discount field set.
+   *
+   * A percentage coupon stores no amounts and a fixed coupon stores no percentage,
+   * so a coupon switched from one type to the other can never keep a stale figure
+   * that a later `quote` would read.
+   */
+  private normalizeDiscountFields(data: Partial<Coupon>): Partial<Coupon> {
+    if (data.discountType === CouponDiscountType.PERCENT) {
+      return { ...data, amountOffUsdCents: 0, amountOffBdtPaisa: 0 };
+    }
+    if (data.discountType === CouponDiscountType.FIXED) {
+      return { ...data, percentOff: 0 };
+    }
+    return data;
+  }
+
+  /** Rejects a coupon whose discount fields do not match its discount type. */
+  private assertCoherent(data: Partial<Coupon>, partial = false): void {
+    const type = data.discountType;
+    if (!type && partial) return;
+
+    if (type === CouponDiscountType.PERCENT) {
+      const percent = Number(data.percentOff ?? 0);
+      if (!Number.isFinite(percent) || percent < 1 || percent > 100) {
+        throw new DomainException(
+          'COUPON_INVALID_DISCOUNT',
+          'Enter a percentage between 1 and 100 for a percentage coupon.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    if (type === CouponDiscountType.FIXED) {
+      const usd = Number(data.amountOffUsdCents ?? 0);
+      const bdt = Number(data.amountOffBdtPaisa ?? 0);
+      if (usd <= 0 && bdt <= 0) {
+        throw new DomainException(
+          'COUPON_INVALID_DISCOUNT',
+          'Enter an amount in USD or BDT for a fixed-amount coupon.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
   }
 }

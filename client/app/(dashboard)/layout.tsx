@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { DashboardGuard } from '@/components/dashboard/dashboard-guard';
 import { QuickSetupModal, QuickSetupCornerDock } from '@/components/quick-setup';
+import { TrialStatusStrip } from '@/components/billing/trial-status-strip';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -87,6 +88,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <span className="w-2 h-2 rounded-full bg-[color:var(--status-online)]" title="System operational" />
             </div>
           </div>
+
+          {/* Trial countdown, one slim row above every dashboard page. */}
+          <Suspense fallback={null}>
+            <TrialStatusStrip />
+          </Suspense>
 
           {/* Page content is responsible for its own TopHeader and scroll area */}
           <main className="flex-1 flex flex-col min-w-0 overflow-hidden">{children}</main>

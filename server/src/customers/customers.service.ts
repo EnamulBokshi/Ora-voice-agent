@@ -210,11 +210,15 @@ export class CustomersService {
 
     const mergedMap = new Map<string, any>();
     for (const item of [...regItems, ...anonItems]) {
-      if (mergedMap.has(item.productId)) {
-        const existing = mergedMap.get(item.productId);
+      // Keyed by variant as well as product: on a Shopify catalogue one product is
+      // several purchasable variants, and merging a Medium into a Large would both
+      // lose the shopper's choice and misstate the quantity.
+      const key = `${item.productId}:${item.variantId || ''}`;
+      if (mergedMap.has(key)) {
+        const existing = mergedMap.get(key);
         existing.quantity += item.quantity || 1;
       } else {
-        mergedMap.set(item.productId, { ...item });
+        mergedMap.set(key, { ...item });
       }
     }
 

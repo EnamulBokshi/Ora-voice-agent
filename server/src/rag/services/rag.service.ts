@@ -51,7 +51,7 @@ export class RagService {
   // ---------------------------------------------------------------------------
   private get productThreshold(): number {
     return parseFloat(
-      this.configService.get<string>('RAG_PRODUCT_CONFIDENCE_THRESHOLD') ?? '0.65',
+      this.configService.get<string>('RAG_PRODUCT_CONFIDENCE_THRESHOLD') ?? '0.50',
     );
   }
 

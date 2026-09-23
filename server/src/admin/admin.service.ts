@@ -13,6 +13,12 @@ import { Subscription, SubscriptionDocument, SubscriptionStatus, BillingProvider
 import { Order, OrderDocument, OrderSource } from '../orders/schemas/order.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { AgentConfig, AgentConfigDocument } from '../agent-config/schemas/agent-config.schema';
+import { Plan, PlanDocument } from '../billing/schemas/plan.schema';
+import { TrialLog, TrialLogDocument } from '../billing/schemas/trial-log.schema';
+import {
+  DailyUsageSummary,
+  DailyUsageSummaryDocument,
+} from '../usage/schemas/daily-usage-summary.schema';
 import { RedisService } from '../common/redis/redis.service';
 import { MailService } from '../mail/mail.service';
 import { DomainException } from '../common/exceptions/domain.exception';
@@ -24,6 +30,19 @@ import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 import { UsageTrackingService } from '../usage/usage-tracking.service';
 import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
 import { resolveArchetype } from '../common/constants/archetypes';
+
+/**
+ * Period-over-period change, as a signed percentage string.
+ *
+ * Returns null when the previous period was zero: there is no percentage change from
+ * nothing, and a placeholder there would be the invented figure this replaced.
+ */
+function percentChange(current: number, previous: number): string | null {
+  if (!previous || previous <= 0) return null;
+  const change = ((current - previous) / previous) * 100;
+  const rounded = Math.round(change * 10) / 10;
+  return `${rounded >= 0 ? '+' : ''}${rounded}%`;
+}
 
 @Injectable()
 export class AdminService implements OnModuleInit {
@@ -47,6 +66,12 @@ export class AdminService implements OnModuleInit {
     private readonly productModel: Model<ProductDocument>,
     @InjectModel(AgentConfig.name)
     private readonly agentConfigModel: Model<AgentConfigDocument>,
+    @InjectModel(Plan.name)
+    private readonly planModel: Model<PlanDocument>,
+    @InjectModel(TrialLog.name)
+    private readonly trialLogModel: Model<TrialLogDocument>,
+    @InjectModel(DailyUsageSummary.name)
+    private readonly dailyUsageModel: Model<DailyUsageSummaryDocument>,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
@@ -194,6 +219,7 @@ export class AdminService implements OnModuleInit {
       oraAgentOrders,
       recentBusinesses,
       activeSubs,
+      allPlans,
       totalGmvAgg,
       oraGmvAgg,
     ] = await Promise.all([
@@ -214,6 +240,7 @@ export class AdminService implements OnModuleInit {
         .limit(8)
         .lean(),
       this.subscriptionModel.find({ status: SubscriptionStatus.ACTIVE }).lean(),
+      this.planModel.find().lean(),
       this.orderModel.aggregate([
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
       ]),
@@ -226,35 +253,45 @@ export class AdminService implements OnModuleInit {
     const totalGmv = totalGmvAgg[0]?.total || 0;
     const oraAgentGmv = oraGmvAgg[0]?.total || 0;
     const textConversationsCount = Math.max(0, totalConversations - voiceConversationsCount);
-    const estimatedVoiceMinutes = Math.round(voiceConversationsCount * 2.4);
 
-    // Plan distribution & MRR calculation
-    let freeCount = 0;
-    let growthCount = 0;
-    let scaleCount = 0;
+    // Plan distribution and MRR, priced from the plan catalogue.
+    //
+    // These used to be `platformMRR += 199` for scale and `+= 49` for growth, with
+    // every other plan counted as free. That ignored the prices the admin console
+    // actually edits, and it made starter subscribers invisible and worth nothing.
+    // There is also deliberately no fallback distribution any more: an empty platform
+    // reports zeros rather than an invented 60/15 split.
+    const planPriceUsdByPlanId = new Map<string, number>(
+      (allPlans as any[]).map((plan) => [
+        plan.planId,
+        (plan.priceUsdCents || 0) / 100,
+      ]),
+    );
+
+    const planDistribution: Record<string, number> = {};
     let platformMRR = 0;
 
     for (const sub of activeSubs) {
-      if (sub.planId === 'scale') {
-        scaleCount++;
-        platformMRR += 199;
-      } else if (sub.planId === 'growth') {
-        growthCount++;
-        platformMRR += 49;
-      } else {
-        freeCount++;
-      }
+      const planId = String(sub.planId || 'unknown');
+      planDistribution[planId] = (planDistribution[planId] || 0) + 1;
+      platformMRR += planPriceUsdByPlanId.get(planId) ?? 0;
     }
 
-    // Default distribution fallback if subscriptions not yet seeded
-    if (activeSubs.length === 0 && totalBusinesses > 0) {
-      growthCount = Math.floor(activeBusinesses * 0.6);
-      scaleCount = Math.floor(activeBusinesses * 0.15);
-      freeCount = Math.max(0, totalBusinesses - growthCount - scaleCount);
-      platformMRR = growthCount * 49 + scaleCount * 199;
-    }
+    platformMRR = Math.round(platformMRR * 100) / 100;
+    const platformARR = Math.round(platformMRR * 12 * 100) / 100;
 
-    const platformARR = platformMRR * 12;
+    // The tiers themselves, so the console can label and price them without
+    // hardcoding a catalogue that changes under it.
+    const planCatalogue = (allPlans as any[])
+      .filter((plan) => plan.isActive !== false)
+      .sort((a, b) => (a.priceUsdCents || 0) - (b.priceUsdCents || 0))
+      .map((plan) => ({
+        planId: plan.planId,
+        name: plan.name,
+        priceUsd: (plan.priceUsdCents || 0) / 100,
+        priceBdt: (plan.priceBdtPaisa || 0) / 100,
+        subscribers: planDistribution[plan.planId] || 0,
+      }));
 
     // Time-series activity calculation for trend charts
     const numDays = period === '7d' ? 7 : 30;
@@ -262,7 +299,14 @@ export class AdminService implements OnModuleInit {
     startDate.setDate(startDate.getDate() - numDays);
     startDate.setHours(0, 0, 0, 0);
 
-    const [dailyConvs, dailyStores, dailyOrders] = await Promise.all([
+    // The window immediately before this one, so a trend is a measurement rather
+    // than a decorative string.
+    const previousStartDate = new Date(startDate);
+    previousStartDate.setDate(previousStartDate.getDate() - numDays);
+
+    const dateKey = (d: Date) => d.toISOString().split('T')[0];
+
+    const [dailyConvs, dailyStores, dailyOrders, dailyVoice, previousWindow] = await Promise.all([
       this.conversationModel.aggregate([
         { $match: { createdAt: { $gte: startDate } } },
         {
@@ -296,11 +340,55 @@ export class AdminService implements OnModuleInit {
           },
         },
       ]),
+      // Real spoken time, not an assumed average per conversation.
+      this.dailyUsageModel.aggregate([
+        { $match: { date: { $gte: dateKey(startDate) } } },
+        {
+          $group: {
+            _id: '$date',
+            audioSeconds: {
+              $sum: { $add: ['$audioInputSeconds', '$audioOutputSeconds'] },
+            },
+            sessions: { $sum: '$sessionsCount' },
+          },
+        },
+      ]),
+      Promise.all([
+        this.businessModel.countDocuments({
+          ...businessFilter,
+          createdAt: { $gte: previousStartDate, $lt: startDate },
+        }),
+        this.dailyUsageModel.aggregate([
+          {
+            $match: {
+              date: { $gte: dateKey(previousStartDate), $lt: dateKey(startDate) },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              audioSeconds: {
+                $sum: { $add: ['$audioInputSeconds', '$audioOutputSeconds'] },
+              },
+            },
+          },
+        ]),
+        this.subscriptionModel.find({
+          status: SubscriptionStatus.ACTIVE,
+          createdAt: { $lt: startDate },
+        }).lean(),
+      ]),
     ]);
 
     const convMap = new Map(dailyConvs.map((d: any) => [d._id, d]));
     const storeMap = new Map(dailyStores.map((d: any) => [d._id, d.total]));
     const orderMap = new Map(dailyOrders.map((d: any) => [d._id, d]));
+    const voiceMap = new Map(
+      (dailyVoice as any[]).map((d: any) => [d._id, d.audioSeconds || 0]),
+    );
+
+    const [previousNewStores, previousVoiceAgg, previousActiveSubs] =
+      previousWindow as [number, any[], any[]];
 
     const activityTimeline: Array<{
       date: string;
@@ -315,8 +403,7 @@ export class AdminService implements OnModuleInit {
       const dateStr = d.toISOString().split('T')[0];
       const convData: any = convMap.get(dateStr);
       const convCount = Number(convData?.total) || 0;
-      const voiceCount = Number(convData?.voice) || 0;
-      const voiceMins = Math.round(voiceCount * 2.4);
+      const voiceMins = Math.round((Number(voiceMap.get(dateStr)) || 0) / 60);
       const newStores = Number(storeMap.get(dateStr)) || 0;
       const orderData: any = orderMap.get(dateStr);
       const gmv = Number(orderData?.totalAmount) || 0;
@@ -329,6 +416,37 @@ export class AdminService implements OnModuleInit {
         gmv,
       });
     }
+
+    // Total spoken minutes across the platform, from recorded audio seconds rather
+    // than `voiceConversationsCount * 2.4`, which was an assumed average.
+    const totalAudioAgg = await this.dailyUsageModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          audioSeconds: {
+            $sum: { $add: ['$audioInputSeconds', '$audioOutputSeconds'] },
+          },
+        },
+      },
+    ]);
+    const totalVoiceMinutes = Math.round((totalAudioAgg[0]?.audioSeconds || 0) / 60);
+
+    const periodVoiceSeconds = (dailyVoice as any[]).reduce(
+      (sum: number, row: any) => sum + (row.audioSeconds || 0),
+      0,
+    );
+    const previousVoiceSeconds = previousVoiceAgg[0]?.audioSeconds || 0;
+
+    const previousMRR = (previousActiveSubs as any[]).reduce(
+      (sum: number, sub: any) =>
+        sum + (planPriceUsdByPlanId.get(String(sub.planId)) ?? 0),
+      0,
+    );
+
+    const periodNewStores = (dailyStores as any[]).reduce(
+      (sum: number, row: any) => sum + (row.total || 0),
+      0,
+    );
 
     // Redis Health Check
     let redisLatencyMs = 0;
@@ -352,7 +470,7 @@ export class AdminService implements OnModuleInit {
         totalConversations,
         voiceConversationsCount,
         textConversationsCount,
-        totalVoiceMinutes: estimatedVoiceMinutes,
+        totalVoiceMinutes,
         totalCustomers,
         totalOrders,
         totalGmv: Math.round(totalGmv * 100) / 100,
@@ -361,15 +479,16 @@ export class AdminService implements OnModuleInit {
         totalProducts,
         platformMRR,
         platformARR,
-        planDistribution: {
-          free: freeCount,
-          growth: growthCount,
-          scale: scaleCount,
-        },
+        planDistribution,
+        planCatalogue,
+        // Period over period, against the window of the same length before it. Null
+        // where there is no prior figure to compare against: an unmeasurable trend is
+        // reported as unmeasurable, not as a flattering constant.
         growth: {
-          mrrTrend: '+18.4%',
-          storeTrend: '+12.5%',
-          voiceTrend: '+31.2%',
+          mrrTrend: percentChange(platformMRR, previousMRR),
+          storeTrend: percentChange(periodNewStores, previousNewStores),
+          voiceTrend: percentChange(periodVoiceSeconds, previousVoiceSeconds),
+          comparedToDays: numDays,
         },
       },
       system: {
@@ -378,7 +497,8 @@ export class AdminService implements OnModuleInit {
         nodeMemoryTotalMB: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         redisStatus,
         redisLatencyMs,
-        mongoStatus: 'connected',
+        mongoStatus:
+          this.businessModel.db.readyState === 1 ? 'connected' : 'disconnected',
         environment: process.env.NODE_ENV || 'development',
         nodeVersion: process.version,
       },
@@ -392,6 +512,271 @@ export class AdminService implements OnModuleInit {
         createdAt: b.createdAt,
       })),
       activityTimeline,
+    };
+  }
+
+  /**
+   * Every merchant who ever started a free trial, with where they are now.
+   *
+   * TrialLog is the register of grants — one row per domain, written when the trial is
+   * given — so it is the only source that still shows a lead whose trial has since
+   * lapsed or who never subscribed. The subscription is joined on top for the current
+   * state, which is what turns a list of grants into a conversion funnel.
+   */
+  async getTrialLeads(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+
+    // A trial leaves marks in three places, and none of them is complete on its own:
+    // TrialLog is the anti-abuse register (one row per domain), Business carries
+    // trialGrantedAt/trialExpiresAt, and the subscription carries hasUsedTrial. A
+    // tenant granted a trial before the log existed, or through a path that did not
+    // write one, is still a lead — so the list is the union of all three.
+    const [trialLogs, plans, trialBusinesses, trialSubs] = await Promise.all([
+      this.trialLogModel.find().sort({ grantedAt: -1 }).lean(),
+      this.planModel.find().lean(),
+      this.businessModel
+        .find({ trialGrantedAt: { $exists: true, $ne: null } } as any)
+        .lean(),
+      this.subscriptionModel
+        .find({
+          $or: [{ hasUsedTrial: true }, { status: SubscriptionStatus.TRIALING }],
+        } as any)
+        .lean(),
+    ]);
+
+    const logByBusiness = new Map(
+      (trialLogs as any[]).map((log) => [String(log.businessId), log]),
+    );
+    const trialBusinessById = new Map(
+      (trialBusinesses as any[]).map((b) => [String(b._id), b]),
+    );
+
+    const businessIds = Array.from(
+      new Set([
+        ...(trialLogs as any[]).map((log) => String(log.businessId)),
+        ...(trialBusinesses as any[]).map((b) => String(b._id)),
+        ...(trialSubs as any[]).map((sub) => String(sub.businessId)),
+      ]),
+    );
+
+    const [businesses, subscriptions, owners] = await Promise.all([
+      this.businessModel.find({ _id: { $in: businessIds } } as any).lean(),
+      this.subscriptionModel.find({ businessId: { $in: businessIds } } as any).lean(),
+      this.adminUserModel
+        .find({ businessId: { $in: businessIds } } as any)
+        .select('name email businessId role createdAt lastLoginAt')
+        .lean(),
+    ]);
+
+    const businessById = new Map(businesses.map((b: any) => [String(b._id), b]));
+    const subByBusiness = new Map(
+      subscriptions.map((sub: any) => [String(sub.businessId), sub]),
+    );
+    const planName = new Map(
+      (plans as any[]).map((plan) => [plan.planId, plan.name]),
+    );
+    const planPriceUsd = new Map(
+      (plans as any[]).map((plan) => [plan.planId, (plan.priceUsdCents || 0) / 100]),
+    );
+
+    // The owner is who an admin actually writes to. Fall back to the earliest account
+    // on the tenant when no owner role was ever assigned.
+    const ownerByBusiness = new Map<string, any>();
+    for (const user of owners as any[]) {
+      const key = String(user.businessId);
+      const current = ownerByBusiness.get(key);
+      const isOwner = user.role === AdminRole.OWNER;
+      if (!current || (isOwner && current.role !== AdminRole.OWNER)) {
+        ownerByBusiness.set(key, user);
+      }
+    }
+
+    const now = Date.now();
+
+    const leads = businessIds.map((businessId: string) => {
+      const log: any = logByBusiness.get(businessId);
+      const business: any =
+        businessById.get(businessId) || trialBusinessById.get(businessId);
+      const sub: any = subByBusiness.get(businessId);
+      const owner = ownerByBusiness.get(businessId);
+
+      // Prefer the anti-abuse register, which records the grant itself; fall back to
+      // the tenant's own trial stamps, then to the subscription period.
+      const startedAt =
+        log?.grantedAt || business?.trialGrantedAt || sub?.currentPeriodStart || null;
+      const rawExpiry =
+        log?.trialExpiresAt || business?.trialExpiresAt || sub?.currentPeriodEnd || null;
+
+      const expiresAt = rawExpiry ? new Date(rawExpiry) : new Date(0);
+      const msRemaining = expiresAt.getTime() - now;
+      const isTrialing = sub?.status === SubscriptionStatus.TRIALING;
+      const isPaying = sub?.status === SubscriptionStatus.ACTIVE;
+
+      // A trial that expired without a paid subscription is a lost lead, and one that
+      // is running but nearly over is where an admin's time is worth most.
+      let status: 'converted' | 'expiring_soon' | 'active' | 'expired' | 'lapsed';
+      if (isPaying) {
+        status = 'converted';
+      } else if (isTrialing && msRemaining > 0) {
+        status = msRemaining <= 3 * 24 * 60 * 60 * 1000 ? 'expiring_soon' : 'active';
+      } else if (msRemaining <= 0) {
+        status = 'expired';
+      } else {
+        status = 'lapsed';
+      }
+
+      const planId = sub?.planId || 'starter';
+
+      return {
+        businessId,
+        storeName: business?.name || 'Unknown store',
+        domain: log?.normalizedDomain || business?.normalizedDomain || business?.domain || '—',
+        status,
+        planId,
+        planName: planName.get(planId) || planId,
+        planPriceUsd: planPriceUsd.get(planId) ?? 0,
+        ownerName: owner?.name || null,
+        ownerEmail: owner?.email || log?.registeredEmail || null,
+        registeredEmail: log?.registeredEmail || null,
+        lastLoginAt: owner?.lastLoginAt || null,
+        startedAt,
+        expiresAt: rawExpiry,
+        daysRemaining: msRemaining > 0 ? Math.ceil(msRemaining / (24 * 60 * 60 * 1000)) : 0,
+        hoursRemaining: msRemaining > 0 ? Math.ceil(msRemaining / (60 * 60 * 1000)) : 0,
+        subscriptionStatus: sub?.status || 'none',
+        billingProvider: sub?.billingProvider || null,
+        ipAddress: log?.ipAddress || null,
+        businessStatus: business?.status || 'unknown',
+        connectedPlatform: business?.connectedPlatform || 'none',
+      };
+    });
+
+    const stats = {
+      totalTrials: leads.length,
+      active: leads.filter((l) => l.status === 'active').length,
+      expiringSoon: leads.filter((l) => l.status === 'expiring_soon').length,
+      expired: leads.filter((l) => l.status === 'expired' || l.status === 'lapsed').length,
+      converted: leads.filter((l) => l.status === 'converted').length,
+      conversionRate: leads.length
+        ? Math.round(
+            (leads.filter((l) => l.status === 'converted').length / leads.length) * 1000,
+          ) / 10
+        : 0,
+      // What the converted trials are worth per month, priced from the plan catalogue.
+      convertedMrrUsd:
+        Math.round(
+          leads
+            .filter((l) => l.status === 'converted')
+            .reduce((sum, l) => sum + l.planPriceUsd, 0) * 100,
+        ) / 100,
+    };
+
+    let filtered = leads;
+    if (query.status && query.status !== 'all') {
+      filtered =
+        query.status === 'expired'
+          ? filtered.filter((l) => l.status === 'expired' || l.status === 'lapsed')
+          : filtered.filter((l) => l.status === query.status);
+    }
+
+    if (query.search) {
+      const needle = query.search.trim().toLowerCase();
+      filtered = filtered.filter((l) =>
+        [l.storeName, l.domain, l.ownerEmail, l.ownerName]
+          .filter(Boolean)
+          .some((field) => String(field).toLowerCase().includes(needle)),
+      );
+    }
+
+    const total = filtered.length;
+    const start = (page - 1) * limit;
+
+    return {
+      leads: filtered.slice(start, start + limit),
+      stats,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  /**
+   * Emails one trial lead a message an admin wrote.
+   *
+   * The recipient is resolved here from the tenant, never taken from the request: an
+   * admin picks a lead from the list, and this endpoint cannot be turned into a way to
+   * send ORA-branded mail to an arbitrary address.
+   */
+  async sendTrialOutreach(
+    businessId: string,
+    payload: { subject: string; message: string; ctaUrl?: string },
+    sender: { name?: string; email?: string },
+  ) {
+    const business = await this.businessModel.findById(businessId).lean();
+    if (!business) {
+      throw new DomainException(
+        'BUSINESS_NOT_FOUND',
+        'That merchant no longer exists.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const owner = await this.adminUserModel
+      .findOne({ businessId: businessId as any, role: AdminRole.OWNER } as any)
+      .select('name email')
+      .lean();
+
+    const fallback = await this.adminUserModel
+      .findOne({ businessId: businessId as any } as any)
+      .sort({ createdAt: 1 })
+      .select('name email')
+      .lean();
+
+    const recipient: any = owner || fallback;
+    if (!recipient?.email) {
+      throw new DomainException(
+        'NO_CONTACTABLE_USER',
+        'This merchant has no account with an email address to write to.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const result = await this.mailService.sendAdminOutreachEmail(recipient.email, {
+      recipientName: recipient.name || 'there',
+      heading: payload.subject,
+      message: payload.message,
+      ctaUrl: payload.ctaUrl,
+      ctaLabel: 'Open ORA',
+      senderName: sender.name || 'The ORA team',
+    });
+
+    if (!result.delivered) {
+      throw new DomainException(
+        'EMAIL_NOT_SENT',
+        result.reason === 'EMAIL_PROVIDER_NOT_CONFIGURED'
+          ? 'No email provider is configured, so nothing was sent. Set RESEND_API_KEY.'
+          : 'The email could not be sent. Nothing was delivered — please retry.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    this.logger.log(
+      `[AdminService] Outreach sent to ${recipient.email} (business ${businessId}) by ${sender.email || 'platform admin'}.`,
+    );
+
+    return {
+      delivered: true,
+      to: recipient.email,
+      storeName: (business as any).name,
     };
   }
 

@@ -10,6 +10,7 @@ import { EntityType } from '../vector/interfaces/vector-entry.interface';
 import { ShopifyTokenService } from '../common/shopify-token/shopify-token.service';
 import { Business, BusinessDocument } from '../users/schemas/business.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { mapShopifyVariants } from '../common/utils/shopify-variant.util';
 import {
   ProductAvailability,
   SourceTier,
@@ -193,6 +194,9 @@ export class ShopifySyncProcessor extends WorkerHost {
 
       return {
         nativeProductId: String(product.id),
+        // Dot path, not a whole `attributes` object: a plain $set would wipe any
+        // merchant override stored alongside it on every sync.
+        'attributes.shopify': mapShopifyVariants(product),
         name: product.title || 'Untitled Product',
         description: (product.body_html || '').replace(/<[^>]*>?/gm, ''),
         price: parseFloat(variant.price || '0'),

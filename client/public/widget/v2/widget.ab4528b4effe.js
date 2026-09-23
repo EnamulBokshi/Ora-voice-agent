@@ -87,6 +87,7 @@
   let idleTimer = null;
   let activeResumptionToken = null;
   let isWaitingForAi = false;
+  const isMobileDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
 
   /**
    * Fails a connect attempt that never gets an answer.
@@ -119,6 +120,10 @@
   let vadOpenStreak = 0;
   /** Whether the gate is currently passing audio (drives the hysteresis branch). */
   let vadGateOpen = false;
+  /** Timestamp the gate last opened, for the energy-dropoff check below. */
+  let vadGateOpenedAt = 0;
+  /** Loudest RMS seen since the gate opened (see VAD_PEAK_DROP_RATIO). */
+  let vadUtterancePeak = 0;
   /**
    * When the last `user_speaking` keep-alive was sent, so an open gate produces at most
    * one per USER_SPEAKING_PING_MS rather than one per 64ms chunk.
@@ -143,6 +148,8 @@
     lastSpeakingPingAt = 0;
     vadOpenStreak = 0;
     vadGateOpen = false;
+    vadGateOpenedAt = 0;
+    vadUtterancePeak = 0;
     vadCalibrationLeft = VAD_CALIBRATION_CHUNKS;
   }
 
@@ -170,6 +177,9 @@
   let playbackWatchdogTimer = null;
   /** Consecutive watchdog firings that found the audio clock not running. */
   let playbackStallChecks = 0;
+  /** True while the server is actively generating or streaming audio chunks for the current turn. */
+  let serverTurnActive = false;
+  let vadDropStreak = 0;
 
   /**
    * A navigation ORA has asked for, held until it has finished saying where it is going.
@@ -230,7 +240,7 @@
       const len = binary.length;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-      const int16 = new Int16Array(bytes.buffer);
+      const int16 = new Int16Array(bytes.buffer, 0, Math.floor(len / 2));
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) {
         float32[i] = int16[i] < 0 ? int16[i] / 32768 : int16[i] / 32767;
@@ -394,7 +404,7 @@
           var prod = flattened.find(function(node) {
             if (!node || !node['@type']) return false;
             var t = node['@type'];
-            return t === 'Product' || (Array.isArray(t) && t.indexOf('Product') !== -1);
+            return t === 'Product' || t === 'ProductGroup' || (Array.isArray(t) && (t.indexOf('Product') !== -1 || t.indexOf('ProductGroup') !== -1));
           });
           if (prod) {
             var offer = Array.isArray(prod.offers) ? prod.offers[0] : prod.offers;
@@ -411,6 +421,22 @@
               if (offer.priceCurrency) currVal = String(offer.priceCurrency).toUpperCase();
               if (offer.availability) {
                 availVal = /instock|in_stock/i.test(String(offer.availability)) ? 'in_stock' : (/outofstock|out_of_stock/i.test(String(offer.availability)) ? 'out_of_stock' : 'unknown');
+              }
+            }
+
+            // Support Shopify ProductGroup with hasVariant array
+            if (prod.hasVariant && Array.isArray(prod.hasVariant) && prod.hasVariant.length > 0) {
+              var anyInStock = prod.hasVariant.some(function(v) {
+                var vOffer = v.offers;
+                return vOffer && /instock|in_stock/i.test(String(vOffer.availability));
+              });
+              availVal = anyInStock ? 'in_stock' : 'out_of_stock';
+              if (priceVal === null && prod.hasVariant[0] && prod.hasVariant[0].offers) {
+                var firstOffer = prod.hasVariant[0].offers;
+                if (firstOffer.price !== undefined && firstOffer.price !== null) {
+                  priceVal = Number(String(firstOffer.price).replace(/[^0-9.]/g, ''));
+                }
+                if (firstOffer.priceCurrency) currVal = String(firstOffer.priceCurrency).toUpperCase();
               }
             }
 
@@ -560,11 +586,21 @@
                   try { prodImg = new URL(prodImg, window.location.origin).href; } catch (e) {}
                 }
 
+                var isSoldOut = false;
+                if (addToCartBtn) {
+                  var btnTxt = (addToCartBtn.innerText || addToCartBtn.textContent || '').trim().toLowerCase();
+                  isSoldOut = addToCartBtn.disabled || addToCartBtn.hasAttribute('disabled') || /sold out|out of stock|unavailable|স্টক আউট/i.test(btnTxt);
+                }
+                if (!isSoldOut) {
+                  var badgeEl = document.querySelector('.badge--sold-out, [class*="sold-out"], [class*="soldOut"]');
+                  if (badgeEl && /sold out/i.test(badgeEl.innerText || '')) isSoldOut = true;
+                }
+
                 product = {
                   name: candidateTitle,
                   price: cleanAmount,
                   currency: normalizedCurrency,
-                  availability: 'in_stock',
+                  availability: isSoldOut ? 'out_of_stock' : 'in_stock',
                   sku: null,
                   image: prodImg,
                   description: metaDesc || null
@@ -574,6 +610,19 @@
           }
         } catch (e) {}
       }
+
+      var selectedVariantId = null;
+      try {
+        var varInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (varInput && varInput.value) {
+          selectedVariantId = String(varInput.value);
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          selectedVariantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+        } else {
+          var urlVar = new URLSearchParams(window.location.search).get('variant');
+          if (urlVar) selectedVariantId = urlVar;
+        }
+      } catch (e) {}
 
       var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + (product ? (product.name + ':' + product.price + ':' + product.currency) : '') + '|' + cleanBodyText.slice(0, 500);
       var contentHash = hashString(contentSignature);
@@ -588,6 +637,7 @@
         contacts: contacts,
         bodyTextSnippet: cleanBodyText,
         product: product,
+        selectedVariantId: selectedVariantId,
         contentHash: contentHash
       };
     } catch (err) {
@@ -603,7 +653,8 @@
       title: telemetry.title,
       pathname: telemetry.pathname,
       isProductPage: !!telemetry.product,
-      product: telemetry.product
+      product: telemetry.product,
+      selectedVariantId: telemetry.selectedVariantId
     };
   }
 
@@ -660,13 +711,23 @@
   // ─── Mobile Hydration & Dynamic DOM Observer ─────────────────────────────────
   function initHydrationAndDomObserver() {
     try {
-      // 1. Multi-stage initial sync to capture SSR, mid-hydration, and late mobile Next.js hydration
-      var stages = [600, 1800, 3500];
-      stages.forEach(function (delay) {
+      function runIdleTelemetry(delayMs) {
         setTimeout(function () {
-          triggerUniversalTelemetrySync();
-        }, delay);
-      });
+          if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(function () {
+              triggerUniversalTelemetrySync();
+            }, { timeout: 3000 });
+          } else {
+            setTimeout(function () {
+              triggerUniversalTelemetrySync();
+            }, 60);
+          }
+        }, delayMs);
+      }
+
+      // Defer background telemetry to idle time so storefront initial rendering is never blocked
+      runIdleTelemetry(1500);
+      runIdleTelemetry(4500);
 
       // 2. MutationObserver for dynamic Next.js / React CSR component hydration with 15s throttle
       if (typeof window !== 'undefined' && window.MutationObserver && document.body) {
@@ -1051,6 +1112,11 @@
       align-items: center;
       pointer-events: none;
       user-select: none;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
     .ora-w-root * {
       box-sizing: border-box;
@@ -1335,6 +1401,9 @@
       justify-content: center;
       pointer-events: auto;
       flex-shrink: 0;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     /* ── Outer 3D Crystal Glass Sphere Button ── */
@@ -1361,6 +1430,9 @@
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.3s ease;
       animation: ora-w-glow-pulse 3.5s ease-in-out infinite;
       -webkit-tap-highlight-color: transparent;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform;
     }
     .ora-w-glass-sphere:hover {
       transform: scale(1.05);
@@ -1394,6 +1466,9 @@
       pointer-events: none;
       z-index: 2;
       display: block;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     /* ── Top Glass Specular Highlight ── */
@@ -1602,7 +1677,16 @@
    */
   const VAD_FLOOR_DECAY = 0.20;
   const VAD_FLOOR_ATTACK_CLOSED = 0.05;
-  const VAD_FLOOR_ATTACK_OPEN = 0.01;
+  /**
+   * Rise rate while the gate is open. It was 0.01, a ~6.4s time constant at 64ms per
+   * frame, which is the reason a gate that opened just before the room got louder (mic
+   * AGC ramping back up after a loud syllable, a fan starting, ORA's own voice leaking
+   * from the speakers) could hold open for seconds: the close threshold is derived from
+   * the floor, so until the floor caught up with the new ambient level, ambient alone
+   * kept clearing it. 0.04 catches up in ~1.6s instead, still slow enough that the
+   * speaker's own voice does not raise the floor against them mid-sentence.
+   */
+  const VAD_FLOOR_ATTACK_OPEN = 0.04;
 
   /** Ceiling on the learned floor, so even a very loud room still admits speech. */
   const VAD_FLOOR_MAX = 0.02;
@@ -1638,12 +1722,45 @@
   /**
    * How long the mic uplink keeps streaming after speech drops below the threshold.
    *
-   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (700ms): Gemini decides the
+   * MUST stay above the server's SPEECH_SILENCE_DURATION_MS (250ms): Gemini decides the
    * customer's turn has ended by hearing silence, so we have to keep feeding it real
    * (quiet) audio for a moment after they stop. Cut the stream too early and Gemini waits
-   * for silence it never receives, delaying ORA's reply instead of speeding it up.
+   * for silence it never receives, hanging the turn instead of speeding it up. Nothing
+   * else closes the turn — no audioStreamEnd, no explicit activityEnd is ever sent.
+   *
+   * The two must move together, server first: lowering this below a server still set to
+   * 400ms hangs every turn.
+   *
+   * 480ms is measured, not derived. Replaying recorded speech into a live session and
+   * cutting the uplink after exactly this many milliseconds of quiet audio: 320ms hung
+   * the turn outright (no response in 12s, 2 of 2 runs), while 384, 448 and 512ms all
+   * answered on every run. Gemini needs roughly 130ms of audio beyond its own
+   * silenceDurationMs before it commits to the turn ending, so the margin here has to
+   * cover that plus ~64ms of frame quantisation, not just clock skew. 480ms keeps
+   * ~230ms over the server's 250ms, one frame clear of the nearest value proven to work.
    */
-  const VAD_HANGOVER_MS = 700;
+  const VAD_HANGOVER_MS = 480;
+
+  /**
+   * Energy-dropoff guard, the second half of the fix for a gate stuck open on noise.
+   *
+   * Raising VAD_FLOOR_ATTACK_OPEN shortens that stall but cannot remove it, because the
+   * floor still has to travel. This check is level-independent instead: once an
+   * utterance has run long enough to have a meaningful peak, a fall to a small fraction
+   * of that peak means the speaker stopped, whatever the room is doing. The hangover
+   * then starts on time rather than waiting for the adaptive threshold to catch up.
+   *
+   * The ratio is set to 0.15 with a multi-frame requirement so natural unvoiced
+   * consonants and quiet syllables do not chop words mid-sentence.
+   */
+  const VAD_PEAK_DROP_RATIO = 0.15;
+
+  /**
+   * How long the gate must have been open before the dropoff check arms. Short bursts
+   * have no reliable peak to measure against, and the onset of a word legitimately sits
+   * far below the peak it is about to reach.
+   */
+  const VAD_PEAK_DROP_MIN_OPEN_MS = 1200;
 
   /**
    * Frames retained while the gate is shut, replayed when it opens, so the attack of the
@@ -2145,19 +2262,49 @@
   }
 
   // ─── Procedural Canvas Fluid Wave Mesh Engine ──────────────────────────────
+  let lastCanvasFrameTime = 0;
+  let idleGlowGrad = null;
+  let idleInnerGrad1 = null;
+  let idleInnerGrad2 = null;
+  let idleNucleusGrad = null;
+
   function initOrbCanvas() {
     if (!orbCanvas) return;
     canvasCtx = orbCanvas.getContext('2d');
     orbCanvas.width = 140;
     orbCanvas.height = 140;
     startCanvasLoop();
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && !canvasAnimId) {
+          startCanvasLoop();
+        }
+      });
+    }
   }
 
   function startCanvasLoop() {
     if (canvasAnimId) return;
-    function drawCanvas() {
+    function drawCanvas(frameTime) {
+      if (typeof document !== 'undefined' && document.hidden) {
+        canvasAnimId = null;
+        return;
+      }
+
+      var now = frameTime || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      var isIdle = voiceState === 'idle' || voiceState === 'standby';
+      // Throttle idle rendering to ~22 FPS (45ms interval) to save CPU/battery on mobile & 120Hz ProMotion screens.
+      // Active states render at smooth 60 FPS (16.6ms interval).
+      var targetInterval = isIdle ? 45 : 16.6;
+      if (now - lastCanvasFrameTime < targetInterval) {
+        canvasAnimId = requestAnimationFrame(drawCanvas);
+        return;
+      }
+      lastCanvasFrameTime = now;
+
       if (canvasCtx && orbCanvas) {
-        canvasTime += 0.035;
+        canvasTime += isIdle ? 0.025 : 0.035;
         var t = canvasTime;
         var w = orbCanvas.width || 140;
         var h = orbCanvas.height || 140;
@@ -2168,7 +2315,6 @@
         ctx.clearRect(0, 0, w, h);
 
         var baseRadius = 40;
-        var isIdle = voiceState === 'idle' || voiceState === 'standby';
         var isConnecting = voiceState === 'connecting';
         var isThinking = isWaitingForAi;
         var isSpeaking = voiceState === 'ora-speaking';
@@ -2191,31 +2337,38 @@
         var speedMult = isSpeaking ? 1.8 : isThinking ? 1.6 : isConnecting ? 1.5 : 1.0;
 
         // Outer glow
-        var outerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.4, cx, cy, baseRadius * 1.5);
-        if (isError) {
-          outerGlow.addColorStop(0, 'rgba(239, 68, 68, 0.45)');
-          outerGlow.addColorStop(0.6, 'rgba(185, 28, 28, 0.20)');
-          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else if (isSpeaking) {
-          outerGlow.addColorStop(0, 'rgba(200, 240, 49, 0.45)');
-          outerGlow.addColorStop(0.5, 'rgba(0, 229, 255, 0.25)');
-          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else if (isThinking) {
-          outerGlow.addColorStop(0, 'rgba(180, 120, 255, 0.45)');
-          outerGlow.addColorStop(0.6, 'rgba(0, 210, 255, 0.30)');
-          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else if (isActive) {
-          outerGlow.addColorStop(0, 'rgba(0, 210, 255, 0.40)');
-          outerGlow.addColorStop(0.6, 'rgba(100, 150, 255, 0.15)');
-          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else if (isConnecting) {
-          outerGlow.addColorStop(0, 'rgba(150, 100, 255, 0.35)');
-          outerGlow.addColorStop(0.7, 'rgba(0, 220, 255, 0.15)');
-          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        var outerGlow;
+        if (isIdle) {
+          if (!idleGlowGrad) {
+            idleGlowGrad = ctx.createRadialGradient(cx, cy, baseRadius * 0.4, cx, cy, baseRadius * 1.5);
+            idleGlowGrad.addColorStop(0, 'rgba(0, 200, 255, 0.20)');
+            idleGlowGrad.addColorStop(0.7, 'rgba(50, 100, 200, 0.08)');
+            idleGlowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          }
+          outerGlow = idleGlowGrad;
         } else {
-          outerGlow.addColorStop(0, 'rgba(0, 200, 255, 0.20)');
-          outerGlow.addColorStop(0.7, 'rgba(50, 100, 200, 0.08)');
-          outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          outerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.4, cx, cy, baseRadius * 1.5);
+          if (isError) {
+            outerGlow.addColorStop(0, 'rgba(239, 68, 68, 0.45)');
+            outerGlow.addColorStop(0.6, 'rgba(185, 28, 28, 0.20)');
+            outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          } else if (isSpeaking) {
+            outerGlow.addColorStop(0, 'rgba(200, 240, 49, 0.45)');
+            outerGlow.addColorStop(0.5, 'rgba(0, 229, 255, 0.25)');
+            outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          } else if (isThinking) {
+            outerGlow.addColorStop(0, 'rgba(180, 120, 255, 0.45)');
+            outerGlow.addColorStop(0.6, 'rgba(0, 210, 255, 0.30)');
+            outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          } else if (isActive) {
+            outerGlow.addColorStop(0, 'rgba(0, 210, 255, 0.40)');
+            outerGlow.addColorStop(0.6, 'rgba(100, 150, 255, 0.15)');
+            outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          } else if (isConnecting) {
+            outerGlow.addColorStop(0, 'rgba(150, 100, 255, 0.35)');
+            outerGlow.addColorStop(0.7, 'rgba(0, 220, 255, 0.15)');
+            outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          }
         }
         ctx.fillStyle = outerGlow;
         ctx.beginPath();
@@ -2225,7 +2378,7 @@
         // Layer 1: Wave Mesh
         ctx.save();
         ctx.beginPath();
-        var points = 36;
+        var points = isIdle ? 20 : 32;
         for (var i = 0; i <= points; i++) {
           var theta = (i / points) * Math.PI * 2;
           var n1 = Math.sin(theta * 3 + t * speedMult * 1.2);
@@ -2238,23 +2391,30 @@
         }
         ctx.closePath();
 
-        var innerGrad1 = ctx.createLinearGradient(0, 0, w, h);
-        if (isError) {
-          innerGrad1.addColorStop(0, '#EF4444');
-          innerGrad1.addColorStop(0.6, '#B91C1C');
-          innerGrad1.addColorStop(1, '#450A0A');
-        } else if (isSpeaking) {
-          innerGrad1.addColorStop(0, '#C8F031');
-          innerGrad1.addColorStop(0.5, '#00E5FF');
-          innerGrad1.addColorStop(1, '#0055FF');
-        } else if (isActive) {
-          innerGrad1.addColorStop(0, '#00F5D4');
-          innerGrad1.addColorStop(0.6, '#00BBF9');
-          innerGrad1.addColorStop(1, '#3A0CA3');
+        var innerGrad1;
+        if (isIdle) {
+          if (!idleInnerGrad1) {
+            idleInnerGrad1 = ctx.createLinearGradient(0, 0, w, h);
+            idleInnerGrad1.addColorStop(0, '#00B4D8');
+            idleInnerGrad1.addColorStop(0.7, '#0077B6');
+            idleInnerGrad1.addColorStop(1, '#03045E');
+          }
+          innerGrad1 = idleInnerGrad1;
         } else {
-          innerGrad1.addColorStop(0, '#00B4D8');
-          innerGrad1.addColorStop(0.7, '#0077B6');
-          innerGrad1.addColorStop(1, '#03045E');
+          innerGrad1 = ctx.createLinearGradient(0, 0, w, h);
+          if (isError) {
+            innerGrad1.addColorStop(0, '#EF4444');
+            innerGrad1.addColorStop(0.6, '#B91C1C');
+            innerGrad1.addColorStop(1, '#450A0A');
+          } else if (isSpeaking) {
+            innerGrad1.addColorStop(0, '#C8F031');
+            innerGrad1.addColorStop(0.5, '#00E5FF');
+            innerGrad1.addColorStop(1, '#0055FF');
+          } else if (isActive) {
+            innerGrad1.addColorStop(0, '#00F5D4');
+            innerGrad1.addColorStop(0.6, '#00BBF9');
+            innerGrad1.addColorStop(1, '#3A0CA3');
+          }
         }
         ctx.fillStyle = innerGrad1;
         ctx.fill();
@@ -2275,19 +2435,30 @@
         }
         ctx.closePath();
 
-        var innerGrad2 = ctx.createRadialGradient(cx, cy, 5, cx, cy, baseRadius * 0.9);
-        if (isError) {
-          innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-          innerGrad2.addColorStop(0.4, 'rgba(239, 68, 68, 0.85)');
-          innerGrad2.addColorStop(1, 'rgba(185, 28, 28, 0.1)');
-        } else if (isSpeaking) {
-          innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-          innerGrad2.addColorStop(0.4, 'rgba(200, 240, 49, 0.85)');
-          innerGrad2.addColorStop(1, 'rgba(0, 229, 255, 0.1)');
+        var innerGrad2;
+        if (isIdle) {
+          if (!idleInnerGrad2) {
+            idleInnerGrad2 = ctx.createRadialGradient(cx, cy, 5, cx, cy, baseRadius * 0.9);
+            idleInnerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+            idleInnerGrad2.addColorStop(0.4, 'rgba(0, 245, 212, 0.7)');
+            idleInnerGrad2.addColorStop(1, 'rgba(0, 119, 182, 0.1)');
+          }
+          innerGrad2 = idleInnerGrad2;
         } else {
-          innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
-          innerGrad2.addColorStop(0.4, 'rgba(0, 245, 212, 0.7)');
-          innerGrad2.addColorStop(1, 'rgba(0, 119, 182, 0.1)');
+          innerGrad2 = ctx.createRadialGradient(cx, cy, 5, cx, cy, baseRadius * 0.9);
+          if (isError) {
+            innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+            innerGrad2.addColorStop(0.4, 'rgba(239, 68, 68, 0.85)');
+            innerGrad2.addColorStop(1, 'rgba(185, 28, 28, 0.1)');
+          } else if (isSpeaking) {
+            innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+            innerGrad2.addColorStop(0.4, 'rgba(200, 240, 49, 0.85)');
+            innerGrad2.addColorStop(1, 'rgba(0, 229, 255, 0.1)');
+          } else {
+            innerGrad2.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+            innerGrad2.addColorStop(0.4, 'rgba(0, 245, 212, 0.7)');
+            innerGrad2.addColorStop(1, 'rgba(0, 119, 182, 0.1)');
+          }
         }
         ctx.fillStyle = innerGrad2;
         ctx.fill();
@@ -2296,10 +2467,21 @@
         // Layer 3: Central Nucleus
         ctx.save();
         var nucleusRadius = 8 + (energy / 100) * 10;
-        var nucleusGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, nucleusRadius);
-        nucleusGrad.addColorStop(0, '#FFFFFF');
-        nucleusGrad.addColorStop(0.5, isError ? 'rgba(239, 68, 68, 0.8)' : isSpeaking ? 'rgba(200, 240, 49, 0.8)' : 'rgba(0, 255, 255, 0.8)');
-        nucleusGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        var nucleusGrad;
+        if (isIdle) {
+          if (!idleNucleusGrad) {
+            idleNucleusGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 8);
+            idleNucleusGrad.addColorStop(0, '#FFFFFF');
+            idleNucleusGrad.addColorStop(0.5, 'rgba(0, 255, 255, 0.8)');
+            idleNucleusGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          }
+          nucleusGrad = idleNucleusGrad;
+        } else {
+          nucleusGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, nucleusRadius);
+          nucleusGrad.addColorStop(0, '#FFFFFF');
+          nucleusGrad.addColorStop(0.5, isError ? 'rgba(239, 68, 68, 0.8)' : isSpeaking ? 'rgba(200, 240, 49, 0.8)' : 'rgba(0, 255, 255, 0.8)');
+          nucleusGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        }
         ctx.fillStyle = nucleusGrad;
         ctx.beginPath();
         ctx.arc(cx, cy, nucleusRadius, 0, Math.PI * 2);
@@ -2410,6 +2592,7 @@
     // A barge-in ends the turn from Gemini's own interrupt signal, so the server is not
     // waiting on an acknowledgement for it — drop the flag rather than sending one.
     playbackTurnOpen = false;
+    serverTurnActive = false;
     for (let i = 0; i < activeSources.length; i++) {
       try {
         activeSources[i].stop();
@@ -2432,7 +2615,7 @@
    * Covers jitter-buffer slack and the gap between one chunk ending and the next
    * arriving, so a healthy stream never trips it.
    */
-  var PLAYBACK_WATCHDOG_GRACE_MS = 1500;
+  var PLAYBACK_WATCHDOG_GRACE_MS = 800;
 
   function cancelPlaybackWatchdog() {
     if (playbackWatchdogTimer) {
@@ -2451,6 +2634,7 @@
   function settlePlayback() {
     cancelPlaybackWatchdog();
     playbackStallChecks = 0;
+    serverTurnActive = false;
 
     for (var i = 0; i < activeSources.length; i++) {
       try {
@@ -2517,7 +2701,16 @@
       armPlaybackWatchdog();
       return;
     }
-    settlePlayback();
+    if (!serverTurnActive) {
+      settlePlayback();
+    } else {
+      playbackWatchdogTimer = setTimeout(function () {
+        if (!playbackTurnOpen && activeSources.length === 0) return;
+        if (remainingPlaybackMs() <= 0) {
+          settlePlayback();
+        }
+      }, PLAYBACK_WATCHDOG_GRACE_MS);
+    }
   }
 
   /** Milliseconds of ORA audio still queued for playback. */
@@ -2562,6 +2755,197 @@
     window.location.href = dest;
   }
 
+  // ─── Shopify Storefront Cart ────────────────────────────────────────────────
+  //
+  // The shopper's real cart lives in a first-party Shopify session cookie on the store's
+  // own domain. No server token reaches it — not the merchant's Admin token, not a
+  // customer token — so the add has to be made by this script, which runs inside the
+  // storefront document and therefore sends that cookie automatically.
+
+  // Sections a theme may render for the cart. Only the ones actually present on the page
+  // are requested, because asking for a section a theme does not define fails the call.
+  var CART_SECTION_IDS = [
+    'cart-drawer',
+    'cart-icon-bubble',
+    'cart-notification',
+    'cart-live-region-text',
+  ];
+
+  function isShopifyStorefront() {
+    return Boolean(
+      (window.Shopify && window.Shopify.shop) ||
+      document.querySelector('form[action*="/cart/add"]')
+    );
+  }
+
+  function detectCartSections() {
+    var present = [];
+    for (var i = 0; i < CART_SECTION_IDS.length; i++) {
+      if (document.getElementById('shopify-section-' + CART_SECTION_IDS[i])) {
+        present.push(CART_SECTION_IDS[i]);
+      }
+    }
+    return present;
+  }
+
+  /**
+   * Repaints the theme's own cart markup from the HTML Shopify returned.
+   *
+   * Dispatching a `cart:updated` event is not enough on its own: Dawn and the other
+   * Online Store 2.0 themes publish cart changes through an internal pub/sub that no
+   * outside script can reach, and only re-render from the Section Rendering API. The
+   * events below stay as a best-effort fallback for older themes that do listen.
+   */
+  function applyCartSections(sections) {
+    if (!sections) return;
+    Object.keys(sections).forEach(function (id) {
+      try {
+        var target = document.getElementById('shopify-section-' + id);
+        if (!target) return;
+        var parsed = new DOMParser().parseFromString(sections[id], 'text/html');
+        var source = parsed.getElementById('shopify-section-' + id) || parsed.body;
+        if (source) target.innerHTML = source.innerHTML;
+      } catch (err) {
+        console.warn('[ORA Widget] Cart section refresh skipped for ' + id, err);
+      }
+    });
+  }
+
+  /**
+   * Re-renders the theme's cart markup in a second request.
+   *
+   * Asking /cart/add.js for sections makes Shopify render those Liquid sections before
+   * it answers, which put a few hundred milliseconds of theme rendering between the
+   * shopper's request and the item landing in their cart. The add is what has to be
+   * fast; the badge and drawer can catch up a moment later.
+   */
+  function refreshCartSections() {
+    var sections = detectCartSections();
+    if (!sections.length) return Promise.resolve();
+
+    return fetch('/cart?sections=' + sections.join(','), {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (res) { return res.json(); })
+      .then(applyCartSections)
+      .catch(function (err) {
+        console.warn('[ORA Widget] Cart section refresh failed:', err);
+      });
+  }
+
+  function openCartDrawer() {
+    try {
+      var drawer = document.querySelector('cart-drawer, cart-notification');
+      if (drawer && typeof drawer.open === 'function') drawer.open();
+    } catch (err) {
+      // A theme without a drawer is fine; the cart badge still updated.
+    }
+  }
+
+  /**
+   * Tells the server what the storefront cart actually did.
+   *
+   * On a Shopify store the storefront cart is the only cart that sells, so a rejected
+   * add has to be undone on ORA's side too — otherwise ORA is holding an item the store
+   * is not, which is the divergence this whole path exists to prevent.
+   */
+  function reportCartSync(action, ok, reason) {
+    if (!geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
+    try {
+      geminiWs.send(JSON.stringify({
+        type: 'cart_sync',
+        ok: ok,
+        variantId: action.variantId,
+        productId: action.product && action.product.id,
+        reason: reason || undefined,
+      }));
+    } catch (err) {
+      console.warn('[ORA Widget] Could not report cart sync:', err);
+    }
+  }
+
+  function addToShopifyCart(action) {
+    if (!action) return;
+
+    var variantId = action.variantId;
+    if (!variantId) {
+      // DOM fail-safe: if shopper is on a Shopify PDP, read the active variant id from the form
+      try {
+        var domInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (domInput && domInput.value) {
+          variantId = domInput.value;
+          action.variantId = variantId;
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          variantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+          action.variantId = variantId;
+        }
+      } catch (e) {}
+    }
+
+    // Both exits below used to return in silence, which is the worst of the two
+    // outcomes: ORA has already told the shopper the item is in their cart, and
+    // nothing ever contradicts it. Report the failure so the server drops the line
+    // and the agent corrects itself out loud.
+    if (!variantId) {
+      reportCartSync(action, false, 'no-variant-id');
+      return;
+    }
+
+    if (!isShopifyStorefront()) {
+      reportCartSync(action, false, 'not-a-shopify-storefront');
+      return;
+    }
+
+    var quantity = action.quantity || 1;
+    var name = (action.product && action.product.name) || 'Item';
+
+    // 1. Optimistic instant visual feedback
+    showToastNotification('Added to cart: ' + name);
+
+    // 2. Add to Shopify cart in background
+    fetch('/cart/add.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ items: [{ id: action.variantId, quantity: quantity }] }),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) {
+            throw new Error(data.description || data.message || 'Add to cart failed');
+          }
+          return data;
+        });
+      })
+      .then(function (data) {
+        // Dispatch theme events immediately
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        document.dispatchEvent(
+          new CustomEvent('ora:cart:added', {
+            detail: { variantId: action.variantId, quantity: quantity, product: action.product },
+          })
+        );
+
+        // Defer section re-rendering so Liquid DOM parsing never blocks audio playback
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(function () {
+            refreshCartSections().then(openCartDrawer);
+          });
+        } else {
+          setTimeout(function () {
+            refreshCartSections().then(openCartDrawer);
+          }, 60);
+        }
+      })
+      .catch(function (err) {
+        console.error('[ORA Widget] Failed to add item to Shopify cart:', err);
+        showToastNotification('Could not add to cart. Please try the product page.');
+        reportCartSync(action, false, err && err.message);
+      });
+  }
+
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
   function playIncomingPcm(base64Pcm) {
     try {
@@ -2570,7 +2954,11 @@
 
       if (!playbackContext) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        playbackContext = new AudioCtx({ sampleRate: 24000 });
+        try {
+          playbackContext = new AudioCtx({ sampleRate: 24000 });
+        } catch (e) {
+          playbackContext = new AudioCtx();
+        }
       }
       const ctx = playbackContext;
       if (ctx.state === 'suspended') ctx.resume();
@@ -2593,9 +2981,10 @@
       source.connect(ctx.destination);
 
       const now = ctx.currentTime;
-      // If the queue has fallen behind or starting fresh, add 80ms jitter buffer
+      // If starting fresh (no active playback), add a smooth 100ms jitter buffer to absorb network variance.
+      // If continuing an active stream with a micro-gap, smoothly append at now + 0.005s (5ms) instead of inserting an artificial silence gap.
       if (audioQueueTime < now) {
-        audioQueueTime = now + 0.08;
+        audioQueueTime = activeSources.length === 0 ? now + 0.10 : now + 0.005;
       }
       source.start(audioQueueTime);
       audioQueueTime += buffer.duration;
@@ -2603,6 +2992,7 @@
       activeSources.push(source);
       voiceState = 'ora-speaking';
       playbackTurnOpen = true;
+      serverTurnActive = true;
       armPlaybackWatchdog();
 
       // Energy level for visualizer
@@ -2613,7 +3003,8 @@
 
       source.onended = function () {
         activeSources = activeSources.filter((s) => s !== source);
-        if (activeSources.length === 0 && ctx.currentTime >= audioQueueTime - 0.05) {
+        // Only settle if the server has finished sending chunks for this turn
+        if (!serverTurnActive && activeSources.length === 0) {
           settlePlayback();
         }
       };
@@ -2752,6 +3143,14 @@
 
   // ─── SpeechRecognition (Instant Local User Transcript Pill) ────────────────
   function startSpeechRecognition() {
+    // Mobile / iOS Safari contention fix:
+    // On iOS Safari, webkitSpeechRecognition competes with getUserMedia Web Audio for hardware
+    // CoreAudio access, causing audio dropped samples, high latency, and battery drain.
+    // In addition, Apple's dictation waits 2-3 seconds after silence before emitting isFinal.
+    // Gemini Multimodal Live API already transcribes user microphone audio on the server in real-time,
+    // so mobile browsers skip client-side speech recognition entirely.
+    if (isMobileDevice) return;
+
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) return;
     try {
@@ -2814,8 +3213,14 @@
 
   async function startMicCapture() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
-    if (audioContext.state === 'suspended') await audioContext.resume();
+    if (!audioContext) {
+      try {
+        audioContext = new AudioCtx({ sampleRate: 16000 });
+      } catch (e) {
+        audioContext = new AudioCtx();
+      }
+    }
+    if (audioContext.state === 'suspended') await audioContext.resume().catch(() => {});
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -2863,16 +3268,14 @@
     function handleMicChunk(pcm16Buffer, rms) {
       if (voiceState === 'idle' || !geminiWs || geminiWs.readyState !== WebSocket.OPEN || isMuted) return;
 
-      // ── Acoustic Echo Protection & Intentional Barge-In:
-      // While ORA is actively speaking, block residual speaker leak to prevent false
-      // self-interruptions, but permit intentional human speech (RMS > 0.038) to barge in.
+      // ── Acoustic Echo Protection:
+      // While ORA is actively speaking, gate the microphone uplink completely shut.
+      // This prevents laptop speaker sound from leaking into the microphone, which
+      // otherwise causes Gemini to hear itself, triggering false self-interruptions
+      // and audio dropouts mid-sentence.
       if (voiceState === 'ora-speaking') {
-        if (rms > Math.max(0.038, vadNoiseFloor * 2.8)) {
-          settlePlayback();
-        } else {
-          userMicLevel = 0;
-          return;
-        }
+        userMicLevel = 0;
+        return;
       }
 
       userMicLevel = Math.min(100, Math.floor(rms * 400));
@@ -2893,10 +3296,33 @@
         // Already passing audio: hold open on the lower threshold so quiet syllables
         // mid-sentence do not chop the stream.
         isSpeech = rms > closeAt;
+        // Require 3 consecutive low-energy frames before ending to prevent syllable/consonant clipping
+        if (
+          isSpeech &&
+          nowMs - vadGateOpenedAt >= VAD_PEAK_DROP_MIN_OPEN_MS &&
+          rms < vadUtterancePeak * VAD_PEAK_DROP_RATIO
+        ) {
+          vadDropStreak = (vadDropStreak || 0) + 1;
+          if (vadDropStreak >= 3) {
+            isSpeech = false;
+            vadDropStreak = 0;
+          }
+        } else {
+          vadDropStreak = 0;
+        }
       } else {
         // Shut: require a sustained onset, not a single loud chunk.
         vadOpenStreak = rms > openAt ? vadOpenStreak + 1 : 0;
         isSpeech = vadOpenStreak >= VAD_OPEN_CHUNKS;
+      }
+      if (isSpeech && !vadGateOpen) {
+        // Gate opening: start a fresh peak for this utterance.
+        vadGateOpenedAt = nowMs;
+        vadUtterancePeak = rms;
+      } else if (isSpeech) {
+        vadUtterancePeak = Math.max(vadUtterancePeak, rms);
+      } else {
+        vadUtterancePeak = 0;
       }
       vadGateOpen = isSpeech;
       if (isSpeech) vadOpenStreak = 0;
@@ -2915,6 +3341,9 @@
 
       if (isSpeech) {
         lastSpeechAt = nowMs;
+        lastSpeaker = 'user';
+        liveSpeaker = 'user';
+        isWaitingForAi = false;
         cancelIdleTimer();
         clearSessionNotice(); // the customer is speaking — drop any "are you still there?"
         // Tell the server a human is talking, whether or not anything transcribes it.
@@ -2939,6 +3368,10 @@
       if (!isSpeech && nowMs - lastSpeechAt >= VAD_HANGOVER_MS) {
         prerollFrames.push(b64);
         if (prerollFrames.length > VAD_PREROLL_FRAMES) prerollFrames.shift();
+        if (lastSpeaker === 'user' && !isWaitingForAi && voiceState === 'active') {
+          isWaitingForAi = true;
+          render();
+        }
         return;
       }
 
@@ -2959,17 +3392,89 @@
     // thread (the old createScriptProcessor path did, causing stutter under load).
     // It also emits ~128ms chunks instead of ~64ms, halving WebSocket message
     // overhead for the same audio.
+    // Inline AudioWorkletProcessor script string to create a Blob URL and bypass CORS across all origins
+    const INLINE_PCM_WORKLET_CODE = [
+      'class PCMRecorderProcessor extends AudioWorkletProcessor {',
+      '  constructor() {',
+      '    super();',
+      '    this.targetRate = 16000;',
+      '    this.bufferSize = 1024;',
+      '    this.buffer = new Float32Array(this.bufferSize);',
+      '    this.bytesWritten = 0;',
+      '    this.phase = 0;',
+      '    this.acc = 0;',
+      '    this.accCount = 0;',
+      '  }',
+      '  process(inputs) {',
+      '    const input = inputs[0];',
+      '    if (!input || !input[0]) return true;',
+      '    const channel = input[0];',
+      '    const ratio = sampleRate / this.targetRate;',
+      '    if (ratio <= 1.0001) {',
+      '      for (let i = 0; i < channel.length; i++) this.push(channel[i]);',
+      '    } else {',
+      '      const step = 1 / ratio;',
+      '      for (let i = 0; i < channel.length; i++) {',
+      '        this.acc += channel[i];',
+      '        this.accCount++;',
+      '        this.phase += step;',
+      '        while (this.phase >= 1) {',
+      '          this.phase -= 1;',
+      '          this.push(this.accCount > 0 ? this.acc / this.accCount : 0);',
+      '          this.acc = 0;',
+      '          this.accCount = 0;',
+      '        }',
+      '      }',
+      '    }',
+      '    return true;',
+      '  }',
+      '  push(sample) {',
+      '    this.buffer[this.bytesWritten++] = sample;',
+      '    if (this.bytesWritten >= this.bufferSize) this.flush();',
+      '  }',
+      '  flush() {',
+      '    if (this.bytesWritten === 0) return;',
+      '    const count = this.bytesWritten;',
+      '    const int16Array = new Int16Array(count);',
+      '    let sumSquares = 0;',
+      '    for (let i = 0; i < count; i++) {',
+      '      const s = Math.max(-1, Math.min(1, this.buffer[i]));',
+      '      sumSquares += s * s;',
+      '      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff;',
+      '    }',
+      '    this.port.postMessage(',
+      '      { pcm16Data: int16Array.buffer, rms: Math.sqrt(sumSquares / count) },',
+      '      [int16Array.buffer]',
+      '    );',
+      '    this.bytesWritten = 0;',
+      '  }',
+      '}',
+      'registerProcessor("pcm-recorder-processor", PCMRecorderProcessor);'
+    ].join('\n');
+
     let worklet = null;
     if (audioContext.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+      let blobUrl = null;
       try {
-        await audioContext.audioWorklet.addModule(resolveOraAssetUrl('/audio-processors/pcm-recorder-worklet.js'));
+        try {
+          const blob = new Blob([INLINE_PCM_WORKLET_CODE], { type: 'application/javascript' });
+          blobUrl = URL.createObjectURL(blob);
+          await audioContext.audioWorklet.addModule(blobUrl);
+        } catch (blobErr) {
+          await audioContext.audioWorklet.addModule(resolveOraAssetUrl('/audio-processors/pcm-recorder-worklet.js'));
+        } finally {
+          if (blobUrl) {
+            setTimeout(function () {
+              try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+            }, 10000);
+          }
+        }
         worklet = new AudioWorkletNode(audioContext, 'pcm-recorder-processor');
         worklet.port.onmessage = function (event) {
           const d = event.data;
           if (d && d.pcm16Data) handleMicChunk(d.pcm16Data, d.rms || 0);
         };
       } catch (e) {
-        // Falls through to the ScriptProcessor path below.
         console.warn('[ORA Widget] AudioWorklet unavailable, falling back to ScriptProcessor:', e && e.message);
         worklet = null;
       }
@@ -2980,20 +3485,39 @@
       source.connect(worklet);
       worklet.connect(muteNode);
     } else {
-      const processor = audioContext.createScriptProcessor(1024, 1, 1);
+      // ── Fallback ScriptProcessor with 64ms (1024-sample) Frame Accumulator ──
+      // On mobile Safari (where AudioWorklet may fail or blob URLs are restricted),
+      // ScriptProcessor emits raw chunks at native hardware rate (48kHz, 1024 samples = 21ms).
+      // Emitting 21ms unbuffered chunks floods the mobile WebSocket with 48 msgs/sec, saturating
+      // mobile TCP queues and distorting the VAD noise floor 3.8x faster.
+      // We accumulate downsampled 16kHz audio into exactly 1024 samples (64ms) before sending.
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
       processorNode = processor;
       source.connect(processor);
       processor.connect(muteNode);
 
+      const FRAME_SAMPLES = 1024;
+      const spAccumulator = new Float32Array(FRAME_SAMPLES);
+      let spAccumulatorCount = 0;
+
       processor.onaudioprocess = function (e) {
+        if (voiceState === 'idle' || !geminiWs || geminiWs.readyState !== WebSocket.OPEN) return;
         const rawInput = e.inputBuffer.getChannelData(0);
-        const inputData = downsampleTo16k(rawInput, audioContext.sampleRate);
+        const downsampled = downsampleTo16k(rawInput, audioContext.sampleRate);
 
-        let sum = 0;
-        for (let i = 0; i < rawInput.length; i++) sum += rawInput[i] * rawInput[i];
-        const rms = Math.sqrt(sum / rawInput.length);
-
-        handleMicChunk(floatTo16BitPCM(inputData).buffer, rms);
+        for (let i = 0; i < downsampled.length; i++) {
+          spAccumulator[spAccumulatorCount++] = downsampled[i];
+          if (spAccumulatorCount >= FRAME_SAMPLES) {
+            let sum = 0;
+            for (let j = 0; j < FRAME_SAMPLES; j++) {
+              sum += spAccumulator[j] * spAccumulator[j];
+            }
+            const rms = Math.sqrt(sum / FRAME_SAMPLES);
+            const pcm16 = floatTo16BitPCM(spAccumulator);
+            handleMicChunk(pcm16.buffer, rms);
+            spAccumulatorCount = 0;
+          }
+        }
       };
     }
 
@@ -3007,10 +3531,32 @@
   async function startVoiceSession(resumeToken) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!audioContext) audioContext = new AudioCtx({ sampleRate: 16000 });
+      if (!audioContext) {
+        try {
+          audioContext = new AudioCtx({ sampleRate: 16000 });
+        } catch (e) {
+          audioContext = new AudioCtx();
+        }
+      }
       if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
-      if (!playbackContext) playbackContext = new AudioCtx({ sampleRate: 24000 });
+
+      if (!playbackContext) {
+        try {
+          playbackContext = new AudioCtx({ sampleRate: 24000 });
+        } catch (e) {
+          playbackContext = new AudioCtx();
+        }
+      }
       if (playbackContext.state === 'suspended') playbackContext.resume().catch(() => {});
+
+      // Play 1 silent sample inside user gesture to reliably unlock iOS Safari Web Audio hardware pipeline
+      try {
+        const silentBuf = playbackContext.createBuffer(1, 1, 22050);
+        const silentSrc = playbackContext.createBufferSource();
+        silentSrc.buffer = silentBuf;
+        silentSrc.connect(playbackContext.destination);
+        silentSrc.start(0);
+      } catch (e) {}
     } catch (e) {}
 
     voiceState = 'connecting';
@@ -3096,7 +3642,8 @@
             currentPath: pageCtx.pathname || window.location.pathname || '/',
             title: pageCtx.title || document.title || '',
             history: [pageCtx.pathname || window.location.pathname || '/'],
-            product: pageCtx.product || null
+            product: pageCtx.product || null,
+            selectedVariantId: pageCtx.selectedVariantId || null
           }));
           if (custPayload.identified) {
             ws.send(JSON.stringify({
@@ -3131,6 +3678,22 @@
             cancelIdleTimer();
             isWaitingForAi = false;
             if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+            render();
+            return;
+          }
+
+          if (msg.type === 'user_transcript' && msg.text) {
+            cancelIdleTimer();
+            lastSpeaker = 'user';
+            liveSpeaker = 'user';
+            const cleanText = msg.text.trim();
+            if (cleanText) {
+              liveUtterance = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
+              showTranscript = true;
+            }
+            if (msg.isFinal) {
+              isWaitingForAi = true;
+            }
             render();
             return;
           }
@@ -3217,12 +3780,10 @@
           }
 
           if (msg.type === 'turn_complete') {
+            serverTurnActive = false;
             if (activeSources.length === 0) {
-              // Nothing left to play — the queue drained before the generation did, so
-              // the drain callback has already run and will not run again.
               settlePlayback();
             }
-            // ORA has said where it is going; leave once the audio has played out.
             if (pendingNavigation) runPendingNavigation(false);
             return;
           }
@@ -3254,6 +3815,10 @@
               isDetailsConfirmed = false;
               renderConfirmCard(changedField || true);
               armCardAutoDismiss(8000);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_add_to_cart') {
+              addToShopifyCart(msg.action);
             }
 
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {

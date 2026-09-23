@@ -533,25 +533,27 @@ export const demoDashboardStats: DashboardStatsResponse = {
 
 export const demoPlans: Plan[] = [
   {
-    _id: 'demo-plan-free',
-    planId: 'free',
-    name: 'Free Tier',
-    priceUsdCents: 0,
-    priceBdtPaisa: 0,
+    _id: 'demo-plan-starter',
+    planId: 'starter',
+    name: 'Starter Plan',
+    priceUsdCents: 2900,
+    priceBdtPaisa: 320000,
     billingInterval: 'monthly',
-    limits: { conversationMinutes: 100, ordersPerMonth: 20, connectedStores: 1, seats: 1 },
-    features: ['100 conversation minutes', '20 Tier 1 orders', '1 store connector', 'Basic RAG search'],
+    trialDays: 14,
+    limits: { voiceMinutes: 500, documentLimit: 15, websiteLimit: 1, conversationMinutes: 500, ordersPerMonth: 0, connectedStores: 1, seats: 1 },
+    features: ['500 voice minutes / month', 'Up to 15 knowledge documents', '1 connected website domain', 'Standard voice agent engine', '14-day free trial'],
     isActive: true,
   },
   {
     _id: 'demo-plan-growth',
     planId: 'growth',
     name: 'Growth Plan',
-    priceUsdCents: 4900,
-    priceBdtPaisa: 550000,
+    priceUsdCents: 7900,
+    priceBdtPaisa: 850000,
     billingInterval: 'monthly',
-    limits: { conversationMinutes: 2000, ordersPerMonth: 500, connectedStores: 3, seats: 5 },
-    features: ['2,000 conversation minutes', '500 Tier 1 orders', '3 store connectors', 'Full vector search'],
+    trialDays: 14,
+    limits: { voiceMinutes: 2500, documentLimit: 50, websiteLimit: 3, conversationMinutes: 2500, ordersPerMonth: 0, connectedStores: 3, seats: 5 },
+    features: ['2,500 voice minutes / month', 'Up to 50 knowledge documents', '3 connected website domains', 'Priority vector search', '14-day free trial'],
     isActive: true,
   },
   {
@@ -561,8 +563,9 @@ export const demoPlans: Plan[] = [
     priceUsdCents: 19900,
     priceBdtPaisa: 2200000,
     billingInterval: 'monthly',
-    limits: { conversationMinutes: 100000, ordersPerMonth: 100000, connectedStores: 99, seats: 99 },
-    features: ['Unlimited conversation minutes', 'Unlimited orders', 'Unlimited store connectors', 'Priority support'],
+    trialDays: 14,
+    limits: { voiceMinutes: 10000, documentLimit: 200, websiteLimit: 10, conversationMinutes: 10000, ordersPerMonth: 0, connectedStores: 10, seats: 99 },
+    features: ['10,000 voice minutes / month', 'Up to 200 knowledge documents', '10 connected website domains', 'Dedicated support', 'Customizable quota on request', '14-day free trial'],
     isActive: true,
   },
 ];
@@ -581,7 +584,7 @@ export const demoSubscription: SubscriptionDetailsResponse = {
     updatedAt: daysAgo(0),
   },
   plan: demoPlans[1],
-  usage: { conversationMinutes: 47, ordersPerMonth: 14 },
+  usage: { voiceMinutes: 340, documentCount: 12, websiteCount: 1, conversationMinutes: 340, ordersPerMonth: 0 },
 };
 
 export const demoInvoices: Invoice[] = [

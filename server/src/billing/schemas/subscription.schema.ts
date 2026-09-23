@@ -24,6 +24,17 @@ export enum SubscriptionStatus {
   CANCELED = 'canceled',
 }
 
+export class CustomPlanLimits {
+  @Prop({ type: Number })
+  voiceMinutes?: number;
+
+  @Prop({ type: Number })
+  documentLimit?: number;
+
+  @Prop({ type: Number })
+  websiteLimit?: number;
+}
+
 @Schema({ timestamps: true })
 export class Subscription {
   @Prop({
@@ -64,26 +75,30 @@ export class Subscription {
   @Prop({ default: false })
   cancelAtPeriodEnd: boolean;
 
+  /** Free-text note an admin attaches when editing a subscription by hand. */
+  @Prop({ default: '' })
+  adminNotes: string;
+
+  /**
+   * Records whether this subscription/account has ever consumed a 14-day free trial.
+   * Strictly enforces that switching tiers does not reactivate a trial.
+   */
+  @Prop({ default: false })
+  hasUsedTrial?: boolean;
+
+  /**
+   * Custom limit overrides for Scale / Enterprise tier contracts.
+   * If defined, these take priority over Plan.limits.
+   */
   @Prop({
     type: {
-      couponId: { type: MongooseSchema.Types.ObjectId, ref: 'Coupon' },
-      code: { type: String, uppercase: true, trim: true },
-      discountType: { type: String },
-      discountAmount: { type: Number },
-      appliedAt: { type: Date, default: Date.now },
+      voiceMinutes: { type: Number },
+      documentLimit: { type: Number },
+      websiteLimit: { type: Number },
     },
-    default: null,
+    default: undefined,
   })
-  appliedCoupon?: {
-    couponId?: MongooseSchema.Types.ObjectId;
-    code: string;
-    discountType: string;
-    discountAmount: number;
-    appliedAt: Date;
-  } | null;
-
-  @Prop({ trim: true, default: '' })
-  adminNotes?: string;
+  customLimits?: CustomPlanLimits;
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);

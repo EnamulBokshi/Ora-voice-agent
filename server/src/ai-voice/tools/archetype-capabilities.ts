@@ -44,6 +44,8 @@ export const COMMERCE_TOOL_NAMES = [
   'find_products',
   'get_product_details',
   'add_to_cart',
+  'get_cart',
+  'update_cart_quantity',
   'navigate_to_page',
   'search_knowledge_base',
   'get_store_policy',
@@ -54,6 +56,7 @@ export const COMMERCE_TOOL_NAMES = [
 /** ORA's own sales and onboarding agent. */
 export const PLATFORM_TOOL_NAMES = [
   'get_pricing_plans',
+  'apply_coupon',
   'capture_sales_lead',
   'get_integration_guide',
   'navigate_to_page',
@@ -138,6 +141,8 @@ export const TOOL_USAGE_HINTS: Record<string, string> = {
     '   - navigate_to_page: When the visitor asks to be taken to a page that exists on this site. Always say one short sentence naming where you are taking them first ("Taking you to our contact page now!") — the visitor is listening, so never move the page in silence.',
   get_pricing_plans:
     '   - get_pricing_plans: When the visitor asks about plans, pricing, or what a tier includes.',
+  apply_coupon:
+    '   - apply_coupon: When the visitor gives you a coupon, promo, or discount code to use on their subscription. Never invent a code.',
   get_integration_guide:
     '   - get_integration_guide: When the visitor asks how to install or integrate ORA.',
   update_agent_directives:

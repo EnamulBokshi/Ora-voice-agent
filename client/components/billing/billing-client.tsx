@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
-import { Loader2, CreditCard } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Loader2, Receipt } from 'lucide-react';
 import { getSubscriptionApi } from '@/services/billing-service';
 import { getInvoicesApi } from '@/services/invoices-service';
 import { demoSubscription, demoInvoices } from '@/lib/demo-data';
@@ -11,8 +12,12 @@ import { Invoice } from '@/types/invoices';
 import { CurrentPlanCard } from './current-plan-card';
 import { PlanComparisonGrid } from './plan-comparison-grid';
 import { InvoiceHistory } from './invoice-history';
+import { TrialReminderBanner } from './trial-reminder-banner';
 
 function BillingClientContent() {
+  const searchParams = useSearchParams();
+  const isExpiredParam = searchParams.get('expired') === 'true';
+
   const [subscription, setSubscription] = useState<SubscriptionDetailsResponse | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,11 +27,6 @@ function BillingClientContent() {
     setLoading(true);
     setError(null);
     try {
-      // allSettled, not Promise.all with inline .catch(() => null): swallowing the
-      // rejection there meant setError was only ever called with null, which made the
-      // `if (error)` branch below dead code. The page then rendered "Free Tier" and
-      // zero usage whenever the subscription call failed — factually wrong about the
-      // merchant's money, with no indication anything had gone wrong.
       const [subRes, invRes] = await Promise.allSettled([
         getSubscriptionApi(),
         getInvoicesApi({ page: 1, limit: 20 }),
@@ -61,7 +61,7 @@ function BillingClientContent() {
       <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading billing…</span>
+          <span className="text-sm font-medium">Loading plans & billing…</span>
         </div>
       </div>
     );
@@ -71,13 +71,16 @@ function BillingClientContent() {
     plan: null,
     subscription: null,
     usage: {
+      voiceMinutes: 0,
+      documentCount: 0,
+      websiteCount: 1,
       conversationMinutes: 0,
       ordersPerMonth: 0,
     },
+    hasUsedTrial: false,
+    isTrialing: false,
   };
 
-  // Shown above the content rather than replacing it: a stale plan with a visible
-  // warning is more useful to a merchant than a blank screen.
   const errorBanner = error ? (
     <div className="flex items-start justify-between gap-4 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3">
       <p className="text-[12.5px] text-foreground">{error}</p>
@@ -97,27 +100,41 @@ function BillingClientContent() {
 
         {errorBanner}
 
-        {/* ── Page Header: Title and Icon in one row, concise subheading ── */}
+        {/* ── Trial Reminder & Expiration Warning Banner ── */}
+        <TrialReminderBanner
+          subscription={effectiveSubscription}
+          onSubscribed={load}
+          isExpiredParam={isExpiredParam}
+        />
+
+        {/* ── Editorial Header (Matching ORA Agent & Setup pages) ── */}
         <div className="border-b border-border/40 pb-5">
-          <div className="flex items-center gap-2.5 mb-1">
+          {/* <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
-              <CreditCard size={15} className="text-foreground" />
+              <Receipt size={14} className="text-foreground" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              Billing
-            </h1>
-          </div>
-          <p className="text-xs sm:text-[13px] text-muted-foreground">
-            Manage your plan, quotas, and invoices.
-          </p>
+          </div> */}
+
+          <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
+            Plans & Billing
+          </h1>
+
+          {/* <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
+            Manage your active subscription tier, track trial and usage quotas, and access payment receipts.
+          </p> */}
         </div>
 
         {/* ── Functional Cards ── */}
         <CurrentPlanCard subscription={effectiveSubscription} onReload={load} />
+
         <PlanComparisonGrid
           currentPlanId={effectiveSubscription.plan?.planId ?? null}
           onSubscribed={load}
+          hasUsedTrial={effectiveSubscription.hasUsedTrial}
+          isTrialing={effectiveSubscription.subscription?.status === 'trialing'}
+          trialDaysRemaining={effectiveSubscription.trialDaysRemaining}
         />
+
         <InvoiceHistory invoices={invoices} onResent={load} />
 
       </div>
@@ -127,7 +144,7 @@ function BillingClientContent() {
 
 export function BillingClient() {
   return (
-    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Billing…</div>}>
+    <Suspense fallback={<div className="p-8 text-xs text-muted-foreground">Loading Plans & Billing…</div>}>
       <BillingClientContent />
     </Suspense>
   );

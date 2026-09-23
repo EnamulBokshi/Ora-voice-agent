@@ -26,34 +26,89 @@ export const ORA_TOOL_DECLARATIONS = [
   },
   {
     name: 'get_product_details',
-    description: 'Retrieve full details, pricing, images, and description for a specific product ID.',
+    description: 'Retrieve full details, pricing, images, and description for a specific product by ID, handle, or name.',
     parameters: {
       type: 'OBJECT',
       properties: {
         productId: {
           type: 'STRING',
-          description: 'The unique MongoDB product ID.',
+          description: 'The product ID, Shopify numeric ID, product handle / slug (e.g. "apex-minimalist-bomber-jacket"), or "current" for the current page item.',
+        },
+        productName: {
+          type: 'STRING',
+          description: 'Optional product title or name if productId is not known.',
         },
       },
-      required: ['productId'],
     },
   },
   {
     name: 'add_to_cart',
-    description: 'Add a specified product and quantity to the customer session shopping cart.',
+    description:
+      'Add a specified product and quantity to the customer shopping cart. Can be specified by productId, handle, or productName. If the customer mentions an option (size, color, style), pass it in variantOption to add it immediately.',
     parameters: {
       type: 'OBJECT',
       properties: {
         productId: {
           type: 'STRING',
-          description: 'The product ID to add.',
+          description: 'The product ID, Shopify numeric ID, product handle / slug (e.g. "apex-minimalist-bomber-jacket"), or "current" to add the item from the current product page.',
+        },
+        productName: {
+          type: 'STRING',
+          description: 'Optional product name if referring to an item by name (e.g. "Apex Minimalist Bomber Jacket").',
         },
         quantity: {
           type: 'NUMBER',
-          description: 'Number of items to add.',
+          description: 'Number of items to add (default 1).',
+        },
+        variantOption: {
+          type: 'STRING',
+          description:
+            'Optional specific option name, size, color, or style spoken by customer (e.g. "Medium", "Matte Black", "Medium / Matte Black").',
+        },
+        variantId: {
+          type: 'STRING',
+          description:
+            'Optional variant ID if already known. Omit if customer specified an option name in variantOption.',
         },
       },
-      required: ['productId'],
+    },
+  },
+  {
+    name: 'get_cart',
+    description:
+      'Retrieve all items, quantities, unit prices, line item totals, and grand total currently in the customer’s shopping cart. Call this whenever the customer asks what is in their cart, asks for cart totals, or asks to review their order.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
+    },
+  },
+  {
+    name: 'update_cart_quantity',
+    description:
+      'Update the quantity of an item in the customer’s shopping cart, or remove it completely. Use this when the customer asks to decrease, increase, change quantity, or remove/delete an item.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        productName: {
+          type: 'STRING',
+          description:
+            'The name or title of the product to update (e.g. "Botanical Restorative Facial Serum", "Cyber-Shades").',
+        },
+        variantId: {
+          type: 'STRING',
+          description: 'Optional variant ID of the item if already known.',
+        },
+        quantity: {
+          type: 'NUMBER',
+          description:
+            'The target quantity (set to 0 to remove the item from cart). If the user says "decrease by 1" and current quantity is 2, pass quantity: 1 or use delta.',
+        },
+        delta: {
+          type: 'NUMBER',
+          description:
+            'Optional relative quantity change (e.g. -1 to decrease by one, +1 to increase by one).',
+        },
+      },
     },
   },
   {
@@ -136,6 +191,27 @@ export const ORA_TOOL_DECLARATIONS = [
           description: 'Optional currency preference ("USD" or "BDT").',
         },
       },
+    },
+  },
+  {
+    name: 'apply_coupon',
+    description:
+      'Apply a coupon, promo, or discount code the visitor already has to their ORA subscription checkout. Only ever passes a code the visitor said out loud or one published by ORA — it can never create, invent, or generate a code, and it does not decide the discount: the server prices it.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        couponCode: {
+          type: 'STRING',
+          description:
+            'The coupon code exactly as the visitor gave it (e.g. "LAUNCH20", "SAVE10").',
+        },
+        planId: {
+          type: 'STRING',
+          description:
+            'Optional plan the visitor is buying ("starter", "growth", "scale"). Defaults to the plan they are viewing.',
+        },
+      },
+      required: ['couponCode'],
     },
   },
   {

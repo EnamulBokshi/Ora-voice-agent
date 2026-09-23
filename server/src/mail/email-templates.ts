@@ -68,6 +68,28 @@ export interface CongratulationsEmailData {
   dashboardUrl: string;
 }
 
+/** A message a platform admin writes by hand to one merchant. */
+export interface AdminOutreachData {
+  recipientName: string;
+  heading: string;
+  message: string;
+  ctaUrl?: string;
+  ctaLabel?: string;
+  senderName: string;
+}
+
+/** A promotional message sent to one or many merchants. */
+export interface PromotionalEmailData {
+  recipientName: string;
+  heading: string;
+  message: string;
+  couponCode?: string | null;
+  couponDetail?: string | null;
+  ctaUrl?: string | null;
+  ctaLabel?: string;
+  unsubscribeUrl: string;
+}
+
 export interface SecurityAlertData {
   recipientName: string;
   eventName: string;
@@ -258,4 +280,46 @@ export function renderSecurityAlertTemplate(data: SecurityAlertData): string {
     title: `Security Alert: ${data.eventName}`,
     preheader: `Security notification for your ORA account: ${data.eventName}.`,
   });
+}
+
+/**
+ * 8. ADMIN OUTREACH (EJS Render)
+ *
+ * The body is written by an admin, so it is interpolated with `<%= %>` and rendered
+ * inside a white-space-preserving block: their line breaks survive, their text is
+ * escaped, and no markup they paste can reshape the email.
+ */
+export function renderAdminOutreachTemplate(data: AdminOutreachData): string {
+  return renderEjsTemplate(
+    'admin-outreach',
+    { ctaUrl: '', ctaLabel: 'Open ORA', ...data },
+    {
+      title: `${data.heading} — ORA`,
+      preheader: data.message.slice(0, 120),
+    },
+  );
+}
+
+/**
+ * 9. PROMOTIONAL / CAMPAIGN EMAIL (EJS Render)
+ *
+ * The admin's copy is escaped and rendered in a pre-wrap block, so their line breaks
+ * survive and nothing they paste can restyle the message. The unsubscribe link is
+ * not optional: this template is only ever used for marketing.
+ */
+export function renderPromotionalTemplate(data: PromotionalEmailData): string {
+  return renderEjsTemplate(
+    'promotional',
+    {
+      couponCode: '',
+      couponDetail: '',
+      ctaUrl: '',
+      ctaLabel: 'Open ORA',
+      ...data,
+    },
+    {
+      title: `${data.heading} — ORA`,
+      preheader: data.message.slice(0, 120),
+    },
+  );
 }
