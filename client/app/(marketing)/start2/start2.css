@@ -4767,235 +4767,93 @@
 }
 
 /* =============================================================================
-   INTEGRATIONS — port of ora-integrations.html
+   CONNECTS TO WHAT YOU ALREADY RUN — port of ora-integrations.html
    =============================================================================
-   Node travel, the parabolic arc, the centre-slot emphasis and the 300ms
-   cross-fade are the design's, unchanged. Colour and type are this project's:
-   start2's light ground, Space Grotesk headings per globals.css, Inter body,
-   JetBrains Mono for the tag.
+   Centred serif heading, one panel split into an arc stage and a quote area.
+   Node travel, the parabolic arc, the lit centre slot, far slots collapsing to
+   dots and the 300ms cross-fade are the design's. Nodes carry real platform
+   marks instead of initials. Colours are the page's --s2-* tokens; the dark
+   values below reproduce the design's near-black panel.
    ============================================================================= */
 
-.start2-landing .itg-section {
-  padding: clamp(4rem, 8vw, 6rem) 0;
-  background: var(--s2-bg);
+.start2-landing .s2-itg-section {
+  --s2-itg-bg: var(--s2-bg-subtle);
+  --s2-itg-stage: var(--s2-card);
+  --s2-itg-quote-bg: var(--s2-card-subtle);
+  --s2-itg-border: var(--s2-border);
+  --s2-itg-node: var(--s2-card);
+  --s2-itg-mark: var(--s2-text-secondary);
+  --s2-itg-dot: var(--s2-text-muted);
+  --s2-itg-line: #8FA61F;
+  --s2-itg-accent: #6B7F12;
+  --s2-itg-ring: rgba(143, 166, 31, 0.7);
+  --s2-itg-glow: rgba(143, 166, 31, 0.18);
+
+  padding: clamp(4.5rem, 9vw, 7rem) 0;
+  background: var(--s2-itg-bg);
+  border-top: 1px solid var(--s2-itg-border);
 }
 
-.start2-landing .itg-head { max-width: 46rem; margin: 0 auto; text-align: center; }
-
-.start2-landing .itg-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(32px, 4.2vw, 46px);
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-  color: var(--s2-text-primary);
-  margin: 0 auto;
-  max-width: 18ch;
+.dark .start2-landing .s2-itg-section,
+[data-theme="dark"] .start2-landing .s2-itg-section {
+  --s2-itg-bg: #0E0E0F;
+  --s2-itg-stage: #171718;
+  --s2-itg-quote-bg: #131314;
+  --s2-itg-border: #262628;
+  --s2-itg-node: #111112;
+  --s2-itg-mark: #B4B4B8;
+  --s2-itg-dot: #8A8A8E;
+  --s2-itg-line: #C8F031;
+  --s2-itg-accent: #D8F25A;
+  --s2-itg-ring: rgba(200, 240, 49, 0.8);
+  --s2-itg-glow: rgba(200, 240, 49, 0.28);
 }
 
-.start2-landing .itg-sub {
-  margin: 16px auto 0;
-  color: var(--s2-text-secondary);
-  max-width: 40ch;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.start2-landing .itg-panel {
-  margin: 44px auto 0;
-  max-width: 900px;
-  border: 1px solid var(--s2-border);
-  border-radius: 6px;
-  background: var(--s2-card);
-  overflow: hidden;
-}
-
-.start2-landing .itg-stage {
-  position: relative;
-  height: 210px;
-  background: var(--s2-card-subtle);
-  border-bottom: 1px solid var(--s2-border-subtle);
-}
-
-.start2-landing .itg-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-
-/* The node: travel, size and emphasis all animate on the design's curve. */
-.start2-landing .itg-nd {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 1px solid var(--s2-border);
-  background: var(--s2-card);
-  color: var(--s2-text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 0;
-  transition:
-    transform .85s cubic-bezier(.3, .7, .3, 1),
-    width .85s cubic-bezier(.3, .7, .3, 1),
-    height .85s cubic-bezier(.3, .7, .3, 1),
-    opacity .85s ease,
-    border-color .85s,
-    color .85s,
-    background .85s,
-    box-shadow .85s;
-}
-
-.start2-landing .itg-nd:hover { border-color: var(--s2-text-muted); }
-
-.start2-landing .itg-nd:focus-visible {
-  outline: 2px solid var(--op-accent-ink, #4E5C12);
-  outline-offset: 3px;
-}
-
-.start2-landing .itg-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 54%;
-  height: 54%;
-  color: var(--s2-text-muted);
-  transition: color .7s ease, opacity .7s ease;
-}
-
-.start2-landing .itg-mark svg { width: 100%; height: 100%; display: block; }
-
-.start2-landing .itg-initials { display: none; }
-
-/* Centre slot: full colour, lit ring, larger type. */
-.start2-landing .itg-nd.mid {
-  border-color: rgba(200, 240, 49, 0.75);
-  background: rgba(200, 240, 49, 0.10);
-  box-shadow: 0 0 0 7px rgba(200, 240, 49, 0.06), 0 0 26px rgba(200, 240, 49, 0.18);
-  cursor: default;
-}
-
-.start2-landing .itg-nd.mid .itg-mark { color: var(--s2-text-primary); }
-
-/* Far slots collapse to a dot, as in the design. */
-.start2-landing .itg-nd.dim {
-  border-color: transparent;
-  background: var(--s2-text-muted);
-}
-
-.start2-landing .itg-nd.dim .itg-mark { opacity: 0; }
-
-.start2-landing .itg-plabel {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .07em;
-  color: var(--op-accent-ink, #4E5C12);
-  white-space: nowrap;
-}
-
-.start2-landing .itg-quote {
-  padding: 34px 44px 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
+/* ── Heading ───────────────────────────────────────────────────────────────── */
+.start2-landing .s2-itg-head {
   text-align: center;
-}
-
-@media (max-width: 620px) {
-  .start2-landing .itg-quote { padding: 26px 22px 24px; }
-  .start2-landing .itg-stage { height: 178px; }
-}
-
-.start2-landing .itg-tag {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .06em;
-  color: var(--s2-text-muted);
-}
-
-/* The design set this in Newsreader; this project has no serif in use, so it
-   follows globals.css like every other heading-weight line. */
-.start2-landing .itg-line {
-  font-family: var(--font-sans);
-  font-weight: 500;
-  font-size: clamp(18px, 2.2vw, 23px);
-  line-height: 1.46;
-  letter-spacing: -0.015em;
-  text-wrap: pretty;
-  max-width: 44ch;
-  color: var(--s2-text-primary);
-  margin: 0;
-}
-
-.start2-landing .itg-fade { transition: opacity .3s ease, transform .3s ease; }
-.start2-landing .itg-fade.out { opacity: 0; transform: translateY(5px); }
-
-@media (prefers-reduced-motion: reduce) {
-  .start2-landing .itg-nd,
-  .start2-landing .itg-fade { transition: none; }
-}
-
-/* =============================================================================
-   CONNECT, AUTOMATE, AND SCALE — redesigned on ora-integrations.html mechanics
-   =============================================================================
-   Node travel, the arc layout, the grayscale-to-colour reveal, the collapse
-   of distant nodes to plain dots, and the quote cross-fade are the source
-   design's, carried over. The card's colours are the dashboard's own
-   slate-charcoal scale from globals.css (.dark) rather than the ad-hoc blacks
-   this section used before, and text follows this project's default: Space
-   Grotesk headings, Inter body, no italics. Content (platforms, quotes,
-   authors, brand colours) is unchanged from what shipped before this pass.
-   ============================================================================= */
-
-.start2-landing .s2-cas-section {
-  padding: 6.5rem 0 7rem;
-  background: #0E0F12; /* --sidebar / --surface-lowest */
-  border-top: 1px solid #252831; /* --border */
-  position: relative;
-}
-
-.start2-landing .s2-cas-title {
-  font-family: var(--font-display);
-  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: #F3F4F6; /* --foreground */
-  margin: 0 0 0.75rem 0;
-}
-
-.start2-landing .s2-cas-sub {
-  font-family: var(--font-sans);
-  font-size: clamp(0.95rem, 1.8vw, 1.08rem);
-  color: #8B90A0; /* --muted-foreground */
-  max-width: 580px;
+  max-width: 46rem;
   margin: 0 auto;
-  line-height: 1.55;
 }
 
-.start2-landing .s2-arch-showcase-card {
-  position: relative;
-  max-width: 1040px;
-  margin: 3rem auto 0;
-  border-radius: 8px;
-  padding: clamp(2.5rem, 5vw, 3.5rem) clamp(1.5rem, 3vw, 2.5rem) 3rem;
-  background-color: #1A1C22; /* --card */
-  border: 1px solid #252831; /* --border */
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.55);
+.start2-landing .s2-itg-title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 4.8vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--s2-text-primary);
+  max-width: 10.5em;
+  margin: 0 auto;
+}
+
+.start2-landing .s2-itg-sub {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--s2-text-secondary);
+  max-width: 36ch;
+  margin: 1.5rem auto 0;
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────────── */
+.start2-landing .s2-itg-panel {
+  max-width: 1012px;
+  margin: 3.75rem auto 0;
+  border: 1px solid var(--s2-itg-border);
+  border-radius: 6px;
   overflow: hidden;
+  background: var(--s2-itg-quote-bg);
 }
 
-/* ── Stage: the arc and its nodes ─────────────────────────────────────────── */
-.start2-landing .s2-arch-viewport {
+.start2-landing .s2-itg-stage {
   position: relative;
-  width: 100%;
-  height: 220px;
-  margin-bottom: 0.75rem;
+  height: 236px;
+  background: var(--s2-itg-stage);
+  border-bottom: 1px solid var(--s2-itg-border);
 }
 
-.start2-landing .s2-arch-svg {
+.start2-landing .s2-itg-svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -5004,263 +4862,137 @@
   overflow: visible;
 }
 
-.start2-landing .s2-arch-platform-node {
+.start2-landing .s2-itg-node {
   position: absolute;
   left: 0;
   top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 1px solid #252831; /* --border */
-  background: #1A1C22; /* --card */
   padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--s2-itg-border);
+  background: var(--s2-itg-node);
+  color: var(--s2-itg-mark);
   cursor: pointer;
   transition:
     transform .85s cubic-bezier(.3, .7, .3, 1),
     width .85s cubic-bezier(.3, .7, .3, 1),
     height .85s cubic-bezier(.3, .7, .3, 1),
-    opacity .85s ease,
     border-color .85s,
     background .85s,
+    color .85s,
     box-shadow .85s;
 }
 
-.start2-landing .s2-arch-platform-node:hover { border-color: #383C4A; } /* --surface-bright */
+.start2-landing .s2-itg-node:hover { border-color: var(--s2-itg-dot); }
 
-.start2-landing .s2-arch-platform-node:focus-visible {
-  outline: 2px solid #C8F031;
+.start2-landing .s2-itg-node:focus-visible {
+  outline: 2px solid var(--s2-itg-accent);
   outline-offset: 3px;
 }
 
-/* Centre node: full colour, lit ring, larger. */
-.start2-landing .s2-arch-platform-node.mid {
-  border-color: rgba(200, 240, 49, 0.75);
-  background: rgba(200, 240, 49, 0.08);
-  box-shadow: 0 0 0 7px rgba(200, 240, 49, 0.05), 0 0 26px rgba(200, 240, 49, 0.22);
-  cursor: default;
-}
-
-/* Distant nodes collapse to a plain dot, as the source design does. */
-.start2-landing .s2-arch-platform-node.dim {
-  border-color: transparent;
-  background: #6B7180;
-  cursor: default;
-  pointer-events: none;
-}
-
-.start2-landing .s2-arch-platform-node.dim .s2-node-icon { opacity: 0; }
-
-.start2-landing .s2-node-icon {
+.start2-landing .s2-itg-mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54%;
-  height: 54%;
-  filter: grayscale(1) brightness(1.7);
-  opacity: 0.75;
-  transition: filter .7s ease, opacity .7s ease;
+  width: 50%;
+  height: 50%;
+  transition: opacity .6s ease;
 }
 
-.start2-landing .s2-node-icon svg { width: 100%; height: 100%; display: block; }
+.start2-landing .s2-itg-mark svg { width: 100%; height: 100%; display: block; }
 
-.start2-landing .s2-arch-platform-node.mid .s2-node-icon {
-  filter: none;
-  opacity: 1;
+/* Centre slot: lit ring, glow, accent mark. */
+.start2-landing .s2-itg-node.mid {
+  border-color: var(--s2-itg-ring);
+  color: var(--s2-itg-accent);
+  box-shadow: 0 0 0 6px var(--s2-itg-glow), 0 0 28px var(--s2-itg-glow);
+  cursor: default;
 }
 
-.start2-landing .s2-arch-node-label {
-  position: absolute;
-  left: 50%;
-  bottom: 4px;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .07em;
-  color: #C8F031;
-  white-space: nowrap;
+.start2-landing .s2-itg-node.mid .s2-itg-mark { width: 44%; height: 44%; }
+
+/* Far slots collapse to a plain dot. */
+.start2-landing .s2-itg-node.dim {
+  border-color: transparent;
+  background: var(--s2-itg-dot);
   pointer-events: none;
 }
 
-/* ── Quote card ────────────────────────────────────────────────────────────── */
-.start2-landing .s2-arch-tag-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 3px 12px;
-  border-radius: 9999px;
-  background: rgba(200, 240, 49, 0.08);
-  border: 1px solid rgba(200, 240, 49, 0.25);
+.start2-landing .s2-itg-node.dim .s2-itg-mark { opacity: 0; }
+
+.start2-landing .s2-itg-label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #C8F031;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  letter-spacing: .06em;
+  color: var(--s2-itg-accent);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .3s ease;
 }
 
-.start2-landing .s2-arch-tag-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #C8F031;
-  box-shadow: 0 0 6px rgba(200, 240, 49, 0.6);
-}
+.start2-landing .s2-itg-label.out { opacity: 0; }
 
-.start2-landing .s2-arch-quote-card {
-  max-width: 640px;
-  margin: 0 auto;
-  text-align: center;
+/* ── Quote ─────────────────────────────────────────────────────────────────── */
+.start2-landing .s2-itg-quote {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.25rem;
-  background: #14161B; /* one step below --card, toward --sidebar */
-  border: 1px solid #252831;
-  border-radius: 6px;
-  padding: clamp(2rem, 4vw, 2.75rem);
-  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  gap: 1rem;
+  padding: 2.6rem 2.75rem 2.4rem;
+  text-align: center;
+  transition: opacity .3s ease, transform .3s ease;
 }
 
-.start2-landing .s2-arch-quote-card.fade-out {
+.start2-landing .s2-itg-quote.out {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(5px);
 }
 
-.start2-landing .s2-arch-quote-card.fade-in {
-  opacity: 1;
-  transform: translateY(0);
+.start2-landing .s2-itg-tag {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--s2-text-muted);
 }
 
-.start2-landing .s2-arch-quote-text {
-  font-family: var(--font-sans);
-  font-style: normal;
-  font-size: clamp(0.96rem, 1.8vw, 1.1rem);
-  line-height: 1.68;
-  color: #F3F4F6; /* --foreground */
-  font-weight: 450;
+.start2-landing .s2-itg-line {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: var(--s2-text-primary);
+  max-width: 36ch;
+  text-wrap: pretty;
   margin: 0;
 }
 
-.start2-landing .s2-arch-author-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.85rem;
-  flex-wrap: wrap;
-}
-
-.start2-landing .s2-arch-author-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  color: #0E0F12;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.start2-landing .s2-itg-by {
   font-family: var(--font-sans);
-  font-size: 0.82rem;
-  font-weight: 700;
-  flex-shrink: 0;
+  font-size: 14px;
+  margin: 0.25rem 0 0;
 }
 
-.start2-landing .s2-arch-author-meta {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
+.start2-landing .s2-itg-author {
+  color: var(--s2-text-primary);
+  font-weight: 500;
 }
 
-.start2-landing .s2-arch-author-name {
-  font-family: var(--font-sans);
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #F3F4F6;
-  line-height: 1.2;
-}
+.start2-landing .s2-itg-role { color: var(--s2-text-secondary); }
 
-.start2-landing .s2-arch-author-role {
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  color: #8B90A0;
-  line-height: 1.25;
-  margin-top: 2px;
-}
-
-.start2-landing .s2-arch-author-role strong {
-  color: #C8F031;
-  font-weight: 600;
-}
-
-/* ── Controls ──────────────────────────────────────────────────────────────── */
-.start2-landing .s2-arch-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: 0.75rem;
-}
-
-.start2-landing .s2-arch-nav-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid #252831;
-  background: transparent;
-  color: #8B90A0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: border-color .15s ease, color .15s ease, background .15s ease;
-}
-
-.start2-landing .s2-arch-nav-btn:hover {
-  background: #242731; /* --surface-high */
-  color: #F3F4F6;
-}
-
-.start2-landing .s2-arch-nav-btn:focus-visible {
-  outline: 2px solid #C8F031;
-  outline-offset: 2px;
-}
-
-.start2-landing .s2-arch-dots {
-  display: flex;
-  gap: 0.3rem;
-  align-items: center;
-}
-
-.start2-landing .s2-arch-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #383C4A; /* --surface-bright */
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  padding: 0;
-}
-
-.start2-landing .s2-arch-dot.active {
-  width: 16px;
-  border-radius: 9999px;
-  background: #C8F031;
-}
-
-.start2-landing .s2-arch-dot:focus-visible {
-  outline: 2px solid #C8F031;
-  outline-offset: 2px;
+@media (max-width: 640px) {
+  .start2-landing .s2-itg-stage { height: 190px; }
+  .start2-landing .s2-itg-quote { padding: 2rem 1.25rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .start2-landing .s2-arch-platform-node,
-  .start2-landing .s2-node-icon,
-  .start2-landing .s2-arch-quote-card {
-    transition: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .start2-landing .s2-arch-viewport { height: 178px; }
-  .start2-landing .s2-arch-quote-card { padding: 1.75rem 1.25rem; }
-  .start2-landing .s2-arch-author-row { justify-content: center; }
-  .start2-landing .s2-arch-controls { margin-left: 0; width: 100%; justify-content: center; }
+  .start2-landing .s2-itg-node,
+  .start2-landing .s2-itg-mark,
+  .start2-landing .s2-itg-label,
+  .start2-landing .s2-itg-quote { transition: none; }
 }

@@ -156,20 +156,20 @@ export function Start2Verticals() {
   };
 
   return (
-    <section 
-      className="s2-stepper-section" 
-      id="verticals" 
-      role="region" 
+    <section
+      className="s2-stepper-section"
+      id="verticals"
+      role="region"
       aria-label="Tuned to your catalogue"
       style={{ '--s2-stepper-duration': `${CYCLE_DURATION_MS}ms` } as React.CSSProperties}
     >
       <div className="s2-container">
         <div className="s2-stepper-wrap">
-          
+
           {/* Header Block: Space Grotesk + Inter (No Newsreader) */}
           <div className="s2-stepper-head">
             <h2>Tuned to your catalogue.</h2>
-            <p>Six profiles, each with its own voice and inventory rules.</p>
+            {/* <p>Six profiles, each with its own voice and inventory rules.</p> */}
           </div>
 
           {/* Split Stepper Layout */}
@@ -193,9 +193,9 @@ export function Start2Verticals() {
                       }
                     }}
                   >
-                    <span 
-                      key={`${p.id}-${animKey}-${isActive}`} 
-                      className="s2-stepper-bar" 
+                    <span
+                      key={`${p.id}-${animKey}-${isActive}`}
+                      className="s2-stepper-bar"
                     />
                     {p.name}
                     <em>{p.note2}</em>

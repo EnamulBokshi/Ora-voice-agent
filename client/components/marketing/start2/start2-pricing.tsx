@@ -109,7 +109,7 @@ export function Start2Pricing() {
         <div className="s2p-head">
           <div>
             <h2 className="s2p-title">Pricing</h2>
-            <p className="s2p-sub">Three plans. All include the full agent; the difference is volume.</p>
+            {/* <p className="s2p-sub">Three plans. All include the full agent; the difference is volume.</p> */}
           </div>
           <div className="s2p-toggle" role="group" aria-label="Billing frequency">
             <button

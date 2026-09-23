@@ -116,7 +116,7 @@ export function Start2Steps() {
       <div className="s2-container">
         <div className="lch-head">
           <h2 className="lch-title">Three steps to launch.</h2>
-          <p className="lch-sub">From catalogue to live voice answers in about three minutes.</p>
+          {/* <p className="lch-sub">From catalogue to live voice answers in about three minutes.</p> */}
         </div>
 
         <div className="lch-line" ref={lineRef}>
