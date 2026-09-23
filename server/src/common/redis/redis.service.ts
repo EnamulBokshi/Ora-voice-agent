@@ -127,11 +127,8 @@ export class RedisService implements OnModuleDestroy {
    * same nonce finds nothing.
    */
   async consumeSingleUseValue(key: string): Promise<string | null> {
-    const value = await this.redisClient.get(key);
-    if (value !== null) {
-      await this.redisClient.del(key);
-    }
-    return value;
+    // GETDEL is atomic: two concurrent redemptions cannot both read the value.
+    return this.redisClient.getdel(key);
   }
 
   async revokeUserSessions(adminUserId: string): Promise<number> {

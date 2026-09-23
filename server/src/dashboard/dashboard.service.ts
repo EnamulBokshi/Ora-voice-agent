@@ -42,6 +42,8 @@ export class DashboardService {
       : (businessId as any);
 
     const query = { businessId: businessObjId };
+    // Staff test and training sessions are not the merchant's shoppers.
+    const convQuery = { ...query, isTest: { $ne: true } };
 
     const now = new Date();
     const days = period === '90d' ? 90 : period === '30d' ? 30 : 7;
@@ -73,16 +75,16 @@ export class DashboardService {
       // 2. Total orders
       this.orderModel.countDocuments(query),
       // 3. Total conversations
-      this.conversationModel.countDocuments(query),
+      this.conversationModel.countDocuments(convQuery),
       // 4. Active chat sessions
       this.conversationModel.countDocuments({
-        ...query,
+        ...convQuery,
         status: ConversationStatus.ACTIVE,
         channel: ConversationChannel.WIDGET_CHAT,
       }),
       // 5. Active voice calls
       this.conversationModel.countDocuments({
-        ...query,
+        ...convQuery,
         status: ConversationStatus.ACTIVE,
         channel: ConversationChannel.WIDGET_VOICE,
       }),
@@ -91,7 +93,7 @@ export class DashboardService {
       // 7. Recent 5 orders
       this.orderModel.find(query).sort({ createdAt: -1 }).limit(5).exec(),
       // 8. Recent 5 conversations
-      this.conversationModel.find(query).sort({ createdAt: -1 }).limit(5).exec(),
+      this.conversationModel.find(convQuery).sort({ createdAt: -1 }).limit(5).exec(),
       // 9. Total Influenced Revenue (all non-canceled orders)
       this.orderModel.aggregate([
         {
@@ -144,11 +146,13 @@ export class DashboardService {
       // 12. Current period conversations count
       this.conversationModel.countDocuments({
         businessId: businessObjId,
+        isTest: { $ne: true },
         createdAt: { $gte: lastPeriodStart, $lte: now },
       }),
       // 13. Previous period conversations count
       this.conversationModel.countDocuments({
         businessId: businessObjId,
+        isTest: { $ne: true },
         createdAt: { $gte: prevPeriodStart, $lt: lastPeriodStart },
       }),
       // 14. Daily revenue in last 28 days for timeseries chart

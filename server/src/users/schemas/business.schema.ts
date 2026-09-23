@@ -12,6 +12,13 @@ export class Business {
   @Prop({ trim: true })
   domain?: string;
 
+  /**
+   * The contact address the store publishes to its shoppers. ORA gives this out
+   * when asked how to reach the store, never the owner's login email.
+   */
+  @Prop({ trim: true, lowercase: true })
+  supportEmail?: string;
+
   /** Normalized merchant website domain (e.g. "boutique.com") for anti-abuse tracking */
   @Prop({ trim: true, lowercase: true, index: true })
   normalizedDomain?: string;

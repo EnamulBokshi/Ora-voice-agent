@@ -9,15 +9,35 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BootstrapVoiceSessionDto } from './dto/voice-session.dto';
+import { BootstrapVoiceSessionDto, IssueVoiceTicketDto } from './dto/voice-session.dto';
 import { BootstrapRateLimitGuard } from './guards/bootstrap-rate-limit.guard';
 import { normalizeGeminiVoice } from './gemini-voice.service';
+import { VoiceTicketService } from './voice-ticket.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { JwtPayloadUser } from '../common/decorators/current-user.decorator';
 
 @Controller('voice')
 export class VoiceSessionController {
   private readonly logger = new Logger(VoiceSessionController.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly voiceTicketService: VoiceTicketService,
+  ) {}
+
+  /**
+   * POST /api/v1/voice/ticket
+   *
+   * Issues the single-use ticket a dashboard user passes to /ws/voice instead
+   * of their access token. See VoiceTicketService.
+   */
+  @Post('ticket')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async issueTicket(@CurrentUser() user: JwtPayloadUser, @Body() dto: IssueVoiceTicketDto) {
+    return this.voiceTicketService.issue(user, dto.mode);
+  }
 
   /**
    * POST /api/v1/voice/session/bootstrap

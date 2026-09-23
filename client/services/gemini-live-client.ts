@@ -21,8 +21,11 @@ export interface LiveClientOptions {
   publishableKey: string;
   sessionId: string;
   apiBaseUrl?: string;
-  authToken?: string;
-  sessionMode?: 'storefront' | 'training';
+  /**
+   * Single-use ticket from getVoiceTicketApi. It alone decides whether the
+   * session is a staff test, owner training, or a plain shopper.
+   */
+  ticket?: string;
   silentMode?: boolean;
   clientContext?: {
     currentPath?: string;
@@ -165,7 +168,7 @@ export class GeminiLiveClient {
       publishableKey,
       sessionId,
       apiBaseUrl,
-      authToken,
+      ticket,
       onStatusChange,
       onTranscript,
       onError,
@@ -226,10 +229,9 @@ export class GeminiLiveClient {
       const contextParams = ctx
         ? `&currentPath=${encodeURIComponent(ctx.currentPath || '/')}&pageTitle=${encodeURIComponent(ctx.title || '')}&history=${encodeURIComponent((ctx.history || []).join(','))}&activeSection=${encodeURIComponent(ctx.activeSection || '')}`
         : '';
-      const authParam = authToken ? `&authToken=${encodeURIComponent(authToken)}` : '';
-      const sessionModeParam = this.options.sessionMode ? `&sessionMode=${encodeURIComponent(this.options.sessionMode)}` : '';
+      const ticketParam = ticket ? `&ticket=${encodeURIComponent(ticket)}` : '';
       const silentModeParam = this.options.silentMode ? `&silentMode=true` : '';
-      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${authParam}${contextParams}${sessionModeParam}${silentModeParam}`;
+      const wsUrl = `${wsBase}${wsPath}?publishableKey=${encodeURIComponent(publishableKey)}&sessionId=${encodeURIComponent(sessionId)}${ticketParam}${contextParams}${silentModeParam}`;
 
       const ws = new WebSocket(wsUrl);
       this.ws = ws;

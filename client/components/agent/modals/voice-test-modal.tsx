@@ -18,6 +18,7 @@ import { useModalA11y } from '@/hooks/use-modal-a11y';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { getVoiceTicketApi } from '@/services/voice-service';
 import { useRouter } from 'next/navigation';
 
 interface VoiceTestModalProps {
@@ -116,18 +117,17 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
       setErrorMessage(null);
       addTranscript('system', 'Connecting to the ORA voice service…');
 
-      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
-      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
+      // Same as the test studio: a `test` ticket, and the context of a shopper
+      // on the storefront home page.
+      const ticket = await getVoiceTicketApi('test');
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
         sessionId: freshSessionId,
-        authToken: token || undefined,
+        ticket,
         clientContext: {
-          currentPath: typeof window !== 'undefined' ? window.location.pathname : '/',
-          title: typeof document !== 'undefined' ? document.title : 'ORA Platform',
-          history: [typeof window !== 'undefined' ? window.location.pathname : '/'],
-          activeSection: 'Agent Testing Workspace',
+          currentPath: '/',
+          title: '',
+          history: ['/'],
         },
         onStatusChange: (newStatus) => {
           setStatus(newStatus as SessionStatus);

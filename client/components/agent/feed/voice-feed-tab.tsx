@@ -31,6 +31,7 @@ import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { getVoiceTicketApi } from '@/services/voice-service';
 import { useReadOnly } from '@/components/common/read-only-fence';
 
 interface VoiceFeedTabProps {
@@ -188,8 +189,9 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
 
   /**
    * Start Live Voice Session via GeminiLiveClient
-   * In 'converse' mode: sessionMode='training', silentMode=false
-   * In 'dictate' mode: sessionMode='training', silentMode=true (ASR transcribes, LivingOrb pulses, ORA is silent)
+   * Both modes open a training session through a `training` ticket.
+   * In 'converse' mode: silentMode=false
+   * In 'dictate' mode: silentMode=true (ASR transcribes, LivingOrb pulses, ORA is silent)
    */
   const startVoiceSession = async (mode: VoiceMode = voiceMode) => {
     try {
@@ -211,15 +213,15 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
       setOrganiseResult(null);
       setOrganiseError(null);
 
-      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
-      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
       const isSilent = mode === 'dictate';
 
+      // Training is only granted by this ticket; without it the gateway opens
+      // an ordinary shopper session, so a failure here must stop the start.
+      const ticket = await getVoiceTicketApi('training');
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
         sessionId,
-        authToken: token || undefined,
-        sessionMode: 'training',
+        ticket,
         silentMode: isSilent,
         onStatusChange: (newStatus) => setStatus(newStatus),
         onTranscript: (sender, text) => {

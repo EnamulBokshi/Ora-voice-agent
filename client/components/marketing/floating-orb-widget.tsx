@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { GeminiLiveClient } from '@/services/gemini-live-client';
+import { getVoiceTicketApi } from '@/services/voice-service';
 
 /**
  * Voice session states — matching the NestJS VoiceProxyGateway & Gemini Live state machine
@@ -653,13 +654,16 @@ export function FloatingOrbWidget() {
       sessionStorage.setItem('ora_landing_session_id', sessionId);
     } catch {}
     const apiBaseUrl = getApiBase();
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    // A logged-in merchant gets a `visitor` ticket so the platform assistant can
+    // greet them by name. Anyone else, or a failed request, is a plain visitor.
+    const isLoggedIn = typeof window !== 'undefined' && !!localStorage.getItem('accessToken');
+    const ticket = isLoggedIn ? await getVoiceTicketApi('visitor').catch(() => undefined) : undefined;
     try {
       const client = new GeminiLiveClient({
         publishableKey: PUBLISHABLE_KEY,
         sessionId,
         apiBaseUrl,
-        authToken: token || undefined,
+        ticket,
         clientContext: {
           currentPath: pathname || '/',
           title: typeof document !== 'undefined' ? document.title : '',

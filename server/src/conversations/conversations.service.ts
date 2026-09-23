@@ -27,6 +27,7 @@ export class ConversationsService {
     channel: ConversationChannel = ConversationChannel.WIDGET_CHAT,
     metadata?: Record<string, any>,
     customerId?: string,
+    options?: { isTest?: boolean },
   ): Promise<ConversationDocument> {
     let conversation = await this.conversationModel
       .findOne({ sessionId })
@@ -41,6 +42,7 @@ export class ConversationsService {
         status: ConversationStatus.ACTIVE,
         lastActivityAt: new Date(),
         metadata: metadata || {},
+        isTest: options?.isTest ?? false,
       });
       await conversation.save();
     } else {
@@ -169,7 +171,8 @@ export class ConversationsService {
 
   async findAll(businessId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const filter = { businessId: businessId as any };
+    // Staff test and training sessions are not the merchant's shoppers.
+    const filter = { businessId: businessId as any, isTest: { $ne: true } };
 
     const [items, total] = await Promise.all([
       this.conversationModel

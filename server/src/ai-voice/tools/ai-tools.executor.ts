@@ -975,13 +975,15 @@ export class AiToolsExecutor {
     }
     await Promise.all(saveOps);
 
-    // Log CART_UPDATED event
-    await this.eventsService.logEvent(businessId, EventType.CART_UPDATED, {
-      sessionId,
-      customerId,
-      productId: product._id.toString(),
-      quantity,
-    });
+    // Log CART_UPDATED event. A staff test must not move the merchant's funnel.
+    if (!(await this.isTestSession(sessionId))) {
+      await this.eventsService.logEvent(businessId, EventType.CART_UPDATED, {
+        sessionId,
+        customerId,
+        productId: product._id.toString(),
+        quantity,
+      });
+    }
 
     const itemLabel =
       selectedTitle && selectedTitle !== 'Default Title'
@@ -1395,12 +1397,15 @@ export class AiToolsExecutor {
   ) {
     // Retrieve active customer bound to this session
     let customerId: string | null = null;
+    let isTest = false;
     try {
       const rawSessionCustomer = await this.redisService
         .getClient()
         .get(`session:${sessionId}:customer`);
       if (rawSessionCustomer) {
-        customerId = JSON.parse(rawSessionCustomer).customerId;
+        const binding = JSON.parse(rawSessionCustomer);
+        customerId = binding.customerId;
+        isTest = binding.isTest === true;
       }
     } catch {}
 
@@ -1452,14 +1457,31 @@ export class AiToolsExecutor {
       orderPayload.customerId = customerId;
     }
 
-    const order = await this.ordersService.create(businessId, orderPayload);
-
     // Clear cart in Redis after order completion
-    const delOps = [this.redisService.getClient().del(redisKey)];
-    if (customerId) {
-      delOps.push(this.redisService.getClient().del(`cart:customer:${customerId}`));
+    const clearCart = async () => {
+      const delOps = [this.redisService.getClient().del(redisKey)];
+      if (customerId) {
+        delOps.push(this.redisService.getClient().del(`cart:customer:${customerId}`));
+      }
+      await Promise.all(delOps);
+    };
+
+    // The owner testing checkout gets the same reply a shopper would, but no
+    // order lands in their Orders list and no "New Order Placed" alert fires.
+    if (isTest) {
+      await clearCart();
+      const orderNumber = `TEST-${Date.now().toString(36).toUpperCase()}`;
+      return {
+        success: true,
+        orderNumber,
+        totalAmount,
+        status: 'pending',
+        message: `Order ${orderNumber} placed successfully!`,
+      };
     }
-    await Promise.all(delOps);
+
+    const order = await this.ordersService.create(businessId, orderPayload);
+    await clearCart();
 
     return {
       success: true,
@@ -1710,13 +1732,15 @@ export class AiToolsExecutor {
       };
     }
 
-    await this.eventsService
-      .logEvent(businessId, EventType.COUPON_CODE_OFFERED, {
-        sessionId,
-        code,
-        planId,
-      })
-      .catch(() => undefined);
+    if (!(await this.isTestSession(sessionId))) {
+      await this.eventsService
+        .logEvent(businessId, EventType.COUPON_CODE_OFFERED, {
+          sessionId,
+          code,
+          planId,
+        })
+        .catch(() => undefined);
+    }
 
     const discountLabel = `$${(quote.discountMinor / 100).toFixed(2)}`;
     const dueLabel = `$${(quote.amountAfterMinor / 100).toFixed(2)}`;
@@ -1871,6 +1895,16 @@ export class AiToolsExecutor {
    * uninstall timestamp has to be checked too: once the app is gone there is no
    * storefront cart to defer to, and ORA's own cart becomes authoritative again.
    */
+  /** Whether this voice session is the store's own staff testing or training ORA. */
+  private async isTestSession(sessionId: string): Promise<boolean> {
+    try {
+      const raw = await this.redisService.getClient().get(`session:${sessionId}:customer`);
+      return raw ? JSON.parse(raw).isTest === true : false;
+    } catch {
+      return false;
+    }
+  }
+
   private async isShopifyTenant(businessId: string): Promise<boolean> {
     const cached = this.shopifyTenantCache.get(businessId);
     if (cached && cached.expiresAt > Date.now()) return cached.isShopify;
@@ -2178,7 +2212,7 @@ export class AiToolsExecutor {
 
     // 3. Emit event for sales dashboard notification
     try {
-      if (this.eventsService) {
+      if (this.eventsService && !(await this.isTestSession(sessionId))) {
         await this.eventsService.logEvent(
           businessId,
           EventType.SALES_LEAD_CAPTURED,

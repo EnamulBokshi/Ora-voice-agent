@@ -981,16 +981,26 @@ export class GeminiVoiceService {
       // 1. Preload Business Identity & Owner Contact Info (Email, Name, Domain)
       let contactIdentitySummary = '';
       const siteName = bizDoc?.name || '';
-      const ownerName = ownerUser?.name || '';
+
+      // A portfolio is the owner's own site, so their name and email are the
+      // point of it. Every other business answers shoppers with the contact it
+      // chose to publish: the owner's login email is an account credential,
+      // and their name is not the store's.
+      const isPersonalSite = businessArchetype === 'portfolio';
+      const ownerName = isPersonalSite ? ownerUser?.name || '' : '';
+      const publicContactEmail = isPersonalSite ? ownerUser?.email : bizDoc?.supportEmail;
 
       const identityLines: string[] = [];
       if (bizDoc?.name) identityLines.push(`• Entity / Website Name: ${bizDoc.name}`);
       if (bizDoc?.domain) identityLines.push(`• Website Domain: ${bizDoc.domain}`);
-      if (ownerUser?.name) identityLines.push(`• Creator / Owner Name: ${ownerUser.name}`);
-      if (ownerUser?.email) identityLines.push(`• Official Contact Email: ${ownerUser.email}`);
+      if (isPersonalSite && ownerUser?.name) identityLines.push(`• Creator / Owner Name: ${ownerUser.name}`);
+      if (publicContactEmail) identityLines.push(`• Official Contact Email: ${publicContactEmail}`);
 
       if (identityLines.length > 0) {
-        contactIdentitySummary = `\nCONTACT & IDENTITY INFO (Preloaded in your memory):\n${identityLines.join('\n')}\n* Answer contact, email, and creator questions IMMEDIATELY using these details!`;
+        const noEmailRule = publicContactEmail
+          ? ''
+          : '\n* No contact email is published. If asked for one, say so and point to the website instead. Never guess or invent an address or a person\'s name.';
+        contactIdentitySummary = `\nCONTACT & IDENTITY INFO (Preloaded in your memory):\n${identityLines.join('\n')}\n* Answer contact, email, and creator questions IMMEDIATELY using these details!${noEmailRule}`;
       }
 
       const isOraPlatform = bizDoc?.publishableKey === 'biz_live_ora_platform_system';

@@ -25,6 +25,7 @@ import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { getVoiceTicketApi } from '@/services/voice-service';
 import { cn } from '@/lib/utils';
 
 interface VoiceTestStudioProps {
@@ -115,19 +116,20 @@ export function VoiceTestStudio({ publishableKey, onSwitchToTrain }: VoiceTestSt
       const freshSessionId = `test_${Math.random().toString(36).substring(2, 9)}`;
       setSessionId(freshSessionId);
 
-      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
-      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
+      // A `test` ticket makes ORA meet the owner as an anonymous shopper, keeps
+      // the session out of their listings and usage, and still works while the
+      // widget is switched off. The context is a shopper landing on the
+      // storefront home page, not this dashboard page, so ORA cannot tell it is
+      // being tested.
+      const ticket = await getVoiceTicketApi('test');
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
         sessionId: freshSessionId,
-        authToken: token || undefined,
-        sessionMode: 'storefront',
+        ticket,
         clientContext: {
-          currentPath: typeof window !== 'undefined' ? window.location.pathname : '/',
-          title: typeof document !== 'undefined' ? document.title : 'ORA Platform',
-          history: [typeof window !== 'undefined' ? window.location.pathname : '/'],
-          activeSection: 'Agent Testing Workspace',
+          currentPath: '/',
+          title: '',
+          history: ['/'],
         },
         onStatusChange: (newStatus) => {
           setStatus(newStatus);
@@ -319,9 +321,9 @@ export function VoiceTestStudio({ publishableKey, onSwitchToTrain }: VoiceTestSt
                   ? 'Connecting live audio stream…'
                   : 'Click the orb or press Start Talking to test'}
           </p>
-          <p className="text-[11.5px] text-muted-foreground mt-0.5 max-w-md">
+          {/* <p className="text-[11.5px] text-muted-foreground mt-0.5 max-w-md">
             Simulates a real customer visiting your storefront. ORA answers using your store persona, policies, and product catalog.
-          </p>
+          </p> */}
 
           <div className="mt-4 flex items-center gap-2.5">
             {!isActive ? (

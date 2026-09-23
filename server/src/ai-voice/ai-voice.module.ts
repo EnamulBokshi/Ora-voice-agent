@@ -6,6 +6,7 @@ import { GeminiVoiceService } from './gemini-voice.service';
 import { AiToolsExecutor } from './tools/ai-tools.executor';
 import { VoiceSessionController } from './voice-session.controller';
 import { VoiceProxyGateway } from './voice-proxy.gateway';
+import { VoiceTicketService } from './voice-ticket.service';
 import { BootstrapRateLimitGuard } from './guards/bootstrap-rate-limit.guard';
 import { ProductsModule } from '../products/products.module';
 import { RagModule } from '../rag/rag.module';
@@ -58,6 +59,7 @@ import { SessionTimerService } from '../gateway/session-timer.service';
   providers: [
     GeminiVoiceService,
     AiToolsExecutor,
+    VoiceTicketService,
     VoiceProxyGateway,
     BootstrapRateLimitGuard,
     SessionTimerService,
