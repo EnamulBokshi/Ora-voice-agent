@@ -6,15 +6,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * The Command Center — port of `ora-hero-v2.html` from the ORA Design System
  * project, replacing the video-controller dashboard that sat here before.
  *
- * Kept exactly as designed: the three views, the six-second auto-advance, the
+ * Kept exactly as designed: the three views, the three-second auto-advance, the
  * click-to-switch that restarts the loop, the 500ms opacity-and-lift view
  * transition, and the 1.5s staggered waveform.
  *
- * Changed only as the brief asked: the source's own oklch palette is replaced
- * by this project's tokens, and its Google-Fonts stack by the four faces the
- * app already loads — Space Grotesk for headings, Inter for UI, JetBrains Mono
- * for monospaced data, and Newsreader for the large metric numerals, which is
- * the role globals.css already assigns it.
+ * Changed only as the brief asked: the source's oklch palette is replaced by
+ * the dashboard's own slate-charcoal scale from globals.css (.dark) — canvas
+ * #131418, sidebar #0E0F12, cards #1A1C22, borders #252831 — and its
+ * Google-Fonts stack by Inter and JetBrains Mono. The design set its metric
+ * numerals in Newsreader at weight 300; the dashboard uses no serif at all and
+ * renders figures as semibold sans with tabular numerals, so these follow the
+ * dashboard rather than the design.
  *
  * The figures shown belong to one example account. They are labelled as such
  * beneath the frame, because PRODUCT.md records that ORA has no customer
@@ -30,7 +32,7 @@ const TITLES: Record<ViewId, string> = {
   conversations: 'Conversations',
 };
 
-const ADVANCE_MS = 6000;
+const ADVANCE_MS = 3000;
 
 const NAV: { label: string; view?: ViewId; pulse?: boolean }[] = [
   { label: 'Overview', view: 'overview' },
@@ -350,7 +352,7 @@ export function Start2CommandCenter() {
         </div>
       </div>
 
-      <p className="cc-attr">Interface shown with one example account&rsquo;s data.</p>
+
     </div>
   );
 }

@@ -2,181 +2,184 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Check, ArrowRight } from 'lucide-react';
+
+interface PlanFeature {
+  text: string;
+  strong?: string;
+}
+
+interface PlanItem {
+  id: string;
+  name: string;
+  note: string;
+  monthlyPrice: string;
+  yearlyPrice: string;
+  isFixed?: boolean;
+  desc: string;
+  features: PlanFeature[];
+  cta: string;
+  ctaHref: string;
+  featured?: boolean;
+  foot: string;
+}
+
+const PLANS: PlanItem[] = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    note: 'Free forever',
+    monthlyPrice: '$0',
+    yearlyPrice: '$0',
+    isFixed: true,
+    desc: 'Test voice in a sandbox. No credit card required.',
+    features: [
+      { text: '100 streaming voice minutes a month', strong: '100' },
+      { text: '1 storefront connection', strong: '1' },
+      { text: 'Sub-350 ms turn latency', strong: 'Sub-350 ms' },
+      { text: 'Catalogue and variant stock sync' },
+      { text: '48kHz studio audio quality' },
+      { text: 'Community support and docs' },
+    ],
+    cta: 'Try Sandbox',
+    ctaHref: '/auth',
+    featured: false,
+    foot: 'No credit card required.',
+  },
+  {
+    id: 'growth',
+    name: 'Growth',
+    note: '14-day trial',
+    monthlyPrice: '$49',
+    yearlyPrice: '$39',
+    desc: 'For Shopify, WooCommerce, and custom storefronts.',
+    features: [
+      { text: '2,000 streaming voice minutes a month', strong: '2,000' },
+      { text: 'Up to 500 voice-assisted orders', strong: '500' },
+      { text: 'Sub-350 ms turn latency', strong: 'Sub-350 ms' },
+      { text: 'Catalogue and variant stock sync' },
+      { text: 'In-conversation cart and checkout links' },
+      { text: 'Call transcripts and conversion telemetry' },
+    ],
+    cta: 'Start free trial',
+    ctaHref: '/auth',
+    featured: true,
+    foot: 'No card required to start.',
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    note: 'Dedicated infrastructure',
+    monthlyPrice: '$149',
+    yearlyPrice: '$119',
+    desc: 'For high-volume stores and large SKU catalogues.',
+    features: [
+      { text: 'Everything in Growth' },
+      { text: 'Unlimited voice minutes', strong: 'Unlimited' },
+      { text: 'Unlimited voice-assisted orders', strong: 'Unlimited' },
+      { text: 'Brand voice tuning and persona control' },
+      { text: 'Shopify, WooCommerce, and ERP connectors' },
+      { text: 'Solutions engineer, 99.99% uptime SLA', strong: '99.99%' },
+    ],
+    cta: 'Talk to sales',
+    ctaHref: '/auth',
+    featured: false,
+    foot: 'Annual contracts available.',
+  },
+];
+
+function renderFeature(f: PlanFeature) {
+  if (!f.strong) return f.text;
+  const idx = f.text.indexOf(f.strong);
+  if (idx === -1) return f.text;
+  return (
+    <>
+      {f.text.slice(0, idx)}
+      <b>{f.strong}</b>
+      {f.text.slice(idx + f.strong.length)}
+    </>
+  );
+}
 
 export function Start2Pricing() {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-
-  const proPrice = billingCycle === 'monthly' ? '$49' : '$39';
-  const entPrice = billingCycle === 'monthly' ? '$149' : '$119';
+  const [yearly, setYearly] = useState(false);
 
   return (
-    <section className="s2-pricing-section" id="pricing">
-      <div className="s2-container">
-        {/* Header */}
-        <div className="s2-section-head text-center">
-          <h2 className="s2-section-title">
-            Simple transparent pricing
-          </h2>
-          <p className="s2-section-sub">
-            Choose the plan that fits your volume. Start free and scale as your traffic grows.
-          </p>
-
-          {/* Billing Cycle Pill Toggle */}
-          <div className="s2-billing-toggle-wrap">
-            <div className="s2-billing-toggle">
-              <button
-                type="button"
-                onClick={() => setBillingCycle('monthly')}
-                className={`s2-toggle-tab ${billingCycle === 'monthly' ? 'active' : ''}`}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                onClick={() => setBillingCycle('yearly')}
-                className={`s2-toggle-tab ${billingCycle === 'yearly' ? 'active' : ''}`}
-              >
-                Yearly <span className="s2-discount-tag">-20%</span>
-              </button>
-            </div>
+    <section className="s2-pricing-section" id="pricing" aria-label="Pricing plans">
+      <div className="s2p-wrap">
+        <div className="s2p-head">
+          <div>
+            <h2 className="s2p-title">Pricing</h2>
+            <p className="s2p-sub">Three plans. All include the full agent; the difference is volume.</p>
+          </div>
+          <div className="s2p-toggle" role="group" aria-label="Billing frequency">
+            <button
+              type="button"
+              className={!yearly ? 'on' : ''}
+              onClick={() => setYearly(false)}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={yearly ? 'on' : ''}
+              onClick={() => setYearly(true)}
+            >
+              Yearly
+            </button>
+            <span>−20%</span>
           </div>
         </div>
 
-        {/* 2 Primary Side-by-Side Cards */}
-        <div className="s2-pricing-cards-grid">
-          {/* Growth Plan */}
-          <div className="s2-price-card featured">
-            <div className="s2-price-top">
-              <div className="flex justify-between items-center mb-2">
-                <span className="s2-plan-tag">Most Popular</span>
-                <span className="text-xs text-muted-foreground">14-Day Free Trial</span>
-              </div>
-              <div className="s2-price-amount-row">
-                <span className="s2-price-number">{proPrice}</span>
-                <span className="s2-price-period">/month</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground mt-1">Growth Plan</h3>
-              <p className="s2-plan-tagline">
-                Essential for growing Shopify, WooCommerce, and custom merchants.
-              </p>
-            </div>
+        <div className="s2p-plans">
+          {PLANS.map((plan) => {
+            const price = plan.isFixed
+              ? plan.monthlyPrice
+              : yearly
+                ? plan.yearlyPrice
+                : plan.monthlyPrice;
+            const period = plan.isFixed
+              ? 'per month'
+              : yearly
+                ? 'per month, billed yearly'
+                : 'per month';
 
-            <div className="s2-price-features">
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>2,000 streaming voice minutes/month</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Up to 500 voice-assisted orders/month</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Sub-350ms streaming turn-taking latency</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Automatic catalog &amp; variant stock synchronization</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>In-conversation cart &amp; 1-click checkout links</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Full voice call transcripts &amp; conversion telemetry</span>
-              </div>
-            </div>
+            return (
+              <div
+                key={plan.id}
+                className={`s2p-plan${plan.featured ? ' lead' : ''}`}
+              >
+                <div>
+                  <div className="s2p-tier">
+                    <h3>{plan.name}</h3>
+                    <span className="s2p-note">{plan.note}</span>
+                  </div>
 
-            <div className="s2-price-footer">
-              <Link href="/auth" className="s2-btn-primary w-full justify-center">
-                <span>Start 14-Day Free Trial</span>
-                <ArrowRight size={14} />
-              </Link>
-            </div>
-          </div>
+                  <div className="s2p-price">
+                    <b>{price}</b>
+                    <span>{period}</span>
+                  </div>
 
-          {/* Enterprise Plan */}
-          <div className="s2-price-card">
-            <div className="s2-price-top">
-              <div className="flex justify-between items-center mb-2">
-                <span className="s2-plan-tag neutral">Scale &amp; Security</span>
-                <span className="text-xs text-muted-foreground">Dedicated Infra</span>
-              </div>
-              <div className="s2-price-amount-row">
-                <span className="s2-price-number">{entPrice}</span>
-                <span className="s2-price-period">/month</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground mt-1">Enterprise Plan</h3>
-              <p className="s2-plan-tagline">
-                Built for high-volume stores, large SKU catalogs, and enterprise brands.
-              </p>
-            </div>
+                  <p className="s2p-desc">{plan.desc}</p>
 
-            <div className="s2-price-features">
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Everything in Growth, plus:</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Unlimited voice conversation minutes</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Unlimited voice-assisted orders</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Custom brand voice tuning &amp; persona control</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Shopify, WooCommerce, and custom ERP connectors</span>
-              </div>
-              <div className="s2-feature-row">
-                <Check size={14} className="s2-check-green shrink-0" />
-                <span>Dedicated solutions engineer &amp; 99.99% uptime SLA</span>
-              </div>
-            </div>
+                  <ul className="s2p-features">
+                    {plan.features.map((feat, i) => (
+                      <li key={i}>{renderFeature(feat)}</li>
+                    ))}
+                  </ul>
+                </div>
 
-            <div className="s2-price-footer">
-              <Link href="/auth" className="s2-btn-secondary w-full justify-center">
-                <span>Start 14-Day Free Trial</span>
-                <ArrowRight size={14} />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Full-Width Starter Tier Card (Matching saas_demo_2 bottom bar) */}
-        <div className="s2-price-wide-bar">
-          <div className="s2-wide-col">
-            <h4 className="font-bold text-sm text-foreground">Free Sandbox</h4>
-            <p className="text-xs text-muted-foreground">Test voice with 100 free minutes/mo</p>
-          </div>
-          <div className="s2-wide-col">
-            <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
-              <Check size={13} className="text-[#16A34A] dark:text-[#C8F031]" />
-              <span>1 Website Connection</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Automated URL page crawler</p>
-          </div>
-          <div className="s2-wide-col">
-            <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
-              <Check size={13} className="text-[#16A34A] dark:text-[#C8F031]" />
-              <span>48kHz Streaming Audio</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Sub-350ms engine included</p>
-          </div>
-          <div className="s2-wide-col text-right">
-            <div className="text-xl font-extrabold text-foreground">Free</div>
-            <Link href="/auth" className="text-xs font-semibold text-[#16A34A] dark:text-[#C8F031] hover:underline inline-flex items-center gap-1">
-              <span>Try Sandbox</span>
-              <ArrowRight size={12} />
-            </Link>
-          </div>
+                <div>
+                  <Link
+                    href={plan.ctaHref}
+                    className={`s2p-btn${plan.featured ? ' solid' : ''}`}
+                  >
+                    <span>{plan.cta}</span>
+                  </Link>
+                  <div className="s2p-foot">{plan.foot}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

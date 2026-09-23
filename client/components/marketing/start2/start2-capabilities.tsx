@@ -3,10 +3,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 const TARGETS = [
-  { name: 'Shopify',     tag: 'App Store · 1-Click' },
-  { name: 'WooCommerce', tag: 'Plugin · Instant' },
-  { name: 'Webflow',     tag: 'Script tag' },
-  { name: 'Headless',    tag: 'API / SDK' },
+  { name: 'Shopify',      tag: 'App Store · 1-Click' },
+  { name: 'WooCommerce',  tag: 'Plugin · Instant' },
+  { name: 'BigCommerce',  tag: 'Store API · Fast' },
+  { name: 'Webflow',      tag: 'Script tag' },
+  { name: 'Custom Store', tag: 'API / SDK' },
 ];
 
 // Coordinate system for right-side visual
@@ -19,9 +20,9 @@ const CTRL_X2  = 260;
 const DOT_X    = 340;
 const PILL_X   = 364;
 const PILL_W   = 326;
-const PILL_H   = 62;
+const PILL_H   = 56;
 const DOT_R    = 6;
-const END_Y    = [65, 168, 272, 375];
+const END_Y    = [60, 140, 220, 300, 380];
 
 function curvePath(y: number) {
   return `M${ORIGIN_X} ${HUB_CY} C ${CTRL_X1} ${HUB_CY}, ${CTRL_X2} ${y}, ${DOT_X} ${y}`;
@@ -155,7 +156,7 @@ export function Start2Capabilities() {
                       y={pillY}
                       width={PILL_W}
                       height={PILL_H}
-                      rx="12"
+                      rx="10"
                       fill="#141413"
                       stroke="rgba(255,255,255,0.08)"
                       strokeWidth="1"
@@ -164,7 +165,7 @@ export function Start2Capabilities() {
                     <text
                       x={PILL_X + 24}
                       y={y + 6}
-                      fontSize="18"
+                      fontSize="17"
                       fontWeight="700"
                       fontFamily="var(--font-heading, -apple-system, sans-serif)"
                       fill="#FAFAFA"
@@ -175,7 +176,7 @@ export function Start2Capabilities() {
                     <text
                       x={PILL_X + PILL_W - 22}
                       y={y + 5}
-                      fontSize="13"
+                      fontSize="12.5"
                       fontWeight="500"
                       fontFamily="var(--font-sans, -apple-system, sans-serif)"
                       fill="rgba(255,255,255,0.38)"

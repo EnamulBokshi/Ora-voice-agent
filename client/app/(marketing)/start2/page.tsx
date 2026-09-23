@@ -9,6 +9,7 @@ import { Start2Capabilities } from '@/components/marketing/start2/start2-capabil
 import { Start2Testimonial } from '@/components/marketing/start2/start2-testimonial';
 import { Start2Cta } from '@/components/marketing/start2/start2-cta';
 import { Start2Footer } from '@/components/marketing/start2/start2-footer';
+import { Start2Platforms } from '@/components/marketing/start2/start2-platforms';
 
 import './start2.css';
 
@@ -42,7 +43,10 @@ export default function Start2Page() {
         {/* 2. Hero Headline, Dual CTAs, Live Command Center Dashboard & Partner Trust Bar */}
         <Start2Hero />
 
-        {/* 3. Bento Features Grid: 2-Top (Embed Diagram & Analytics) + 3-Bottom (Direct Actions, Grounding, Speed Meter) */}
+        {/* 3. Sliding Platform Logo Ticker */}
+        <Start2Platforms />
+
+        {/* 4. Bento Features Grid: 2-Top (Embed Diagram & Analytics) + 3-Bottom (Direct Actions, Grounding, Speed Meter) */}
         <Start2Bento />
 
         {/* 4. Store Verticals & Catalog Knowledge Orbital Map (work_connections.png) */}

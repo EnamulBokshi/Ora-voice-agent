@@ -48,20 +48,6 @@ export function Start2Hero() {
             ora-hero-v2.html. Replaces the previous video-controller frame. */}
         <Start2CommandCenter />
 
-        {/* Partner Trust Strip */}
-        <div className="s2-trust-strip">
-          <p className="s2-trust-caption">
-            CONNECTED ACROSS LEADING PLATFORMS &amp; E-COMMERCE ENGINES
-          </p>
-          <div className="s2-trust-logos">
-            <span className="s2-brand-item">Shopify</span>
-            <span className="s2-brand-item">WordPress</span>
-            <span className="s2-brand-item">WooCommerce</span>
-            <span className="s2-brand-item">Webflow</span>
-            <span className="s2-brand-item">Stripe</span>
-            <span className="s2-brand-item">bKash</span>
-          </div>
-        </div>
       </div>
     </section>
   );
