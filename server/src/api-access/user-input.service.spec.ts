@@ -205,7 +205,11 @@ describe('UserInputService', () => {
 
       const result = await service.submitDocument(mockBusinessId, dto);
 
-      expect(mockKnowledgeService.create).toHaveBeenCalledWith(mockBusinessId, dto);
+      // API pushes are tagged so the voice agent treats them as facts only.
+      expect(mockKnowledgeService.create).toHaveBeenCalledWith(mockBusinessId, {
+        ...dto,
+        metadata: { source: 'api' },
+      });
       expect(result).toBe(mockDocResult);
     });
   });

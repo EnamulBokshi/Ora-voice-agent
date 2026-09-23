@@ -16,6 +16,7 @@ import { KnowledgeService } from './knowledge.service';
 import { CreateKnowledgeDocDto } from './dto/create-knowledge-doc.dto';
 import { UpdateKnowledgeDocDto } from './dto/update-knowledge-doc.dto';
 import { IngestVoiceTranscriptDto } from './dto/ingest-voice-transcript.dto';
+import { KNOWLEDGE_SOURCE } from './knowledge-trust';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantScopeGuard } from '../common/guards/tenant-scope.guard';
@@ -49,7 +50,11 @@ export class KnowledgeController {
     @CurrentUser() user: JwtPayloadUser,
     @Body() dto: CreateKnowledgeDocDto,
   ) {
-    return this.knowledgeService.create(user.businessId, dto);
+    // The dashboard editor is the owner writing in their own words: see knowledgeTrust.
+    return this.knowledgeService.create(user.businessId, {
+      ...dto,
+      metadata: { ...(dto.metadata || {}), source: KNOWLEDGE_SOURCE.MANUAL },
+    });
   }
 
   /**

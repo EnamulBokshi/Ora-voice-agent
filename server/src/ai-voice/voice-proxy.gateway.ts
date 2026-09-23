@@ -26,6 +26,8 @@ import {
 } from '../gateway/session-timer.service';
 import { resolveSessionIdentity, VoiceOperator } from './session-identity';
 import { VoiceTicketService } from './voice-ticket.service';
+import { ScopeJudgeService } from './scope-judge.service';
+import { sanitizeClientContext, sanitizePath, sanitizeText } from './client-context.util';
 
 /**
  * How long a session survives with no browser attached to it.
@@ -131,6 +133,13 @@ interface ProxySession {
   silentMode?: boolean;
   /** The store's own staff testing or training ORA. No usage recorded, no real orders. */
   isTest?: boolean;
+  /** The last complete visitor utterance and agent reply, for the scope monitor. */
+  lastUserText?: string;
+  lastAgentText?: string;
+  /** Replies the scope monitor judged out of scope in this session. */
+  scopeStrikes?: number;
+  /** A steering note waiting for the agent to stop speaking. */
+  pendingSystemNote?: string | null;
 }
 
 /** Where the visitor is on the host site, as reported by the widget. */
@@ -160,6 +169,7 @@ export class VoiceProxyGateway {
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
     private readonly voiceTicketService: VoiceTicketService,
+    private readonly scopeJudge: ScopeJudgeService,
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
     private readonly conversationsService: ConversationsService,
@@ -600,8 +610,8 @@ export class VoiceProxyGateway {
     }
 
     // ── Extract Live Client Context from Query ───────────────────────────────
-    const currentPathParam = (parsedUrl.query.currentPath as string) || '/';
-    const pageTitleParam = (parsedUrl.query.pageTitle as string) || '';
+    const currentPathParam = sanitizePath(parsedUrl.query.currentPath) || '/';
+    const pageTitleParam = sanitizeText(parsedUrl.query.pageTitle, 120) || '';
     const historyParam = (parsedUrl.query.history as string) || '';
     const activeSectionParam = (parsedUrl.query.activeSection as string) || '';
     const silentMode = parsedUrl.query.silentMode === 'true';
@@ -613,12 +623,13 @@ export class VoiceProxyGateway {
      */
     const clientGatesAudio = parsedUrl.query.gatedAudio === 'true';
 
-    const initialClientContext: ClientBrowsingContext = {
+    // Visitor-supplied text that reaches the system instruction: see sanitizeClientContext.
+    const initialClientContext: ClientBrowsingContext = sanitizeClientContext({
       currentPath: currentPathParam,
       title: pageTitleParam,
-      history: historyParam ? historyParam.split(',') : [currentPathParam],
+      history: historyParam || currentPathParam,
       activeSection: activeSectionParam,
-    };
+    });
 
     if (this.redisService) {
       this.redisService
@@ -770,6 +781,7 @@ export class VoiceProxyGateway {
         const textToSave = session.bufferedAiText.trim();
         session.completionTokens += Math.ceil(textToSave.length / 4);
         session.bufferedAiText = '';
+        session.lastAgentText = `${session.lastAgentText ? `${session.lastAgentText} ` : ''}${textToSave}`;
         this.conversationsService
           .appendMessage(session.conversationId, MessageRole.ASSISTANT, textToSave)
           .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving AI message turn: ${e.message}`));
@@ -783,9 +795,22 @@ export class VoiceProxyGateway {
         const textToSave = session.bufferedUserText.trim();
         session.promptTokens += Math.ceil(textToSave.length / 4);
         session.bufferedUserText = '';
+        session.lastUserText = textToSave;
         this.conversationsService
           .appendMessage(session.conversationId, MessageRole.USER, textToSave)
           .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving user transcript: ${e.message}`));
+      }
+    };
+
+    /** Sends a held scope note. Touches no timers, so it is safe outside turn boundaries. */
+    const deliverPendingSystemNote = () => {
+      if (!session.pendingSystemNote || session.closed) return;
+      const note = session.pendingSystemNote;
+      session.pendingSystemNote = null;
+      try {
+        session.sessionControls?.sendSystemNote(note);
+      } catch (e: any) {
+        this.logger.warn(`[VoiceProxyGateway] Scope note failed for session ${sessionId}: ${e.message}`);
       }
     };
 
@@ -802,6 +827,7 @@ export class VoiceProxyGateway {
         clearTimeout(session.playbackAckTimer);
         session.playbackAckTimer = null;
       }
+      deliverPendingSystemNote();
       const pending = session.pendingContextUpdate;
       if (!pending || session.closed) return;
       session.pendingContextUpdate = null;
@@ -812,6 +838,45 @@ export class VoiceProxyGateway {
           `[VoiceProxyGateway] Deferred context update failed for session ${sessionId}: ${e.message}`,
         );
       }
+    };
+
+    /**
+     * Layer 3 of the scope guard (opt-in, VOICE_SCOPE_MONITOR=true). After each
+     * turn, a small model grades whether the reply stayed on the business. The
+     * reply has already been spoken — native audio cannot be filtered in flight —
+     * so this acts on the rest of the session: it flags the conversation for
+     * review and slips a silent steering note in before the next turn. Training
+     * sessions are skipped: the owner teaching new topics is not a violation.
+     */
+    const reviewTurnScope = () => {
+      const agentText = session.lastAgentText;
+      const visitorText = session.lastUserText || '';
+      session.lastAgentText = '';
+      if (!agentText || session.sessionMode === 'training' || !this.scopeJudge.isLiveMonitorEnabled()) {
+        return;
+      }
+
+      this.scopeJudge
+        .judge({ entityLabel: businessName, isPlatform: isPlatformBusiness, visitorText, agentText })
+        .then((result) => {
+          if (!result || result.verdict !== 'violation' || session.closed) return;
+          session.scopeStrikes = (session.scopeStrikes || 0) + 1;
+          this.logger.warn(
+            `[VoiceProxyGateway] Scope violation #${session.scopeStrikes} in session ${sessionId}: ${result.reason}`,
+          );
+          if (session.conversationId) {
+            this.conversationsService
+              .flagScopeViolation(session.conversationId, result.reason)
+              .catch(() => {});
+          }
+          session.pendingSystemNote =
+            session.scopeStrikes >= 2
+              ? `Your recent replies left the scope of ${businessName}. From now on answer only about ${businessName}. Decline anything else in one sentence and offer the conversion step. Do not mention this note.`
+              : `Your last reply went outside the scope of ${businessName}. Do not continue that topic. If the visitor returns to it, decline in one sentence and offer an in-scope next step. Do not mention this note.`;
+          // Mid-turn it waits for the next turn boundary (flushPendingContextUpdate).
+          if (!session.isAgentSpeaking) deliverPendingSystemNote();
+        })
+        .catch(() => {});
     };
 
     const cleanup = () => {
@@ -1010,6 +1075,7 @@ export class VoiceProxyGateway {
           flushPendingContextUpdate();
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
+          reviewTurnScope();
           // Generation is done; the customer is still listening. The idle countdown
           // starts when the widget acknowledges that playback has drained.
           armPlaybackAckFallback();
@@ -1542,15 +1608,11 @@ export class VoiceProxyGateway {
           // Gemini Live treats any client turn as a barge-in, so an update sent
           // while ORA is speaking cuts her off mid-sentence. Hold it until the
           // turn ends; the visitor's page is still current a second later.
+          const clean = sanitizeClientContext(msg);
           const context: ClientBrowsingContext = {
-            currentPath: msg.currentPath,
-            title: msg.title,
-            history: msg.history,
-            activeSection: msg.activeSection,
-            product: msg.product,
-            selectedVariantId: msg.selectedVariantId,
-            cartItemCount: msg.cartItemCount ?? session.lastClientContext?.cartItemCount,
-            cartTotal: msg.cartTotal ?? session.lastClientContext?.cartTotal,
+            ...clean,
+            cartItemCount: clean.cartItemCount ?? session.lastClientContext?.cartItemCount,
+            cartTotal: clean.cartTotal ?? session.lastClientContext?.cartTotal,
           };
           session.lastClientContext = context;
           if (msg.cart && session.businessId) {

@@ -16,6 +16,7 @@ import { PiiRedactor } from '../common/utils/pii-redactor.util';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { SubmitPromptDto } from './dto/submit-prompt.dto';
 import { SubmitDocumentDto } from './dto/submit-document.dto';
+import { KNOWLEDGE_SOURCE } from '../knowledge/knowledge-trust';
 
 /** Uploads are parsed as PDF or decoded as UTF-8 text by KnowledgeService. */
 const ALLOWED_UPLOAD_EXTENSIONS = ['pdf', 'txt', 'md', 'csv', 'json'];
@@ -109,7 +110,12 @@ export class UserInputService {
 
   /** Text document input -- the API equivalent of the dashboard's create form. */
   async submitDocument(businessId: string, dto: SubmitDocumentDto) {
-    return this.knowledgeService.create(businessId, dto);
+    // Pushed by a backend or partner integration, not spoken by the owner, so the
+    // agent treats it as facts only: see knowledgeTrust.
+    return this.knowledgeService.create(businessId, {
+      ...dto,
+      metadata: { source: KNOWLEDGE_SOURCE.API },
+    });
   }
 
   /** File input -- the API equivalent of the dashboard's upload form. */

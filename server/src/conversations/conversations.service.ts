@@ -79,6 +79,21 @@ export class ConversationsService {
     return conversation;
   }
 
+  /**
+   * Marks a conversation where the voice agent answered outside its business's
+   * scope, so it can be reviewed. Keeps the ten most recent reasons.
+   */
+  async flagScopeViolation(conversationId: string, reason: string): Promise<void> {
+    await this.conversationModel
+      .findByIdAndUpdate(conversationId, {
+        $inc: { 'metadata.scopeViolations': 1 },
+        $push: {
+          'metadata.scopeFlags': { $each: [{ at: new Date(), reason }], $slice: -10 },
+        },
+      })
+      .exec();
+  }
+
   async appendMessage(
     conversationId: string,
     role: MessageRole,
