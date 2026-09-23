@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
-import { Loader2, BarChart2 } from 'lucide-react';
+import { DashboardPage } from '@/components/dashboard/dashboard-page';
 import { getSubscriptionApi } from '@/services/billing-service';
 import { demoSubscription } from '@/lib/demo-data';
 import { withDemoFallback } from '@/lib/demo-config';
@@ -38,17 +38,6 @@ function UsageClientContent() {
     load();
   }, [load]);
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading usage…</span>
-        </div>
-      </div>
-    );
-  }
-
   const effectiveSubscription: SubscriptionDetailsResponse = subscription ?? {
     plan: null,
     subscription: null,
@@ -77,31 +66,16 @@ function UsageClientContent() {
   ) : null;
 
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar w-full bg-background">
-      <div className="w-full px-4 sm:px-6 py-5 space-y-6">
-
-        {errorBanner}
-
-        {/* ── Page Header: Title and Icon in one row, concise subheading ── */}
-        <div className="border-b border-border/40 pb-5">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
-              <BarChart2 size={15} className="text-foreground" />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              Usage
-            </h1>
-          </div>
-          <p className="text-xs sm:text-[13px] text-muted-foreground">
-            Track voice minutes, orders, and plan limits.
-          </p>
-        </div>
-
-        {/* ── Functional Dashboard ── */}
-        <UsageDashboard subscription={effectiveSubscription} />
-
-      </div>
-    </div>
+    <DashboardPage
+      title="Usage"
+      onRefresh={load}
+      isRefreshing={loading}
+      loading={loading && !subscription}
+      loadingLabel="Loading usage…"
+    >
+      {errorBanner}
+      <UsageDashboard subscription={effectiveSubscription} />
+    </DashboardPage>
   );
 }
 

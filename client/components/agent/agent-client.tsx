@@ -31,9 +31,9 @@ import { getKnowledgeDocsApi } from '@/services/knowledge-service';
 import { KnowledgeDoc } from '@/types/knowledge';
 import { demoKnowledgeDocs, demoProfile } from '@/lib/demo-data';
 import { withDemoFallback, DEMO_MODE_ENABLED } from '@/lib/demo-config';
-import { Mic, FileText, Package, Database, ArrowRight, ExternalLink, Sliders, SlidersHorizontal, MessageSquare, Code2, PhoneCall, Radio, BrainCircuit, Sparkles } from 'lucide-react';
+import { Mic, Radio } from 'lucide-react';
 import { IntegrationPreview } from '@/components/setup/previews/integration-preview';
-import { ReadOnlyFence } from '@/components/common/read-only-fence';
+import { ReadOnlyFence, ReadOnlyBanner } from '@/components/common/read-only-fence';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 
@@ -142,13 +142,10 @@ function AgentClientContent() {
   // the "Get started" pages are disabled.
   const renderPersona = () => (
     <AgentSectionLayout
-      iconNode={<Sliders size={16} className="text-foreground" />}
       title="System Prompt & Persona"
-      description="Set your business type, language, brand tone, and store instructions."
-      previewSrc="/previews/agent-persona-role.jpg"
-      previewAlt="Store voice and persona preview"
+      banner={fenceBanner}
     >
-      <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-2">
+      <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
         <AgentPersonaTab />
       </div>
     </AgentSectionLayout>
@@ -177,13 +174,9 @@ function AgentClientContent() {
       const isTestView = activeView === 'test';
       return (
         <AgentSectionLayout
-          iconNode={<BrainCircuit size={16} className="text-foreground" />}
           title="Train & Test ORA"
-          description="Train your sales agent with store knowledge, policies, and products, then test customer conversations in real time."
-          previewSrc="/previews/agent-voice-role.jpg"
-          previewAlt="ORA voice training and storefront testing"
-          howLabel={isTestView ? 'Customer Simulation Studio' : 'Knowledge Training Studio'}
-          ctaNodes={
+          banner={fenceBanner}
+          actions={
             <div className="flex items-center gap-2.5">
               <div className="inline-flex items-center gap-1 p-0.5 rounded-md border border-border/60 bg-surface-lowest/80 shadow-xs">
                 <button
@@ -255,12 +248,8 @@ function AgentClientContent() {
       if (activeView === 'feed') {
         return (
           <AgentSectionLayout
-            iconNode={<FileText size={16} className="text-foreground" />}
             title="Upload Files"
-            description="Upload store policies, shipping guides, and FAQs."
-            previewSrc="/previews/agent-docs-role.jpg"
-            previewAlt="Store documents and policies"
-            howLabel="Store documents"
+            banner={fenceBanner}
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
@@ -278,12 +267,8 @@ function AgentClientContent() {
       if (activeView === 'knowledge') {
         return (
           <AgentSectionLayout
-            iconNode={<Database size={16} className="text-foreground" />}
             title="Knowledge Base"
-            description="Reference guides, store knowledge, and indexed documents used during customer conversations."
-            previewSrc="/previews/docs-step2-index.jpg"
-            previewAlt="ORA knowledge base"
-            howLabel="Store knowledge"
+            banner={fenceBanner}
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <KnowledgeFeedList docs={docs} loading={docsLoading} onDeleted={(id) => setDocs((c) => c.filter((d) => d._id !== id))} />
@@ -298,12 +283,8 @@ function AgentClientContent() {
       if (activeView === 'catalog' || activeView === 'feed') {
         return (
           <AgentSectionLayout
-            iconNode={<Package size={16} className="text-foreground" />}
             title="Sync Catalog"
-            description="Connect your Shopify or WooCommerce catalog, or import products via CSV."
-            previewSrc="/previews/agent-products-role.jpg"
-            previewAlt="ORA product catalog"
-            howLabel="Catalog synchronization"
+            banner={fenceBanner}
           >
             <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
               <ProductDetailsFeedTab onFed={loadDocs} />
@@ -317,12 +298,8 @@ function AgentClientContent() {
     if (activeRole === 'script') {
       return (
         <AgentSectionLayout
-          iconNode={<Code2 size={16} className="text-foreground" />}
           title="Widget Embed"
-          description="Connect ORA to your storefront. Shoppers can talk to your voice agent immediately."
-          previewSrc="/previews/agent-script-role.jpg"
-          previewAlt="Storefront widget embed script"
-          howLabel="Storefront embed"
+          banner={fenceBanner}
         >
           <div className="h-full overflow-y-auto no-scrollbar px-4 sm:px-6 py-5">
             <IntegrationPreview
@@ -346,10 +323,17 @@ function AgentClientContent() {
   // The fence stays off while the role is still loading, so the page does not
   // flash a banner at the account that is allowed to be here.
   const readOnly = !permissionsLoading && !canManage;
+  // The fence's own banner would land above the top bar, so each section
+  // renders it under the bar instead.
+  const fenceBanner = readOnly ? (
+    <div className="px-4 pt-4 sm:px-6 flex-shrink-0">
+      <ReadOnlyBanner message={readOnlyReason} />
+    </div>
+  ) : null;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-      <ReadOnlyFence active={readOnly} message={readOnlyReason}>
+      <ReadOnlyFence active={readOnly} banner={false}>
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {renderContent()}
         </div>

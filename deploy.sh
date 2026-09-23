@@ -27,8 +27,41 @@ rsync -avz --delete \
   --exclude 'server/dist' \
   --exclude '.turbo' \
   --exclude '.env' \
+  --exclude '*.tsbuildinfo' \
+  --exclude '.agents' \
+  --exclude 'agent' \
+  --exclude '.agent' \
+  --exclude 'client/.agent' \
+  --exclude '.claude' \
+  --exclude 'CLAUDE.md' \
+  --exclude '.codex' \
+  --exclude 'codex' \
+  --exclude '.commandcode' \
+  --exclude 'client/.commandcode' \
+  --exclude 'server/.commandcode' \
+  --exclude '.impeccable' \
+  --exclude 'client/.impeccable' \
+  --exclude 'impeccable' \
+  --exclude 'agent-docs' \
   --exclude '.antigravity*' \
+  --exclude '.gemini' \
+  --exclude '.vscode' \
+  --exclude '.idea' \
+  --exclude '.postman' \
+  --exclude 'graphify-out' \
+  --exclude 'graphify' \
+  --exclude 'docs' \
+  --exclude 'storefront-theme' \
+  --exclude 'landing_page_design' \
+  --exclude 'client/landing_page_design' \
   --exclude 'erd.pdf' \
+  --exclude 'crawlers.zip' \
+  --exclude 'scratch' \
+  --exclude 'future-work.txt' \
+  --exclude 'improve.txt' \
+  --exclude 'issues.txt' \
+  --exclude 'skills-lock.json' \
+  --exclude 'test-voice-client.html' \
   "$LOCAL_DIR" "$REMOTE_HOST:$REMOTE_DIR/"
 
 echo "🔧 [2/2] Running production deployment on VPS..."

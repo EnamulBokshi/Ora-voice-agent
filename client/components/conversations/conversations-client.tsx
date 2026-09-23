@@ -12,7 +12,8 @@ import { ConversationListPanel } from './conversation-list-panel';
 import { ConversationTranscript } from './conversation-transcript';
 import { demoConversationItems } from '@/lib/demo-data';
 import { withDemoFallback } from '@/lib/demo-config';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
+import { DashboardPage } from '@/components/dashboard/dashboard-page';
 import { cn } from '@/lib/utils';
 
 export function ConversationsClient() {
@@ -125,67 +126,63 @@ export function ConversationsClient() {
   const selectedConversation =
     conversations.find((c) => c.id === selectedId) || filteredConversations[0] || conversations[0];
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading conversations…</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-sm text-muted-foreground px-6">
-        {error}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex-1 min-h-0 min-w-0 flex h-full w-full overflow-hidden bg-background divide-x divide-border/40">
-      <div className={cn(
-        'w-full md:w-auto h-full min-h-0 flex flex-col shrink-0',
-        showMobileTranscript ? 'hidden md:flex' : 'flex',
-      )}>
-        <ConversationListPanel
-          conversations={filteredConversations}
-          selectedId={selectedId}
-          onSelect={(id) => {
-            setSelectedId(id);
-            setShowMobileTranscript(true);
-          }}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
-      </div>
-
-      <div className={cn(
-        'flex-1 h-full min-h-0 flex flex-col min-w-0 overflow-hidden',
-        !showMobileTranscript ? 'hidden md:flex' : 'flex',
-      )}>
-        {selectedConversation ? (
-          <ConversationTranscript
-            conversation={selectedConversation}
-            onCloseSession={handleCloseSession}
-            isClosing={isClosing}
-            isLoadingTranscript={isLoadingTranscript}
-            onBack={() => setShowMobileTranscript(false)}
-          />
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
-            <MessageSquare size={24} className="text-muted-foreground/30" />
-            <p className="font-medium text-foreground">No conversation selected</p>
-            <p className="text-xs text-muted-foreground/60">
-              Select a conversation from the left to view the transcript.
-            </p>
+    <DashboardPage
+      title="Conversations"
+      onRefresh={fetchConversations}
+      isRefreshing={isLoading}
+      loading={isLoading && conversations.length === 0}
+      loadingLabel="Loading conversations…"
+      layout="fill"
+    >
+      {error ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground px-6">
+          {error}
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 min-w-0 flex h-full w-full overflow-hidden divide-x divide-border/40">
+          <div className={cn(
+            'w-full md:w-auto h-full min-h-0 flex flex-col shrink-0',
+            showMobileTranscript ? 'hidden md:flex' : 'flex',
+          )}>
+            <ConversationListPanel
+              conversations={filteredConversations}
+              selectedId={selectedId}
+              onSelect={(id) => {
+                setSelectedId(id);
+                setShowMobileTranscript(true);
+              }}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+            />
           </div>
-        )}
-      </div>
-    </div>
+
+          <div className={cn(
+            'flex-1 h-full min-h-0 flex flex-col min-w-0 overflow-hidden',
+            !showMobileTranscript ? 'hidden md:flex' : 'flex',
+          )}>
+            {selectedConversation ? (
+              <ConversationTranscript
+                conversation={selectedConversation}
+                onCloseSession={handleCloseSession}
+                isClosing={isClosing}
+                isLoadingTranscript={isLoadingTranscript}
+                onBack={() => setShowMobileTranscript(false)}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
+                <MessageSquare size={24} className="text-muted-foreground/30" />
+                <p className="font-medium text-foreground">No conversation selected</p>
+                <p className="text-xs text-muted-foreground/60">
+                  Select a conversation from the left to view the transcript.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </DashboardPage>
   );
 }

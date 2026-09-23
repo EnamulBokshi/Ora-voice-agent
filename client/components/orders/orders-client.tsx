@@ -22,7 +22,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TopHeader } from '@/components/dashboard/top-header';
+import { DashboardPage } from '@/components/dashboard/dashboard-page';
 import {
   getOrdersApi,
   getOrderByIdApi,
@@ -534,251 +534,228 @@ export function OrdersClient() {
 
   const totalPages = data?.pagination.totalPages ?? 1;
 
+  const kpiCards = [
+    { id: 'total', label: 'Total Orders', value: String(metrics.totalOrders), icon: <ShoppingBag size={14} /> },
+    { id: 'revenue', label: 'Volume / Revenue', value: formatCurrency(metrics.totalRevenue), icon: <DollarSign size={14} /> },
+    { id: 'pending', label: 'Unfulfilled / Pending', value: String(metrics.pendingCount), icon: <Clock size={14} /> },
+    { id: 'delivered', label: 'Fulfilled / Delivered', value: String(metrics.deliveredCount), icon: <CheckCircle2 size={14} /> },
+  ];
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background">
-      <TopHeader
+    <>
+      <DashboardPage
         title="Orders"
         onRefresh={() => load(page, true)}
         isRefreshing={refreshing}
-      />
-
-      <div className="flex-1 overflow-y-auto no-scrollbar">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-          {/* Shopify-style KPI Metrics Strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-4 rounded-lg bg-surface-container border border-border flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Total Orders
-              </span>
-              <div className="flex items-baseline justify-between mt-2">
-                <span className="text-2xl font-bold text-foreground tabular-nums">
-                  {loading ? '—' : metrics.totalOrders}
+      >
+        {/* KPI Metrics Strip — same treatment as the Overview strip */}
+        <div
+          className="w-full rounded-md border border-border/50 bg-border/50 gap-px grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 overflow-hidden"
+          role="region"
+          aria-label="Order summary metrics"
+        >
+          {kpiCards.map((card) => (
+            <div
+              key={card.id}
+              className="group bg-background px-4 sm:px-5 py-3.5 sm:py-4.5 hover:bg-surface-high/30 transition-colors flex flex-col justify-between min-w-0"
+            >
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">
+                  {card.label}
                 </span>
-                <ShoppingBag size={16} className="text-muted-foreground/60" />
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-surface-container border border-border flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Volume / Revenue
-              </span>
-              <div className="flex items-baseline justify-between mt-2">
-                <span className="text-2xl font-bold text-primary tabular-nums">
-                  {loading ? '—' : formatCurrency(metrics.totalRevenue)}
-                </span>
-                <DollarSign size={16} className="text-primary/70" />
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-surface-container border border-border flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Unfulfilled / Pending
-              </span>
-              <div className="flex items-baseline justify-between mt-2">
-                <span className="text-2xl font-bold text-amber-400 tabular-nums">
-                  {loading ? '—' : metrics.pendingCount}
-                </span>
-                <Clock size={16} className="text-amber-400/70" />
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-surface-container border border-border flex flex-col justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Fulfilled / Delivered
-              </span>
-              <div className="flex items-baseline justify-between mt-2">
-                <span className="text-2xl font-bold text-foreground tabular-nums">
-                  {loading ? '—' : metrics.deliveredCount}
-                </span>
-                <CheckCircle2 size={16} className="text-primary" />
-              </div>
-            </div>
-          </div>
-
-          {/* Main Table Card */}
-          <div className="rounded-lg border border-border bg-surface-lowest overflow-hidden shadow-sm">
-            
-            {/* Shopify-style Filter Tabs & Search Bar */}
-            <div className="p-4 border-b border-border bg-surface-container/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              
-              {/* Segmented Status Tabs */}
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-                {(['all', ...ALL_STATUSES] as const).map((s) => {
-                  const isActive = statusFilter === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStatusFilter(s)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer whitespace-nowrap',
-                        isActive
-                          ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-surface-high',
-                      )}
-                    >
-                      {s === 'all' ? 'All Orders' : STATUS_CONFIG[s].label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative w-full sm:w-72">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Filter by order #, customer, item…"
-                  className="w-full h-8 pl-8 pr-8 rounded-md border border-border bg-surface-high text-foreground text-xs placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none transition-colors"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="m-4 flex items-center justify-between gap-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
-                <span>{error}</span>
-                <button
-                  type="button"
-                  onClick={() => load(page)}
-                  className="font-semibold underline cursor-pointer"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-surface-container/30 text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">
-                    <th className="px-5 py-3">Order</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3 hidden md:table-cell">Channel</th>
-                    <th className="px-4 py-3 hidden sm:table-cell">Items</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-5 py-3 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {loading ? (
-                    Array.from({ length: 7 }).map((_, i) => (
-                      <tr key={i} className="animate-pulse">
-                        <td className="px-5 py-3.5"><div className="h-3.5 w-24 bg-surface-high rounded" /></td>
-                        <td className="px-4 py-3.5"><div className="h-3.5 w-20 bg-surface-high rounded" /></td>
-                        <td className="px-4 py-3.5"><div className="h-3.5 w-28 bg-surface-high rounded" /></td>
-                        <td className="px-4 py-3.5 hidden md:table-cell"><div className="h-3.5 w-16 bg-surface-high rounded" /></td>
-                        <td className="px-4 py-3.5 hidden sm:table-cell"><div className="h-3.5 w-14 bg-surface-high rounded" /></td>
-                        <td className="px-4 py-3.5"><div className="h-3.5 w-20 bg-surface-high rounded" /></td>
-                        <td className="px-5 py-3.5 text-right"><div className="h-3.5 w-16 bg-surface-high rounded ml-auto" /></td>
-                      </tr>
-                    ))
-                  ) : filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-20 text-center">
-                        <Package size={36} className="mx-auto text-muted-foreground/30 mb-3" />
-                        <h3 className="text-sm font-semibold text-foreground mb-1">
-                          {search || statusFilter !== 'all' ? 'No matching orders found' : 'No orders yet'}
-                        </h3>
-                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                          {search || statusFilter !== 'all'
-                            ? 'Adjust or clear your search and filters to view more orders.'
-                            : 'When shoppers place orders through your storefront or ORA AI sales consultations, they will appear here automatically.'}
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filtered.map((order) => {
-                      const customerName =
-                        order.shippingAddress?.fullName ||
-                        (order.shippingAddress?.city
-                          ? `Customer in ${order.shippingAddress.city}`
-                          : 'Storefront Guest');
-
-                      return (
-                        <tr
-                          key={order._id}
-                          onClick={() => setSelectedOrderId(order._id)}
-                          className="hover:bg-surface-container/70 cursor-pointer transition-colors group"
-                        >
-                          <td className="px-5 py-3.5 font-semibold text-foreground group-hover:text-primary transition-colors">
-                            {order.orderNumber}
-                          </td>
-                          <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
-                            {formatDate(order.createdAt)}
-                          </td>
-                          <td className="px-4 py-3.5 font-medium text-foreground truncate max-w-[160px]">
-                            {customerName}
-                          </td>
-                          <td className="px-4 py-3.5 hidden md:table-cell">
-                            <SourceBadge source={order.source} />
-                          </td>
-                          <td className="px-4 py-3.5 text-muted-foreground hidden sm:table-cell">
-                            {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <StatusBadge status={order.status} />
-                          </td>
-                          <td className="px-5 py-3.5 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
-                            {formatCurrency(order.totalAmount, order.currency)}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Footer */}
-            {!loading && data && totalPages > 1 && (
-              <div className="p-4 border-t border-border bg-surface-container/40 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground tabular-nums">
-                  Showing page {page} of {totalPages} ({data.pagination.total} total orders)
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                    className="h-8 px-2.5 rounded border border-border bg-surface-high hover:bg-surface-bright disabled:opacity-40 disabled:pointer-events-none text-foreground flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft size={13} />
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="h-8 px-2.5 rounded border border-border bg-surface-high hover:bg-surface-bright disabled:opacity-40 disabled:pointer-events-none text-foreground flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    Next
-                    <ChevronRight size={13} />
-                  </button>
+                <div className="shrink-0 text-muted-foreground/60 group-hover:text-foreground transition-colors">
+                  {card.icon}
                 </div>
               </div>
-            )}
-
-          </div>
+              <span className="text-xl sm:text-2xl lg:text-[28px] font-semibold text-foreground tabular-nums leading-none tracking-tight">
+                {loading ? '—' : card.value}
+              </span>
+            </div>
+          ))}
         </div>
-      </div>
+
+        {/* Main Table Card */}
+        <div className="rounded-md border border-border/60 bg-background overflow-hidden">
+          
+          {/* Shopify-style Filter Tabs & Search Bar */}
+          <div className="px-4 py-3 border-b border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            
+            {/* Segmented Status Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+              {(['all', ...ALL_STATUSES] as const).map((s) => {
+                const isActive = statusFilter === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatusFilter(s)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap border',
+                      isActive
+                        ? 'bg-surface-high text-foreground border-border/60 font-semibold'
+                        : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-surface-high/60',
+                    )}
+                  >
+                    {s === 'all' ? 'All Orders' : STATUS_CONFIG[s].label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative w-full sm:w-72">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filter by order #, customer, item…"
+                className="w-full h-8 pl-8 pr-8 rounded-md border border-border/60 bg-surface-high/30 text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:border-primary/70 transition-colors"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="m-4 flex items-center justify-between gap-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => load(page)}
+                className="font-semibold underline cursor-pointer"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[12.5px] border-collapse">
+              <thead>
+                <tr className="border-b border-border/50 bg-surface-low/40 text-muted-foreground text-[11px] font-medium uppercase tracking-wider select-none">
+                  <th className="px-4 sm:px-5 py-3 font-medium">Order</th>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Customer</th>
+                  <th className="px-4 py-3 font-medium hidden md:table-cell">Channel</th>
+                  <th className="px-4 py-3 font-medium hidden sm:table-cell">Items</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 sm:px-5 py-3 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {loading ? (
+                  Array.from({ length: 7 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-3.5"><div className="h-3.5 w-24 bg-surface-high rounded" /></td>
+                      <td className="px-4 py-3.5"><div className="h-3.5 w-20 bg-surface-high rounded" /></td>
+                      <td className="px-4 py-3.5"><div className="h-3.5 w-28 bg-surface-high rounded" /></td>
+                      <td className="px-4 py-3.5 hidden md:table-cell"><div className="h-3.5 w-16 bg-surface-high rounded" /></td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell"><div className="h-3.5 w-14 bg-surface-high rounded" /></td>
+                      <td className="px-4 py-3.5"><div className="h-3.5 w-20 bg-surface-high rounded" /></td>
+                      <td className="px-5 py-3.5 text-right"><div className="h-3.5 w-16 bg-surface-high rounded ml-auto" /></td>
+                    </tr>
+                  ))
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-20 text-center">
+                      <Package size={20} className="mx-auto text-muted-foreground/40 mb-2" />
+                      <h3 className="text-xs font-medium text-foreground mb-1">
+                        {search || statusFilter !== 'all' ? 'No matching orders found' : 'No orders yet'}
+                      </h3>
+                      <p className="text-[11.5px] text-muted-foreground max-w-sm mx-auto">
+                        {search || statusFilter !== 'all'
+                          ? 'Adjust or clear your search and filters to view more orders.'
+                          : 'When shoppers place orders through your storefront or ORA AI sales consultations, they will appear here automatically.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((order) => {
+                    const customerName =
+                      order.shippingAddress?.fullName ||
+                      (order.shippingAddress?.city
+                        ? `Customer in ${order.shippingAddress.city}`
+                        : 'Storefront Guest');
+
+                    return (
+                      <tr
+                        key={order._id}
+                        onClick={() => setSelectedOrderId(order._id)}
+                        className="hover:bg-surface-high/30 cursor-pointer transition-colors group"
+                      >
+                        <td className="px-4 sm:px-5 py-3.5 font-medium text-foreground tabular-nums">
+                          {order.orderNumber}
+                        </td>
+                        <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
+                          {formatDate(order.createdAt)}
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-foreground truncate max-w-[160px]">
+                          {customerName}
+                        </td>
+                        <td className="px-4 py-3.5 hidden md:table-cell">
+                          <SourceBadge source={order.source} />
+                        </td>
+                        <td className="px-4 py-3.5 text-muted-foreground hidden sm:table-cell">
+                          {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <StatusBadge status={order.status} />
+                        </td>
+                        <td className="px-4 sm:px-5 py-3.5 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
+                          {formatCurrency(order.totalAmount, order.currency)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Footer */}
+          {!loading && data && totalPages > 1 && (
+            <div className="px-4 py-3 border-t border-border/50 flex items-center justify-between text-xs">
+              <span className="text-muted-foreground tabular-nums">
+                Showing page {page} of {totalPages} ({data.pagination.total} total orders)
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="h-8 px-2.5 rounded border border-border bg-surface-high hover:bg-surface-bright disabled:opacity-40 disabled:pointer-events-none text-foreground flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft size={13} />
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="h-8 px-2.5 rounded border border-border bg-surface-high hover:bg-surface-bright disabled:opacity-40 disabled:pointer-events-none text-foreground flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  Next
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </DashboardPage>
 
       {/* Order Detail Drawer */}
       {selectedOrderId && (
@@ -788,6 +765,6 @@ export function OrdersClient() {
           onStatusUpdated={handleStatusUpdated}
         />
       )}
-    </div>
+    </>
   );
 }

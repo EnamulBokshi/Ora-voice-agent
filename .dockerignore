@@ -1,0 +1,93 @@
+# ==============================================================================
+# ORA Monorepo - Docker Ignore File
+# Keeps Docker build contexts clean and prevents development/AI/IDE tooling
+# and heavy documentation from inflating images or build contexts.
+# ==============================================================================
+
+# Version Control
+.git
+.gitignore
+
+# Dependencies & Build Outputs
+node_modules
+client/node_modules
+server/node_modules
+dist
+server/dist
+.next
+client/.next
+.turbo
+*.tsbuildinfo
+coverage
+test
+server/test
+
+# Environment & Secrets (preserve template examples)
+.env
+.env.*
+.env*.local
+!.env.example
+!client/.env.example
+!server/.env.example
+
+# IDE & Editor Settings
+.vscode
+.idea
+*.swp
+*.swo
+
+# AI Coding Assistants & Agent Directories
+.agents
+agent
+.agent
+client/.agent
+.claude
+CLAUDE.md
+.codex
+codex
+.commandcode
+client/.commandcode
+server/.commandcode
+.impeccable
+client/.impeccable
+impeccable
+agent-docs
+.antigravity*
+.gemini
+skills-lock.json
+
+# Code Analysis & Knowledge Graphs
+graphify-out
+graphify
+
+# API Testing & Postman
+.postman
+
+# Documentation & Internal Specifications
+/docs
+*.md
+!README.md
+!client/public/docs/**
+
+# Themes, Large Archives & Design Files
+storefront-theme
+erd.pdf
+crawlers.zip
+landing_page_design
+client/landing_page_design
+scratch
+future-work.txt
+improve.txt
+issues.txt
+test-voice-client.html
+
+# Logs & Debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS Metadata
+.DS_Store
+Thumbs.db

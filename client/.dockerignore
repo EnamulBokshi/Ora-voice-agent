@@ -1,8 +1,48 @@
+# ==============================================================================
+# ORA Client (Next.js) - Docker Ignore File
+# ==============================================================================
+
+# Dependencies & Build Output
 node_modules
 .next
 .git
 .gitignore
+
+# Environment Files
 .env*.local
+.env
+.env.*
+!.env.example
+
+# AI & Assistant Directories
+.agent
+.agents
+.claude
+.codex
 .commandcode
+.impeccable
+.antigravity*
+.gemini
+
+# IDE & Tooling
+.vscode
+.idea
+.postman
+
+# Build Caches & Logs
+*.tsbuildinfo
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Design Files & Docs
+landing_page_design
 *.md
+!README.md
+!public/**
+
+# OS Artifacts
 .DS_Store
+Thumbs.db

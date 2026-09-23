@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Receipt } from 'lucide-react';
+import { DashboardPage } from '@/components/dashboard/dashboard-page';
 import { getSubscriptionApi } from '@/services/billing-service';
 import { getInvoicesApi } from '@/services/invoices-service';
 import { demoSubscription, demoInvoices } from '@/lib/demo-data';
@@ -56,17 +56,6 @@ function BillingClientContent() {
     load();
   }, [load]);
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full w-full bg-background text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin text-muted-foreground" size={18} />
-          <span className="text-sm font-medium">Loading plans & billing…</span>
-        </div>
-      </div>
-    );
-  }
-
   const effectiveSubscription: SubscriptionDetailsResponse = subscription ?? {
     plan: null,
     subscription: null,
@@ -95,50 +84,35 @@ function BillingClientContent() {
   ) : null;
 
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar w-full bg-background">
-      <div className="w-full px-4 sm:px-6 py-5 space-y-6">
+    <DashboardPage
+      title="Plans & Billing"
+      onRefresh={load}
+      isRefreshing={loading}
+      loading={loading && !subscription}
+      loadingLabel="Loading plans & billing…"
+    >
+      {errorBanner}
 
-        {errorBanner}
+      {/* ── Trial Reminder & Expiration Warning Banner ── */}
+      <TrialReminderBanner
+        subscription={effectiveSubscription}
+        onSubscribed={load}
+        isExpiredParam={isExpiredParam}
+      />
 
-        {/* ── Trial Reminder & Expiration Warning Banner ── */}
-        <TrialReminderBanner
-          subscription={effectiveSubscription}
-          onSubscribed={load}
-          isExpiredParam={isExpiredParam}
-        />
+      {/* ── Functional Cards ── */}
+      <CurrentPlanCard subscription={effectiveSubscription} onReload={load} />
 
-        {/* ── Editorial Header (Matching ORA Agent & Setup pages) ── */}
-        <div className="border-b border-border/40 pb-5">
-          {/* <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-md bg-surface-high flex items-center justify-center border border-border/60 flex-shrink-0">
-              <Receipt size={14} className="text-foreground" />
-            </div>
-          </div> */}
+      <PlanComparisonGrid
+        currentPlanId={effectiveSubscription.plan?.planId ?? null}
+        onSubscribed={load}
+        hasUsedTrial={effectiveSubscription.hasUsedTrial}
+        isTrialing={effectiveSubscription.subscription?.status === 'trialing'}
+        trialDaysRemaining={effectiveSubscription.trialDaysRemaining}
+      />
 
-          <h1 className="text-[24px] sm:text-[28px] font-semibold text-foreground font-serif tracking-tight leading-[1.2] mb-1.5">
-            Plans & Billing
-          </h1>
-
-          {/* <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-2xl">
-            Manage your active subscription tier, track trial and usage quotas, and access payment receipts.
-          </p> */}
-        </div>
-
-        {/* ── Functional Cards ── */}
-        <CurrentPlanCard subscription={effectiveSubscription} onReload={load} />
-
-        <PlanComparisonGrid
-          currentPlanId={effectiveSubscription.plan?.planId ?? null}
-          onSubscribed={load}
-          hasUsedTrial={effectiveSubscription.hasUsedTrial}
-          isTrialing={effectiveSubscription.subscription?.status === 'trialing'}
-          trialDaysRemaining={effectiveSubscription.trialDaysRemaining}
-        />
-
-        <InvoiceHistory invoices={invoices} onResent={load} />
-
-      </div>
-    </div>
+      <InvoiceHistory invoices={invoices} onResent={load} />
+    </DashboardPage>
   );
 }
 

@@ -1,16 +1,50 @@
+# ==============================================================================
+# ORA Server (NestJS) - Docker Ignore File
+# ==============================================================================
+
+# Dependencies & Build Output
 node_modules
 dist
 .git
 .gitignore
+
+# Environment Files
 .env
 .env.*
 !.env.example
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
+
+# AI & Assistant Directories
+.agent
+.agents
+.claude
+.codex
 .commandcode
+.impeccable
+.antigravity*
+.gemini
+
+# IDE & Tooling
+.vscode
+.idea
+.postman
+
+# Test & Build Caches
 test
 coverage
+*.tsbuildinfo
+test-voice-client.html
+
+# Docs
 *.md
+!README.md
+
+# OS Artifacts
 .DS_Store
+Thumbs.db

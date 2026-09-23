@@ -782,15 +782,15 @@ export function Sidebar({
             role="menu"
             aria-orientation="vertical"
             className={cn(
-              'absolute z-50 bg-[#111111] border border-border/80 rounded-xl shadow-2xl p-1.5 space-y-1 text-xs text-foreground animate-in fade-in zoom-in-95 duration-150',
+              'absolute z-50 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-1.5 space-y-1 text-xs animate-in fade-in zoom-in-95 duration-150',
               collapsed
                 ? 'bottom-2 left-[calc(100%+10px)] w-60'
                 : 'bottom-[calc(100%+8px)] left-2 right-2 min-w-[210px]'
             )}
           >
             {/* User Details Header */}
-            <div className="px-3 py-2.5 border-b border-border/40">
-              <p className="font-semibold text-foreground truncate text-[13px]">
+            <div className="px-3 py-2.5 border-b border-border">
+              <p className="font-semibold text-popover-foreground truncate text-[13px]">
                 {userName}
               </p>
               <p className="text-[11px] text-muted-foreground truncate font-mono mt-0.5">
@@ -806,11 +806,11 @@ export function Sidebar({
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] font-medium transition-colors',
                   pathname.startsWith('/profile')
-                    ? 'bg-surface-high text-foreground font-semibold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60'
+                    ? 'bg-surface-high dark:bg-white/[0.08] text-popover-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-popover-foreground hover:bg-surface-high dark:hover:bg-white/[0.06]'
                 )}
               >
-                <Settings size={15} className="text-muted-foreground" />
+                <Settings size={15} className={pathname.startsWith('/profile') ? 'text-popover-foreground' : 'text-muted-foreground'} />
                 <span>Settings</span>
               </Link>
 
@@ -820,11 +820,11 @@ export function Sidebar({
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] font-medium transition-colors',
                   pathname.startsWith('/billing')
-                    ? 'bg-surface-high text-foreground font-semibold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60'
+                    ? 'bg-surface-high dark:bg-white/[0.08] text-popover-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-popover-foreground hover:bg-surface-high dark:hover:bg-white/[0.06]'
                 )}
               >
-                <CreditCard size={15} className="text-muted-foreground" />
+                <CreditCard size={15} className={pathname.startsWith('/billing') ? 'text-popover-foreground' : 'text-muted-foreground'} />
                 <span>Billing & Subscription</span>
               </Link>
 
@@ -834,16 +834,16 @@ export function Sidebar({
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[12.5px] font-medium transition-colors',
                   pathname.startsWith('/usage')
-                    ? 'bg-surface-high text-foreground font-semibold'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-high/60'
+                    ? 'bg-surface-high dark:bg-white/[0.08] text-popover-foreground font-semibold'
+                    : 'text-muted-foreground hover:text-popover-foreground hover:bg-surface-high dark:hover:bg-white/[0.06]'
                 )}
               >
-                <BarChart2 size={15} className="text-muted-foreground" />
+                <BarChart2 size={15} className={pathname.startsWith('/usage') ? 'text-popover-foreground' : 'text-muted-foreground'} />
                 <span>Usage</span>
               </Link>
             </div>
 
-            <div className="h-px bg-border/40 my-1" />
+            <div className="h-px bg-border my-1" />
 
             {/* Log Out option in dropdown */}
             <div className="pt-0.5">

@@ -11,7 +11,7 @@ import { getCustomersApi } from '@/services/customers-service';
 import { Customer } from '@/types/customer';
 import { demoCustomers } from '@/lib/demo-data';
 import { withDemoFallback } from '@/lib/demo-config';
-import { TopHeader } from '@/components/dashboard/top-header';
+import { DashboardPage } from '@/components/dashboard/dashboard-page';
 import { CustomersKpiStrip } from './customers-kpi-strip';
 import { CustomersFilterBar, CustomerSegment, CustomerSort } from './customers-filter-bar';
 import { CustomersTable } from './customers-table';
@@ -178,12 +178,12 @@ export function CustomersClient() {
 
   // Header action elements
   const headerActions = (
-    <div className="flex items-center gap-2">
+    <>
       <button
         type="button"
         onClick={handleExportJson}
         disabled={filteredAndSortedCustomers.length === 0}
-        className="px-3 py-1.5 rounded-md text-xs font-medium text-foreground bg-surface-high hover:bg-surface-bright border border-border/60 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border/60 bg-surface-high/40 hover:bg-surface-high text-[12px] font-medium text-foreground transition-colors cursor-pointer disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         title="Export Shoppers to JSON"
       >
         <Download size={13} />
@@ -194,111 +194,102 @@ export function CustomersClient() {
         type="button"
         onClick={() => load(true)}
         disabled={refreshing || loading}
-        className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors disabled:opacity-40 cursor-pointer"
+        className="w-8 h-8 rounded-md flex items-center justify-center border border-border/60 text-muted-foreground hover:text-foreground hover:bg-surface-high transition-colors disabled:opacity-40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         title="Refresh customer list"
         aria-label="Refresh customer list"
       >
-        <RefreshCw size={13} className={refreshing ? 'animate-spin text-primary' : ''} />
+        <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
       </button>
-    </div>
+    </>
   );
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-background overflow-hidden">
-      {/* Top Header */}
-      <TopHeader
-        title="Customers"
-        breadcrumb={{ label: 'Dashboard', href: '/dashboard' }}
-        badge={
-          <span className="text-[11px] text-primary bg-primary/10 border border-primary/25 px-2 py-0.5 rounded-full font-medium tabular-nums">
-            {customers.length} total
-          </span>
-        }
-        actions={headerActions}
-      />
-
-      {/* Main Content Area — with generous, uncongested spacing */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6 sm:p-8 lg:p-9 space-y-8">
-        <div className="max-w-[1440px] mx-auto space-y-8">
-          {/* Error Banner */}
-          {error && (
-            <div className="p-3.5 rounded-md bg-destructive/15 border border-destructive/30 flex items-center justify-between gap-3 text-xs text-destructive">
-              <div className="flex items-center gap-2">
-                <AlertCircle size={14} />
-                <span>{error}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => load()}
-                className="underline hover:no-underline font-medium cursor-pointer"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {/* Loading Skeletons */}
-          {loading ? (
-            <div className="space-y-8 animate-pulse">
-              <div className="h-24 rounded-md bg-surface-container border border-border/50" />
-              <div className="h-10 rounded-md bg-surface-container border border-border/50" />
-              <div className="h-96 rounded-md bg-surface-container border border-border/50" />
-            </div>
-          ) : (
-            <>
-              {/* 1. KPI Metric Strip */}
-              <CustomersKpiStrip customers={customers} />
-
-              {/* 2. Customer Segmentation & Filter Bar */}
-              <CustomersFilterBar
-                customers={customers}
-                search={search}
-                onSearchChange={setSearch}
-                activeSegment={activeSegment}
-                onSegmentChange={setActiveSegment}
-                sortBy={sortBy}
-                onSortChange={setSortBy}
-                totalFiltered={filteredAndSortedCustomers.length}
-              />
-
-              {/* 3. Master-Detail Work Surface — spacious gap */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 min-h-[560px]">
-                {/* Left: Customer Data Grid */}
-                <div className="lg:col-span-7 flex flex-col min-h-0">
-                  <CustomersTable
-                    customers={filteredAndSortedCustomers}
-                    selectedId={selectedCustomer ? selectedCustomer._id || selectedCustomer.id || '' : ''}
-                    onSelectCustomer={(c) => setSelectedId(c._id || c.id || '')}
-                  />
-                </div>
-
-                {/* Right: Customer Detail Panel (Inspector) */}
-                <div
-                  id="customer-detail-section"
-                  className="lg:col-span-5 flex flex-col h-full scroll-mt-6"
-                >
-                  {selectedCustomer ? (
-                    <CustomerDetailPanel
-                      key={selectedCustomer._id || selectedCustomer.id || ''}
-                      customer={selectedCustomer}
-                      onReload={() => load()}
-                    />
-                  ) : (
-                    <div className="rounded-md border border-border/60 bg-background p-10 text-center text-xs text-muted-foreground h-full flex flex-col items-center justify-center space-y-2">
-                      <Users size={20} className="text-muted-foreground/40" />
-                      <p className="font-medium text-foreground text-xs">Select a customer</p>
-                      <p className="text-[11.5px] max-w-xs text-muted-foreground">
-                        Choose a customer from the list to view contact information, saved preferences, and storefront devices.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+    <DashboardPage
+      title="Customers"
+      badge={
+        <span className="text-[11px] text-muted-foreground bg-surface-high border border-border/60 px-2 py-0.5 rounded-sm font-medium tabular-nums">
+          {customers.length} total
+        </span>
+      }
+      actions={<div className="flex items-center gap-2">{headerActions}</div>}
+    >
+      {/* Error Banner */}
+      {error && (
+        <div className="p-3.5 rounded-md bg-destructive/15 border border-destructive/30 flex items-center justify-between gap-3 text-xs text-destructive">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={14} />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="underline hover:no-underline font-medium cursor-pointer"
+          >
+            Retry
+          </button>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* Loading Skeletons */}
+      {loading ? (
+        <div className="space-y-6 animate-pulse">
+          <div className="h-24 rounded-md bg-surface-container border border-border/50" />
+          <div className="h-10 rounded-md bg-surface-container border border-border/50" />
+          <div className="h-96 rounded-md bg-surface-container border border-border/50" />
+        </div>
+      ) : (
+        <>
+          {/* 1. KPI Metric Strip */}
+          <CustomersKpiStrip customers={customers} />
+
+          {/* 2. Customer Segmentation & Filter Bar */}
+          <CustomersFilterBar
+            customers={customers}
+            search={search}
+            onSearchChange={setSearch}
+            activeSegment={activeSegment}
+            onSegmentChange={setActiveSegment}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            totalFiltered={filteredAndSortedCustomers.length}
+          />
+
+          {/* 3. Master-Detail Work Surface — spacious gap */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[560px]">
+            {/* Left: Customer Data Grid */}
+            <div className="lg:col-span-7 flex flex-col min-h-0">
+              <CustomersTable
+                customers={filteredAndSortedCustomers}
+                selectedId={selectedCustomer ? selectedCustomer._id || selectedCustomer.id || '' : ''}
+                onSelectCustomer={(c) => setSelectedId(c._id || c.id || '')}
+              />
+            </div>
+
+            {/* Right: Customer Detail Panel (Inspector) */}
+            <div
+              id="customer-detail-section"
+              className="lg:col-span-5 flex flex-col h-full scroll-mt-6"
+            >
+              {selectedCustomer ? (
+                <CustomerDetailPanel
+                  key={selectedCustomer._id || selectedCustomer.id || ''}
+                  customer={selectedCustomer}
+                  onReload={() => load()}
+                />
+              ) : (
+                <div className="rounded-md border border-border/60 bg-background p-10 text-center text-xs text-muted-foreground h-full flex flex-col items-center justify-center space-y-2">
+                  <Users size={20} className="text-muted-foreground/40" />
+                  <p className="font-medium text-foreground text-xs">Select a customer</p>
+                  <p className="text-[11.5px] max-w-xs text-muted-foreground">
+                    Choose a customer from the list to view contact information, saved preferences, and storefront devices.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </DashboardPage>
   );
 }
 
