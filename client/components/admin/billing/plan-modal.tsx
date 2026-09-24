@@ -42,7 +42,8 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
   // Pricing (in dollars and BDT)
   const [usdPrice, setUsdPrice] = useState<string>('49');
   const [bdtPrice, setBdtPrice] = useState<string>('5000');
-  const [billingInterval, setBillingInterval] = useState('monthly');
+  // Stored as 'month' / 'year', the values the Stripe and Shopify providers read.
+  const [billingInterval, setBillingInterval] = useState('month');
   const [trialDays, setTrialDays] = useState<number>(14);
 
   // Limits
@@ -66,7 +67,7 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
       setIsCustom(plan.isCustom ?? false);
       setUsdPrice((plan.priceUsdCents / 100).toString());
       setBdtPrice((plan.priceBdtPaisa / 100).toString());
-      setBillingInterval(plan.billingInterval || 'monthly');
+      setBillingInterval(/^year/i.test(plan.billingInterval || '') ? 'year' : 'month');
       setTrialDays(plan.trialDays ?? 0);
       setConversationMinutes(plan.limits?.conversationMinutes ?? 500);
       setOrdersPerMonth(plan.limits?.ordersPerMonth ?? 1000);
@@ -84,7 +85,7 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
       setIsCustom(false);
       setUsdPrice('49');
       setBdtPrice('5000');
-      setBillingInterval('monthly');
+      setBillingInterval('month');
       setTrialDays(14);
       setConversationMinutes(500);
       setOrdersPerMonth(1000);
@@ -318,7 +319,7 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
               <DollarSign size={13} className="text-primary" /> Pricing
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1.5">
                   USD price <span className="text-primary">*</span>
@@ -370,6 +371,20 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
                   onChange={(e) => setTrialDays(parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 text-xs rounded-xl bg-surface-high border border-border text-foreground tabular-nums focus:outline-none focus:border-primary"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  Billing interval
+                </label>
+                <select
+                  value={billingInterval}
+                  onChange={(e) => setBillingInterval(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-surface-high border border-border text-foreground focus:outline-none focus:border-primary"
+                >
+                  <option value="month">Monthly</option>
+                  <option value="year">Yearly</option>
+                </select>
               </div>
             </div>
           </div>
