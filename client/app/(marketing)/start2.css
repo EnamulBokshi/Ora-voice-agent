@@ -5348,7 +5348,7 @@
 .start2-landing .s2p-title,
 .start2-landing .s2da-title,
 .start2-landing .s2-itg-title {
-  font-family: var(--font-hero), var(--font-display);
+  font-family: var(--font-hero, var(--font-display));
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.035em;
