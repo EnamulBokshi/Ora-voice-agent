@@ -70,3 +70,8 @@ Recommendation
 Layer 1 alone probably solves what you're seeing. Layer 2 is a small addition that covers the tail. Layer 3 when you want the grace window shorter o
 
 Want me to implement Layer 1?
+
+
+
+  // "hash": "caa2519ec7d1",
+  // "bundleUrl": "/widget/v2/widget.caa2519ec7d1.js"
