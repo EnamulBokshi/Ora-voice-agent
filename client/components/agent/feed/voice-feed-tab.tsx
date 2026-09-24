@@ -74,7 +74,7 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
     id: 'all',
     label: 'Automatic Sorting',
     description: 'Structures voice input into policies, products, FAQs, and guidelines automatically.',
-    hint: 'Speak freely — automatically sorts policies, product details, and store guidelines.',
+    hint: '',
     Icon: Layers,
     badgeClass: 'border-primary/40 bg-primary/10 text-primary',
     dotClass: 'bg-primary',
@@ -173,7 +173,12 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
   // Append log entry helper
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
+    // The ref is written here too, not only by the effect above: `stop()` emits
+    // the last buffered line synchronously, and `stopAndOrganise` reads the ref
+    // straight after, before any effect has run.
+    const next = [...transcriptsRef.current, { id: Math.random().toString(), sender, text, timestamp: time }];
+    transcriptsRef.current = next;
+    setTranscripts(next);
   }, []);
 
   // Clean up recording and connections
@@ -414,7 +419,7 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
           </div>
         </div>
 
-        {micBlocked && <MicrophoneBlockedNotice className="relative z-10 my-2" />}
+        {micBlocked && <MicrophoneBlockedNotice view="feed" className="relative z-10 my-2" />}
 
         {/* Central Living Crystal Wave Orb */}
         <div className="relative flex flex-col items-center justify-center my-3">

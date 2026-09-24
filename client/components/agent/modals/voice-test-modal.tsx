@@ -19,6 +19,7 @@ import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-n
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
 import { getVoiceTicketApi } from '@/services/voice-service';
+import { useStickToBottom } from '@/hooks/use-stick-to-bottom';
 import { useRouter } from 'next/navigation';
 
 interface VoiceTestModalProps {
@@ -53,13 +54,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
 
   // Auto-scroll transcript log
-  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
-  const scrollToBottom = () => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-  useEffect(() => {
-    scrollToBottom();
-  }, [transcripts]);
+  const { ref: messageListRef, onScroll: onMessageListScroll } =
+    useStickToBottom<HTMLDivElement>(transcripts);
 
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -374,7 +370,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-[12px] min-h-0 custom-scrollbar">
+            <div
+              ref={messageListRef}
+              onScroll={onMessageListScroll}
+              className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-[12px] min-h-0 custom-scrollbar"
+            >
               {transcripts.length === 0 ? (
                 <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-muted-foreground/60 text-xs text-center px-4">
                   <p className="font-medium text-foreground">Ready to test storefront dialogue.</p>
@@ -411,7 +411,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                   </div>
                 ))
               )}
-              <div ref={transcriptEndRef} />
             </div>
           </div>
         </div>

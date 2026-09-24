@@ -110,6 +110,7 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
       <ui-nav-menu>
         <a href="/shopify" rel="home">Overview</a>
         <a href="/shopify/agent">Agent Configuration</a>
+        <a href="/shopify/agent?role=voice&view=feed">Train &amp; Test ORA</a>
         <a href="/shopify/live-desk">Live Desk</a>
         <a href="/shopify/conversations">Conversations</a>
         <a href="/shopify/billing">Billing</a>

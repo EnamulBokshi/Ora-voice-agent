@@ -8,6 +8,18 @@
 export const SHOPIFY_BASE_PATH = '/shopify';
 
 /**
+ * The top-level tab the embedded app opens for anything that needs a
+ * microphone. Shopify Admin frames the app without `allow="microphone"`, so
+ * voice training and voice testing can only run outside the iframe.
+ *
+ * Deliberately outside `app/shopify/`: that layout loads the App Bridge
+ * script, which has no admin frame to talk to in a top-level tab. The tab is
+ * still a Shopify session — it arrives with an `id_token` and never has a web
+ * login — which `lib/session` relies on this constant to recognise.
+ */
+export const STANDALONE_VOICE_PATH = '/voice-test';
+
+/**
  * Top-level routes that exist under `app/shopify/`.
  *
  * Two dashboard-reachable routes are deliberately left out, so they resolve to
