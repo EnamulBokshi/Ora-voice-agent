@@ -270,6 +270,21 @@ export const ORA_TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'close_details_review',
+    description:
+      "Close the on-screen card that shows the visitor's saved contact details for review. Call it once the visitor says the details are correct, or asks to close or dismiss the card.",
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        confirmed: {
+          type: 'BOOLEAN',
+          description:
+            'True when the visitor confirmed the details are correct; false when they only asked to close the card.',
+        },
+      },
+    },
+  },
+  {
     name: 'get_integration_guide',
     description:
       'Get step-by-step setup instructions and code snippets for integrating ORA into Shopify, WooCommerce, Next.js/React, or vanilla HTML.',

@@ -8,6 +8,15 @@ describe('resolveAgentCapability', () => {
   const names = (archetype?: string, isPlatform = false, hasCatalog?: boolean) =>
     getToolsForArchetype(archetype, isPlatform, hasCatalog).map((t) => t.name);
 
+  it('lets every agent close the details review card it can open', () => {
+    // Any agent that can save contact details opens the review card, so each
+    // one must also be able to close it once the visitor confirms by voice.
+    for (const tools of [names('restaurant'), names('ecommerce'), names(undefined, true)]) {
+      expect(tools).toContain('update_customer_profile');
+      expect(tools).toContain('close_details_review');
+    }
+  });
+
   describe('commerce is opt-in, never a fallback', () => {
     it('gives an unrecognised archetype the conservative tool set', () => {
       const tools = names('restaurant');

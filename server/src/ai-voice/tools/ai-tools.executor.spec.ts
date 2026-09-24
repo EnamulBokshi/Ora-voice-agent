@@ -112,6 +112,18 @@ describe('AiToolsExecutor', () => {
     expect(res.products[0].name).toBe('Test Audio Headset');
   });
 
+  describe('close_details_review', () => {
+    it('hands the client a close action that says whether the visitor confirmed', async () => {
+      const confirmed = await executor.executeTool('biz_1', 'sess_1', 'close_details_review', {
+        confirmed: true,
+      });
+      expect(confirmed.action).toEqual({ type: 'close_details', confirmed: true });
+
+      const dismissed = await executor.executeTool('biz_1', 'sess_1', 'close_details_review', {});
+      expect(dismissed.action).toEqual({ type: 'close_details', confirmed: false });
+    });
+  });
+
   describe('find_products latency paths', () => {
     let products: any;
     let rag: any;

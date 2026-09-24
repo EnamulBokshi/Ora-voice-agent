@@ -64,12 +64,12 @@ function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
       const amp = isSpeaking
         ? 6 + (energyLevel / 100) * 14
         : isThinking
-        ? 5
-        : isActive
-        ? 3 + (energyLevel / 100) * 8
-        : isConnecting
-        ? 4
-        : 1.5;
+          ? 5
+          : isActive
+            ? 3 + (energyLevel / 100) * 8
+            : isConnecting
+              ? 4
+              : 1.5;
 
       const speedMult = isSpeaking ? 1.8 : isThinking ? 1.6 : isConnecting ? 1.5 : 1.0;
 
@@ -251,6 +251,9 @@ const ANCHOR_ROUTE_FALLBACKS: Record<string, string> = {
 
 /** An anchor may not be mounted yet; retry before giving up on it. */
 const ANCHOR_RETRY_MS = 250;
+
+/** How long the details review card waits, with no activity, before closing itself. */
+const REVIEW_IDLE_MS = 10000;
 const ANCHOR_MAX_RETRIES = 2;
 
 /** A page may still be streaming in when the route changes; retry briefly. */
@@ -319,7 +322,10 @@ export function FloatingOrbWidget() {
   const [userMicLevel, setUserMicLevel] = useState(0);
   const [speakingLevel, setSpeakingLevel] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isMuted, setIsMuted] = useState(false);
+  // The island above the orb shows only what needs the visitor's attention:
+  // connecting, an error, a session-ending warning, or that the session ended.
+  const [sessionNotice, setSessionNotice] = useState<{ kind: 'warning' | 'ended'; text: string } | null>(null);
+  const sessionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Customer Details Confirmation State
   const [customerDetails, setCustomerDetails] = useState<{
@@ -340,6 +346,14 @@ export function FloatingOrbWidget() {
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isCardHoveredRef = useRef(false);
+  // Read when the auto-dismiss timer fires, and by `close_details` from ORA,
+  // both of which run outside the render that set them.
+  const isEditingDetailsRef = useRef(false);
+  const customerDetailsRef = useRef(customerDetails);
+  useEffect(() => {
+    isEditingDetailsRef.current = isEditingDetails;
+    customerDetailsRef.current = customerDetails;
+  }, [isEditingDetails, customerDetails]);
   const pageHistoryRef = useRef<string[]>([pathname || '/']);
   const lastSentPathRef = useRef<string>(pathname || '/');
 
@@ -350,14 +364,29 @@ export function FloatingOrbWidget() {
     }
   }, []);
 
-  const armAutoDismiss = useCallback((delayMs = 7000) => {
+  /**
+   * The review card is closed by the visitor or by ORA (`close_details`). This
+   * is only the fallback: it closes the card after REVIEW_IDLE_MS with no
+   * activity. Pointer over the card, an open editor, or conversation keeps it
+   * up — each fire while the card is in use simply re-arms.
+   */
+  const armAutoDismiss = useCallback(() => {
     cancelAutoDismiss();
-    autoDismissTimerRef.current = setTimeout(() => {
-      if (!isCardHoveredRef.current) {
-        setShowConfirmModal(false);
+    const tick = () => {
+      if (isCardHoveredRef.current || isEditingDetailsRef.current) {
+        autoDismissTimerRef.current = setTimeout(tick, REVIEW_IDLE_MS);
+        return;
       }
-    }, delayMs);
+      autoDismissTimerRef.current = null;
+      setShowConfirmModal(false);
+    };
+    autoDismissTimerRef.current = setTimeout(tick, REVIEW_IDLE_MS);
   }, [cancelAutoDismiss]);
+
+  /** Activity while the card is up restarts its idle countdown. */
+  const bumpAutoDismiss = useCallback(() => {
+    if (autoDismissTimerRef.current) armAutoDismiss();
+  }, [armAutoDismiss]);
 
   /**
    * Scroll to an in-page anchor, and fall back rather than doing nothing when
@@ -622,17 +651,38 @@ export function FloatingOrbWidget() {
             links: ['https://github.com/enamul/ora'],
           },
         }),
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   }, []);
 
   const isMountedRef = useRef(true);
+
+  const clearSessionNotice = useCallback(() => {
+    if (sessionNoticeTimerRef.current) {
+      clearTimeout(sessionNoticeTimerRef.current);
+      sessionNoticeTimerRef.current = null;
+    }
+    setSessionNotice(null);
+  }, []);
+
+  const showSessionNotice = useCallback((kind: 'warning' | 'ended', text: string) => {
+    if (sessionNoticeTimerRef.current) clearTimeout(sessionNoticeTimerRef.current);
+    setSessionNotice({ kind, text });
+    sessionNoticeTimerRef.current = setTimeout(
+      () => {
+        sessionNoticeTimerRef.current = null;
+        if (isMountedRef.current) setSessionNotice(null);
+      },
+      kind === 'warning' ? 12000 : 5000,
+    );
+  }, []);
 
   // ── Cleanup on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      if (sessionNoticeTimerRef.current) clearTimeout(sessionNoticeTimerRef.current);
       liveClientRef.current?.stop(true);
     };
   }, []);
@@ -647,12 +697,12 @@ export function FloatingOrbWidget() {
     setErrorMsg('');
     setLiveUtterance('');
     setLiveSpeaker(null);
-    setIsMuted(false);
+    clearSessionNotice();
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     try {
       sessionStorage.setItem('ora_landing_session_id', sessionId);
-    } catch {}
+    } catch { }
     const apiBaseUrl = getApiBase();
     // A logged-in merchant gets a `visitor` ticket so the platform assistant can
     // greet them by name. Anyone else, or a failed request, is a plain visitor.
@@ -677,7 +727,7 @@ export function FloatingOrbWidget() {
           else if (status === 'listening' || status === 'connected') setVoiceState('active');
           else if (status === 'speaking') setVoiceState('ora-speaking');
           else if (status === 'error') {
-            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch { }
             if (isAuto) {
               setVoiceState('idle');
             } else {
@@ -685,19 +735,29 @@ export function FloatingOrbWidget() {
             }
           }
           else if (status === 'idle') {
-            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch { }
             setVoiceState('idle');
           }
         },
         onTranscript: (sender, text) => {
           if (!isMountedRef.current) return;
+          if (sender === 'agent' || sender === 'user') {
+            // Talk while the review card is up is most likely about the card.
+            bumpAutoDismiss();
+          }
           if (sender === 'agent') {
             setLiveSpeaker('agent');
             setLiveUtterance(text);
           } else if (sender === 'user') {
             setLiveSpeaker('user');
             setLiveUtterance(text);
+            // The visitor answered, so an "are you still there?" is moot.
+            setSessionNotice((current) => (current?.kind === 'warning' ? null : current));
           }
+        },
+        onSessionNotice: ({ kind, message }) => {
+          if (!isMountedRef.current) return;
+          showSessionNotice(kind, message);
         },
         onAudioLevel: (level) => {
           if (!isMountedRef.current) return;
@@ -725,7 +785,7 @@ export function FloatingOrbWidget() {
             const code = String(action.couponCode).toUpperCase();
             try {
               window.localStorage.setItem('ora.pendingCoupon', code);
-            } catch {}
+            } catch { }
 
             const planId = action.planId ? String(action.planId) : '';
             const dest = `/billing/checkout?${planId ? `planId=${encodeURIComponent(planId)}&` : ''}coupon=${encodeURIComponent(code)}`;
@@ -738,8 +798,19 @@ export function FloatingOrbWidget() {
             } else {
               try {
                 router.prefetch(dest);
-              } catch {}
+              } catch { }
               router.push(dest);
+            }
+            return;
+          }
+          if (action?.type === 'close_details') {
+            // ORA heard the visitor confirm, or ask to close the card.
+            if (action.confirmed) {
+              handleConfirmSuccess(customerDetailsRef.current);
+            } else {
+              setShowConfirmModal(false);
+              setIsEditingDetails(false);
+              cancelAutoDismiss();
             }
             return;
           }
@@ -750,7 +821,7 @@ export function FloatingOrbWidget() {
             setShowConfirmModal(true);
             setIsEditingDetails(false);
             setIsDetailsConfirmed(false);
-            armAutoDismiss(8000);
+            armAutoDismiss();
             setTimeout(() => setHighlightField(null), 1500);
           }
           if (action?.type === 'navigate' && action.destination) {
@@ -782,7 +853,7 @@ export function FloatingOrbWidget() {
                   if (pathPart && pathPart !== currentPath) {
                     try {
                       router.prefetch(pathPart);
-                    } catch {}
+                    } catch { }
                     router.push(dest);
                     setTimeout(() => goToAnchor(hashPart), 350);
                   } else {
@@ -795,7 +866,7 @@ export function FloatingOrbWidget() {
                   if (currentFull !== dest) {
                     try {
                       router.prefetch(dest);
-                    } catch {}
+                    } catch { }
                     router.push(dest);
                   }
                 }
@@ -827,7 +898,17 @@ export function FloatingOrbWidget() {
         setVoiceState('error');
       }
     }
-  }, [pathname, router, armAutoDismiss, goToAnchor]);
+  }, [
+    pathname,
+    router,
+    armAutoDismiss,
+    bumpAutoDismiss,
+    cancelAutoDismiss,
+    handleConfirmSuccess,
+    goToAnchor,
+    clearSessionNotice,
+    showSessionNotice,
+  ]);
 
   // ── Auto-greet visitor on landing page visit or reload ──────────────────────
   useEffect(() => {
@@ -887,10 +968,12 @@ export function FloatingOrbWidget() {
   }, [handleStart]);
 
   const handleStop = useCallback(() => {
+    // Cancelling a connection that never opened is not the end of a session.
+    const wasLive = voiceStateRef.current !== 'connecting' && voiceStateRef.current !== 'idle';
     userStoppedRef.current = true;
     try {
       sessionStorage.removeItem('ora_landing_session_id');
-    } catch {}
+    } catch { }
     liveClientRef.current?.stop();
     setVoiceState('idle');
     setLiveUtterance('');
@@ -899,13 +982,8 @@ export function FloatingOrbWidget() {
     setSpeakingLevel(0);
     setShowConfirmModal(false);
     cancelAutoDismiss();
-  }, [cancelAutoDismiss]);
-
-  const handleToggleMute = useCallback(() => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    liveClientRef.current?.setMuted(nextMuted);
-  }, [isMuted]);
+    if (wasLive) showSessionNotice('ended', 'Session ended');
+  }, [cancelAutoDismiss, showSessionNotice]);
 
   // ── Toggle orb click ───────────────────────────────────────────────────────
   const handleOrbClick = () => {
@@ -939,14 +1017,12 @@ export function FloatingOrbWidget() {
           aria-live="polite"
           onMouseEnter={() => {
             isCardHoveredRef.current = true;
-            cancelAutoDismiss();
           }}
           onMouseLeave={() => {
             isCardHoveredRef.current = false;
-            if (!isEditingDetails && !isDetailsConfirmed) {
-              armAutoDismiss(3500);
-            }
+            bumpAutoDismiss();
           }}
+          onInput={bumpAutoDismiss}
         >
           <div className="lp-orb-card-header">
             <div className="lp-orb-card-title">
@@ -962,11 +1038,7 @@ export function FloatingOrbWidget() {
                 onClick={() => {
                   const nextEdit = !isEditingDetails;
                   setIsEditingDetails(nextEdit);
-                  if (nextEdit) {
-                    cancelAutoDismiss();
-                  } else {
-                    armAutoDismiss(5000);
-                  }
+                  bumpAutoDismiss();
                 }}
                 title="Edit Information"
                 aria-label="Edit"
@@ -1037,7 +1109,7 @@ export function FloatingOrbWidget() {
                   className="lp-orb-action-btn secondary"
                   onClick={() => {
                     setIsEditingDetails(true);
-                    cancelAutoDismiss();
+                    bumpAutoDismiss();
                   }}
                 >
                   Edit
@@ -1103,7 +1175,7 @@ export function FloatingOrbWidget() {
                   className="lp-orb-action-btn secondary"
                   onClick={() => {
                     setIsEditingDetails(false);
-                    armAutoDismiss(5000);
+                    bumpAutoDismiss();
                   }}
                 >
                   Cancel
@@ -1130,85 +1202,17 @@ export function FloatingOrbWidget() {
         </div>
       )}
 
-      {/* ── Unified Floating Island (Status + Controls — Only shown when NOT idle) ── */}
-      {voiceState !== 'idle' && (
+      {/* ── Floating Island: only states that need attention. While the
+          session is live the orb itself shows who is speaking, and a click on
+          it ends the session. ── */}
+      {(isConnecting || voiceState === 'error' || sessionNotice) && (
         <div className="lp-orb-island-container">
-          {voiceState === 'connecting' && (
+          {isConnecting ? (
             <div className="lp-orb-island-pill connecting">
               <span className="lp-orb-status-dot connecting" />
-              <span className="lp-orb-shimmer-text">Connecting to ORA Live…</span>
+              <span className="lp-orb-shimmer-text">Connecting to ORA</span>
             </div>
-          )}
-
-          {isActive && (
-            <div className={`lp-orb-island-pill active ${isSpeaking ? 'speaking' : voiceState === 'thinking' ? 'thinking' : ''}`}>
-              <div className="lp-orb-island-status">
-                <span
-                  className={`lp-orb-status-dot ${
-                    isSpeaking
-                      ? 'speaking'
-                      : voiceState === 'thinking'
-                      ? 'thinking'
-                      : isMuted
-                      ? 'muted'
-                      : 'listening'
-                  }`}
-                />
-                <span className="lp-orb-island-status-text">
-                  {isSpeaking
-                    ? 'ORA is speaking…'
-                    : voiceState === 'thinking'
-                    ? 'Thinking…'
-                    : isMuted
-                    ? 'Microphone muted'
-                    : 'Listening… Speak now'}
-                </span>
-              </div>
-
-              <div className="lp-orb-island-divider" />
-
-              <div className="lp-orb-island-actions">
-                <button
-                  type="button"
-                  className={`lp-orb-island-btn ${isMuted ? 'muted' : ''}`}
-                  onClick={handleToggleMute}
-                  aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                      <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                      <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
-                      <line x1="12" y1="19" x2="12" y2="23" />
-                      <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" y1="19" x2="12" y2="23" />
-                      <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  className="lp-orb-island-btn stop"
-                  onClick={handleStop}
-                  aria-label="End conversation"
-                  title="End Session"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="5" y="5" width="14" height="14" rx="2.5" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {voiceState === 'error' && (
+          ) : voiceState === 'error' ? (
             <button
               type="button"
               className="lp-orb-island-pill error"
@@ -1218,7 +1222,12 @@ export function FloatingOrbWidget() {
               <span className="lp-orb-status-dot error" />
               <span>{errorMsg ? (errorMsg.length > 40 ? errorMsg.slice(0, 40) + '…' : errorMsg) : 'Connection error — Click to retry'}</span>
             </button>
-          )}
+          ) : sessionNotice ? (
+            <div className="lp-orb-island-pill" role="status" aria-live="polite">
+              <span className={`lp-orb-status-dot ${sessionNotice.kind === 'warning' ? 'muted' : 'idle'}`} />
+              <span className="lp-orb-island-status-text">{sessionNotice.text}</span>
+            </div>
+          ) : null}
         </div>
       )}
 
