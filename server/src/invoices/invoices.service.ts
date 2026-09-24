@@ -28,6 +28,8 @@ export class InvoicesService {
     amountUsdCents: number;
     amountBdtPaisa: number;
     currency?: string;
+    /** Cycle this invoice pays for; printed as the invoice period. */
+    billingCycle?: 'month' | 'year';
   }): Promise<InvoiceDocument> {
     // 1. Atomic sequential counter generation
     const currentYear = new Date().getFullYear();
@@ -50,6 +52,7 @@ export class InvoicesService {
       amountUsdCents: params.amountUsdCents,
       amountBdtPaisa: params.amountBdtPaisa,
       currency: params.currency || 'USD',
+      billingCycle: params.billingCycle || 'month',
       taxAmount: 0,
       pdfUrl: `/api/v1/invoices/temp-placeholder`,
       status: InvoiceStatus.GENERATED,

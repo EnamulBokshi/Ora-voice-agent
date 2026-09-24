@@ -25,6 +25,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatMinor, planAmountMinor, planYearlyListMinor, yearlyDiscountOf } from '@/lib/plan-pricing';
 
 export function AdminPlansView() {
   const [plans, setPlans] = useState<any[]>([]);
@@ -84,6 +85,7 @@ export function AdminPlansView() {
         priceUsdCents: Number(editingPlan.priceUsdCents),
         priceBdtPaisa: Number(editingPlan.priceBdtPaisa),
         trialDays: Number(editingPlan.trialDays),
+        yearlyDiscountPercent: Math.min(90, Math.max(0, Math.round(Number(editingPlan.yearlyDiscountPercent) || 0))),
         isActive: Boolean(editingPlan.isActive),
         limits: {
           voiceMinutes: Number(editingPlan.limits?.voiceMinutes || 0),
@@ -221,17 +223,31 @@ export function AdminPlansView() {
                       {/* Pricing Dual Displays */}
                       <div className="space-y-1 mb-4 pb-3 border-b border-border/50">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-2xl font-mono font-bold text-foreground">
-                            ${Math.round(plan.priceUsdCents / 100)}
+                          <span className="text-2xl font-heading font-bold text-foreground tabular-nums">
+                            {formatMinor(plan.priceUsdCents, 'USD')}
                           </span>
                           <span className="text-xs text-muted-foreground">USD / mo</span>
                         </div>
-                        <div className="text-xs font-mono text-muted-foreground">
-                          ৳{Math.round(plan.priceBdtPaisa / 100).toLocaleString()} BDT / mo
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                          {formatMinor(plan.priceBdtPaisa, 'BDT')} BDT / mo
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums pt-0.5">
+                          <span className="font-semibold text-foreground">
+                            {formatMinor(planAmountMinor(plan, 'USD', 'year'), 'USD')}
+                          </span>
+                          <span>/ yr</span>
+                          {yearlyDiscountOf(plan) > 0 && (
+                            <>
+                              <s>{formatMinor(planYearlyListMinor(plan, 'USD'), 'USD')}</s>
+                              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                −{yearlyDiscountOf(plan)}%
+                              </span>
+                            </>
+                          )}
                         </div>
                         {plan.trialDays ? (
-                          <div className="text-[11px] font-mono text-primary pt-0.5">
-                            {plan.trialDays}-day anti-abuse free trial
+                          <div className="text-[11px] text-primary pt-0.5">
+                            {plan.trialDays}-day free trial
                           </div>
                         ) : null}
                       </div>
@@ -243,7 +259,7 @@ export function AdminPlansView() {
                             <Mic size={13} className="text-primary" />
                             Voice Minutes:
                           </span>
-                          <span className="font-semibold text-foreground font-mono">
+                          <span className="font-semibold text-foreground tabular-nums">
                             {voiceMins.toLocaleString()} min
                           </span>
                         </div>
@@ -252,7 +268,7 @@ export function AdminPlansView() {
                             <FileText size={13} className="text-primary" />
                             Knowledge Docs:
                           </span>
-                          <span className="font-semibold text-foreground font-mono">
+                          <span className="font-semibold text-foreground tabular-nums">
                             {docLimit.toLocaleString()} docs
                           </span>
                         </div>
@@ -261,7 +277,7 @@ export function AdminPlansView() {
                             <Globe size={13} className="text-primary" />
                             Website Domains:
                           </span>
-                          <span className="font-semibold text-foreground font-mono">
+                          <span className="font-semibold text-foreground tabular-nums">
                             {siteLimit} site{siteLimit > 1 ? 's' : ''}
                           </span>
                         </div>
@@ -270,7 +286,7 @@ export function AdminPlansView() {
                             <Users size={13} className="text-muted-foreground" />
                             Subscribers:
                           </span>
-                          <span className="font-semibold text-foreground font-mono">
+                          <span className="font-semibold text-foreground tabular-nums">
                             {plan.activeSubscribers || 0}
                           </span>
                         </div>
@@ -337,7 +353,7 @@ export function AdminPlansView() {
                   placeholder="e.g. 64df... or biz_id"
                   value={customBizId}
                   onChange={(e) => setCustomBizId(e.target.value)}
-                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -351,7 +367,7 @@ export function AdminPlansView() {
                   step="500"
                   value={customVoiceMins}
                   onChange={(e) => setCustomVoiceMins(Number(e.target.value))}
-                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -365,7 +381,7 @@ export function AdminPlansView() {
                   step="25"
                   value={customDocLimit}
                   onChange={(e) => setCustomDocLimit(Number(e.target.value))}
-                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                 />
               </div>
 
@@ -379,7 +395,7 @@ export function AdminPlansView() {
                   step="1"
                   value={customSiteLimit}
                   onChange={(e) => setCustomSiteLimit(Number(e.target.value))}
-                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                  className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                 />
               </div>
             </div>
@@ -441,9 +457,9 @@ export function AdminPlansView() {
                       type="number"
                       value={editingPlan.priceUsdCents}
                       onChange={(e) => setEditingPlan({ ...editingPlan, priceUsdCents: e.target.value })}
-                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                     />
-                    <span className="text-[11px] text-muted-foreground font-mono">
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
                       = ${(editingPlan.priceUsdCents / 100).toFixed(2)}
                     </span>
                   </div>
@@ -454,9 +470,9 @@ export function AdminPlansView() {
                       type="number"
                       value={editingPlan.priceBdtPaisa}
                       onChange={(e) => setEditingPlan({ ...editingPlan, priceBdtPaisa: e.target.value })}
-                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                     />
-                    <span className="text-[11px] text-muted-foreground font-mono">
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
                       = ৳{(editingPlan.priceBdtPaisa / 100).toLocaleString()}
                     </span>
                   </div>
@@ -474,7 +490,7 @@ export function AdminPlansView() {
                           limits: { ...editingPlan.limits, voiceMinutes: Number(e.target.value) },
                         })
                       }
-                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                     />
                   </div>
 
@@ -489,7 +505,7 @@ export function AdminPlansView() {
                           limits: { ...editingPlan.limits, documentLimit: Number(e.target.value) },
                         })
                       }
-                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                     />
                   </div>
 
@@ -504,8 +520,36 @@ export function AdminPlansView() {
                           limits: { ...editingPlan.limits, websiteLimit: Number(e.target.value) },
                         })
                       }
-                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Yearly discount (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="90"
+                      value={editingPlan.yearlyDiscountPercent ?? 0}
+                      onChange={(e) => setEditingPlan({ ...editingPlan, yearlyDiscountPercent: e.target.value })}
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
+                    />
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                      = {formatMinor(
+                        planAmountMinor(
+                          {
+                            priceUsdCents: Number(editingPlan.priceUsdCents) || 0,
+                            priceBdtPaisa: Number(editingPlan.priceBdtPaisa) || 0,
+                            yearlyDiscountPercent: Number(editingPlan.yearlyDiscountPercent) || 0,
+                          },
+                          'USD',
+                          'year',
+                        ),
+                        'USD',
+                      )} / year
+                    </span>
                   </div>
                 </div>
 
@@ -516,7 +560,7 @@ export function AdminPlansView() {
                       type="number"
                       value={editingPlan.trialDays || 0}
                       onChange={(e) => setEditingPlan({ ...editingPlan, trialDays: Number(e.target.value) })}
-                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs font-mono text-foreground focus:border-primary focus:outline-none"
+                      className="w-full h-9 rounded-lg border border-border bg-surface-low px-3 text-xs tabular-nums text-foreground focus:border-primary focus:outline-none"
                     />
                   </div>
 

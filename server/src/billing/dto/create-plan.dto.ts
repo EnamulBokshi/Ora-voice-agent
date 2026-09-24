@@ -7,6 +7,7 @@ import {
   IsArray,
   ValidateNested,
   Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -52,6 +53,13 @@ export class CreatePlanDto {
   @IsOptional()
   @IsString()
   billingInterval?: string = 'month';
+
+  /** Yearly discount in percent; the yearly price is derived from it. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(90)
+  yearlyDiscountPercent?: number;
 
   @ValidateNested()
   @Type(() => PlanLimitsDto)

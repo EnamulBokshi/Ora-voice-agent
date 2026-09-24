@@ -26,6 +26,7 @@ import {
 } from '../../common/utils/pagination.util';
 import { DomainException } from '../../common/exceptions/domain.exception';
 import { RedisService } from '../../common/redis/redis.service';
+import { monthlyEquivalentUsd, toBillingCycle } from '../utils/plan-pricing.util';
 
 export interface EnrichedSubscription {
   id: string;
@@ -362,6 +363,7 @@ export class BillingManagementService {
                 priceUsdCents: plan.priceUsdCents,
                 priceBdtPaisa: plan.priceBdtPaisa,
                 billingInterval: plan.billingInterval,
+                yearlyDiscountPercent: plan.yearlyDiscountPercent ?? 0,
               }
             : null,
           billingProvider: sub.billingProvider,
@@ -369,6 +371,7 @@ export class BillingManagementService {
           status: sub.status,
           currentPeriodStart: sub.currentPeriodStart,
           currentPeriodEnd: sub.currentPeriodEnd,
+          billingCycle: (sub as any).billingCycle || 'month',
           cancelAtPeriodEnd: !!sub.cancelAtPeriodEnd,
           appliedCoupon: sub.appliedCoupon || null,
           adminNotes: sub.adminNotes || '',
@@ -529,19 +532,20 @@ export class BillingManagementService {
       ]),
       this.subscriptionModel
         .find({ status: SubscriptionStatus.ACTIVE })
-        .select('planId')
+        .select('planId billingCycle')
         .lean()
         .exec(),
       this.planModel.find().lean().exec(),
       this.couponService.telemetryAdmin(),
     ]);
 
-    const planPriceMap = new Map(plans.map((p) => [p.planId, p.priceUsdCents / 100]));
+    const planById = new Map(plans.map((p) => [p.planId, p]));
 
+    // A yearly subscriber counts as one twelfth of the discounted yearly price.
     let mrrUsd = 0;
     for (const sub of activeSubs) {
-      const price = planPriceMap.get(sub.planId) || 0;
-      mrrUsd += price;
+      const plan = planById.get(sub.planId);
+      if (plan) mrrUsd += monthlyEquivalentUsd(plan, toBillingCycle((sub as any).billingCycle));
     }
 
     const providers: Record<string, number> = {};

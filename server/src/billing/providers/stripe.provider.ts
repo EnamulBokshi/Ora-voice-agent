@@ -10,6 +10,7 @@ import {
   CustomerBillingDetails,
 } from './payment-provider.interface';
 import { Plan, PlanDocument } from '../schemas/plan.schema';
+import { planAmountMinor, type BillingCycle } from '../utils/plan-pricing.util';
 import { DomainException } from '../../common/exceptions/domain.exception';
 
 @Injectable()
@@ -51,6 +52,8 @@ export class StripeProvider implements PaymentProvider {
      * total drops but renewals still bill the full plan price.
      */
     discount?: { percentOff?: number; amountOffUsdCents?: number; code?: string },
+    /** Yearly bills the discounted yearly price once a year. */
+    billingCycle: BillingCycle = 'month',
   ): Promise<ProviderSubscriptionRef> {
     this.logger.log(
       `[StripeProvider] Creating Stripe subscription for business ${businessId} (plan: ${planId}, email: ${customerDetails?.email || 'unspecified'})`,
@@ -150,12 +153,11 @@ export class StripeProvider implements PaymentProvider {
               price_data: {
                 currency: 'usd',
                 product_data: {
-                  name: plan.name,
+                  name: billingCycle === 'year' ? `${plan.name} (yearly)` : plan.name,
                 },
-                unit_amount: plan.priceUsdCents,
+                unit_amount: planAmountMinor(plan, 'USD', billingCycle),
                 recurring: {
-                  interval:
-                    plan.billingInterval === 'year' ? 'year' : 'month',
+                  interval: billingCycle,
                 },
               },
               quantity: 1,
@@ -166,6 +168,7 @@ export class StripeProvider implements PaymentProvider {
           metadata: {
             businessId,
             planId,
+            billingCycle,
             ...(discount?.code ? { couponCode: discount.code } : {}),
           },
         });

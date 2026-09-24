@@ -27,6 +27,7 @@ import {
   UpdateSubscriptionAdminPayload,
 } from '@/types/admin-billing';
 import { cn } from '@/lib/utils';
+import { formatMinor, planAmountMinor, toBillingCycle } from '@/lib/plan-pricing';
 
 interface SubscriptionDrawerProps {
   subscriptionId: string | null;
@@ -226,9 +227,14 @@ export function SubscriptionDrawer({
                   </span>
                   <span className="text-[11px] text-muted-foreground">
                     <span className="font-semibold text-foreground tabular-nums">
-                      ${((data.plan?.priceUsdCents || 0) / 100).toFixed(2)}
+                      {formatMinor(
+                        data.plan
+                          ? planAmountMinor(data.plan, 'USD', toBillingCycle(data.subscription.billingCycle))
+                          : 0,
+                        'USD',
+                      )}
                     </span>
-                    /mo
+                    {toBillingCycle(data.subscription.billingCycle) === 'year' ? '/yr' : '/mo'}
                   </span>
                 </div>
 

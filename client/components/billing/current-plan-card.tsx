@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Check, AlertCircle, CreditCard, Clock } from 'lucide-react';
 import { SubscriptionDetailsResponse } from '@/types/billing';
 import { cancelSubscriptionApi } from '@/services/billing-service';
-import { formatCurrency, formatDateTime } from '@/lib/format';
+import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { formatMinor, planAmountMinor, toBillingCycle } from '@/lib/plan-pricing';
 
 interface CurrentPlanCardProps {
   subscription: SubscriptionDetailsResponse;
@@ -181,11 +182,19 @@ export function CurrentPlanCard({ subscription, onReload }: CurrentPlanCardProps
           {plan && (
             <div className="text-[13px] text-muted-foreground">
               <span className="text-2xl lg:text-[28px] font-semibold text-foreground font-serif tabular-nums leading-none tracking-tight">
-                {sub?.billingProvider === 'bkash'
-                  ? `৳${Math.round(plan.priceBdtPaisa / 100).toLocaleString()}`
-                  : formatCurrency(plan.priceUsdCents / 100, 'USD')}
+                {formatMinor(
+                  planAmountMinor(
+                    plan,
+                    sub?.billingProvider === 'bkash' ? 'BDT' : 'USD',
+                    toBillingCycle(sub?.billingCycle),
+                  ),
+                  sub?.billingProvider === 'bkash' ? 'BDT' : 'USD',
+                )}
               </span>
-              <span> / month · {providerName}</span>
+              <span>
+                {' '}
+                / {toBillingCycle(sub?.billingCycle) === 'year' ? 'year' : 'month'} · {providerName}
+              </span>
             </div>
           )}
 

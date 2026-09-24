@@ -44,6 +44,7 @@ export async function subscribePlanApi(
     planId: payload.planId,
     billingProvider: payload.billingProvider || payload.provider || 'stripe',
     ...(payload.couponCode ? { couponCode: payload.couponCode } : {}),
+    billingCycle: payload.billingCycle || 'month',
   };
   if (payload.couponCode) {
     body.couponCode = payload.couponCode;
@@ -82,6 +83,7 @@ export async function cancelSubscriptionApi(): Promise<{ message: string }> {
 export async function executeBkashAgreementApi(payload: {
   paymentID: string;
   planId?: string;
+  billingCycle?: 'month' | 'year';
 }): Promise<{
   success: boolean;
   agreementID: string;
@@ -104,6 +106,7 @@ export async function executeBkashAgreementApi(payload: {
 export async function subscribeShopifyBillingApi(
   planId: string,
   returnUrl?: string,
+  billingCycle: 'month' | 'year' = 'month',
 ): Promise<{
   subscriptionId: string;
   confirmationUrl: string;
@@ -115,7 +118,7 @@ export async function subscribeShopifyBillingApi(
     message: string;
   }>('/shopify/billing/subscribe', {
     method: 'POST',
-    body: JSON.stringify({ planId, returnUrl }),
+    body: JSON.stringify({ planId, returnUrl, billingCycle }),
   });
 }
 
@@ -138,6 +141,7 @@ export async function validateCouponApi(payload: {
   code: string;
   planId: string;
   billingProvider?: 'stripe' | 'bkash';
+  billingCycle?: 'month' | 'year';
 }): Promise<CouponQuote> {
   return apiClient<CouponQuote>('/billing/coupons/validate', {
     method: 'POST',

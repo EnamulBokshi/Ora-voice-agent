@@ -72,6 +72,10 @@ export class Subscription {
   @Prop({ required: true })
   currentPeriodEnd: Date;
 
+  /** How often this subscription is charged. Drives period length, renewal amount and MRR. */
+  @Prop({ type: String, enum: ['month', 'year'], default: 'month' })
+  billingCycle: 'month' | 'year';
+
   @Prop({ default: false })
   cancelAtPeriodEnd: boolean;
 

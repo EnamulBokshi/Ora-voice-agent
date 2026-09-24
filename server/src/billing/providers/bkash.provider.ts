@@ -6,6 +6,7 @@ import {
   ChargeResult,
   CustomerBillingDetails,
 } from './payment-provider.interface';
+import type { BillingCycle } from '../utils/plan-pricing.util';
 import { DomainException } from '../../common/exceptions/domain.exception';
 
 @Injectable()
@@ -298,13 +299,14 @@ export class BkashProvider implements PaymentProvider {
     businessId: string,
     planId: string,
     customerDetails?: CustomerBillingDetails,
+    billingCycle: BillingCycle = 'month',
   ): Promise<ProviderSubscriptionRef> {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') ||
       (this.configService.get<string>('NODE_ENV') === 'production'
         ? 'https://tryora.live'
         : 'http://localhost:3000');
-    const callbackUrl = `${frontendUrl}/billing/bkash/callback?planId=${planId}`;
+    const callbackUrl = `${frontendUrl}/billing/bkash/callback?planId=${encodeURIComponent(planId)}&cycle=${billingCycle}`;
 
     const agreement = await this.createAgreement(businessId, callbackUrl);
 
@@ -359,7 +361,16 @@ export class BkashProvider implements PaymentProvider {
     }
   }
 
-  async chargeRenewal(ref: ProviderSubscriptionRef): Promise<ChargeResult> {
+  async chargeRenewal(ref: ProviderSubscriptionRef, amountMajor?: number): Promise<ChargeResult> {
+    // The caller prices the renewal from the plan and the subscription's cycle.
+    // Without an amount there is nothing safe to charge.
+    if (!amountMajor || amountMajor <= 0) {
+      return {
+        success: false,
+        errorMessage: 'No renewal amount provided for bKash renewal charge.',
+      };
+    }
+
     if (!ref.providerRef) {
       return {
         success: false,
@@ -386,10 +397,9 @@ export class BkashProvider implements PaymentProvider {
 
     try {
       const invoiceNumber = `REN-${Date.now()}`;
-      const renewalAmount = 5500.0;
       const res = await this.executePaymentWithAgreement(
         agreementID,
-        renewalAmount,
+        amountMajor,
         invoiceNumber,
       );
 

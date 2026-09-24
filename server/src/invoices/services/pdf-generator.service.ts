@@ -70,7 +70,7 @@ export class PdfGeneratorService {
       <tbody>
         <tr>
           <td>ORA Merchant Subscription Plan</td>
-          <td>Monthly Recurring</td>
+          <td>${invoice.billingCycle === 'year' ? 'Yearly Recurring' : 'Monthly Recurring'}</td>
           <td style="text-align: right;">${formattedAmount}</td>
         </tr>
         <tr class="total-row">

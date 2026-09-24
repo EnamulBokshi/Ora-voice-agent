@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { PlanModal } from './plan-modal';
 import { updateAdminPlan, deleteAdminPlan } from '@/services/admin-billing-service';
 import { cn } from '@/lib/utils';
+import { formatMinor, planAmountMinor, planYearlyListMinor, yearlyDiscountOf } from '@/lib/plan-pricing';
 
 interface PlansTabProps {
   plans: AdminPlanItem[];
@@ -149,8 +150,12 @@ export function PlansTab({ plans, loading, onRefresh, onNotification }: PlansTab
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filteredPlans.map((plan) => {
-            const usd = (plan.priceUsdCents / 100).toFixed(0);
-            const bdt = (plan.priceBdtPaisa / 100).toLocaleString();
+            const usd = formatMinor(plan.priceUsdCents, 'USD');
+            const bdt = formatMinor(plan.priceBdtPaisa, 'BDT');
+            const discount = yearlyDiscountOf(plan);
+            const yearlyUsd = formatMinor(planAmountMinor(plan, 'USD', 'year'), 'USD');
+            const yearlyBdt = formatMinor(planAmountMinor(plan, 'BDT', 'year'), 'BDT');
+            const yearlyListUsd = formatMinor(planYearlyListMinor(plan, 'USD'), 'USD');
             const isToggling = togglingPlanId === plan._id;
 
             return (
@@ -232,8 +237,8 @@ export function PlansTab({ plans, loading, onRefresh, onNotification }: PlansTab
                       <div className="flex items-baseline justify-between">
                         <span className="text-xs text-muted-foreground">USD:</span>
                         <div className="text-right">
-                          <span className="text-2xl font-bold text-foreground tabular-nums tracking-tight">
-                            ${usd}
+                          <span className="text-2xl font-bold font-heading text-foreground tabular-nums tracking-tight">
+                            {usd}
                           </span>
                           <span className="text-xs text-muted-foreground ml-1 font-normal">/mo</span>
                         </div>
@@ -242,10 +247,29 @@ export function PlansTab({ plans, loading, onRefresh, onNotification }: PlansTab
                       <div className="flex items-baseline justify-between border-t border-border/40 pt-1.5">
                         <span className="text-xs text-muted-foreground">bKash:</span>
                         <div className="text-right">
-                          <span className="text-base font-semibold text-primary tabular-nums tracking-tight">
-                            ৳{bdt}
+                          <span className="text-base font-semibold font-heading text-foreground tabular-nums tracking-tight">
+                            {bdt}
                           </span>
                           <span className="text-[11px] text-muted-foreground ml-1 font-normal">/mo</span>
+                        </div>
+                      </div>
+
+                      {/* Yearly: monthly × 12 less the plan's yearly discount */}
+                      <div className="flex items-baseline justify-between border-t border-border/40 pt-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          Yearly
+                          {discount > 0 && (
+                            <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                              −{discount}%
+                            </span>
+                          )}
+                        </span>
+                        <div className="text-right tabular-nums">
+                          {discount > 0 && (
+                            <s className="mr-1.5 text-[11px] text-muted-foreground">{yearlyListUsd}</s>
+                          )}
+                          <span className="text-sm font-semibold font-heading text-foreground">{yearlyUsd}</span>
+                          <span className="text-[11px] text-muted-foreground ml-1">/yr · {yearlyBdt}</span>
                         </div>
                       </div>
                     </div>

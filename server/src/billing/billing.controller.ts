@@ -122,12 +122,13 @@ export class BillingController {
   @HttpCode(HttpStatus.OK)
   async executeBkashAgreement(
     @CurrentUser() user: JwtPayloadUser,
-    @Body() body: { paymentID: string; planId?: string },
+    @Body() body: { paymentID: string; planId?: string; billingCycle?: string },
   ) {
     return this.billingService.executeBkashAgreement(
       user.businessId,
       body.paymentID,
       body.planId,
+      body.billingCycle,
     );
   }
 

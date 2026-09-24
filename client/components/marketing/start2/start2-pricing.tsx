@@ -4,27 +4,23 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { getBillingPlansApi } from '@/services/billing-service';
 import type { Plan } from '@/types/billing';
+import {
+  formatMinor,
+  planAmountMinor,
+  planYearlyListMinor,
+  yearlyDiscountOf,
+  type BillingCycle,
+} from '@/lib/plan-pricing';
 
 /**
  * Pricing, driven by the plans managed in the admin panel
  * (GET /billing/plans returns every active, public plan).
  *
- * Monthly shows plans billed monthly; Yearly shows plans billed yearly. The
- * Yearly button stays visible but disabled until the admin creates at least
- * one yearly plan. The card marked with a badge in the admin panel is the
- * highlighted one; without any badge, the middle card is highlighted.
+ * Monthly shows each plan's monthly price. Yearly shows the yearly price
+ * (monthly × 12 less the admin-set yearly discount) with twelve monthly
+ * payments crossed out beside it. The card marked with a badge in the admin
+ * panel is the highlighted one; without any badge, the middle card is.
  */
-
-type Interval = 'month' | 'year';
-
-// Plans have been saved as 'month', 'monthly', 'year' or 'yearly'.
-const intervalOf = (p: Plan): Interval => (/^year/i.test(p.billingInterval ?? '') ? 'year' : 'month');
-
-const formatPrice = (cents: number) =>
-  `$${(cents / 100).toLocaleString('en-US', {
-    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
 
 // "Starter Plan" reads as "Starter" on a pricing card.
 const displayName = (name: string) => name.replace(/\s+plan$/i, '');
@@ -44,7 +40,7 @@ function renderFeature(text: string) {
 export function Start2Pricing() {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [billing, setBilling] = useState<Interval>('month');
+  const [billing, setBilling] = useState<BillingCycle>('month');
 
   useEffect(() => {
     let alive = true;
@@ -56,18 +52,16 @@ export function Start2Pricing() {
     };
   }, []);
 
-  const byInterval = useMemo(() => {
-    const sorted = [...(plans ?? [])].sort(
-      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.priceUsdCents - b.priceUsdCents,
-    );
-    return {
-      month: sorted.filter((p) => intervalOf(p) === 'month'),
-      year: sorted.filter((p) => intervalOf(p) === 'year'),
-    };
-  }, [plans]);
+  const visible = useMemo(
+    () =>
+      [...(plans ?? [])].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.priceUsdCents - b.priceUsdCents,
+      ),
+    [plans],
+  );
 
-  const hasYearly = byInterval.year.length > 0;
-  const visible = byInterval[billing];
+  // "Save up to 20%" next to the toggle: the best yearly discount on offer.
+  const bestYearlyDiscount = Math.max(0, ...visible.map(yearlyDiscountOf));
   const anyBadge = visible.some((p) => p.badge);
   const cols = Math.max(1, Math.min(visible.length || 3, 4));
 
@@ -91,13 +85,11 @@ export function Start2Pricing() {
               type="button"
               className={billing === 'year' ? 'on' : ''}
               aria-pressed={billing === 'year'}
-              disabled={!hasYearly}
-              title={hasYearly ? undefined : 'Yearly billing is not available yet'}
               onClick={() => setBilling('year')}
             >
               Yearly
             </button>
-            {!hasYearly && plans && <span>Soon</span>}
+            {bestYearlyDiscount > 0 && <span>Save up to {bestYearlyDiscount}%</span>}
           </div>
         </div>
 
@@ -113,6 +105,9 @@ export function Start2Pricing() {
               : visible.map((plan, i) => {
                   const featured = anyBadge ? Boolean(plan.badge) : visible.length > 2 && i === 1;
                   const trial = plan.trialDays ?? 0;
+                  const discount = yearlyDiscountOf(plan);
+                  const priceMinor = planAmountMinor(plan, 'USD', billing);
+                  const showStrike = billing === 'year' && discount > 0;
                   return (
                     <div key={plan._id} className={`s2p-plan${featured ? ' lead' : ''}`}>
                       <div>
@@ -124,9 +119,15 @@ export function Start2Pricing() {
                         </div>
 
                         <div className="s2p-price">
-                          <b>{formatPrice(plan.priceUsdCents)}</b>
+                          <b>{formatMinor(priceMinor, 'USD')}</b>
                           <span>{billing === 'year' ? 'per year' : 'per month'}</span>
                         </div>
+                        {showStrike && (
+                          <div className="s2p-save">
+                            <s>{formatMinor(planYearlyListMinor(plan, 'USD'), 'USD')}</s>
+                            <em>Save {discount}%</em>
+                          </div>
+                        )}
 
                         <ul className="s2p-features">
                           {plan.features.map((feat) => (

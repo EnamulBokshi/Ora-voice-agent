@@ -198,6 +198,47 @@ describe('CouponService', () => {
       expect(quote.amountAfterMinor).toBe(0);
       expect(quote.coversFullPrice).toBe(true);
     });
+
+    describe('yearly cycle', () => {
+      // 20% off paying yearly: 4900 × 12 × 0.8 = 47040; 590000 × 12 × 0.8 = 5664000.
+      const growthYearly = { ...growth, yearlyDiscountPercent: 20 } as any;
+
+      it('prices the discounted yearly amount, then applies a percent coupon to it', () => {
+        const quote = service.quote(growthYearly, baseCoupon(), BillingProvider.STRIPE, 'year');
+
+        expect(quote).toMatchObject({
+          currency: 'USD',
+          billingCycle: 'year',
+          amountBeforeMinor: 47040,
+          discountMinor: 9408,
+          amountAfterMinor: 37632,
+        });
+      });
+
+      it('prices the yearly BDT amount for bKash', () => {
+        const quote = service.quote(growthYearly, baseCoupon(), BillingProvider.BKASH, 'year');
+
+        expect(quote.amountBeforeMinor).toBe(5664000);
+        expect(quote.billingCycle).toBe('year');
+      });
+
+      it('takes a fixed coupon off the yearly total once', () => {
+        const coupon = baseCoupon({
+          discountType: CouponDiscountType.FIXED,
+          percentOff: 0,
+          amountOffUsdCents: 1000,
+        });
+
+        expect(service.quote(growthYearly, coupon, BillingProvider.STRIPE, 'year').amountAfterMinor).toBe(46040);
+      });
+
+      it('defaults to one month when no cycle is given', () => {
+        const quote = service.quote(growthYearly, baseCoupon(), BillingProvider.STRIPE);
+
+        expect(quote.billingCycle).toBe('month');
+        expect(quote.amountBeforeMinor).toBe(4900);
+      });
+    });
   });
 
   describe('reserve', () => {

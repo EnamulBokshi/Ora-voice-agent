@@ -1,4 +1,5 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { BILLING_CYCLES, type BillingCycle } from '../utils/plan-pricing.util';
 import { PlanId } from '../schemas/plan.schema';
 import { BillingProvider } from '../schemas/subscription.schema';
 
@@ -19,4 +20,9 @@ export class SubscribeDto {
   @IsString()
   @MaxLength(64)
   couponCode?: string;
+
+  /** Pay monthly or yearly. Yearly is charged up front at the discounted yearly price. */
+  @IsOptional()
+  @IsIn(BILLING_CYCLES as unknown as string[])
+  billingCycle?: BillingCycle = 'month';
 }

@@ -34,6 +34,12 @@ import { CouponDiscountType } from './schemas/coupon.schema';
 import { TrialLog, TrialLogDocument } from './schemas/trial-log.schema';
 import { KnowledgeBase, KnowledgeBaseDocument } from '../knowledge/schemas/knowledge-base.schema';
 import { normalizeWebsiteDomain } from '../auth/services/disposable-email-validator.service';
+import {
+  addBillingPeriod,
+  planAmountMinor,
+  toBillingCycle,
+  type BillingCycle,
+} from './utils/plan-pricing.util';
 
 @Injectable()
 export class BillingService implements OnModuleInit {
@@ -173,7 +179,7 @@ export class BillingService implements OnModuleInit {
    */
   async previewCoupon(
     businessId: string,
-    dto: { code: string; planId: string; billingProvider?: BillingProvider },
+    dto: { code: string; planId: string; billingProvider?: BillingProvider; billingCycle?: string },
   ) {
     const plan = await this.planModel.findOne({ planId: dto.planId as any }).exec();
     if (!plan) {
@@ -195,7 +201,7 @@ export class BillingService implements OnModuleInit {
       dto.planId,
     );
 
-    return this.couponService.quote(plan, coupon, provider);
+    return this.couponService.quote(plan, coupon, provider, toBillingCycle(dto.billingCycle));
   }
 
   async subscribe(
@@ -213,6 +219,7 @@ export class BillingService implements OnModuleInit {
     }
 
     const bId = businessId as any;
+    const billingCycle = toBillingCycle(dto.billingCycle);
 
     // Resolve user details for billing provider customer record
     let customerEmail = userContext?.email;
@@ -301,7 +308,7 @@ export class BillingService implements OnModuleInit {
         businessId,
         dto.planId,
       );
-      couponQuote = this.couponService.quote(plan, coupon, provider);
+      couponQuote = this.couponService.quote(plan, coupon, provider, billingCycle);
       redemption = await this.couponService.reserve(
         coupon,
         businessId,
@@ -314,7 +321,7 @@ export class BillingService implements OnModuleInit {
     // A coupon that covers the whole price leaves nothing for a gateway to charge,
     // so the plan is comped here and recorded as a zero-amount transaction.
     if (couponQuote?.coversFullPrice && redemption) {
-      return this.activateCompedSubscription(businessId, plan, provider, redemption);
+      return this.activateCompedSubscription(businessId, plan, provider, redemption, billingCycle);
     }
 
     // 3. Handle bKash Subscription Initiation
@@ -329,10 +336,12 @@ export class BillingService implements OnModuleInit {
 
       let subRef;
       try {
-        subRef = await this.bkashProvider.createSubscription(businessId, dto.planId, {
-          email: customerEmail,
-          name: customerName,
-        });
+        subRef = await this.bkashProvider.createSubscription(
+          businessId,
+          dto.planId,
+          { email: customerEmail, name: customerName },
+          billingCycle,
+        );
       } catch (err) {
         // The gateway never opened, so the coupon slot goes back to the pool.
         if (redemption) await this.couponService.release(String(redemption._id));
@@ -402,6 +411,7 @@ export class BillingService implements OnModuleInit {
                 : { amountOffUsdCents: couponQuote.discountMinor }),
             }
           : undefined,
+        billingCycle,
       );
     } catch (err) {
       if (redemption) await this.couponService.release(String(redemption._id));
@@ -462,10 +472,11 @@ export class BillingService implements OnModuleInit {
     plan: PlanDocument,
     provider: BillingProvider,
     redemption: CouponRedemptionDocument,
+    billingCycle: BillingCycle = 'month',
   ) {
     const bId = businessId as any;
     const periodStart = new Date();
-    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const periodEnd = addBillingPeriod(periodStart, billingCycle);
 
     const sub = await this.subscriptionModel.findOneAndUpdate(
       { businessId: bId },
@@ -478,6 +489,7 @@ export class BillingService implements OnModuleInit {
           hasUsedTrial: true,
           currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
+          billingCycle,
           cancelAtPeriodEnd: false,
         },
       },
@@ -502,6 +514,7 @@ export class BillingService implements OnModuleInit {
       amountUsdCents: 0,
       amountBdtPaisa: 0,
       currency: redemption.currency,
+      billingCycle,
     });
 
     await this.couponService.markApplied(String(redemption._id), {
@@ -569,7 +582,12 @@ export class BillingService implements OnModuleInit {
     };
   }
 
-  async executeBkashAgreement(businessId: string, paymentID: string, planId?: string) {
+  async executeBkashAgreement(
+    businessId: string,
+    paymentID: string,
+    planId?: string,
+    requestedCycle?: string,
+  ) {
     const targetPlanId = planId || PlanId.GROWTH;
     const plan = await this.planModel.findOne({ planId: targetPlanId as any }).exec();
     if (!plan) {
@@ -589,11 +607,15 @@ export class BillingService implements OnModuleInit {
     // The amount comes from the reservation made at checkout, looked up by the
     // paymentID bKash echoes back. The callback never states a price of its own.
     const reserved = await this.couponService.findReservedByProviderRef(paymentID);
+    // The cycle rides on the callback URL. When a coupon was reserved, its stored
+    // cycle wins, because the reserved amount was priced for that cycle; letting
+    // the URL pick a longer period than was paid for would be a free upgrade.
+    const billingCycle = toBillingCycle(reserved?.billingCycle ?? requestedCycle);
     const invoiceNumber = `ORA-BKASH-${Date.now()}`;
     const amountBdt =
       reserved && reserved.currency === 'BDT'
         ? reserved.amountAfterMinor / 100
-        : plan.priceBdtPaisa / 100;
+        : planAmountMinor(plan, 'BDT', billingCycle) / 100;
     const paymentRes = await this.bkashProvider.executePaymentWithAgreement(
       agreementID,
       amountBdt,
@@ -604,7 +626,7 @@ export class BillingService implements OnModuleInit {
     // Step 3: Update Subscription Document
     const bId = businessId as any;
     const periodStart = new Date();
-    const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const periodEnd = addBillingPeriod(periodStart, billingCycle);
 
     const sub = await this.subscriptionModel.findOneAndUpdate(
       { businessId: bId },
@@ -616,6 +638,7 @@ export class BillingService implements OnModuleInit {
           status: SubscriptionStatus.ACTIVE,
           currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
+          billingCycle,
           cancelAtPeriodEnd: false,
         },
       },
@@ -646,9 +669,10 @@ export class BillingService implements OnModuleInit {
       businessId,
       subscriptionId: sub._id.toString(),
       transactionId: transaction._id.toString(),
-      amountUsdCents: plan.priceUsdCents,
-      amountBdtPaisa: plan.priceBdtPaisa,
+      amountUsdCents: planAmountMinor(plan, 'USD', billingCycle),
+      amountBdtPaisa: Math.round(amountBdt * 100),
       currency: 'BDT',
+      billingCycle,
     });
 
     // Generate publishable key if none exists for this business & activate business
@@ -700,15 +724,19 @@ export class BillingService implements OnModuleInit {
       if (!sub.providerRef) continue;
 
       const plan = await this.planModel.findOne({ planId: sub.planId as any }).exec();
+      const billingCycle = toBillingCycle(sub.billingCycle);
+      // Priced from the plan and this subscription's cycle. Without a plan there is
+      // no safe amount, so the renewal fails and the subscription goes past due.
+      const renewalBdt = plan ? planAmountMinor(plan, 'BDT', billingCycle) / 100 : 0;
 
-      const chargeRes = await this.bkashProvider.chargeRenewal({
-        subscriptionId: sub._id.toString(),
-        providerRef: sub.providerRef,
-      });
+      const chargeRes = await this.bkashProvider.chargeRenewal(
+        { subscriptionId: sub._id.toString(), providerRef: sub.providerRef },
+        renewalBdt,
+      );
 
       if (chargeRes.success) {
         const periodStart = new Date();
-        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const periodEnd = addBillingPeriod(periodStart, billingCycle);
 
         sub.status = SubscriptionStatus.ACTIVE;
         sub.currentPeriodStart = periodStart;
@@ -720,7 +748,7 @@ export class BillingService implements OnModuleInit {
           subscriptionId: sub._id,
           billingProvider: BillingProvider.BKASH,
           providerTransactionId: chargeRes.transactionId || `BKASH-REN-${Date.now()}`,
-          amount: chargeRes.amount || 5500,
+          amount: chargeRes.amount || renewalBdt,
           currency: 'BDT',
           status: TransactionStatus.SUCCEEDED,
           billingPeriodStart: periodStart,
@@ -730,9 +758,10 @@ export class BillingService implements OnModuleInit {
           businessId: sub.businessId.toString(),
           subscriptionId: sub._id.toString(),
           transactionId: transaction._id.toString(),
-          amountUsdCents: plan ? plan.priceUsdCents : 4900,
-          amountBdtPaisa: plan ? plan.priceBdtPaisa : 550000,
+          amountUsdCents: plan ? planAmountMinor(plan, 'USD', billingCycle) : 0,
+          amountBdtPaisa: Math.round(renewalBdt * 100),
           currency: 'BDT',
+          billingCycle,
         });
 
         results.push({ subscriptionId: sub._id, status: 'RENEWED', invoiceNumber: invoice.invoiceNumber });
@@ -745,7 +774,7 @@ export class BillingService implements OnModuleInit {
           subscriptionId: sub._id,
           billingProvider: BillingProvider.BKASH,
           providerTransactionId: `FAILED-${Date.now()}`,
-          amount: plan ? plan.priceBdtPaisa / 100 : 5500,
+          amount: renewalBdt,
           currency: 'BDT',
           status: TransactionStatus.FAILED,
           billingPeriodStart: sub.currentPeriodStart,
@@ -903,10 +932,17 @@ export class BillingService implements OnModuleInit {
       },
     ];
 
+    // Defaults are written only when a plan does not exist yet. This used to be
+    // `$set` on every boot, which reset every price, feature, trial and discount
+    // the admin had edited back to these values on each restart. The retired free
+    // tier is the one exception: it is always forced inactive.
     for (const plan of defaultPlans) {
+      const { isActive, ...defaults } = plan;
       await this.planModel.findOneAndUpdate(
         { planId: plan.planId },
-        { $set: plan },
+        plan.planId === PlanId.FREE
+          ? { $setOnInsert: defaults, $set: { isActive: false } }
+          : { $setOnInsert: { ...defaults, isActive } },
         { upsert: true },
       );
     }
@@ -1168,8 +1204,9 @@ export class BillingService implements OnModuleInit {
 
         const plan = await this.planModel.findOne({ planId: planId as any }).exec();
         const bId = businessId as any;
+        const billingCycle = toBillingCycle(session.metadata?.billingCycle);
         const periodStart = new Date();
-        const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const periodEnd = addBillingPeriod(periodStart, billingCycle);
 
         // 1. Activate or Upsert Subscription
         const sub = await this.subscriptionModel.findOneAndUpdate(
@@ -1182,6 +1219,7 @@ export class BillingService implements OnModuleInit {
               status: SubscriptionStatus.ACTIVE,
               currentPeriodStart: periodStart,
               currentPeriodEnd: periodEnd,
+              billingCycle,
               cancelAtPeriodEnd: false,
             },
           },
@@ -1190,7 +1228,11 @@ export class BillingService implements OnModuleInit {
 
         // 2. Record Payment Transaction. `amount_total` is what Stripe actually
         // charged, so a discounted checkout records the discounted figure.
-        const amountUsd = session.amount_total ? session.amount_total / 100 : (plan ? plan.priceUsdCents / 100 : 49);
+        const amountUsd = session.amount_total
+          ? session.amount_total / 100
+          : plan
+            ? planAmountMinor(plan, 'USD', billingCycle) / 100
+            : 49;
         const transaction = await new this.transactionModel({
           businessId: bId,
           subscriptionId: sub._id as any,
@@ -1208,8 +1250,9 @@ export class BillingService implements OnModuleInit {
           subscriptionId: sub._id.toString(),
           transactionId: transaction._id.toString(),
           amountUsdCents: Math.round(amountUsd * 100),
-          amountBdtPaisa: plan ? plan.priceBdtPaisa : 550000,
+          amountBdtPaisa: plan ? planAmountMinor(plan, 'BDT', billingCycle) : 550000,
           currency: 'USD',
+          billingCycle,
         });
 
         // 3b. Settle the coupon reservation this checkout session was holding.
@@ -1254,7 +1297,10 @@ export class BillingService implements OnModuleInit {
         const sub = await this.subscriptionModel.findOne({ providerRef: stripeSubId }).exec();
         if (sub) {
           const periodStart = invoice.period_start ? new Date(invoice.period_start * 1000) : new Date();
-          const periodEnd = invoice.period_end ? new Date(invoice.period_end * 1000) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          const billingCycle = toBillingCycle(sub.billingCycle);
+          const periodEnd = invoice.period_end
+            ? new Date(invoice.period_end * 1000)
+            : addBillingPeriod(periodStart, billingCycle);
 
           sub.status = SubscriptionStatus.ACTIVE;
           sub.currentPeriodStart = periodStart;
@@ -1280,8 +1326,9 @@ export class BillingService implements OnModuleInit {
             subscriptionId: sub._id.toString(),
             transactionId: transaction._id.toString(),
             amountUsdCents: Math.round(amountUsd * 100),
-            amountBdtPaisa: plan ? plan.priceBdtPaisa : 550000,
+            amountBdtPaisa: plan ? planAmountMinor(plan, 'BDT', billingCycle) : 550000,
             currency: 'USD',
+            billingCycle,
           });
         }
         break;
@@ -1346,6 +1393,8 @@ export class BillingService implements OnModuleInit {
     status: string,
     planId?: string,
     currentPeriodEnd?: Date,
+    /** Known only when the server recorded it at charge creation; otherwise left as is. */
+    billingCycle?: BillingCycle,
   ) {
     const isApproved = status === 'ACTIVE';
     const subStatus = isApproved
@@ -1381,6 +1430,10 @@ export class BillingService implements OnModuleInit {
       updateSet.planId = planId;
     }
 
+    if (billingCycle) {
+      updateSet.billingCycle = billingCycle;
+    }
+
     // Shopify charges on its own cadence and owns the renewal date, so the
     // period end is whatever it reports. `cancelAtPeriodEnd` is deliberately
     // not written here: it used to be forced to false on every callback, which
@@ -1389,13 +1442,13 @@ export class BillingService implements OnModuleInit {
       updateSet.currentPeriodEnd = currentPeriodEnd;
     } else if (!existing) {
       // The field is required and this is an insert, so something has to go in
-      // it. Thirty days matches Shopify's default EVERY_30_DAYS interval, and
-      // the log says the date is a local guess rather than Shopify's answer.
-      updateSet.currentPeriodEnd = new Date(
-        Date.now() + 30 * 24 * 60 * 60 * 1000,
-      );
+      // it. The estimate follows the charge's cycle (30 days, or 365 for an
+      // ANNUAL charge), and the log says the date is a local guess rather than
+      // Shopify's answer.
+      const cycle = billingCycle ?? 'month';
+      updateSet.currentPeriodEnd = addBillingPeriod(Date.now(), cycle);
       this.logger.warn(
-        `[BillingService] Shopify reported no currentPeriodEnd for charge ${chargeId}; storing a 30-day estimate for business ${businessId}.`,
+        `[BillingService] Shopify reported no currentPeriodEnd for charge ${chargeId}; storing a ${cycle === 'year' ? 365 : 30}-day estimate for business ${businessId}.`,
       );
     }
 

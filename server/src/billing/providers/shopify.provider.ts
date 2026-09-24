@@ -11,6 +11,7 @@ import {
   ProviderSubscriptionRef,
 } from './payment-provider.interface';
 import { Plan, PlanDocument } from '../schemas/plan.schema';
+import { planAmountMinor, type BillingCycle } from '../utils/plan-pricing.util';
 import { Business, BusinessDocument } from '../../users/schemas/business.schema';
 import { DomainException } from '../../common/exceptions/domain.exception';
 import { ShopifyTokenService } from '../../common/shopify-token/shopify-token.service';
@@ -96,6 +97,7 @@ export class ShopifyProvider implements PaymentProvider {
     planId: string,
     returnUrl?: string,
     _customerDetails?: CustomerBillingDetails,
+    billingCycle: BillingCycle = 'month',
   ): Promise<ShopifySubscriptionResult> {
     const { shopDomain, accessToken } = await this.resolveShopCredentials(businessId);
 
@@ -168,11 +170,10 @@ export class ShopifyProvider implements PaymentProvider {
           plan: {
             appRecurringPricingDetails: {
               price: {
-                amount: (plan.priceUsdCents / 100).toFixed(2),
+                amount: (planAmountMinor(plan, 'USD', billingCycle) / 100).toFixed(2),
                 currencyCode: 'USD',
               },
-              interval:
-                plan.billingInterval === 'year' ? 'ANNUAL' : 'EVERY_30_DAYS',
+              interval: billingCycle === 'year' ? 'ANNUAL' : 'EVERY_30_DAYS',
             },
           },
         },
@@ -203,6 +204,7 @@ export class ShopifyProvider implements PaymentProvider {
       result.appSubscription.id,
       businessId,
       planId,
+      billingCycle,
     );
 
     return {
@@ -249,6 +251,7 @@ export class ShopifyProvider implements PaymentProvider {
     chargeGid: string,
     businessId: string,
     planId: string,
+    billingCycle: BillingCycle = 'month',
   ): Promise<void> {
     const key = `${SHOPIFY_PENDING_CHARGE_PREFIX}${normalizeChargeId(chargeGid)}`;
     try {
@@ -256,7 +259,7 @@ export class ShopifyProvider implements PaymentProvider {
         .getClient()
         .set(
           key,
-          JSON.stringify({ businessId, planId }),
+          JSON.stringify({ businessId, planId, billingCycle }),
           'EX',
           SHOPIFY_PENDING_CHARGE_TTL_SECONDS,
         );
@@ -269,7 +272,7 @@ export class ShopifyProvider implements PaymentProvider {
 
   async resolvePendingChargeRecord(
     chargeId: string,
-  ): Promise<{ businessId?: string; planId?: string } | null> {
+  ): Promise<{ businessId?: string; planId?: string; billingCycle?: BillingCycle } | null> {
     const key = `${SHOPIFY_PENDING_CHARGE_PREFIX}${normalizeChargeId(chargeId)}`;
     try {
       const raw = await this.redisService.getClient().get(key);

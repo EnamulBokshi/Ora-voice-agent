@@ -28,6 +28,8 @@ export interface Plan {
   badge?: string;
   sortOrder?: number;
   isCustom?: boolean;
+  /** Percent off for paying yearly; the yearly price is derived from it. */
+  yearlyDiscountPercent?: number;
   limits: PlanLimits;
   features: string[];
   /** Free-trial length applied before the first charge. */
@@ -45,6 +47,7 @@ export interface Subscription {
   status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'canceled';
   currentPeriodStart: string;
   currentPeriodEnd: string;
+  billingCycle?: 'month' | 'year';
   trialDays?: number;
   trialExpiresAt?: string;
   hasUsedTrial?: boolean;
@@ -93,6 +96,8 @@ export interface SubscribePayload {
   paymentMethodId?: string;
   /** Code only. The server recomputes the discount from its own records. */
   couponCode?: string;
+  /** Pay monthly or yearly (discounted yearly price, charged up front). */
+  billingCycle?: 'month' | 'year';
 }
 
 export type CouponDiscountType = 'percent' | 'fixed';
@@ -105,6 +110,8 @@ export interface CouponQuote {
   amountBeforeMinor: number;
   discountMinor: number;
   amountAfterMinor: number;
+  /** Cycle these amounts are for. */
+  billingCycle?: 'month' | 'year';
   coversFullPrice: boolean;
 }
 

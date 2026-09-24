@@ -8,6 +8,13 @@ import { StartTrialModal } from '@/components/billing/start-trial-modal';
 import { getMeApi, refreshApi, logoutApi } from '@/services/auth-service';
 import { Plan } from '@/types/billing';
 import { demoPlans } from '@/lib/demo-data';
+import {
+  formatMinor,
+  planAmountMinor,
+  planYearlyListMinor,
+  yearlyDiscountOf,
+  type BillingCycle,
+} from '@/lib/plan-pricing';
 
 export function PricingPageClient() {
   const router = useRouter();
@@ -18,6 +25,9 @@ export function PricingPageClient() {
   const sessionIdParam = searchParams.get('session_id');
 
   const [provider, setProvider] = useState<'stripe' | 'bkash'>('stripe');
+  const [cycle, setCycle] = useState<BillingCycle>(
+    searchParams.get('cycle') === 'year' ? 'year' : 'month',
+  );
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribingId, setSubscribingId] = useState<string | null>(null);
@@ -90,7 +100,7 @@ export function PricingPageClient() {
   const handleSelectPlan = async (plan: Plan) => {
     // If not logged in -> redirect to auth with return params
     if (!isLoggedIn) {
-      router.push(`/auth?from=/pricing&plan=${plan.planId}`);
+      router.push(`/auth?from=/pricing&plan=${plan.planId}${cycle === 'year' ? '&cycle=year' : ''}`);
       return;
     }
 
@@ -106,7 +116,9 @@ export function PricingPageClient() {
     // A merchant who already has a workspace finishes a paid upgrade on the
     // dashboard checkout page, where the gateway is chosen.
     setSubscribingId(plan.planId);
-    router.push(`/billing/checkout?planId=${encodeURIComponent(plan.planId)}`);
+    router.push(
+      `/billing/checkout?planId=${encodeURIComponent(plan.planId)}${cycle === 'year' ? '&cycle=year' : ''}`,
+    );
   };
 
   /**
@@ -165,22 +177,23 @@ export function PricingPageClient() {
     }
   };
 
+  // Yearly = monthly × 12 less the plan's yearly discount; twelve monthly
+  // payments are shown crossed out beside it when there is a saving.
   const getPlanPriceDisplay = (plan: Plan) => {
-    if (provider === 'bkash') {
-      const bdtAmount = Math.round(plan.priceBdtPaisa / 100);
-      return {
-        currency: '৳',
-        amount: bdtAmount.toLocaleString(),
-        period: '/month',
-      };
-    }
-    const usdAmount = Math.round(plan.priceUsdCents / 100);
+    const currency = provider === 'bkash' ? 'BDT' : 'USD';
+    const discount = yearlyDiscountOf(plan);
     return {
-      currency: '$',
-      amount: usdAmount.toLocaleString(),
-      period: '/month',
+      label: formatMinor(planAmountMinor(plan, currency, cycle), currency),
+      period: cycle === 'year' ? '/year' : '/month',
+      strike:
+        cycle === 'year' && discount > 0
+          ? formatMinor(planYearlyListMinor(plan, currency), currency)
+          : null,
+      discount: cycle === 'year' ? discount : 0,
     };
   };
+
+  const bestYearlyDiscount = Math.max(0, ...plans.map(yearlyDiscountOf));
 
   return (
     <div
@@ -346,6 +359,62 @@ export function PricingPageClient() {
               </button>
             </div>
           </div>
+
+          {/* Billing cycle */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '-1.25rem', marginBottom: '2.5rem' }}>
+            <div
+              role="group"
+              aria-label="Billing cycle"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0.3rem',
+                backgroundColor: 'var(--lp-bg-white)',
+                border: '1px solid var(--lp-border)',
+                borderRadius: 'var(--lp-radius-xl)',
+                gap: '0.3rem',
+              }}
+            >
+              {(['month', 'year'] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={cycle === c}
+                  onClick={() => setCycle(c)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.5rem 1.1rem',
+                    borderRadius: 'var(--lp-radius-lg)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: 'none',
+                    transition: 'all 0.15s ease',
+                    backgroundColor: cycle === c ? 'var(--lp-dark)' : 'transparent',
+                    color: cycle === c ? 'var(--lp-text-on-dark)' : 'var(--lp-text-secondary)',
+                  }}
+                >
+                  {c === 'month' ? 'Monthly' : 'Yearly'}
+                  {c === 'year' && bestYearlyDiscount > 0 && (
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        padding: '0.1rem 0.45rem',
+                        borderRadius: '999px',
+                        backgroundColor: 'var(--lp-primary)',
+                        color: 'var(--lp-dark)',
+                      }}
+                    >
+                      Save up to {bestYearlyDiscount}%
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Pricing Cards Grid */}
@@ -476,8 +545,7 @@ export function PricingPageClient() {
                         letterSpacing: '-0.03em',
                       }}
                     >
-                      {price.currency}
-                      {price.amount}
+                      {price.label}
                     </span>
                     <span
                       style={{
@@ -489,6 +557,35 @@ export function PricingPageClient() {
                       {price.period}
                     </span>
                   </div>
+                  {price.strike && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        marginTop: '-0.75rem',
+                        marginBottom: '1.25rem',
+                        fontSize: '0.8125rem',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      <s style={{ color: isSelected ? 'var(--lp-text-on-dark-dim)' : 'var(--lp-text-secondary)' }}>
+                        {price.strike}
+                      </s>
+                      <span
+                        style={{
+                          fontSize: '0.6875rem',
+                          fontWeight: 700,
+                          padding: '0.1rem 0.5rem',
+                          borderRadius: '999px',
+                          backgroundColor: 'var(--lp-primary)',
+                          color: 'var(--lp-dark)',
+                        }}
+                      >
+                        Save {price.discount}%
+                      </span>
+                    </div>
+                  )}
 
                   {/* Capability List */}
                   <div style={{ flex: 1, marginBottom: '2rem' }}>

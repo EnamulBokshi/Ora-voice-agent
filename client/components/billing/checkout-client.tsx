@@ -20,6 +20,13 @@ import {
 } from '@/services/billing-service';
 import { CouponQuote, Plan } from '@/types/billing';
 import { cn } from '@/lib/utils';
+import {
+  planAmountMinor,
+  planYearlyListMinor,
+  toBillingCycle,
+  yearlyDiscountOf,
+  type BillingCycle,
+} from '@/lib/plan-pricing';
 import { DashboardPage } from '@/components/dashboard/dashboard-page';
 
 type ProviderId = 'stripe' | 'bkash';
@@ -48,6 +55,8 @@ export function CheckoutClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
+  // ?cycle=year comes from the pricing pages; the toggle below can change it.
+  const [cycle, setCycle] = useState<BillingCycle>(() => toBillingCycle(searchParams.get('cycle')));
 
   const [plan, setPlan] = useState<Plan | null>(null);
   const [methods, setMethods] = useState<PaymentMethodOption[]>([]);
@@ -101,6 +110,7 @@ export function CheckoutClient() {
           code: code.trim(),
           planId: plan.planId,
           billingProvider: forProvider,
+          billingCycle: cycle,
         });
         setCoupon(quote);
       } catch (err) {
@@ -110,16 +120,16 @@ export function CheckoutClient() {
         setCouponChecking(false);
       }
     },
-    [plan],
+    [plan, cycle],
   );
 
-  // A coupon is priced per currency, so switching gateway re-prices it.
+  // A coupon is priced per currency and per cycle, so switching either re-prices it.
   useEffect(() => {
     if (coupon && provider) {
       applyCoupon(coupon.code, provider);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider]);
+  }, [provider, cycle]);
 
   /**
    * A code carried in from elsewhere: the ?coupon= parameter, or one ORA put into
@@ -177,6 +187,7 @@ export function CheckoutClient() {
       const result = await subscribePlanApi({
         planId: plan.planId,
         provider,
+        billingCycle: cycle,
         ...(coupon ? { couponCode: coupon.code } : {}),
       });
 
@@ -210,7 +221,10 @@ export function CheckoutClient() {
       : `৳${Math.round(minor / 100).toLocaleString()}`;
 
   const currency = selected?.currency ?? 'USD';
-  const listMinor = plan ? (currency === 'USD' ? plan.priceUsdCents : plan.priceBdtPaisa) : 0;
+  const listMinor = plan ? planAmountMinor(plan, currency, cycle) : 0;
+  // Twelve monthly payments, shown crossed out next to a discounted yearly price.
+  const yearlyDiscount = plan ? yearlyDiscountOf(plan) : 0;
+  const twelveMonthsMinor = plan ? planYearlyListMinor(plan, currency) : 0;
   const dueMinor = coupon ? coupon.amountAfterMinor : listMinor;
   const priceLabel = plan ? money(dueMinor, currency) : '—';
 
@@ -234,20 +248,52 @@ export function CheckoutClient() {
           <div>
             <p className="text-[13.5px] font-semibold text-foreground">{plan?.name ?? 'Plan'}</p>
             <p className="text-[12px] text-muted-foreground mt-0.5">
-              Billed {plan?.billingInterval === 'yearly' ? 'yearly' : 'monthly'} · cancel anytime
+              Billed {cycle === 'year' ? 'yearly' : 'monthly'} · cancel anytime
             </p>
+            <div
+              className="mt-2.5 inline-flex rounded-md border border-border/60 p-0.5"
+              role="group"
+              aria-label="Billing cycle"
+            >
+              {(['month', 'year'] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={cycle === c}
+                  onClick={() => setCycle(c)}
+                  className={cn(
+                    'h-7 px-3 rounded text-[12px] font-medium transition-colors cursor-pointer',
+                    cycle === c
+                      ? 'bg-surface-high text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {c === 'month' ? 'Monthly' : 'Yearly'}
+                  {c === 'year' && yearlyDiscount > 0 && (
+                    <span className="ml-1.5 text-primary">−{yearlyDiscount}%</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="text-right">
-            {coupon && coupon.discountMinor > 0 && (
+            {coupon && coupon.discountMinor > 0 ? (
               <p className="text-[12px] text-muted-foreground line-through tabular-nums">
                 {money(listMinor, currency)}
               </p>
+            ) : (
+              cycle === 'year' &&
+              yearlyDiscount > 0 && (
+                <p className="text-[12px] text-muted-foreground line-through tabular-nums">
+                  {money(twelveMonthsMinor, currency)}
+                </p>
+              )
             )}
             <p className="text-[20px] font-semibold text-foreground font-serif tabular-nums leading-none">
               {priceLabel}
             </p>
             <p className="text-[11px] font-mono text-muted-foreground mt-1">
-              {currency} / {plan?.billingInterval === 'yearly' ? 'yr' : 'mo'}
+              {currency} / {cycle === 'year' ? 'yr' : 'mo'}
             </p>
           </div>
         </div>

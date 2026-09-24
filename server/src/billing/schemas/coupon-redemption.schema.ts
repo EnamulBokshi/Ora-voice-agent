@@ -62,6 +62,10 @@ export class CouponRedemption {
   @Prop({ type: Number, required: true })
   amountAfterMinor: number;
 
+  /** Cycle the amounts were priced for. Decides the period a gateway callback grants. */
+  @Prop({ type: String, enum: ['month', 'year'], default: 'month' })
+  billingCycle: 'month' | 'year';
+
   @Prop({
     type: String,
     enum: Object.values(CouponRedemptionStatus),

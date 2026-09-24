@@ -30,6 +30,7 @@ import { UpdatePlatformAgentDto } from './dto/update-platform-agent.dto';
 import { UsageTrackingService } from '../usage/usage-tracking.service';
 import { AgentProfileService } from '../common/agent-profile/agent-profile.service';
 import { resolveArchetype } from '../common/constants/archetypes';
+import { monthlyEquivalentUsd, toBillingCycle } from '../billing/utils/plan-pricing.util';
 
 /**
  * Period-over-period change, as a signed percentage string.
@@ -261,12 +262,19 @@ export class AdminService implements OnModuleInit {
     // actually edits, and it made starter subscribers invisible and worth nothing.
     // There is also deliberately no fallback distribution any more: an empty platform
     // reports zeros rather than an invented 60/15 split.
-    const planPriceUsdByPlanId = new Map<string, number>(
-      (allPlans as any[]).map((plan) => [
-        plan.planId,
-        (plan.priceUsdCents || 0) / 100,
-      ]),
+    // A yearly subscriber counts as one twelfth of the discounted yearly price.
+    const planByPlanId = new Map<string, any>(
+      (allPlans as any[]).map((plan) => [plan.planId, plan]),
     );
+    const subMrrUsd = (sub: any): number => {
+      const plan = planByPlanId.get(String(sub.planId));
+      return plan
+        ? monthlyEquivalentUsd(
+            { priceUsdCents: plan.priceUsdCents || 0, priceBdtPaisa: plan.priceBdtPaisa || 0, yearlyDiscountPercent: plan.yearlyDiscountPercent },
+            toBillingCycle(sub.billingCycle),
+          )
+        : 0;
+    };
 
     const planDistribution: Record<string, number> = {};
     let platformMRR = 0;
@@ -274,7 +282,7 @@ export class AdminService implements OnModuleInit {
     for (const sub of activeSubs) {
       const planId = String(sub.planId || 'unknown');
       planDistribution[planId] = (planDistribution[planId] || 0) + 1;
-      platformMRR += planPriceUsdByPlanId.get(planId) ?? 0;
+      platformMRR += subMrrUsd(sub);
     }
 
     platformMRR = Math.round(platformMRR * 100) / 100;
@@ -439,7 +447,7 @@ export class AdminService implements OnModuleInit {
 
     const previousMRR = (previousActiveSubs as any[]).reduce(
       (sum: number, sub: any) =>
-        sum + (planPriceUsdByPlanId.get(String(sub.planId)) ?? 0),
+        sum + subMrrUsd(sub),
       0,
     );
 

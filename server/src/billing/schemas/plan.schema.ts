@@ -64,8 +64,16 @@ export class Plan {
   @Prop({ type: Number, required: true })
   priceBdtPaisa: number;
 
+  /** Interval of the stored prices. Always 'month'; the yearly price is derived. */
   @Prop({ default: 'month', trim: true })
   billingInterval: string;
+
+  /**
+   * Discount for paying yearly, in percent (0–90). The yearly price is
+   * monthly × 12 × (1 − discount / 100); see utils/plan-pricing.util.ts.
+   */
+  @Prop({ type: Number, default: 0, min: 0, max: 90 })
+  yearlyDiscountPercent: number;
 
   @Prop({
     type: {

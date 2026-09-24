@@ -33,6 +33,8 @@ export interface AdminPlanItem {
   priceUsdCents: number;
   priceBdtPaisa: number;
   billingInterval: string;
+  /** Percent off for paying yearly; the yearly price is derived from it. */
+  yearlyDiscountPercent?: number;
   limits: {
     conversationMinutes: number;
     ordersPerMonth: number;
@@ -69,12 +71,14 @@ export interface AdminSubscriptionItem {
     priceUsdCents: number;
     priceBdtPaisa: number;
     billingInterval: string;
+    yearlyDiscountPercent?: number;
   } | null;
   billingProvider: 'stripe' | 'bkash' | 'shopify';
   providerRef?: string;
   status: 'active' | 'trialing' | 'past_due' | 'suspended' | 'canceled';
   currentPeriodStart: string;
   currentPeriodEnd: string;
+  billingCycle?: 'month' | 'year';
   cancelAtPeriodEnd: boolean;
   appliedCoupon?: {
     couponId?: string;
@@ -178,6 +182,7 @@ export interface CreatePlanPayload {
   priceUsdCents: number;
   priceBdtPaisa: number;
   billingInterval?: string;
+  yearlyDiscountPercent?: number;
   limits: {
     conversationMinutes: number;
     ordersPerMonth: number;

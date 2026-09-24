@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -14,6 +15,7 @@ import {
 import { CouponDiscountType } from '../schemas/coupon.schema';
 import { PlanId } from '../schemas/plan.schema';
 import { BillingProvider } from '../schemas/subscription.schema';
+import { BILLING_CYCLES, type BillingCycle } from '../utils/plan-pricing.util';
 
 /** What a merchant sends to price a coupon before paying. Never an amount. */
 export class ValidateCouponDto {
@@ -28,6 +30,10 @@ export class ValidateCouponDto {
   @IsOptional()
   @IsEnum(BillingProvider)
   billingProvider?: BillingProvider = BillingProvider.STRIPE;
+
+  @IsOptional()
+  @IsIn(BILLING_CYCLES as unknown as string[])
+  billingCycle?: BillingCycle = 'month';
 }
 
 export class CreateCouponDto {

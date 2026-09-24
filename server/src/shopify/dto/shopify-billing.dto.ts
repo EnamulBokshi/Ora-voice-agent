@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { BILLING_CYCLES, type BillingCycle } from '../../billing/utils/plan-pricing.util';
 
 export class ShopifyBillingSubscribeDto {
   @IsString()
@@ -9,4 +10,8 @@ export class ShopifyBillingSubscribeDto {
   @IsOptional()
   @IsUrl({ require_tld: false })
   returnUrl?: string;
+
+  @IsOptional()
+  @IsIn(BILLING_CYCLES as unknown as string[])
+  billingCycle?: BillingCycle = 'month';
 }

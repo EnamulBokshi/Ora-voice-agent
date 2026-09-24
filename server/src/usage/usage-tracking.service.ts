@@ -15,6 +15,7 @@ import { Subscription, SubscriptionDocument } from '../billing/schemas/subscript
 import { Plan, PlanDocument } from '../billing/schemas/plan.schema';
 import { CostCalculatorService, UsageMetricsPayload } from './cost-calculator.service';
 import { RedisService } from '../common/redis/redis.service';
+import { monthlyEquivalentUsd, toBillingCycle } from '../billing/utils/plan-pricing.util';
 
 export interface RecordUsageDto extends UsageMetricsPayload {
   businessId: string | Types.ObjectId;
@@ -320,7 +321,7 @@ export class UsageTrackingService {
       const planId = sub ? sub.planId : 'free';
       const plan = planMap.get(planId);
 
-      const mrrUsd = plan ? plan.priceUsdCents / 100 : 0;
+      const mrrUsd = plan ? monthlyEquivalentUsd(plan, toBillingCycle(sub?.billingCycle)) : 0;
       const aiCostUsd = Math.round(usage.totalCostUsd * 1000) / 1000;
       const grossProfitUsd = Math.round((mrrUsd - aiCostUsd) * 100) / 100;
       const grossMarginPercent =

@@ -42,8 +42,8 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
   // Pricing (in dollars and BDT)
   const [usdPrice, setUsdPrice] = useState<string>('49');
   const [bdtPrice, setBdtPrice] = useState<string>('5000');
-  // Stored as 'month' / 'year', the values the Stripe and Shopify providers read.
-  const [billingInterval, setBillingInterval] = useState('month');
+  // Prices are monthly; the yearly price is monthly × 12 less this discount.
+  const [yearlyDiscount, setYearlyDiscount] = useState<string>('0');
   const [trialDays, setTrialDays] = useState<number>(14);
 
   // Limits
@@ -67,7 +67,7 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
       setIsCustom(plan.isCustom ?? false);
       setUsdPrice((plan.priceUsdCents / 100).toString());
       setBdtPrice((plan.priceBdtPaisa / 100).toString());
-      setBillingInterval(/^year/i.test(plan.billingInterval || '') ? 'year' : 'month');
+      setYearlyDiscount(String(plan.yearlyDiscountPercent ?? 0));
       setTrialDays(plan.trialDays ?? 0);
       setConversationMinutes(plan.limits?.conversationMinutes ?? 500);
       setOrdersPerMonth(plan.limits?.ordersPerMonth ?? 1000);
@@ -85,7 +85,7 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
       setIsCustom(false);
       setUsdPrice('49');
       setBdtPrice('5000');
-      setBillingInterval('month');
+      setYearlyDiscount('20');
       setTrialDays(14);
       setConversationMinutes(500);
       setOrdersPerMonth(1000);
@@ -139,7 +139,8 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
         badge: badge.trim() || undefined,
         priceUsdCents,
         priceBdtPaisa,
-        billingInterval,
+        billingInterval: 'month',
+        yearlyDiscountPercent: Math.min(90, Math.max(0, Math.round(Number(yearlyDiscount) || 0))),
         trialDays: Number(trialDays) || 0,
         sortOrder: Number(sortOrder) || 1,
         isActive,
@@ -375,18 +376,34 @@ export function PlanModal({ isOpen, onClose, plan, onSaved }: PlanModalProps) {
 
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1.5">
-                  Billing interval
+                  Yearly discount (%)
                 </label>
-                <select
-                  value={billingInterval}
-                  onChange={(e) => setBillingInterval(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-surface-high border border-border text-foreground focus:outline-none focus:border-primary"
-                >
-                  <option value="month">Monthly</option>
-                  <option value="year">Yearly</option>
-                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max="90"
+                  step="1"
+                  value={yearlyDiscount}
+                  onChange={(e) => setYearlyDiscount(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-surface-high border border-border text-foreground tabular-nums focus:outline-none focus:border-primary"
+                />
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground tabular-nums">
+              Yearly price: $
+              {(
+                Math.round(
+                  parseFloat(usdPrice || '0') * 100 * 12 * (1 - Math.min(90, Math.max(0, Number(yearlyDiscount) || 0)) / 100),
+                ) / 100
+              ).toLocaleString('en-US', { maximumFractionDigits: 2 })}{' '}
+              / ৳
+              {(
+                Math.round(
+                  parseFloat(bdtPrice || '0') * 100 * 12 * (1 - Math.min(90, Math.max(0, Number(yearlyDiscount) || 0)) / 100),
+                ) / 100
+              ).toLocaleString('en-US', { maximumFractionDigits: 0 })}{' '}
+              per year (monthly price × 12, less the discount).
+            </p>
           </div>
 
           {/* Section 3: Quotas & Resource Limits */}

@@ -168,6 +168,8 @@ export class ShopifyController {
       user.businessId,
       dto.planId,
       dto.returnUrl,
+      undefined,
+      dto.billingCycle,
     );
 
     return {
@@ -231,14 +233,21 @@ export class ShopifyController {
       // merchant approve the cheapest charge and return naming the dearest
       // plan. If the record is gone, the name Shopify reports is used instead;
       // a null from both leaves the stored plan untouched.
+      const recordedPlanId = await this.shopifyProvider.resolvePendingChargePlan(
+        chargeId,
+        business._id.toString(),
+      );
       const planId =
-        (await this.shopifyProvider.resolvePendingChargePlan(
-          chargeId,
-          business._id.toString(),
-        )) ||
+        recordedPlanId ||
         (await this.shopifyProvider.resolvePlanFromSubscriptionName(
           subscription.name,
         ));
+      // The cycle is read from the same server-side record, and only once that
+      // record passed the tenant check above. Without it the cycle is unknown
+      // and the stored one is left alone.
+      const billingCycle = recordedPlanId
+        ? (await this.shopifyProvider.resolvePendingChargeRecord(chargeId))?.billingCycle
+        : undefined;
 
       await this.billingService.activateShopifySubscription(
         business._id.toString(),
@@ -246,6 +255,7 @@ export class ShopifyController {
         subscription.status,
         planId || undefined,
         subscription.currentPeriodEnd,
+        billingCycle,
       );
     }
 

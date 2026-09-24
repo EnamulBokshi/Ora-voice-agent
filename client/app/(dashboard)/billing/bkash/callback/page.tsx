@@ -13,6 +13,8 @@ function BkashCallbackContent() {
   const paymentID = searchParams.get('paymentID') || searchParams.get('paymentId');
   const status = searchParams.get('status');
   const planId = searchParams.get('planId') || 'growth';
+  // The server decides the final cycle (a reserved coupon's cycle wins over this).
+  const billingCycle = searchParams.get('cycle') === 'year' ? 'year' : 'month';
 
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
@@ -38,7 +40,7 @@ function BkashCallbackContent() {
     }
 
     // Status is success or empty, execute agreement
-    executeBkashAgreementApi({ paymentID, planId })
+    executeBkashAgreementApi({ paymentID, planId, billingCycle })
       .then(() => {
         setSuccess(true);
         // Set owner cookie for fast edge middleware routing
@@ -59,7 +61,7 @@ function BkashCallbackContent() {
       .finally(() => {
         setLoading(false);
       });
-  }, [paymentID, status, planId, router]);
+  }, [paymentID, status, planId, billingCycle, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background text-foreground">

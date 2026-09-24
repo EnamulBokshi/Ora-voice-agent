@@ -23,7 +23,8 @@ export interface PaymentProvider {
     customerDetails?: CustomerBillingDetails,
   ): Promise<ProviderSubscriptionRef>;
   cancelSubscription(ref: ProviderSubscriptionRef): Promise<void>;
-  chargeRenewal(ref: ProviderSubscriptionRef): Promise<ChargeResult>;
+  /** `amountMajor` is the renewal price in major units, for gateways that charge it themselves. */
+  chargeRenewal(ref: ProviderSubscriptionRef, amountMajor?: number): Promise<ChargeResult>;
   verifyWebhookSignature(
     rawBody: Buffer,
     headers: Record<string, string>,

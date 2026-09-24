@@ -48,6 +48,9 @@ export class Invoice {
   @Prop({ required: true, default: 'USD' })
   currency: string;
 
+  @Prop({ type: String, enum: ['month', 'year'], default: 'month' })
+  billingCycle: 'month' | 'year';
+
   @Prop({ type: Number, default: 0 })
   taxAmount: number;
 

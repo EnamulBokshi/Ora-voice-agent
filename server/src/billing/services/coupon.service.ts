@@ -10,6 +10,7 @@ import {
 import { PlanDocument } from '../schemas/plan.schema';
 import { BillingProvider } from '../schemas/subscription.schema';
 import { DomainException } from '../../common/exceptions/domain.exception';
+import { planAmountMinor, type BillingCycle } from '../utils/plan-pricing.util';
 
 export interface CouponQuote {
   code: string;
@@ -18,6 +19,8 @@ export interface CouponQuote {
   amountBeforeMinor: number;
   discountMinor: number;
   amountAfterMinor: number;
+  /** Cycle the amounts are for: one month, or one discounted year. */
+  billingCycle: BillingCycle;
   /** True when the discount covers the whole price, so no gateway charge is due. */
   coversFullPrice: boolean;
 }
@@ -171,16 +174,19 @@ export class CouponService {
     return coupon;
   }
 
-  /** Prices a plan under a coupon. Discounts never push a price below zero. */
+  /**
+   * Prices one payment of a plan under a coupon: a month, or a discounted year.
+   * Discounts never push a price below zero.
+   */
   quote(
     plan: PlanDocument,
     coupon: CouponDocument,
     provider: BillingProvider,
+    billingCycle: BillingCycle = 'month',
   ): CouponQuote {
     const currency: 'USD' | 'BDT' =
       provider === BillingProvider.BKASH ? 'BDT' : 'USD';
-    const amountBeforeMinor =
-      currency === 'BDT' ? plan.priceBdtPaisa : plan.priceUsdCents;
+    const amountBeforeMinor = planAmountMinor(plan, currency, billingCycle);
 
     // The stored discountType alone decides the arithmetic. A fixed coupon reads its
     // per-currency amount and never its percentOff field, and vice versa.
@@ -204,6 +210,7 @@ export class CouponService {
       amountBeforeMinor,
       discountMinor,
       amountAfterMinor,
+      billingCycle,
       coversFullPrice: amountAfterMinor === 0,
     };
   }
@@ -254,6 +261,7 @@ export class CouponService {
       amountBeforeMinor: quote.amountBeforeMinor,
       discountMinor: quote.discountMinor,
       amountAfterMinor: quote.amountAfterMinor,
+      billingCycle: quote.billingCycle,
       status: CouponRedemptionStatus.RESERVED,
     }).save();
   }
