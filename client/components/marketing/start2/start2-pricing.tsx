@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { getBillingPlansApi } from '@/services/billing-service';
 import type { Plan } from '@/types/billing';
+import { useAuth } from '@/context/auth-context';
 import {
   formatMinor,
   planAmountMinor,
@@ -38,11 +39,14 @@ function renderFeature(text: string) {
 }
 
 export function Start2Pricing() {
+  const { isAuthenticated, role } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [billing, setBilling] = useState<BillingCycle>('month');
 
   useEffect(() => {
+    setMounted(true);
     let alive = true;
     getBillingPlansApi()
       .then((data) => alive && setPlans(data))
@@ -108,6 +112,23 @@ export function Start2Pricing() {
                   const discount = yearlyDiscountOf(plan);
                   const priceMinor = planAmountMinor(plan, 'USD', billing);
                   const showStrike = billing === 'year' && discount > 0;
+                  const isAuthed = mounted && isAuthenticated;
+                  const planHref = isAuthed
+                    ? role === 'admin' || role === 'super_admin'
+                      ? '/admin'
+                      : `/pricing?plan=${encodeURIComponent(plan._id || plan.name)}`
+                    : '/auth';
+
+                  const planLabel = isAuthed
+                    ? role === 'admin' || role === 'super_admin'
+                      ? 'Admin Console'
+                      : trial > 0
+                      ? 'Start free trial'
+                      : 'Select plan'
+                    : trial > 0
+                    ? 'Start free trial'
+                    : 'Get started';
+
                   return (
                     <div key={plan._id} className={`s2p-plan${featured ? ' lead' : ''}`}>
                       <div>
@@ -137,10 +158,9 @@ export function Start2Pricing() {
                       </div>
 
                       <div>
-                        <Link href="/auth" className={`s2p-btn${featured ? ' solid' : ''}`}>
-                          <span>{trial > 0 ? 'Start free trial' : 'Get started'}</span>
+                        <Link href={planHref} className={`s2p-btn${featured ? ' solid' : ''}`}>
+                          <span>{planLabel}</span>
                         </Link>
-                        {trial > 0 && <div className="s2p-foot">No card required for the trial.</div>}
                       </div>
                     </div>
                   );

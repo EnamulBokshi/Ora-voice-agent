@@ -1,47 +1,63 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-/**
- * /start2 footer. Full-bleed, and every entry goes somewhere real: a section
- * on this page, a marketing route, or sign-in. The newsletter form, status
- * badge, social links and legal links were removed because none of them were
- * wired to anything.
- */
-
-const COLUMNS = [
-  {
-    title: 'Product',
-    links: [
-      { label: 'Features', href: '#features' },
-      { label: 'How it works', href: '#how-it-works' },
-      { label: 'Integrations', href: '#integrations' },
-      { label: 'Pricing', href: '#pricing' },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { label: 'Documentation', href: '/docs' },
-      { label: 'Quickstart', href: '/docs#quickstart' },
-      { label: 'Shopify setup', href: '/docs#shopify-setup' },
-      { label: 'Solutions', href: '/solutions' },
-    ],
-  },
-  {
-    title: 'Account',
-    links: [
-      { label: 'Sign in', href: '/auth' },
-      { label: 'Start free', href: '/auth' },
-    ],
-  },
-];
+import { useAuth } from '@/context/auth-context';
 
 export function Start2Footer() {
+  const { isAuthenticated, role } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isAuthed = mounted && isAuthenticated;
+
+  const accountLinks = isAuthed
+    ? [
+        {
+          label: role === 'admin' || role === 'super_admin' ? 'Admin Console' : 'Dashboard',
+          href: role === 'admin' || role === 'super_admin' ? '/admin' : '/dashboard',
+        },
+        { label: 'Subscription & Pricing', href: '/pricing' },
+      ]
+    : [
+        { label: 'Sign in', href: '/auth' },
+        { label: 'Start free', href: '/auth' },
+      ];
+
+  const columns = [
+    {
+      title: 'Product',
+      links: [
+        { label: 'Features', href: '#features' },
+        { label: 'How it works', href: '#how-it-works' },
+        { label: 'Integrations', href: '#integrations' },
+        { label: 'Pricing', href: '#pricing' },
+      ],
+    },
+    {
+      title: 'Resources',
+      links: [
+        { label: 'Documentation', href: '/docs' },
+        { label: 'Quickstart', href: '/docs#quickstart' },
+        { label: 'Shopify setup', href: '/docs#shopify-setup' },
+        { label: 'Solutions', href: '/solutions' },
+      ],
+    },
+    {
+      title: 'Account',
+      links: accountLinks,
+    },
+  ];
+
   return (
     <footer className="s2-ft">
       <div className="s2-ft-inner">
         <div className="s2-ft-top">
           <div className="s2-ft-brand">
-            <Link href="/start2" className="s2-nav-logo">
+            <Link href="/" className="s2-nav-logo">
               <span className="s2-logo-mark">O</span>
               <span className="s2-logo-text">ORA</span>
             </Link>
@@ -51,7 +67,7 @@ export function Start2Footer() {
           </div>
 
           <nav className="s2-ft-cols" aria-label="Footer">
-            {COLUMNS.map((col) => (
+            {columns.map((col) => (
               <div key={col.title} className="s2-ft-col">
                 <h2 className="s2-ft-title">{col.title}</h2>
                 <ul>

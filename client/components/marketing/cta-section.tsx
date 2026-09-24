@@ -1,6 +1,35 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/context/auth-context';
 
 export function CtaSection() {
+  const { isAuthenticated, role } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isAuthed = mounted && isAuthenticated;
+
+  const ctaHref = isAuthed
+    ? role === 'admin' || role === 'super_admin'
+      ? '/admin'
+      : role === 'user'
+      ? '/pricing'
+      : '/dashboard'
+    : '/auth';
+
+  const ctaLabel = isAuthed
+    ? role === 'admin' || role === 'super_admin'
+      ? 'Open Admin Console'
+      : role === 'user'
+      ? 'Select a Plan'
+      : 'Go to Dashboard'
+    : 'Get Started Free';
+
   return (
     <section
       id="cta"
@@ -29,20 +58,14 @@ export function CtaSection() {
               Stop losing sales<br />
               Start recovering revenue
             </h2>
-            {/* <p
-              style={{
-                fontSize: '1.0625rem',
-                color: 'var(--lp-text-on-dark-dim)',
-                lineHeight: 1.7,
-                marginBottom: '2.5rem',
-              }}
-            >
-              Join thousands of merchants already using ORA to automate their sales conversations
-              and grow their revenue on autopilot.
-            </p> */}
 
-            <Link href="/auth" className="lp-btn-lime" id="cta-get-started-btn" style={{ fontSize: '1.0625rem' }}>
-              Get Started Free
+            <Link
+              href={ctaHref}
+              className="lp-btn-lime"
+              id="cta-get-started-btn"
+              style={{ fontSize: '1.0625rem' }}
+            >
+              {ctaLabel}
             </Link>
 
             <p
@@ -53,7 +76,9 @@ export function CtaSection() {
                 opacity: 0.6,
               }}
             >
-              No credit card required &nbsp;·&nbsp; Free plan available
+              {isAuthed
+                ? 'Your AI sales engine is active and ready'
+                : 'No credit card required'}
             </p>
           </div>
         </div>

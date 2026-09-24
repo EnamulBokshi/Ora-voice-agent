@@ -10,6 +10,7 @@ import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { ResetPasswordForm } from './ResetPasswordForm';
 import { AuthResponseData, OtpResponseData, ResetPasswordResponseData, User } from '@/types/auth';
 import { getMeApi } from '@/services/auth-service';
+import { useAuth } from '@/context/auth-context';
 
 export const AuthCard: React.FC = () => {
   const searchParams = useSearchParams();
@@ -19,6 +20,8 @@ export const AuthCard: React.FC = () => {
   const tokenParam = searchParams.get('token');
   const codeParam = searchParams.get('code') || searchParams.get('otp');
   const emailParam = searchParams.get('email');
+
+  const { login: authLogin, isAuthenticated, user, isLoading: authLoading } = useAuth();
 
   const getInitialMode = (): 'login' | 'register' | 'otp' | 'forgot-password' | 'reset-password' => {
     if (tokenParam || modeParam === 'reset-password') return 'reset-password';
@@ -66,6 +69,13 @@ export const AuthCard: React.FC = () => {
     return '/pricing';
   };
 
+  // If already authenticated and not trying to reset password, redirect to dashboard
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user && mode === 'login' && !tokenParam) {
+      window.location.href = resolveTargetUrl(user.role);
+    }
+  }, [authLoading, isAuthenticated, user, mode, tokenParam]);
+
   const syncUserCookie = (role?: string) => {
     if (typeof document !== 'undefined' && role) {
       const isProd = process.env.NODE_ENV === 'production';
@@ -76,10 +86,9 @@ export const AuthCard: React.FC = () => {
   const handleRegisterSuccess = (data: AuthResponseData) => {
     setSessionToken(data.accessToken);
     setRegisteredEmail(data.user.email);
-    if (typeof window !== 'undefined' && data.accessToken) {
-      localStorage.setItem('accessToken', data.accessToken);
+    if (data.accessToken) {
+      authLogin({ accessToken: data.accessToken, user: data.user, business: data.business });
     }
-    syncUserCookie(data.user.role);
 
     if (!data.user.emailVerified) {
       setMode('otp');
@@ -89,32 +98,26 @@ export const AuthCard: React.FC = () => {
   };
 
   const handleLoginSuccess = (data: AuthResponseData) => {
-    if (typeof window !== 'undefined' && data.accessToken) {
-      localStorage.setItem('accessToken', data.accessToken);
-    }
-    syncUserCookie(data.user.role);
+    authLogin({ accessToken: data.accessToken, user: data.user, business: data.business });
     window.location.href = resolveTargetUrl(data.user.role);
   };
 
   const handleOtpVerifiedSuccess = async (res?: OtpResponseData & { accessToken?: string; user?: User }) => {
-    if (res?.accessToken) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', res.accessToken);
-      }
-      if (res.user?.role) {
-        syncUserCookie(res.user.role);
-      }
-      window.location.href = resolveTargetUrl(res.user?.role);
+    if (res?.accessToken && res.user) {
+      authLogin({ accessToken: res.accessToken, user: res.user });
+      window.location.href = resolveTargetUrl(res.user.role);
       return;
     }
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : sessionToken;
       const profile = await getMeApi(token || undefined);
-      if (profile?.user?.role) {
-        syncUserCookie(profile.user.role);
+      if (profile?.user) {
+        authLogin({ accessToken: token || '', user: profile.user, business: profile.business });
+        window.location.href = resolveTargetUrl(profile.user.role);
+        return;
       }
-      window.location.href = resolveTargetUrl(profile?.user?.role);
+      window.location.href = resolveTargetUrl();
     } catch {
       window.location.href = resolveTargetUrl();
     }
@@ -122,10 +125,7 @@ export const AuthCard: React.FC = () => {
 
   const handleResetPasswordSuccess = (data?: ResetPasswordResponseData) => {
     if (data?.accessToken && data?.user) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', data.accessToken);
-      }
-      syncUserCookie(data.user.role);
+      authLogin({ accessToken: data.accessToken, user: data.user, business: data.business });
       window.location.href = resolveTargetUrl(data.user.role);
     } else {
       setMode('login');
