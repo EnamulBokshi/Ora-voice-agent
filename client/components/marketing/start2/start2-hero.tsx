@@ -14,11 +14,11 @@ export function Start2Hero() {
           </div>
 
           <h1 className="s2-hero-title">
-            A sales agent that<br />speaks for your business.
+            A sales agent that<br />speaks for your business
           </h1>
 
           <p className="s2-hero-sub">
-            Fast, smart answers for every visitor. ORA knows your products and policies, and closes sales for you 24/7.
+            Fast, smart answers for every visitor. ORA knows your products and policies, and closes sales for you 24/7
           </p>
         </div>
 
