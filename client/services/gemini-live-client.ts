@@ -50,6 +50,12 @@ export interface LiveClientOptions {
     planId?: string;
   }) => void;
   onError?: (errMessage: string) => void;
+  /**
+   * The server warning that the session is about to close (idle or max
+   * duration), or telling the client it has closed. Also reported through
+   * `onTranscript` as a system line; this is for UI that shows no transcript.
+   */
+  onSessionNotice?: (notice: { kind: 'warning' | 'ended'; message: string }) => void;
 }
 
 /** Silence after the last shopper fragment that ends their line. */
@@ -387,17 +393,26 @@ export class GeminiLiveClient {
             case 'idle_warning':
               this.recordActivity();
               onTranscript?.('system', message.message || '⚠️ Inactivity warning: session will close in 10s.');
+              this.options.onSessionNotice?.({
+                kind: 'warning',
+                message: message.message || 'Are you still there? Closing in 10s.',
+              });
               break;
 
             case 'session_warning':
               this.recordActivity();
               onTranscript?.('system', message.message || `⚠️ Session ending in ${message.remainingSeconds}s.`);
+              this.options.onSessionNotice?.({
+                kind: 'warning',
+                message: message.message || `Session ending in ${message.remainingSeconds}s.`,
+              });
               break;
 
             case 'session_ended':
               this.flushUserTranscript();
               this.flushAgentTranscript();
               onTranscript?.('system', message.message || 'Session ended.');
+              this.options.onSessionNotice?.({ kind: 'ended', message: message.message || 'Session ended.' });
               // Mute mic immediately so user audio is no longer sent
               this.setMuted(true);
               if (this.micStream) {

@@ -319,7 +319,10 @@ export function FloatingOrbWidget() {
   const [userMicLevel, setUserMicLevel] = useState(0);
   const [speakingLevel, setSpeakingLevel] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isMuted, setIsMuted] = useState(false);
+  // The island above the orb shows only what needs the visitor's attention:
+  // connecting, an error, a session-ending warning, or that the session ended.
+  const [sessionNotice, setSessionNotice] = useState<{ kind: 'warning' | 'ended'; text: string } | null>(null);
+  const sessionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Customer Details Confirmation State
   const [customerDetails, setCustomerDetails] = useState<{
@@ -628,11 +631,32 @@ export function FloatingOrbWidget() {
 
   const isMountedRef = useRef(true);
 
+  const clearSessionNotice = useCallback(() => {
+    if (sessionNoticeTimerRef.current) {
+      clearTimeout(sessionNoticeTimerRef.current);
+      sessionNoticeTimerRef.current = null;
+    }
+    setSessionNotice(null);
+  }, []);
+
+  const showSessionNotice = useCallback((kind: 'warning' | 'ended', text: string) => {
+    if (sessionNoticeTimerRef.current) clearTimeout(sessionNoticeTimerRef.current);
+    setSessionNotice({ kind, text });
+    sessionNoticeTimerRef.current = setTimeout(
+      () => {
+        sessionNoticeTimerRef.current = null;
+        if (isMountedRef.current) setSessionNotice(null);
+      },
+      kind === 'warning' ? 12000 : 5000,
+    );
+  }, []);
+
   // ── Cleanup on unmount ──────────────────────────────────────────────────────
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      if (sessionNoticeTimerRef.current) clearTimeout(sessionNoticeTimerRef.current);
       liveClientRef.current?.stop(true);
     };
   }, []);
@@ -647,7 +671,7 @@ export function FloatingOrbWidget() {
     setErrorMsg('');
     setLiveUtterance('');
     setLiveSpeaker(null);
-    setIsMuted(false);
+    clearSessionNotice();
 
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     try {
@@ -697,7 +721,13 @@ export function FloatingOrbWidget() {
           } else if (sender === 'user') {
             setLiveSpeaker('user');
             setLiveUtterance(text);
+            // The visitor answered, so an "are you still there?" is moot.
+            setSessionNotice((current) => (current?.kind === 'warning' ? null : current));
           }
+        },
+        onSessionNotice: ({ kind, message }) => {
+          if (!isMountedRef.current) return;
+          showSessionNotice(kind, message);
         },
         onAudioLevel: (level) => {
           if (!isMountedRef.current) return;
@@ -827,7 +857,7 @@ export function FloatingOrbWidget() {
         setVoiceState('error');
       }
     }
-  }, [pathname, router, armAutoDismiss, goToAnchor]);
+  }, [pathname, router, armAutoDismiss, goToAnchor, clearSessionNotice, showSessionNotice]);
 
   // ── Auto-greet visitor on landing page visit or reload ──────────────────────
   useEffect(() => {
@@ -887,6 +917,8 @@ export function FloatingOrbWidget() {
   }, [handleStart]);
 
   const handleStop = useCallback(() => {
+    // Cancelling a connection that never opened is not the end of a session.
+    const wasLive = voiceStateRef.current !== 'connecting' && voiceStateRef.current !== 'idle';
     userStoppedRef.current = true;
     try {
       sessionStorage.removeItem('ora_landing_session_id');
@@ -899,13 +931,8 @@ export function FloatingOrbWidget() {
     setSpeakingLevel(0);
     setShowConfirmModal(false);
     cancelAutoDismiss();
-  }, [cancelAutoDismiss]);
-
-  const handleToggleMute = useCallback(() => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    liveClientRef.current?.setMuted(nextMuted);
-  }, [isMuted]);
+    if (wasLive) showSessionNotice('ended', 'Session ended');
+  }, [cancelAutoDismiss, showSessionNotice]);
 
   // ── Toggle orb click ───────────────────────────────────────────────────────
   const handleOrbClick = () => {
@@ -1130,85 +1157,17 @@ export function FloatingOrbWidget() {
         </div>
       )}
 
-      {/* ── Unified Floating Island (Status + Controls — Only shown when NOT idle) ── */}
-      {voiceState !== 'idle' && (
+      {/* ── Floating Island: only states that need attention. While the
+          session is live the orb itself shows who is speaking, and a click on
+          it ends the session. ── */}
+      {(isConnecting || voiceState === 'error' || sessionNotice) && (
         <div className="lp-orb-island-container">
-          {voiceState === 'connecting' && (
+          {isConnecting ? (
             <div className="lp-orb-island-pill connecting">
               <span className="lp-orb-status-dot connecting" />
               <span className="lp-orb-shimmer-text">Connecting to ORA Live…</span>
             </div>
-          )}
-
-          {isActive && (
-            <div className={`lp-orb-island-pill active ${isSpeaking ? 'speaking' : voiceState === 'thinking' ? 'thinking' : ''}`}>
-              <div className="lp-orb-island-status">
-                <span
-                  className={`lp-orb-status-dot ${
-                    isSpeaking
-                      ? 'speaking'
-                      : voiceState === 'thinking'
-                      ? 'thinking'
-                      : isMuted
-                      ? 'muted'
-                      : 'listening'
-                  }`}
-                />
-                <span className="lp-orb-island-status-text">
-                  {isSpeaking
-                    ? 'ORA is speaking…'
-                    : voiceState === 'thinking'
-                    ? 'Thinking…'
-                    : isMuted
-                    ? 'Microphone muted'
-                    : 'Listening… Speak now'}
-                </span>
-              </div>
-
-              <div className="lp-orb-island-divider" />
-
-              <div className="lp-orb-island-actions">
-                <button
-                  type="button"
-                  className={`lp-orb-island-btn ${isMuted ? 'muted' : ''}`}
-                  onClick={handleToggleMute}
-                  aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                      <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                      <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
-                      <line x1="12" y1="19" x2="12" y2="23" />
-                      <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" y1="19" x2="12" y2="23" />
-                      <line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  className="lp-orb-island-btn stop"
-                  onClick={handleStop}
-                  aria-label="End conversation"
-                  title="End Session"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="5" y="5" width="14" height="14" rx="2.5" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {voiceState === 'error' && (
+          ) : voiceState === 'error' ? (
             <button
               type="button"
               className="lp-orb-island-pill error"
@@ -1218,7 +1177,12 @@ export function FloatingOrbWidget() {
               <span className="lp-orb-status-dot error" />
               <span>{errorMsg ? (errorMsg.length > 40 ? errorMsg.slice(0, 40) + '…' : errorMsg) : 'Connection error — Click to retry'}</span>
             </button>
-          )}
+          ) : sessionNotice ? (
+            <div className="lp-orb-island-pill" role="status" aria-live="polite">
+              <span className={`lp-orb-status-dot ${sessionNotice.kind === 'warning' ? 'muted' : 'idle'}`} />
+              <span className="lp-orb-island-status-text">{sessionNotice.text}</span>
+            </div>
+          ) : null}
         </div>
       )}
 
