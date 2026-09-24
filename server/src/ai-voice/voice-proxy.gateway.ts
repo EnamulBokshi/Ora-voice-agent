@@ -1117,6 +1117,12 @@ export class VoiceProxyGateway {
         // Fragments are buffered into bufferedAiText; isFinal=true or onTurnComplete triggers the DB write.
         onOutputTranscript: (text, isFinal) => {
           if (session.suppressPostNavSpeech || !text.trim()) return;
+          // Dashboard clients have no other way to show what ORA said: with an
+          // AUDIO-only modality `onTextData` rarely fires. The widget ignores
+          // this message type.
+          if (!session.silentMode) {
+            sendToClient({ type: 'agent_transcript', text: text.trim(), isFinal });
+          }
           session.bufferedAiText = (session.bufferedAiText ? session.bufferedAiText + ' ' : '') + text.trim();
           if (isFinal) {
             flushBufferedAiText();

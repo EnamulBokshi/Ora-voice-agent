@@ -52,6 +52,9 @@ export interface LiveClientOptions {
   onError?: (errMessage: string) => void;
 }
 
+/** Silence after the last shopper fragment that ends their line. */
+const USER_TRANSCRIPT_PAUSE_MS = 1200;
+
 export class GeminiLiveClient {
   private ws: WebSocket | null = null;
   private inputAudioCtx: AudioContext | null = null;
@@ -77,6 +80,12 @@ export class GeminiLiveClient {
   private recognition: any = null;
   private lastActivityTime: number = Date.now();
   private idleWatcherInterval: any = null;
+  // Gemini streams both transcriptions as fragments. Each speaker's fragments
+  // are held here and emitted as one line when that speaker's turn ends, so a
+  // sentence renders as one bubble rather than one per word group.
+  private userTranscriptBuffer = '';
+  private agentTranscriptBuffer = '';
+  private userTranscriptTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: LiveClientOptions) {
     this.options = options;
@@ -125,6 +134,22 @@ export class GeminiLiveClient {
         }),
       );
     }
+  }
+
+  private flushUserTranscript() {
+    if (this.userTranscriptTimer) {
+      clearTimeout(this.userTranscriptTimer);
+      this.userTranscriptTimer = null;
+    }
+    const text = this.userTranscriptBuffer.trim();
+    this.userTranscriptBuffer = '';
+    if (text) this.options.onTranscript?.('user', text);
+  }
+
+  private flushAgentTranscript() {
+    const text = this.agentTranscriptBuffer.trim();
+    this.agentTranscriptBuffer = '';
+    if (text) this.options.onTranscript?.('agent', text);
   }
 
   private handlePageHide = () => {
@@ -257,6 +282,8 @@ export class GeminiLiveClient {
 
             case 'audio':
               this.recordActivity();
+              // ORA answering means the shopper's utterance is complete.
+              this.flushUserTranscript();
               if (!this.options.silentMode) {
                 if (this.outputAudioCtx && this.outputAudioCtx.state !== 'closed') {
                   this.playPcm24kBase64(message.data);
@@ -269,7 +296,32 @@ export class GeminiLiveClient {
             case 'user_transcript':
               this.recordActivity();
               if (message.text) {
-                onTranscript?.('user', message.text);
+                // The shopper talking again ends whatever ORA was saying.
+                this.flushAgentTranscript();
+                this.userTranscriptBuffer += ` ${message.text}`;
+                if (message.isFinal) {
+                  this.flushUserTranscript();
+                } else {
+                  // Gemini does not reliably send `finished`, and in silent
+                  // (dictation) mode no ORA turn follows to end the line, so a
+                  // pause in speech ends it instead.
+                  if (this.userTranscriptTimer) clearTimeout(this.userTranscriptTimer);
+                  this.userTranscriptTimer = setTimeout(
+                    () => this.flushUserTranscript(),
+                    USER_TRANSCRIPT_PAUSE_MS,
+                  );
+                }
+              }
+              break;
+
+            // Gemini's transcription of ORA's own speech — the only record of
+            // what ORA said while the response modality is audio.
+            case 'agent_transcript':
+              this.recordActivity();
+              if (message.text) {
+                this.flushUserTranscript();
+                this.agentTranscriptBuffer += ` ${message.text}`;
+                if (message.isFinal) this.flushAgentTranscript();
               }
               break;
 
@@ -287,6 +339,7 @@ export class GeminiLiveClient {
                   !cleanText.toLowerCase().startsWith('internal:') &&
                   !cleanText.toLowerCase().startsWith('[thought')
                 ) {
+                  this.flushUserTranscript();
                   onTranscript?.('agent', cleanText);
                 }
               }
@@ -294,6 +347,7 @@ export class GeminiLiveClient {
 
             case 'interrupted':
               this.recordActivity();
+              this.flushAgentTranscript();
               this.flushPlaybackQueue();
               this.isAgentSpeaking = false;
               onStatusChange?.('listening');
@@ -301,6 +355,8 @@ export class GeminiLiveClient {
 
             case 'turn_complete':
               this.recordActivity();
+              this.flushUserTranscript();
+              this.flushAgentTranscript();
               if (this.activeSources.length === 0 && this.outputAudioCtx) {
                 this.nextPlayTime = this.outputAudioCtx.currentTime;
                 this.isAgentSpeaking = false;
@@ -310,6 +366,7 @@ export class GeminiLiveClient {
 
             case 'tool_result':
               this.recordActivity();
+              this.flushUserTranscript();
               onTranscript?.('system', `⚡ ORA executed: ${message.toolName}`);
               if (message.action) {
                 // A storefront cart add can only happen inside the merchant's own
@@ -338,6 +395,8 @@ export class GeminiLiveClient {
               break;
 
             case 'session_ended':
+              this.flushUserTranscript();
+              this.flushAgentTranscript();
               onTranscript?.('system', message.message || 'Session ended.');
               // Mute mic immediately so user audio is no longer sent
               this.setMuted(true);
@@ -674,6 +733,8 @@ export class GeminiLiveClient {
   }
 
   public stop(silent = false) {
+    this.flushUserTranscript();
+    this.flushAgentTranscript();
     this.setupConfirmed = false;
     this.isAgentSpeaking = false;
     this.userHasSpoken = false;
@@ -762,26 +823,13 @@ export class GeminiLiveClient {
       rec.onresult = (event: any) => {
         if (this.isMuted || this.isAgentSpeaking || this.activeSources.length > 0) return;
 
-        let finalTranscript = '';
-        let interimTranscript = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          const res = event.results[i];
-          if (res && res[0] && res[0].transcript) {
-            if (res.isFinal) finalTranscript += res[0].transcript;
-            else interimTranscript += res[0].transcript;
-          }
-        }
-
-        const cleanFinal = finalTranscript.trim();
-        const cleanAll = (finalTranscript + ' ' + interimTranscript).trim();
-
-        if (cleanFinal && event.results[event.results.length - 1]?.isFinal) {
-          this.recordActivity();
-          // Persistence is handled by server-side Gemini inputTranscription (onInputTranscript callback).
-          // Browser SpeechRecognition is kept here ONLY for instant real-time UI display so the user
-          // can read their own words as they speak, without waiting for the server round-trip.
-          this.options.onTranscript?.('user', cleanFinal);
-        } else if (cleanAll) {
+        // Activity only — never a transcript. SpeechRecognition captures the raw
+        // microphone without the echo cancellation `getUserMedia` applies, so it
+        // hears ORA through the speakers and would post ORA's own words as the
+        // shopper's. The shopper's line comes from Gemini's inputTranscription
+        // (`user_transcript`), which runs on the echo-cancelled stream.
+        const latest = event.results[event.results.length - 1];
+        if (latest?.[0]?.transcript?.trim()) {
           this.recordActivity();
         }
       };

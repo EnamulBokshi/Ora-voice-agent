@@ -26,6 +26,7 @@ import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-n
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
 import { getVoiceTicketApi } from '@/services/voice-service';
+import { useStickToBottom } from '@/hooks/use-stick-to-bottom';
 import { cn } from '@/lib/utils';
 
 interface VoiceTestStudioProps {
@@ -60,15 +61,8 @@ export function VoiceTestStudio({ publishableKey, onSwitchToTrain }: VoiceTestSt
   const [sessionId, setSessionId] = useState<string>(() => `test_${Math.random().toString(36).substring(2, 9)}`);
 
   const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
-  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
-
-  const scrollToBottom = () => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [transcripts]);
+  const { ref: messageListRef, onScroll: onMessageListScroll } =
+    useStickToBottom<HTMLDivElement>(transcripts);
 
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -396,7 +390,11 @@ export function VoiceTestStudio({ publishableKey, onSwitchToTrain }: VoiceTestSt
         </div>
 
         {/* Messages container */}
-        <div className="space-y-3 min-h-[180px] max-h-[340px] overflow-y-auto pr-1 no-scrollbar">
+        <div
+          ref={messageListRef}
+          onScroll={onMessageListScroll}
+          className="space-y-3 min-h-[180px] max-h-[340px] overflow-y-auto pr-1 no-scrollbar"
+        >
           {transcripts.length === 0 ? (
             <div className="py-12 text-center text-xs text-muted-foreground select-none">
               <ShoppingBag size={22} className="mx-auto text-muted-foreground/30 mb-2" />
@@ -434,7 +432,7 @@ export function VoiceTestStudio({ publishableKey, onSwitchToTrain }: VoiceTestSt
                         isUser ? 'text-foreground' : 'text-foreground dark:text-[#C8F031]',
                       )}
                     >
-                      {isUser ? 'You (Shopper)' : 'ORA (Storefront Sales Agent)'}
+                      {isUser ? 'You (Shopper)' : 'ORA'}
                     </span>
                     <span className="text-muted-foreground/60">·</span>
                     <span className="tabular-nums text-[10.5px]">{entry.timestamp}</span>
@@ -461,7 +459,6 @@ export function VoiceTestStudio({ publishableKey, onSwitchToTrain }: VoiceTestSt
               );
             })
           )}
-          <div ref={transcriptEndRef} />
         </div>
 
         {/* ── Text Input Bar ── */}
