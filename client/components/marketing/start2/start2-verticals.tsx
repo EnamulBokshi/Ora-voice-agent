@@ -166,7 +166,7 @@ export function Start2Verticals() {
 
           {/* Header Block: Space Grotesk + Inter (No Newsreader) */}
           <div className="s2-stepper-head">
-            <h2>Tuned to your catalogue.</h2>
+            <h2>Tuned to your catalogue</h2>
             {/* <p>Six profiles, each with its own voice and inventory rules.</p> */}
           </div>
 

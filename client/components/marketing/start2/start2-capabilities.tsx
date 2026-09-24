@@ -3,26 +3,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 const TARGETS = [
-  { name: 'Shopify',      tag: 'App Store · 1-Click' },
-  { name: 'WooCommerce',  tag: 'Plugin · Instant' },
-  { name: 'BigCommerce',  tag: 'Store API · Fast' },
-  { name: 'Webflow',      tag: 'Script tag' },
+  { name: 'Shopify', tag: 'App Store · 1-Click' },
+  { name: 'WooCommerce', tag: 'Plugin · Instant' },
+  { name: 'BigCommerce', tag: 'Store API · Fast' },
+  { name: 'Webflow', tag: 'Script tag' },
   { name: 'Custom Store', tag: 'API / SDK' },
 ];
 
 // Coordinate system for right-side visual
 // ViewBox: 720 × 440
-const HUB_CX   = 110;
-const HUB_CY   = 220;
+const HUB_CX = 110;
+const HUB_CY = 220;
 const ORIGIN_X = 142;
-const CTRL_X1  = 220;
-const CTRL_X2  = 260;
-const DOT_X    = 340;
-const PILL_X   = 364;
-const PILL_W   = 326;
-const PILL_H   = 56;
-const DOT_R    = 6;
-const END_Y    = [60, 140, 220, 300, 380];
+const CTRL_X1 = 220;
+const CTRL_X2 = 260;
+const DOT_X = 340;
+const PILL_X = 364;
+const PILL_W = 326;
+const PILL_H = 56;
+const DOT_R = 6;
+const END_Y = [60, 140, 220, 300, 380];
 
 function curvePath(y: number) {
   return `M${ORIGIN_X} ${HUB_CY} C ${CTRL_X1} ${HUB_CY}, ${CTRL_X2} ${y}, ${DOT_X} ${y}`;
@@ -55,8 +55,8 @@ export function Start2Capabilities() {
           {/* ── Left Column: Editorial Heading ── */}
           <div className="s2da-col-left">
             <h2 className="s2da-title">
-              One agent.<br />
-              Any platform.
+              One agent<br />
+              Any platform
             </h2>
           </div>
 

@@ -26,8 +26,8 @@ export function CtaSection() {
                 lineHeight: 1.15,
               }}
             >
-              Stop losing sales.<br />
-              Start recovering revenue.
+              Stop losing sales<br />
+              Start recovering revenue
             </h2>
             {/* <p
               style={{

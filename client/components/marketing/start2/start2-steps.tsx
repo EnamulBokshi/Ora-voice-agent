@@ -93,7 +93,7 @@ export function Start2Steps() {
     <section className="lch-section" id="how-it-works" aria-label="Three steps to launch">
       <div className="s2-container">
         <div className="lch-head">
-          <h2 className="lch-title">Three steps to launch.</h2>
+          <h2 className="lch-title">Three steps to launch</h2>
           {/* <p className="lch-sub">From catalogue to live voice answers in about three minutes.</p> */}
         </div>
 
