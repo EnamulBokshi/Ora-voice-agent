@@ -109,6 +109,10 @@
   // could simply vanish with nothing shown to the customer.
   let sessionNotice = null;
   let noticeClearTimer = null;
+  // Pending teardown after the server ended the session, see teardownAfterPlayback().
+  let pendingEndTimer = null;
+  // Set while ORA says goodbye after the customer pressed stop, see endSessionWithGoodbye().
+  let goodbyeTimer = null;
 
   // Mic noise gate state (see VAD_HANGOVER_MS / VAD_PREROLL_FRAMES).
   let lastSpeechAt = 0;
@@ -1831,8 +1835,9 @@
 
   function armIdleTimer() {
     cancelIdleTimer();
-    // Only arm idle timer if turn is completely settled and waiting for customer input
-    if (voiceState === 'active' && !isWaitingForAi) {
+    // Only arm idle timer if turn is completely settled and waiting for customer input,
+    // and never while the session is already signing off.
+    if (voiceState === 'active' && !isWaitingForAi && !goodbyeTimer && !pendingEndTimer) {
       idleTimer = setTimeout(function () {
         if (voiceState === 'active' && !isWaitingForAi && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
           console.log('[ORA Widget] Conversational idle timeout — suspending session after ' + (CLIENT_STANDBY_MS / 1000) + 's.');
@@ -2107,7 +2112,7 @@
       } else if (voiceState === 'standby') {
         startVoiceSession(activeResumptionToken);
       } else {
-        endSessionByUser();
+        endSessionWithGoodbye();
       }
     }
 
@@ -2116,6 +2121,8 @@
 
     muteBtn.addEventListener('click', function (e) {
       e.stopPropagation();
+      // The mic stays shut while ORA says goodbye.
+      if (goodbyeTimer) return;
       isMuted = !isMuted;
       if (isMuted && recognition) {
         try { recognition.abort(); } catch (e) {}
@@ -2127,7 +2134,7 @@
 
     closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      endSessionByUser();
+      endSessionWithGoodbye();
     });
 
     function toggleEdit(enable) {
@@ -2543,6 +2550,9 @@
       // so the customer sees why the session is about to close.
       statusDot.className = 'ora-w-status-dot standby';
       statusLabel.innerText = sessionNotice.slice(0, 40);
+    } else if (goodbyeTimer && isActive) {
+      statusDot.className = 'ora-w-status-dot speaking';
+      statusLabel.innerText = 'Saying goodbye…';
     } else if (isSpeaking) {
       statusDot.className = 'ora-w-status-dot speaking';
       statusLabel.innerText = 'ORA is speaking…';
@@ -3160,8 +3170,83 @@
     teardown();
   }
 
+  /**
+   * Ends the session once ORA's last words have been heard.
+   *
+   * The server says goodbye before it ends a session (idle timeout, time limit),
+   * and sends `session_ended` as soon as that goodbye has been generated —
+   * Gemini generates faster than real time, so most of it is still queued for
+   * playback. Tearing down then would flush the goodbye unheard. The mic is
+   * muted meanwhile so nothing more is sent.
+   */
+  function teardownAfterPlayback(notice) {
+    isMuted = true;
+    var remainingMs = playbackContext
+      ? Math.max(0, (audioQueueTime - playbackContext.currentTime) * 1000)
+      : 0;
+
+    var finish = function () {
+      pendingEndTimer = null;
+      if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
+      // Set the notice AFTER teardown so it survives into the idle state — the
+      // customer is never left staring at a silently dead widget.
+      if (notice) setSessionNotice(notice);
+    };
+
+    if (pendingEndTimer) clearTimeout(pendingEndTimer);
+    if (remainingMs < 50) {
+      finish();
+      return;
+    }
+    // Capped, so a stalled audio clock can never hold a dead session open.
+    pendingEndTimer = setTimeout(finish, Math.min(remainingMs + 300, 10000));
+  }
+
+  /**
+   * How long a goodbye may take before the widget tears down regardless. Longer
+   * than the server's own goodbye fallback plus drain, so the server normally
+   * closes first and this only catches a server that went silent.
+   */
+  var GOODBYE_CLIENT_TIMEOUT_MS = 18000;
+
+  /**
+   * Ends the conversation with ORA saying goodbye, because the customer pressed stop.
+   *
+   * The mic goes quiet at once so nothing the customer says interrupts it, and the
+   * server is asked to close with a goodbye. It streams one short sentence, then sends
+   * `session_ended`, which teardownAfterPlayback() finishes once the goodbye has been
+   * heard. A second press while ORA is signing off, or a session with no open socket,
+   * ends at once.
+   */
+  function endSessionWithGoodbye() {
+    var live = voiceState === 'active' || voiceState === 'ora-speaking';
+    if (goodbyeTimer || !live || !geminiWs || geminiWs.readyState !== WebSocket.OPEN) {
+      endSessionByUser();
+      return;
+    }
+
+    isMuted = true;
+    if (recognition) {
+      try { recognition.abort(); } catch (e) {}
+    }
+    cancelIdleTimer();
+    try {
+      geminiWs.send(JSON.stringify({ type: 'end_session', goodbye: true, sessionId: sessionId }));
+    } catch (e) {
+      endSessionByUser();
+      return;
+    }
+    goodbyeTimer = setTimeout(function () {
+      goodbyeTimer = null;
+      endSessionByUser();
+    }, GOODBYE_CLIENT_TIMEOUT_MS);
+    render();
+  }
+
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
+    if (pendingEndTimer) { clearTimeout(pendingEndTimer); pendingEndTimer = null; }
+    if (goodbyeTimer) { clearTimeout(goodbyeTimer); goodbyeTimer = null; }
     cancelIdleTimer();
     cancelConnectWatchdog();
     // The conversation is over, not paused. Leaving it parked would have the next page
@@ -3887,10 +3972,7 @@
 
           if (msg.type === 'session_ended') {
             console.log('[ORA Widget] Session ended by server — reason: ' + (msg.reason || 'unknown'));
-            if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
-            // Set the notice AFTER teardown so it survives into the idle state — the
-            // customer is never left staring at a silently dead widget.
-            setSessionNotice(msg.message || 'Session ended. Tap to start a new one.');
+            teardownAfterPlayback(msg.message || 'Session ended. Tap to start a new one.');
             return;
           }
 
@@ -3987,6 +4069,9 @@
             host = null;
           }
         }
+        // The server closes shortly after `session_ended`; a goodbye still
+        // playing then is finished by teardownAfterPlayback, not cut here.
+        if (pendingEndTimer) return;
         if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
       };
 

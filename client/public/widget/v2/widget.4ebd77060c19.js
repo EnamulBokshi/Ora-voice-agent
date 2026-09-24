@@ -109,6 +109,10 @@
   // could simply vanish with nothing shown to the customer.
   let sessionNotice = null;
   let noticeClearTimer = null;
+  // Pending teardown after the server ended the session, see teardownAfterPlayback().
+  let pendingEndTimer = null;
+  // Set while ORA says goodbye after the customer pressed stop, see endSessionWithGoodbye().
+  let goodbyeTimer = null;
 
   // Mic noise gate state (see VAD_HANGOVER_MS / VAD_PREROLL_FRAMES).
   let lastSpeechAt = 0;
@@ -1831,8 +1835,9 @@
 
   function armIdleTimer() {
     cancelIdleTimer();
-    // Only arm idle timer if turn is completely settled and waiting for customer input
-    if (voiceState === 'active' && !isWaitingForAi) {
+    // Only arm idle timer if turn is completely settled and waiting for customer input,
+    // and never while the session is already signing off.
+    if (voiceState === 'active' && !isWaitingForAi && !goodbyeTimer && !pendingEndTimer) {
       idleTimer = setTimeout(function () {
         if (voiceState === 'active' && !isWaitingForAi && geminiWs && geminiWs.readyState === WebSocket.OPEN) {
           console.log('[ORA Widget] Conversational idle timeout — suspending session after ' + (CLIENT_STANDBY_MS / 1000) + 's.');
@@ -2107,7 +2112,7 @@
       } else if (voiceState === 'standby') {
         startVoiceSession(activeResumptionToken);
       } else {
-        endSessionByUser();
+        endSessionWithGoodbye();
       }
     }
 
@@ -2116,6 +2121,8 @@
 
     muteBtn.addEventListener('click', function (e) {
       e.stopPropagation();
+      // The mic stays shut while ORA says goodbye.
+      if (goodbyeTimer) return;
       isMuted = !isMuted;
       if (isMuted && recognition) {
         try { recognition.abort(); } catch (e) {}
@@ -2127,7 +2134,7 @@
 
     closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      endSessionByUser();
+      endSessionWithGoodbye();
     });
 
     function toggleEdit(enable) {
@@ -2237,6 +2244,16 @@
     }
     window.addEventListener('pagehide', parkSessionForNavigation);
     window.addEventListener('beforeunload', parkSessionForNavigation);
+
+    // ── Live Shopify Cart Synchronization ────────────────────────────────────
+    if (isShopifyStorefront()) {
+      document.addEventListener('cart:updated', function () { syncShopifyCart(); });
+      document.addEventListener('cart:refresh', function () { syncShopifyCart(); });
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) syncShopifyCart();
+      });
+      window.addEventListener('focus', function () { syncShopifyCart(); });
+    }
 
     // ── Resume a conversation the previous page was holding ──────────────────
     // Only when it was actually live. A session the customer had let lapse to standby
@@ -2533,6 +2550,9 @@
       // so the customer sees why the session is about to close.
       statusDot.className = 'ora-w-status-dot standby';
       statusLabel.innerText = sessionNotice.slice(0, 40);
+    } else if (goodbyeTimer && isActive) {
+      statusDot.className = 'ora-w-status-dot speaking';
+      statusLabel.innerText = 'Saying goodbye…';
     } else if (isSpeaking) {
       statusDot.className = 'ora-w-status-dot speaking';
       statusLabel.innerText = 'ORA is speaking…';
@@ -2938,12 +2958,111 @@
             refreshCartSections().then(openCartDrawer);
           }, 60);
         }
+        syncShopifyCart();
       })
       .catch(function (err) {
         console.error('[ORA Widget] Failed to add item to Shopify cart:', err);
         showToastNotification('Could not add to cart. Please try the product page.');
         reportCartSync(action, false, err && err.message);
       });
+  }
+
+  /**
+   * Reads Shopify /cart.js and sends real-time cart state to the server via WebSocket.
+   */
+  function syncShopifyCart() {
+    if (!isShopifyStorefront()) return;
+    try {
+      fetch('/cart.js', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('Cart fetch failed');
+          return res.json();
+        })
+        .then(function (cartData) {
+          if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+            geminiWs.send(
+              JSON.stringify({
+                type: 'cart_telemetry',
+                cart: cartData,
+              })
+            );
+          }
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  /**
+   * Updates an item quantity in Shopify cart via /cart/change.js (or removes if quantity is 0).
+   */
+  function updateShopifyCart(action) {
+    if (!action || !action.variantId) return;
+    if (!isShopifyStorefront()) return;
+
+    var newQty = action.quantity !== undefined ? Number(action.quantity) : 0;
+    var name = action.productName || 'Item';
+
+    if (newQty === 0) {
+      showToastNotification('Removed from cart: ' + name);
+    } else {
+      showToastNotification('Updated ' + name + ' quantity to ' + newQty);
+    }
+
+    fetch('/cart/change.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ id: String(action.variantId), quantity: newQty }),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.description || data.message || 'Cart update failed');
+          return data;
+        });
+      })
+      .then(function (data) {
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(function () {
+            refreshCartSections().then(openCartDrawer);
+          });
+        } else {
+          setTimeout(function () {
+            refreshCartSections().then(openCartDrawer);
+          }, 60);
+        }
+        syncShopifyCart();
+      })
+      .catch(function (err) {
+        console.error('[ORA Widget] Failed to update Shopify cart:', err);
+        showToastNotification('Could not update cart.');
+      });
+  }
+
+  /**
+   * Clears all items from the Shopify cart via /cart/clear.js.
+   */
+  function clearShopifyCart() {
+    if (!isShopifyStorefront()) return;
+    showToastNotification('Shopping cart cleared');
+    fetch('/cart/clear.js', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        refreshCartSections();
+        syncShopifyCart();
+      })
+      .catch(function () {});
   }
 
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
@@ -3051,8 +3170,83 @@
     teardown();
   }
 
+  /**
+   * Ends the session once ORA's last words have been heard.
+   *
+   * The server says goodbye before it ends a session (idle timeout, time limit),
+   * and sends `session_ended` as soon as that goodbye has been generated —
+   * Gemini generates faster than real time, so most of it is still queued for
+   * playback. Tearing down then would flush the goodbye unheard. The mic is
+   * muted meanwhile so nothing more is sent.
+   */
+  function teardownAfterPlayback(notice) {
+    isMuted = true;
+    var remainingMs = playbackContext
+      ? Math.max(0, (audioQueueTime - playbackContext.currentTime) * 1000)
+      : 0;
+
+    var finish = function () {
+      pendingEndTimer = null;
+      if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
+      // Set the notice AFTER teardown so it survives into the idle state — the
+      // customer is never left staring at a silently dead widget.
+      if (notice) setSessionNotice(notice);
+    };
+
+    if (pendingEndTimer) clearTimeout(pendingEndTimer);
+    if (remainingMs < 50) {
+      finish();
+      return;
+    }
+    // Capped, so a stalled audio clock can never hold a dead session open.
+    pendingEndTimer = setTimeout(finish, Math.min(remainingMs + 300, 10000));
+  }
+
+  /**
+   * How long a goodbye may take before the widget tears down regardless. Longer
+   * than the server's own goodbye fallback plus drain, so the server normally
+   * closes first and this only catches a server that went silent.
+   */
+  var GOODBYE_CLIENT_TIMEOUT_MS = 18000;
+
+  /**
+   * Ends the conversation with ORA saying goodbye, because the customer pressed stop.
+   *
+   * The mic goes quiet at once so nothing the customer says interrupts it, and the
+   * server is asked to close with a goodbye. It streams one short sentence, then sends
+   * `session_ended`, which teardownAfterPlayback() finishes once the goodbye has been
+   * heard. A second press while ORA is signing off, or a session with no open socket,
+   * ends at once.
+   */
+  function endSessionWithGoodbye() {
+    var live = voiceState === 'active' || voiceState === 'ora-speaking';
+    if (goodbyeTimer || !live || !geminiWs || geminiWs.readyState !== WebSocket.OPEN) {
+      endSessionByUser();
+      return;
+    }
+
+    isMuted = true;
+    if (recognition) {
+      try { recognition.abort(); } catch (e) {}
+    }
+    cancelIdleTimer();
+    try {
+      geminiWs.send(JSON.stringify({ type: 'end_session', goodbye: true, sessionId: sessionId }));
+    } catch (e) {
+      endSessionByUser();
+      return;
+    }
+    goodbyeTimer = setTimeout(function () {
+      goodbyeTimer = null;
+      endSessionByUser();
+    }, GOODBYE_CLIENT_TIMEOUT_MS);
+    render();
+  }
+
   // ─── Teardown / End Session ─────────────────────────────────────────────────
   function teardown() {
+    if (pendingEndTimer) { clearTimeout(pendingEndTimer); pendingEndTimer = null; }
+    if (goodbyeTimer) { clearTimeout(goodbyeTimer); goodbyeTimer = null; }
     cancelIdleTimer();
     cancelConnectWatchdog();
     // The conversation is over, not paused. Leaving it parked would have the next page
@@ -3597,8 +3791,13 @@
       const custPayload = resolveCustomerPayload();
       const curPath = (typeof window !== 'undefined' && window.location.pathname) ? window.location.pathname : '/';
       const curTitle = (typeof document !== 'undefined' && document.title) ? document.title : '';
+      // Declares that the noise gate above runs before anything is transmitted, so
+      // the server can use its fast turn-detection profile. Only a client with a
+      // gate may send this: without one the server's HIGH start sensitivity reads
+      // room noise as speech. Remove the gate and this flag goes with it.
       let wsUri = wsBase + '/ws/voice' +
         '?publishableKey=' + encodeURIComponent(publishableKey) +
+        '&gatedAudio=true' +
         '&sessionId=' + encodeURIComponent(sessionId) +
         '&deviceId=' + encodeURIComponent(custPayload.deviceId) +
         '&currentPath=' + encodeURIComponent(curPath) +
@@ -3652,6 +3851,7 @@
               userData: custPayload.identified
             }));
           }
+          syncShopifyCart();
         } catch (e) {}
       };
 
@@ -3772,10 +3972,7 @@
 
           if (msg.type === 'session_ended') {
             console.log('[ORA Widget] Session ended by server — reason: ' + (msg.reason || 'unknown'));
-            if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
-            // Set the notice AFTER teardown so it survives into the idle state — the
-            // customer is never left staring at a silently dead widget.
-            setSessionNotice(msg.message || 'Session ended. Tap to start a new one.');
+            teardownAfterPlayback(msg.message || 'Session ended. Tap to start a new one.');
             return;
           }
 
@@ -3821,6 +4018,14 @@
               addToShopifyCart(msg.action);
             }
 
+            if (msg.action && msg.action.type === 'shopify_update_cart') {
+              updateShopifyCart(msg.action);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_clear_cart') {
+              clearShopifyCart();
+            }
+
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {
               var dest = msg.action.destination;
               if (dest.startsWith('#')) {
@@ -3864,6 +4069,9 @@
             host = null;
           }
         }
+        // The server closes shortly after `session_ended`; a goodbye still
+        // playing then is finished by teardownAfterPlayback, not cut here.
+        if (pendingEndTimer) return;
         if (voiceState !== 'idle' && voiceState !== 'standby') teardown();
       };
 
