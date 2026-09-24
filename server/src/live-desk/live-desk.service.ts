@@ -116,12 +116,14 @@ export class LiveDeskService {
         businessId: businessObjId,
         status: ConversationStatus.ACTIVE,
         channel: ConversationChannel.WIDGET_CHAT,
+        isTest: { $ne: true },
       }),
       // 2. Active Voice Sessions
       this.conversationModel.countDocuments({
         businessId: businessObjId,
         status: ConversationStatus.ACTIVE,
         channel: ConversationChannel.WIDGET_VOICE,
+        isTest: { $ne: true },
       }),
       // 3. Current 1hr product searches / RAG fallback events
       this.eventModel.countDocuments({
@@ -190,6 +192,7 @@ export class LiveDeskService {
       .find({
         businessId: businessObjId,
         status: ConversationStatus.ACTIVE,
+        isTest: { $ne: true },
       })
       .sort({ lastActivityAt: -1 })
       .limit(limit)
@@ -290,6 +293,7 @@ export class LiveDeskService {
         businessId: businessObjId,
         channel: ConversationChannel.WIDGET_VOICE,
         status: ConversationStatus.ACTIVE,
+        isTest: { $ne: true },
       })
       .sort({ lastActivityAt: -1 })
       .limit(6)

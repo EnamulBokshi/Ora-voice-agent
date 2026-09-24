@@ -56,7 +56,12 @@ export class Conversation {
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   metadata: Record<string, any>;
+
+  /** Opened by the store's own staff to test or train ORA. Hidden from listings and analytics. */
+  @Prop({ default: false })
+  isTest: boolean;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 ConversationSchema.index({ businessId: 1, status: 1 });
+ConversationSchema.index({ businessId: 1, isTest: 1 });

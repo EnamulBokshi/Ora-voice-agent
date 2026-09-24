@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as http from 'http';
 import * as url from 'url';
@@ -25,6 +24,10 @@ import {
   IDLE_TERMINATE_SECONDS,
   AGENT_SPEAKING_MAX_MS,
 } from '../gateway/session-timer.service';
+import { resolveSessionIdentity, VoiceOperator } from './session-identity';
+import { VoiceTicketService } from './voice-ticket.service';
+import { ScopeJudgeService } from './scope-judge.service';
+import { sanitizeClientContext, sanitizePath, sanitizeText } from './client-context.util';
 
 /**
  * How long a session survives with no browser attached to it.
@@ -128,6 +131,15 @@ interface ProxySession {
   authenticatedUser?: { id: string; name: string; email: string; role: string; businessId?: string };
   sessionMode?: 'customer' | 'training';
   silentMode?: boolean;
+  /** The store's own staff testing or training ORA. No usage recorded, no real orders. */
+  isTest?: boolean;
+  /** The last complete visitor utterance and agent reply, for the scope monitor. */
+  lastUserText?: string;
+  lastAgentText?: string;
+  /** Replies the scope monitor judged out of scope in this session. */
+  scopeStrikes?: number;
+  /** A steering note waiting for the agent to stop speaking. */
+  pendingSystemNote?: string | null;
 }
 
 /** Where the visitor is on the host site, as reported by the widget. */
@@ -146,8 +158,7 @@ interface ClientBrowsingContext {
 export class VoiceProxyGateway {
   private readonly logger = new Logger(VoiceProxyGateway.name);
   private readonly sessions = new Map<string, ProxySession>();
-  private readonly businessCache = new Map<string, { businessId: string; name: string; isWidgetActive: boolean; maxSessionDurationSeconds?: number | null; expiresAt: number }>();
-  private readonly userCache = new Map<string, { user: { id: string; name: string; email: string; role: string; businessId?: string }; expiresAt: number }>();
+  private readonly businessCache = new Map<string, { businessId: string; name: string; isWidgetActive: boolean; isPlatform: boolean; maxSessionDurationSeconds?: number | null; expiresAt: number }>();
   private wss: WebSocketServer | null = null;
 
   constructor(
@@ -157,7 +168,8 @@ export class VoiceProxyGateway {
     private readonly adminUserModel: Model<AdminUserDocument>,
     private readonly geminiVoiceService: GeminiVoiceService,
     private readonly configService: ConfigService,
-    private readonly jwtService: JwtService,
+    private readonly voiceTicketService: VoiceTicketService,
+    private readonly scopeJudge: ScopeJudgeService,
     private readonly redisService: RedisService,
     private readonly customersService: CustomersService,
     private readonly conversationsService: ConversationsService,
@@ -177,21 +189,16 @@ export class VoiceProxyGateway {
       this.logger.log(`[VoiceProxyGateway] Cache invalidated for key: ${publishableKey.substring(0, 16)}...`);
     } else {
       this.businessCache.clear();
-      this.userCache.clear();
-      this.logger.log('[VoiceProxyGateway] All cached business and user keys cleared.');
+      this.logger.log('[VoiceProxyGateway] All cached business keys cleared.');
     }
   }
 
   /**
-   * Invalidate in-memory cached user mapping.
-   * If userId is provided, that user's cache is purged and any active sessions are updated in real-time.
-   * If not, all cached users are cleared.
+   * Pushes a renamed dashboard user's new name into their live voice sessions.
+   * Sessions load the user fresh from each ticket, so there is no cache to purge.
    */
   invalidateUserCache(userId?: string, newName?: string): void {
     if (userId) {
-      this.userCache.delete(userId);
-      this.logger.log(`[VoiceProxyGateway] In-memory cache invalidated for user: ${userId}`);
-
       // Push real-time update to any active sessions belonging to this user
       for (const [sessionId, session] of this.sessions.entries()) {
         if (session.userId === userId || session.authenticatedUser?.id === userId) {
@@ -236,9 +243,6 @@ export class VoiceProxyGateway {
           }
         }
       }
-    } else {
-      this.userCache.clear();
-      this.logger.log('[VoiceProxyGateway] All cached users cleared.');
     }
   }
 
@@ -442,81 +446,27 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] New connection — session: ${sessionId}, key: ${publishableKey.substring(0, 16)}...`,
     );
 
-    // ── Check for Authenticated AdminUser / Merchant Token First ──────────────
-    const authTokenParam = parsedUrl.query.authToken as string;
-    let authenticatedUser: { id: string; name: string; email: string; role: string; businessId?: string } | undefined = undefined;
+    // ── Resolve the dashboard user (operator) from a voice ticket, if any ─────
+    // Dashboard clients pass a single-use ticket from POST /voice/ticket, never
+    // their access token and never an ambient cookie: the dashboard shares one
+    // origin with the API, so a cookie would arrive on every upgrade, including
+    // the owner's own storefront tests. See VoiceTicketService.
+    const ticket = await this.voiceTicketService.redeem(parsedUrl.query.ticket as string | undefined);
+    let operator: VoiceOperator | undefined = undefined;
 
-    if (authTokenParam) {
-      try {
-        const decoded = await this.jwtService.verifyAsync(authTokenParam);
-        if (decoded && decoded.sub) {
-          const cached = this.userCache.get(decoded.sub);
-          if (cached && cached.expiresAt > Date.now()) {
-            authenticatedUser = cached.user;
-          } else {
-            const userDoc = await this.adminUserModel.findById(decoded.sub).exec();
-            if (userDoc) {
-              const uBizId = userDoc.businessId ? (userDoc.businessId as any).toString() : undefined;
-              authenticatedUser = {
-                id: (userDoc._id as any).toString(),
-                name: userDoc.name || 'Merchant User',
-                email: userDoc.email,
-                role: userDoc.role || decoded.role || 'owner',
-                businessId: uBizId,
-              };
-              this.userCache.set(decoded.sub, {
-                user: authenticatedUser,
-                expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
-              });
-            }
-          }
-          if (authenticatedUser) {
-            this.logger.log(
-              `[VoiceProxyGateway] 👤 Authenticated user connected via JWT: ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}) for session ${sessionId}`,
-            );
-          }
-        }
-      } catch (authErr: any) {
-        this.logger.warn(`[VoiceProxyGateway] Auth token verification notice for session ${sessionId}: ${authErr.message}`);
-      }
-    }
-
-    // If not authenticated via query token, attempt resolving via session cookie stored in Redis
-    if (!authenticatedUser && request.headers.cookie) {
-      try {
-        const cookieHeader = request.headers.cookie;
-        const cookiePairs = cookieHeader.split(';');
-        let cookieSessionId: string | undefined = undefined;
-
-        for (const pair of cookiePairs) {
-          const [key, val] = pair.split('=');
-          if (key && key.trim() === 'sessionId' && val) {
-            cookieSessionId = decodeURIComponent(val.trim());
-            break;
-          }
-        }
-
-        if (cookieSessionId) {
-          const sessionData = await this.redisService.getSession(cookieSessionId);
-          if (sessionData && sessionData.adminUserId) {
-            const userDoc = await this.adminUserModel.findById(sessionData.adminUserId).exec();
-            if (userDoc) {
-              const uBizId = userDoc.businessId ? (userDoc.businessId as any).toString() : sessionData.businessId;
-              authenticatedUser = {
-                id: (userDoc._id as any).toString(),
-                name: userDoc.name || 'Merchant User',
-                email: userDoc.email,
-                role: userDoc.role || sessionData.role || 'owner',
-                businessId: uBizId,
-              };
-              this.logger.log(
-                `[VoiceProxyGateway] 👤 Authenticated user resolved via session cookie (${cookieSessionId}): ${authenticatedUser.name} (${authenticatedUser.email}, role: ${authenticatedUser.role}) for session ${sessionId}`,
-              );
-            }
-          }
-        }
-      } catch (cookieErr: any) {
-        this.logger.warn(`[VoiceProxyGateway] Cookie session resolution notice for session ${sessionId}: ${cookieErr.message}`);
+    if (ticket) {
+      const userDoc = await this.adminUserModel.findById(ticket.adminUserId).exec();
+      if (userDoc) {
+        operator = {
+          id: (userDoc._id as any).toString(),
+          name: userDoc.name || 'Merchant User',
+          email: userDoc.email,
+          role: userDoc.role || 'owner',
+          businessId: userDoc.businessId ? (userDoc.businessId as any).toString() : undefined,
+        };
+        this.logger.log(
+          `[VoiceProxyGateway] Dashboard user ${operator.id} (role: ${operator.role}) opened a '${ticket.mode}' session ${sessionId}`,
+        );
       }
     }
 
@@ -525,6 +475,7 @@ export class VoiceProxyGateway {
     let businessName: string = '';
     let bizMaxSessionDurationSeconds: number | null = null;
     let isWidgetActive: boolean = true;
+    let isPlatformBusiness = false;
 
     const cachedBiz = this.businessCache.get(publishableKey);
     if (cachedBiz && cachedBiz.expiresAt > Date.now()) {
@@ -532,6 +483,7 @@ export class VoiceProxyGateway {
       businessName = cachedBiz.name;
       bizMaxSessionDurationSeconds = cachedBiz.maxSessionDurationSeconds ?? null;
       isWidgetActive = cachedBiz.isWidgetActive;
+      isPlatformBusiness = cachedBiz.isPlatform;
     } else {
       let business = await this.businessModel.findOne({ publishableKey, status: 'active' }).exec();
 
@@ -549,10 +501,12 @@ export class VoiceProxyGateway {
         businessName = business.name;
         bizMaxSessionDurationSeconds = (business as any).maxSessionDurationSeconds ?? null;
         isWidgetActive = (business as any).isWidgetActive !== false;
+        isPlatformBusiness = business.publishableKey === 'biz_live_ora_platform_system';
         this.businessCache.set(publishableKey, {
           businessId: id,
           name: businessName,
           isWidgetActive,
+          isPlatform: isPlatformBusiness,
           maxSessionDurationSeconds: bizMaxSessionDurationSeconds,
           expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
         });
@@ -568,8 +522,17 @@ export class VoiceProxyGateway {
       return;
     }
 
-    // If merchant has disabled storefront widget and this is an unauthenticated public shopper, reject
-    if (!authenticatedUser && !isWidgetActive) {
+    // Who this session talks to, whether it is the owner's own test, and whether
+    // it may train, all come from the ticket — never from client query params.
+    const { authenticatedUser, sessionMode, isTest, mayBypassDisabledWidget } = resolveSessionIdentity({
+      operator,
+      ticketMode: ticket?.mode,
+      businessId,
+      isPlatformBusiness,
+    });
+
+    // A disabled widget turns away the public; the store's own staff still train and test.
+    if (!mayBypassDisabledWidget && !isWidgetActive) {
       this.logger.warn(
         `[VoiceProxyGateway] Connection rejected: storefront widget is disabled by merchant for business ${businessId} (${businessName}) for session ${sessionId}`,
       );
@@ -601,6 +564,7 @@ export class VoiceProxyGateway {
       customerToken,
       deviceId: deviceIdParam,
       sessionId,
+      isTest,
     });
 
     const isUserAnon = authenticatedUser ? false : activeCustomer.isAnonymous;
@@ -619,6 +583,8 @@ export class VoiceProxyGateway {
           role: authenticatedUser?.role,
           businessId,
           adminUserId: authenticatedUser?.id,
+          // Read by the tool executor, which must not place real orders for a test.
+          isTest,
         }),
         'EX',
         86400,
@@ -644,12 +610,10 @@ export class VoiceProxyGateway {
     }
 
     // ── Extract Live Client Context from Query ───────────────────────────────
-    const currentPathParam = (parsedUrl.query.currentPath as string) || '/';
-    const pageTitleParam = (parsedUrl.query.pageTitle as string) || '';
+    const currentPathParam = sanitizePath(parsedUrl.query.currentPath) || '/';
+    const pageTitleParam = sanitizeText(parsedUrl.query.pageTitle, 120) || '';
     const historyParam = (parsedUrl.query.history as string) || '';
     const activeSectionParam = (parsedUrl.query.activeSection as string) || '';
-    const sessionModeParam = parsedUrl.query.sessionMode as string;
-    const sessionMode: 'customer' | 'training' = sessionModeParam === 'training' ? 'training' : 'customer';
     const silentMode = parsedUrl.query.silentMode === 'true';
     /**
      * Only a client that actually runs a noise gate may claim this, and only the
@@ -659,12 +623,13 @@ export class VoiceProxyGateway {
      */
     const clientGatesAudio = parsedUrl.query.gatedAudio === 'true';
 
-    const initialClientContext: ClientBrowsingContext = {
+    // Visitor-supplied text that reaches the system instruction: see sanitizeClientContext.
+    const initialClientContext: ClientBrowsingContext = sanitizeClientContext({
       currentPath: currentPathParam,
       title: pageTitleParam,
-      history: historyParam ? historyParam.split(',') : [currentPathParam],
+      history: historyParam || currentPathParam,
       activeSection: activeSectionParam,
-    };
+    });
 
     if (this.redisService) {
       this.redisService
@@ -751,6 +716,7 @@ export class VoiceProxyGateway {
             : undefined,
         },
         activeCustomer.id,
+        { isTest },
       );
       conversationId = (conv._id as any).toString();
       this.logger.log(`[VoiceProxyGateway] 📝 Linked voice session ${sessionId} to conversation ${conversationId}`);
@@ -790,6 +756,7 @@ export class VoiceProxyGateway {
       authenticatedUser,
       sessionMode,
       silentMode,
+      isTest,
     };
 
     boundSession = session;
@@ -814,6 +781,7 @@ export class VoiceProxyGateway {
         const textToSave = session.bufferedAiText.trim();
         session.completionTokens += Math.ceil(textToSave.length / 4);
         session.bufferedAiText = '';
+        session.lastAgentText = `${session.lastAgentText ? `${session.lastAgentText} ` : ''}${textToSave}`;
         this.conversationsService
           .appendMessage(session.conversationId, MessageRole.ASSISTANT, textToSave)
           .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving AI message turn: ${e.message}`));
@@ -827,9 +795,22 @@ export class VoiceProxyGateway {
         const textToSave = session.bufferedUserText.trim();
         session.promptTokens += Math.ceil(textToSave.length / 4);
         session.bufferedUserText = '';
+        session.lastUserText = textToSave;
         this.conversationsService
           .appendMessage(session.conversationId, MessageRole.USER, textToSave)
           .catch((e) => this.logger.warn(`[VoiceProxyGateway] Error saving user transcript: ${e.message}`));
+      }
+    };
+
+    /** Sends a held scope note. Touches no timers, so it is safe outside turn boundaries. */
+    const deliverPendingSystemNote = () => {
+      if (!session.pendingSystemNote || session.closed) return;
+      const note = session.pendingSystemNote;
+      session.pendingSystemNote = null;
+      try {
+        session.sessionControls?.sendSystemNote(note);
+      } catch (e: any) {
+        this.logger.warn(`[VoiceProxyGateway] Scope note failed for session ${sessionId}: ${e.message}`);
       }
     };
 
@@ -846,6 +827,7 @@ export class VoiceProxyGateway {
         clearTimeout(session.playbackAckTimer);
         session.playbackAckTimer = null;
       }
+      deliverPendingSystemNote();
       const pending = session.pendingContextUpdate;
       if (!pending || session.closed) return;
       session.pendingContextUpdate = null;
@@ -856,6 +838,45 @@ export class VoiceProxyGateway {
           `[VoiceProxyGateway] Deferred context update failed for session ${sessionId}: ${e.message}`,
         );
       }
+    };
+
+    /**
+     * Layer 3 of the scope guard (opt-in, VOICE_SCOPE_MONITOR=true). After each
+     * turn, a small model grades whether the reply stayed on the business. The
+     * reply has already been spoken — native audio cannot be filtered in flight —
+     * so this acts on the rest of the session: it flags the conversation for
+     * review and slips a silent steering note in before the next turn. Training
+     * sessions are skipped: the owner teaching new topics is not a violation.
+     */
+    const reviewTurnScope = () => {
+      const agentText = session.lastAgentText;
+      const visitorText = session.lastUserText || '';
+      session.lastAgentText = '';
+      if (!agentText || session.sessionMode === 'training' || !this.scopeJudge.isLiveMonitorEnabled()) {
+        return;
+      }
+
+      this.scopeJudge
+        .judge({ entityLabel: businessName, isPlatform: isPlatformBusiness, visitorText, agentText })
+        .then((result) => {
+          if (!result || result.verdict !== 'violation' || session.closed) return;
+          session.scopeStrikes = (session.scopeStrikes || 0) + 1;
+          this.logger.warn(
+            `[VoiceProxyGateway] Scope violation #${session.scopeStrikes} in session ${sessionId}: ${result.reason}`,
+          );
+          if (session.conversationId) {
+            this.conversationsService
+              .flagScopeViolation(session.conversationId, result.reason)
+              .catch(() => {});
+          }
+          session.pendingSystemNote =
+            session.scopeStrikes >= 2
+              ? `Your recent replies left the scope of ${businessName}. From now on answer only about ${businessName}. Decline anything else in one sentence and offer the conversion step. Do not mention this note.`
+              : `Your last reply went outside the scope of ${businessName}. Do not continue that topic. If the visitor returns to it, decline in one sentence and offer an in-scope next step. Do not mention this note.`;
+          // Mid-turn it waits for the next turn boundary (flushPendingContextUpdate).
+          if (!session.isAgentSpeaking) deliverPendingSystemNote();
+        })
+        .catch(() => {});
     };
 
     const cleanup = () => {
@@ -884,8 +905,9 @@ export class VoiceProxyGateway {
           .catch(() => { });
       }
 
-      // Record voice token & audio compute OpEx
-      if (this.usageTrackingService) {
+      // Record voice token & audio compute OpEx. Staff test and training
+      // sessions are ORA's cost, not the merchant's, so they are not recorded.
+      if (this.usageTrackingService && !session.isTest) {
         const audioInSecs = session.audioInputBytes / 32000;
         const audioOutSecs = session.audioOutputBytes / 48000;
         const promptToks = session.promptTokens + 800; // baseline system instructions
@@ -1053,6 +1075,7 @@ export class VoiceProxyGateway {
           flushPendingContextUpdate();
           flushBufferedUserText(); // safety flush: user utterance must be complete by now
           flushBufferedAiText();
+          reviewTurnScope();
           // Generation is done; the customer is still listening. The idle countdown
           // starts when the widget acknowledges that playback has drained.
           armPlaybackAckFallback();
@@ -1094,6 +1117,12 @@ export class VoiceProxyGateway {
         // Fragments are buffered into bufferedAiText; isFinal=true or onTurnComplete triggers the DB write.
         onOutputTranscript: (text, isFinal) => {
           if (session.suppressPostNavSpeech || !text.trim()) return;
+          // Dashboard clients have no other way to show what ORA said: with an
+          // AUDIO-only modality `onTextData` rarely fires. The widget ignores
+          // this message type.
+          if (!session.silentMode) {
+            sendToClient({ type: 'agent_transcript', text: text.trim(), isFinal });
+          }
           session.bufferedAiText = (session.bufferedAiText ? session.bufferedAiText + ' ' : '') + text.trim();
           if (isFinal) {
             flushBufferedAiText();
@@ -1391,6 +1420,12 @@ export class VoiceProxyGateway {
           return;
         }
 
+        // A test session stays a throwaway shopper: stitching it into a real
+        // customer would put the owner's test chatter in that shopper's history.
+        if (msg.type === 'client_identify' && boundSession?.isTest) {
+          return;
+        }
+
         if (msg.type === 'client_identify') {
           // Dynamic identity update (e.g. user logged in mid-session or passed auth token)
           this.logger.log(`[VoiceProxyGateway] Runtime identity update received for session ${sessionId}`);
@@ -1579,15 +1614,11 @@ export class VoiceProxyGateway {
           // Gemini Live treats any client turn as a barge-in, so an update sent
           // while ORA is speaking cuts her off mid-sentence. Hold it until the
           // turn ends; the visitor's page is still current a second later.
+          const clean = sanitizeClientContext(msg);
           const context: ClientBrowsingContext = {
-            currentPath: msg.currentPath,
-            title: msg.title,
-            history: msg.history,
-            activeSection: msg.activeSection,
-            product: msg.product,
-            selectedVariantId: msg.selectedVariantId,
-            cartItemCount: msg.cartItemCount ?? session.lastClientContext?.cartItemCount,
-            cartTotal: msg.cartTotal ?? session.lastClientContext?.cartTotal,
+            ...clean,
+            cartItemCount: clean.cartItemCount ?? session.lastClientContext?.cartItemCount,
+            cartTotal: clean.cartTotal ?? session.lastClientContext?.cartTotal,
           };
           session.lastClientContext = context;
           if (msg.cart && session.businessId) {

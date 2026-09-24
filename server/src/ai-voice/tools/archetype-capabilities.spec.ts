@@ -87,6 +87,8 @@ describe('resolveAgentCapability', () => {
     });
 
     it('never exposes update_agent_directives to a visitor-facing agent', () => {
+      // The platform agent is visitor-facing too: it serves the public on tryora.live.
+      expect(names('general', true, true)).not.toContain('update_agent_directives');
       for (const archetype of [
         'general',
         'ecommerce',

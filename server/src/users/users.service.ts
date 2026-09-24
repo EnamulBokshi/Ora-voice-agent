@@ -221,6 +221,7 @@ export class UsersService implements OnModuleInit {
 
     if (dto.name !== undefined) business.name = dto.name;
     if (dto.domain !== undefined) business.domain = dto.domain;
+    if (dto.supportEmail !== undefined) business.supportEmail = dto.supportEmail.trim() || undefined;
     if (dto.shopifyStoreUrl !== undefined) business.shopifyStoreUrl = dto.shopifyStoreUrl;
     if (dto.woocommerceStoreUrl !== undefined) business.woocommerceStoreUrl = dto.woocommerceStoreUrl;
     if (dto.isWidgetActive !== undefined) business.isWidgetActive = dto.isWidgetActive;

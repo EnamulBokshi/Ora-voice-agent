@@ -18,6 +18,7 @@ import { AgentProfileService } from '../common/agent-profile/agent-profile.servi
 
 import { Subscription, SubscriptionDocument } from '../billing/schemas/subscription.schema';
 import { Plan, PlanDocument } from '../billing/schemas/plan.schema';
+import { KNOWLEDGE_SOURCE } from './knowledge-trust';
 
 @Injectable()
 export class KnowledgeService {
@@ -193,7 +194,7 @@ export class KnowledgeService {
       docType: finalDocType as any,
       content: cleanText.trim(),
       metadata: {
-        source: 'file_upload',
+        source: KNOWLEDGE_SOURCE.FILE_UPLOAD,
         originalFileName: file.originalname,
         mimeType: file.mimetype,
         fileSizeBytes: file.size,
@@ -528,7 +529,7 @@ export class KnowledgeService {
       docType,
       content: doc.markdown,
       sourceUrl: doc.sourceUrl,
-      metadata: { contentHash: doc.contentHash },
+      metadata: { contentHash: doc.contentHash, source: KNOWLEDGE_SOURCE.CRAWL },
     });
 
     return { document: created.document, updated: true, chunksCount: created.chunksCount };
@@ -679,7 +680,7 @@ export class KnowledgeService {
       .exec();
 
     const metadata = {
-      source: 'voice_feed',
+      source: KNOWLEDGE_SOURCE.VOICE_FEED,
       extraction: entry.tags.includes('uncategorised-review') ? 'heuristic' : 'model',
       confidence: entry.confidence,
       tags: entry.tags,

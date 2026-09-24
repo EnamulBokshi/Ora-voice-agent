@@ -12,6 +12,8 @@ export interface Business {
   id: string;
   name: string;
   domain?: string;
+  /** Public contact ORA gives shoppers who ask how to reach the store. */
+  supportEmail?: string;
   publishableKey?: string | null;
   status?: string;
   isWidgetActive?: boolean;

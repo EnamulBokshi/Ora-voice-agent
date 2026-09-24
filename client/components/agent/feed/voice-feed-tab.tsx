@@ -31,6 +31,7 @@ import { LivingOrb, LivingOrbState } from '@/components/orb/living-orb';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { getVoiceTicketApi } from '@/services/voice-service';
 import { useReadOnly } from '@/components/common/read-only-fence';
 
 interface VoiceFeedTabProps {
@@ -73,7 +74,7 @@ const CATEGORY_OPTIONS: CategoryOption[] = [
     id: 'all',
     label: 'Automatic Sorting',
     description: 'Structures voice input into policies, products, FAQs, and guidelines automatically.',
-    hint: 'Speak freely — automatically sorts policies, product details, and store guidelines.',
+    hint: '',
     Icon: Layers,
     badgeClass: 'border-primary/40 bg-primary/10 text-primary',
     dotClass: 'bg-primary',
@@ -172,7 +173,12 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
   // Append log entry helper
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setTranscripts((prev) => [...prev, { id: Math.random().toString(), sender, text, timestamp: time }]);
+    // The ref is written here too, not only by the effect above: `stop()` emits
+    // the last buffered line synchronously, and `stopAndOrganise` reads the ref
+    // straight after, before any effect has run.
+    const next = [...transcriptsRef.current, { id: Math.random().toString(), sender, text, timestamp: time }];
+    transcriptsRef.current = next;
+    setTranscripts(next);
   }, []);
 
   // Clean up recording and connections
@@ -188,8 +194,9 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
 
   /**
    * Start Live Voice Session via GeminiLiveClient
-   * In 'converse' mode: sessionMode='training', silentMode=false
-   * In 'dictate' mode: sessionMode='training', silentMode=true (ASR transcribes, LivingOrb pulses, ORA is silent)
+   * Both modes open a training session through a `training` ticket.
+   * In 'converse' mode: silentMode=false
+   * In 'dictate' mode: silentMode=true (ASR transcribes, LivingOrb pulses, ORA is silent)
    */
   const startVoiceSession = async (mode: VoiceMode = voiceMode) => {
     try {
@@ -211,15 +218,15 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
       setOrganiseResult(null);
       setOrganiseError(null);
 
-      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
-      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
       const isSilent = mode === 'dictate';
 
+      // Training is only granted by this ticket; without it the gateway opens
+      // an ordinary shopper session, so a failure here must stop the start.
+      const ticket = await getVoiceTicketApi('training');
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
         sessionId,
-        authToken: token || undefined,
-        sessionMode: 'training',
+        ticket,
         silentMode: isSilent,
         onStatusChange: (newStatus) => setStatus(newStatus),
         onTranscript: (sender, text) => {
@@ -412,7 +419,7 @@ export function VoiceFeedTab({ publishableKey, onFed, onSwitchToTest }: VoiceFee
           </div>
         </div>
 
-        {micBlocked && <MicrophoneBlockedNotice className="relative z-10 my-2" />}
+        {micBlocked && <MicrophoneBlockedNotice view="feed" className="relative z-10 my-2" />}
 
         {/* Central Living Crystal Wave Orb */}
         <div className="relative flex flex-col items-center justify-center my-3">

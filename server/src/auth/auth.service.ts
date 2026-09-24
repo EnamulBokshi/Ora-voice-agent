@@ -766,6 +766,7 @@ export class AuthService {
             id: business._id.toString(),
             name: business.name,
             domain: business.domain,
+            supportEmail: business.supportEmail,
             publishableKey: business.publishableKey,
             status: business.status,
             // Required by the dashboard to render the storefront pause state.

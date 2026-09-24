@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 
 export class BootstrapVoiceSessionDto {
   @IsString()
@@ -8,4 +8,9 @@ export class BootstrapVoiceSessionDto {
   @IsString()
   @IsOptional()
   sessionId?: string;
+}
+
+export class IssueVoiceTicketDto {
+  @IsIn(['test', 'training', 'visitor'])
+  mode: 'test' | 'training' | 'visitor';
 }

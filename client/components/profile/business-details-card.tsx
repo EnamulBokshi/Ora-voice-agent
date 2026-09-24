@@ -41,6 +41,7 @@ export function BusinessDetailsCard({
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [storeName, setStoreName] = useState(business?.name || '');
   const [storeDomain, setStoreDomain] = useState(business?.domain || '');
+  const [supportEmail, setSupportEmail] = useState(business?.supportEmail || '');
 
   const [localKey, setLocalKey] = useState<string | null | undefined>(
     business?.publishableKey,
@@ -103,6 +104,7 @@ export function BusinessDetailsCard({
       const res = await updateBusinessApi({
         name: storeName.trim(),
         domain: storeDomain.trim(),
+        supportEmail: supportEmail.trim(),
       });
       setIsEditingDetails(false);
       setSuccessMessage('Store details updated successfully.');
@@ -223,6 +225,7 @@ export function BusinessDetailsCard({
                 onClick={() => {
                   setStoreName(business.name);
                   setStoreDomain(business.domain || '');
+                  setSupportEmail(business.supportEmail || '');
                   setIsEditingDetails(true);
                 }}
                 className="px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/60 bg-surface-high/40 rounded-md flex items-center gap-1.5 cursor-pointer"
@@ -259,9 +262,24 @@ export function BusinessDetailsCard({
                   placeholder="e.g. acmefashion.com"
                 />
               </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Support Email
+                </label>
+                <input
+                  type="email"
+                  value={supportEmail}
+                  onChange={(e) => setSupportEmail(e.target.value)}
+                  className="w-full h-8 px-3 text-[13px] bg-surface-high border border-border/60 rounded-md text-foreground focus:outline-none focus:border-foreground font-mono"
+                  placeholder="e.g. support@acmefashion.com"
+                />
+                <p className="text-[11.5px] text-muted-foreground">
+                  ORA gives this to shoppers who ask how to contact you. Leave it empty and ORA says no email is published.
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/40 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border/40 pt-1">
               <div className="py-2 md:py-0 md:pr-6 space-y-1">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
                   Store Name
@@ -274,6 +292,13 @@ export function BusinessDetailsCard({
                   Store Domain
                 </span>
                 <p className="text-[13.5px] font-mono text-foreground">{business.domain || '—'}</p>
+              </div>
+
+              <div className="py-2 md:py-0 md:px-6 space-y-1 min-w-0">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                  Support Email
+                </span>
+                <p className="text-[13.5px] font-mono text-foreground truncate">{business.supportEmail || '—'}</p>
               </div>
 
               <div className="py-2 md:py-0 md:pl-6 space-y-1">

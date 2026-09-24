@@ -23,6 +23,11 @@ export interface CustomerResolutionOptions {
   email?: string;
   phone?: string;
   sessionId?: string;
+  /**
+   * A staff test session. Always gets a fresh throwaway profile, never a real
+   * shopper's, and that profile is hidden from listings and analytics.
+   */
+  isTest?: boolean;
 }
 
 @Injectable()
@@ -52,6 +57,19 @@ export class CustomersService {
     options: CustomerResolutionOptions,
   ): Promise<{ customer: ReturnType<CustomersService['formatCustomer']>; isNewlyCreated: boolean }> {
     const { customerToken, deviceId } = options;
+
+    if (options.isTest) {
+      const testGhost = await new this.customerModel({
+        businessId: businessId as any,
+        name: 'Guest Shopper',
+        isAnonymous: true,
+        isTest: true,
+        deviceIds: [],
+        lastActiveAt: new Date(),
+        metadata: { createdVia: 'staff_test_session', initialSessionId: options.sessionId },
+      }).save();
+      return { customer: this.formatCustomer(testGhost), isNewlyCreated: true };
+    }
 
     // ── Tier 1: Deterministic Authenticated Customer Token (HMAC) ───────────
     if (customerToken && customerToken.customerId && customerToken.signature) {
@@ -331,6 +349,7 @@ export class CustomersService {
     const filter: Record<string, any> = {
       businessId: businessId as any,
       isMerged: { $ne: true }, // Filter out soft-deleted merged profiles by default
+      isTest: { $ne: true }, // Throwaway shoppers from staff test sessions
     };
 
     if (search) {

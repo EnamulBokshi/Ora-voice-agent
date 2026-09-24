@@ -57,6 +57,10 @@ export class Customer {
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   metadata: Record<string, any>;
+
+  /** The throwaway shopper behind a staff test session. Hidden from listings and analytics. */
+  @Prop({ default: false })
+  isTest: boolean;
 }
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEmail, ValidateIf } from 'class-validator';
 
 export class UpdateBusinessDto {
   @IsString()
@@ -25,8 +25,10 @@ export class UpdateBusinessDto {
   @IsOptional()
   timezone?: string;
 
-  @IsString()
+  /** An empty string clears it. */
   @IsOptional()
+  @ValidateIf((_, value) => value !== '')
+  @IsEmail({}, { message: 'supportEmail must be a valid email address.' })
   supportEmail?: string;
 
   @IsBoolean()

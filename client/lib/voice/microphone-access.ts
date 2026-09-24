@@ -11,14 +11,12 @@
  * microphone is to leave the iframe.
  */
 
+import { STANDALONE_VOICE_PATH } from '@/lib/navigation/embedded-routes';
+
 const ID_TOKEN_TIMEOUT_MS = 8000;
 
-/**
- * Where a blocked voice test reopens. Outside `app/shopify/` on purpose: that
- * layout loads the App Bridge script, which has no admin frame to talk to in a
- * top-level tab.
- */
-export const STANDALONE_VOICE_TEST_PATH = '/voice-test';
+/** Which half of the voice workspace the standalone tab opens on. */
+export type StandaloneVoiceView = 'feed' | 'test';
 
 /** True when this document is framed by another one. */
 export function isFramed(): boolean {
@@ -57,7 +55,8 @@ export function isMicrophoneBlockedByPolicy(): boolean {
 }
 
 /**
- * Opens the current page in a top-level tab that can reach the microphone.
+ * Opens the voice workspace in a top-level tab that can reach the microphone,
+ * on its training (`feed`) or testing (`test`) half.
  *
  * The new tab is not framed, so the policy no longer applies. It carries a
  * fresh App Bridge session token on the URL because App Bridge only exists
@@ -69,11 +68,12 @@ export function isMicrophoneBlockedByPolicy(): boolean {
  * pop-up, so the caller can say so rather than appearing to do nothing.
  */
 export async function openInStandaloneTab(
-  path: string = STANDALONE_VOICE_TEST_PATH,
+  view: StandaloneVoiceView = 'test',
 ): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
-  const target = new URL(path, window.location.origin);
+  const target = new URL(STANDALONE_VOICE_PATH, window.location.origin);
+  target.searchParams.set('view', view);
 
   const idToken = await mintSessionToken();
   if (!idToken) return false;

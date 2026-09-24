@@ -18,6 +18,8 @@ import { useModalA11y } from '@/hooks/use-modal-a11y';
 import { MicrophoneBlockedNotice } from '@/components/voice/microphone-blocked-notice';
 import { isMicrophoneBlockedByPolicy } from '@/lib/voice/microphone-access';
 import { getSessionStrategy } from '@/lib/session';
+import { getVoiceTicketApi } from '@/services/voice-service';
+import { useStickToBottom } from '@/hooks/use-stick-to-bottom';
 import { useRouter } from 'next/navigation';
 
 interface VoiceTestModalProps {
@@ -52,13 +54,8 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
   const directLiveClientRef = useRef<GeminiLiveClient | null>(null);
 
   // Auto-scroll transcript log
-  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
-  const scrollToBottom = () => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-  useEffect(() => {
-    scrollToBottom();
-  }, [transcripts]);
+  const { ref: messageListRef, onScroll: onMessageListScroll } =
+    useStickToBottom<HTMLDivElement>(transcripts);
 
   const addTranscript = useCallback((sender: 'user' | 'agent' | 'system', text: string) => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -116,18 +113,17 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
       setErrorMessage(null);
       addTranscript('system', 'Connecting to the ORA voice service…');
 
-      const sessionToken = await getSessionStrategy().getToken().catch(() => null);
-      const token = sessionToken || (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
+      // Same as the test studio: a `test` ticket, and the context of a shopper
+      // on the storefront home page.
+      const ticket = await getVoiceTicketApi('test');
       const client = new GeminiLiveClient({
         publishableKey: keyToUse,
         sessionId: freshSessionId,
-        authToken: token || undefined,
+        ticket,
         clientContext: {
-          currentPath: typeof window !== 'undefined' ? window.location.pathname : '/',
-          title: typeof document !== 'undefined' ? document.title : 'ORA Platform',
-          history: [typeof window !== 'undefined' ? window.location.pathname : '/'],
-          activeSection: 'Agent Testing Workspace',
+          currentPath: '/',
+          title: '',
+          history: ['/'],
         },
         onStatusChange: (newStatus) => {
           setStatus(newStatus as SessionStatus);
@@ -374,7 +370,11 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-[12px] min-h-0 custom-scrollbar">
+            <div
+              ref={messageListRef}
+              onScroll={onMessageListScroll}
+              className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-[12px] min-h-0 custom-scrollbar"
+            >
               {transcripts.length === 0 ? (
                 <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-muted-foreground/60 text-xs text-center px-4">
                   <p className="font-medium text-foreground">Ready to test storefront dialogue.</p>
@@ -411,7 +411,6 @@ export function VoiceTestModal({ isOpen, onClose, publishableKey }: VoiceTestMod
                   </div>
                 ))
               )}
-              <div ref={transcriptEndRef} />
             </div>
           </div>
         </div>

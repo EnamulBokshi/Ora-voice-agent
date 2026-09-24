@@ -6,6 +6,7 @@ import { RedisService } from '../common/redis/redis.service';
 
 import { ConfigService } from '@nestjs/config';
 import { EntitlementService } from '../common/entitlement/entitlement.service';
+import { VoiceTicketService } from './voice-ticket.service';
 
 describe('VoiceSessionController', () => {
   let controller: VoiceSessionController;
@@ -54,6 +55,10 @@ describe('VoiceSessionController', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: VoiceTicketService,
+          useValue: { issue: jest.fn(), redeem: jest.fn() },
         },
         {
           provide: getModelToken(Business.name),

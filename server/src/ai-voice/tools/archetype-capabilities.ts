@@ -61,7 +61,10 @@ export const PLATFORM_TOOL_NAMES = [
   'get_integration_guide',
   'navigate_to_page',
   'search_knowledge_base',
-  'update_agent_directives',
+  // update_agent_directives is deliberately absent. This agent talks to the
+  // public on tryora.live, and that tool writes persistent directives into
+  // every later visitor's prompt. Owners shape their agent through training
+  // (POST /knowledge/voice-transcript), which is authenticated.
   'update_customer_profile',
   'get_customer_profile',
 ] as const;
@@ -145,8 +148,6 @@ export const TOOL_USAGE_HINTS: Record<string, string> = {
     '   - apply_coupon: When the visitor gives you a coupon, promo, or discount code to use on their subscription. Never invent a code.',
   get_integration_guide:
     '   - get_integration_guide: When the visitor asks how to install or integrate ORA.',
-  update_agent_directives:
-    '   - update_agent_directives: When an authenticated owner asks you to remember new instructions.',
 };
 
 /** The usage hints for one capability, in declaration order, deduplicated. */
