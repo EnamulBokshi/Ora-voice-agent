@@ -11,6 +11,7 @@ import { MarketingFooter } from '@/components/marketing/footer';
 
 
 import type { Metadata } from 'next';
+import { League_Gothic } from 'next/font/google';
 import { Start2Nav } from '@/components/marketing/start2/start2-nav';
 import { Start2Hero } from '@/components/marketing/start2/start2-hero';
 import { Start2Bento } from '@/components/marketing/start2/start2-bento';
@@ -36,6 +37,18 @@ import {
 
 
 import './start2.css';
+
+/**
+ * The hero heading's ultra-condensed display face. League Gothic is the
+ * closest free match to the reference type; a licensed face (e.g. Druk
+ * XCondensed via `next/font/local`) can replace it here without touching the
+ * CSS, which only reads `--font-hero`.
+ */
+const heroFont = League_Gothic({
+  subsets: ['latin'],
+  variable: '--font-hero',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'ORA | The AI Sales Brain for Every Merchant',
@@ -72,7 +85,7 @@ export default function LandingPage() {
       <TestimonialSection />
       <CtaSection />
       <MarketingFooter /> */}
-      <div className="start2-landing">
+      <div className={`start2-landing ${heroFont.variable}`}>
         {/* 1. Sticky Navigation Bar */}
         <Start2Nav />
 

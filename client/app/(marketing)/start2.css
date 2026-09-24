@@ -329,13 +329,12 @@
 }
 
 .start2-landing .s2-hero-title {
-  font-family: var(--font-display);
-  font-size: clamp(2.75rem, 5.8vw, 4.5rem);
-  font-weight: 700;
+  /* Typeface, case, tracking, stretch and fill: see "Display headings" at the
+     end of this file. */
+  font-size: clamp(3.25rem, 7.6vw, 6.25rem);
   color: var(--s2-text-primary);
-  line-height: 1.12;
-  letter-spacing: -0.028em;
-  margin-bottom: 1.5rem;
+  line-height: 0.94;
+  margin-bottom: 1.75rem;
 }
 
 .start2-landing .s2-hero-sub {
@@ -461,8 +460,7 @@
 
 @media (max-width: 640px) {
   .start2-landing .s2-hero-title {
-    font-size: clamp(2.2rem, 8vw, 3rem);
-    letter-spacing: -0.02em;
+    font-size: clamp(2.6rem, 11.5vw, 3.75rem);
   }
 
   .start2-landing .s2-hero-cta-row {
@@ -5174,3 +5172,81 @@
 
 :root:not(.dark) .start2-landing .s2da-svg circle[filter] { filter: none; }
 
+/* ── Display headings ──────────────────────────────────────────────────────
+   The hero and every section heading share one display treatment: the
+   ultra-condensed `--font-hero` face, stretched, with a soft fill. The hero
+   is set in capitals; section headings are title case (below). It sets
+   far narrower than Space Grotesk, so each runs larger and tighter-leaded.
+   Kept last in the file so it wins over each section's own font rules.
+   `.s2b-section .s2b-title` needs the extra class to outrank the bento card
+   rule `.s2b-section h2`, which also matches it. */
+.start2-landing .s2-hero-title,
+.start2-landing .s2b-section .s2b-title,
+.start2-landing .s2-stepper-head h2,
+.start2-landing .lch-title,
+.start2-landing .s2p-title,
+.start2-landing .s2da-title,
+.start2-landing .s2-itg-title {
+  font-family: var(--font-hero), var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+  text-wrap: balance;
+  /* League Gothic has no wider width to select, so the stretch is a slight
+     horizontal scale, which also thickens the stems toward the heavier
+     reference type. */
+  transform: scaleX(1.07);
+  transform-origin: left center;
+  /* A soft top-to-bottom falloff instead of a flat fill. `currentColor` keeps
+     each section's own ink colour. */
+  background: linear-gradient(
+    180deg,
+    currentColor 45%,
+    color-mix(in srgb, currentColor 68%, transparent) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Centred headings stretch from their centre. */
+.start2-landing .s2-hero-title,
+.start2-landing .s2-itg-title {
+  transform-origin: center;
+}
+
+/* The 10.5em cap was sized for Space Grotesk; in the condensed face it left
+   one word on its own line. */
+.start2-landing .s2-itg-title {
+  max-width: 18em;
+}
+
+.start2-landing .s2b-section .s2b-title,
+.start2-landing .s2-stepper-head h2,
+.start2-landing .lch-title,
+.start2-landing .s2p-title,
+.start2-landing .s2da-title,
+.start2-landing .s2-itg-title {
+  font-size: clamp(2.75rem, 5.6vw, 4.25rem);
+  line-height: 0.95;
+  /* Section headings are title case; only the hero is set in capitals.
+     Open tracking suits capitals, not lowercase, so it tightens here. */
+  text-transform: capitalize;
+  letter-spacing: 0.012em;
+}
+
+@media (max-width: 640px) {
+  .start2-landing .s2-hero-title,
+  .start2-landing .s2b-section .s2b-title,
+.start2-landing .s2-stepper-head h2,
+  .start2-landing .lch-title,
+  .start2-landing .s2p-title,
+  .start2-landing .s2da-title,
+  .start2-landing .s2-itg-title {
+    transform: scaleX(1.05);
+  }
+
+  .start2-landing .s2-hero-title {
+    letter-spacing: 0.03em;
+  }
+}
