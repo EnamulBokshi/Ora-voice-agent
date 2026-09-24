@@ -6,16 +6,16 @@ import { Braces } from 'lucide-react';
 /**
  * Connects to what you already run — port of `ora-integrations.html`.
  *
- * Layout, copy structure and motion follow the design: centred serif heading,
+ * Layout, copy structure and motion follow the design: centred heading,
  * one panel split into an arc stage (platform nodes travelling along a
  * parabola, the centre slot lit, far slots collapsed to dots) and a quote
  * area that cross-fades per platform. Nodes carry the real platform marks
  * instead of the design's two-letter initials.
  *
  * Colours come from the page's `--s2-*` tokens, so the dark theme renders as
- * the design does and the light theme follows the rest of /start2. Type uses
- * the project's own fonts: Newsreader (--font-serif) for the heading and
- * quote, Inter for body, JetBrains Mono for the tag and label.
+ * the design does and the light theme follows the rest of /start2. Type is
+ * the project's global style: Space Grotesk for the heading (same as every
+ * other section title), Inter for the quote and body, JetBrains Mono for tags.
  */
 
 interface Integration {
@@ -294,13 +294,26 @@ export function Start2Testimonial() {
             </span>
           </div>
 
-          <div className={`s2-itg-quote${fading ? ' out' : ''}`} aria-live="polite">
-            <span className="s2-itg-tag">{active.tag}</span>
-            <p className="s2-itg-line">{active.quote}</p>
-            <p className="s2-itg-by">
-              <span className="s2-itg-author">{active.author}</span>
-              <span className="s2-itg-role"> · {active.role}</span>
-            </p>
+          {/* Every quote sits in the same grid cell, so the area always takes
+              the height of the longest one and nothing below it moves. */}
+          <div className="s2-itg-quotes" aria-live="polite">
+            {INTEGRATIONS.map((p, i) => {
+              const shown = i === cur && !fading;
+              return (
+                <div
+                  key={p.id}
+                  className={`s2-itg-quote${shown ? '' : ' out'}`}
+                  aria-hidden={!shown}
+                >
+                  <span className="s2-itg-tag">{p.tag}</span>
+                  <p className="s2-itg-line">{p.quote}</p>
+                  <p className="s2-itg-by">
+                    <span className="s2-itg-author">{p.author}</span>
+                    <span className="s2-itg-role"> · {p.role}</span>
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

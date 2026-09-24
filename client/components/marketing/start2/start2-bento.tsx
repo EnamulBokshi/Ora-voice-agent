@@ -47,7 +47,7 @@ export function Start2Bento() {
                     cy="75"
                     r="20"
                     fill="var(--s2b-accent-bg)"
-                    stroke="var(--s2b-accent)"
+                    stroke="var(--s2b-accent-ink)"
                     strokeWidth="1.5"
                     className="s2b-ora-circle"
                   />
@@ -55,7 +55,7 @@ export function Start2Bento() {
                     x="190"
                     y="79"
                     textAnchor="middle"
-                    fill="var(--s2b-accent)"
+                    fill="var(--s2b-accent-ink)"
                     fontFamily="var(--font-heading, sans-serif)"
                     fontSize="11"
                     fontWeight="800"
@@ -78,7 +78,7 @@ export function Start2Bento() {
                     <text x="290" y="116">Policies</text>
                   </g>
                   {/* Active Terminal Dots */}
-                  <g fill="var(--s2b-accent)" className="s2b-dot-pulse">
+                  <g fill="var(--s2b-accent-ink)" className="s2b-dot-pulse">
                     <circle cx="108" cy="39" r="2.5" />
                     <circle cx="108" cy="111" r="2.5" />
                     <circle cx="272" cy="39" r="2.5" />
@@ -131,10 +131,10 @@ export function Start2Bento() {
                   {/* Continuous Telemetry Wave */}
                   <path
                     d="M0 68 C 60 60, 86 78, 142 70 S 232 48, 276 60 S 364 78, 416 66 L 460 72"
-                    stroke="var(--s2b-accent)"
+                    stroke="var(--s2b-accent-ink)"
                     strokeWidth="2"
                   />
-                  <circle cx="460" cy="72" r="3.5" fill="var(--s2b-accent)" className="s2b-beacon" />
+                  <circle cx="460" cy="72" r="3.5" fill="var(--s2b-accent-ink)" className="s2b-beacon" />
                 </svg>
                 <div className="hrs">
                   <span style={{ left: 0 }}>30 days</span>

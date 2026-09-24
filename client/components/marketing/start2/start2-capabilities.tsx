@@ -82,7 +82,7 @@ export function Start2Capabilities() {
                 cy={HUB_CY}
                 r="105"
                 fill="none"
-                stroke="#C8F031"
+                style={{ stroke: 'var(--s2da-flow)' }}
                 strokeOpacity="0.12"
                 strokeWidth="1.5"
                 className="s2da-hub-outer"
@@ -92,7 +92,7 @@ export function Start2Capabilities() {
                 cy={HUB_CY}
                 r="65"
                 fill="none"
-                stroke="#C8F031"
+                style={{ stroke: 'var(--s2da-flow)' }}
                 strokeOpacity="0.25"
                 strokeWidth="1.5"
                 className="s2da-hub-mid"
@@ -111,7 +111,7 @@ export function Start2Capabilities() {
                   {/* Static underlying track */}
                   <path
                     d={curvePath(y)}
-                    stroke="#C8F031"
+                    style={{ stroke: 'var(--s2da-flow)' }}
                     strokeOpacity="0.15"
                     strokeWidth="1.5"
                     fill="none"
@@ -121,22 +121,20 @@ export function Start2Capabilities() {
                   <path
                     className={`s2da-path${visible ? ' animate' : ''}`}
                     d={curvePath(y)}
-                    stroke="#C8F031"
+                    style={{ stroke: 'var(--s2da-flow)', animationDelay: `${i * 0.2}s` }}
                     strokeOpacity="0.85"
                     strokeWidth="2"
                     fill="none"
                     strokeLinecap="round"
                     strokeDasharray="16 16"
-                    style={{ animationDelay: `${i * 0.2}s` }}
                   />
                   {/* Endpoint glowing dot */}
                   <circle
                     cx={DOT_X}
                     cy={y}
                     r={DOT_R}
-                    fill="#C8F031"
+                    style={{ fill: 'var(--s2da-flow)', transitionDelay: `${i * 0.18 + 0.25}s` }}
                     className={`s2da-dot${visible ? ' in' : ''}`}
-                    style={{ transitionDelay: `${i * 0.18 + 0.25}s` }}
                     filter="url(#s2da-glow)"
                   />
                 </React.Fragment>
@@ -157,8 +155,6 @@ export function Start2Capabilities() {
                       width={PILL_W}
                       height={PILL_H}
                       rx="10"
-                      fill="#141413"
-                      stroke="rgba(255,255,255,0.08)"
                       strokeWidth="1"
                       className="s2da-pill-rect"
                     />
@@ -168,7 +164,7 @@ export function Start2Capabilities() {
                       fontSize="17"
                       fontWeight="700"
                       fontFamily="var(--font-heading, -apple-system, sans-serif)"
-                      fill="#FAFAFA"
+                      style={{ fill: 'var(--s2da-ink)' }}
                       letterSpacing="-0.3"
                     >
                       {TARGETS[i].name}
@@ -179,7 +175,7 @@ export function Start2Capabilities() {
                       fontSize="12.5"
                       fontWeight="500"
                       fontFamily="var(--font-sans, -apple-system, sans-serif)"
-                      fill="rgba(255,255,255,0.38)"
+                      style={{ fill: 'var(--s2da-ink-3)' }}
                       textAnchor="end"
                       letterSpacing="0.2"
                     >

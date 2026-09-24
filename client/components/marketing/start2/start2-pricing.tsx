@@ -15,7 +15,6 @@ interface PlanItem {
   monthlyPrice: string;
   yearlyPrice: string;
   isFixed?: boolean;
-  desc: string;
   features: PlanFeature[];
   cta: string;
   ctaHref: string;
@@ -31,7 +30,6 @@ const PLANS: PlanItem[] = [
     monthlyPrice: '$0',
     yearlyPrice: '$0',
     isFixed: true,
-    desc: 'Test voice in a sandbox. No credit card required.',
     features: [
       { text: '100 streaming voice minutes a month', strong: '100' },
       { text: '1 storefront connection', strong: '1' },
@@ -51,7 +49,6 @@ const PLANS: PlanItem[] = [
     note: '14-day trial',
     monthlyPrice: '$49',
     yearlyPrice: '$39',
-    desc: 'For Shopify, WooCommerce, and custom storefronts.',
     features: [
       { text: '2,000 streaming voice minutes a month', strong: '2,000' },
       { text: 'Up to 500 voice-assisted orders', strong: '500' },
@@ -71,7 +68,6 @@ const PLANS: PlanItem[] = [
     note: 'Dedicated infrastructure',
     monthlyPrice: '$149',
     yearlyPrice: '$119',
-    desc: 'For high-volume stores and large SKU catalogues.',
     features: [
       { text: 'Everything in Growth' },
       { text: 'Unlimited voice minutes', strong: 'Unlimited' },
@@ -159,7 +155,6 @@ export function Start2Pricing() {
                     <span>{period}</span>
                   </div>
 
-                  <p className="s2p-desc">{plan.desc}</p>
 
                   <ul className="s2p-features">
                     {plan.features.map((feat, i) => (

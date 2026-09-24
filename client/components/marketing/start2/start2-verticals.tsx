@@ -149,8 +149,6 @@ export function Start2Verticals() {
     };
   }, [activeIdx]);
 
-  const profile = CATALOG_PROFILES[displayedIdx];
-
   const handleStepClick = (idx: number) => {
     switchTo(idx);
   };
@@ -206,55 +204,72 @@ export function Start2Verticals() {
 
             {/* Right Live Interaction Card */}
             <div className="s2-stepper-card" role="tabpanel">
-              {/* Card Top: Category name + turn latency */}
-              <div className="s2-stepper-ctop">
-                <b className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                  {profile.name}
-                </b>
-                <span className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                  {profile.turn}
-                </span>
-              </div>
+              {/* Every profile renders in the same grid cell; only the displayed one is
+                  visible. The card keeps the height of the tallest profile, so the
+                  section never changes height and the page below never moves. */}
+              <div className="s2-stepper-stack">
+                {CATALOG_PROFILES.map((profile, i) => {
+                  const shown = i === displayedIdx;
+                  const hideClass = shown && !isFading ? '' : 'out';
+                  return (
+                    <div
+                      key={profile.id}
+                      className={`s2-stepper-layer${shown ? '' : ' hidden-layer'}`}
+                      aria-hidden={!shown}
+                    >
+                      {/* Card Top: Category name + turn latency */}
+                      <div className="s2-stepper-ctop">
+                        <b className={`s2-stepper-fade ${hideClass}`}>
+                          {profile.name}
+                        </b>
+                        <span className={`s2-stepper-fade ${hideClass}`}>
+                          {profile.turn}
+                        </span>
+                      </div>
 
-              {/* Product row: Title, SKU status, price */}
-              <div className="s2-stepper-prod">
-                <div>
-                  <h3 className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                    {profile.product}
-                  </h3>
-                  <div className={`s2-stepper-sku s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                    {profile.sku}
-                  </div>
-                </div>
-                <b className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                  {profile.price}
-                </b>
-              </div>
+                      {/* Product row: Title, SKU status, price */}
+                      <div className="s2-stepper-prod">
+                        <div>
+                          <h3 className={`s2-stepper-fade ${hideClass}`}>
+                            {profile.product}
+                          </h3>
+                          <div className={`s2-stepper-sku s2-stepper-fade ${hideClass}`}>
+                            {profile.sku}
+                          </div>
+                        </div>
+                        <b className={`s2-stepper-fade ${hideClass}`}>
+                          {profile.price}
+                        </b>
+                      </div>
 
-              {/* QA dialogue */}
-              <div className="s2-stepper-qa">
-                <div className="s2-stepper-turn ask">
-                  <span className="s2-stepper-who">Shopper</span>
-                  <p className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                    {profile.question}
-                  </p>
-                </div>
-                <div className="s2-stepper-turn ora">
-                  <span className="s2-stepper-who">ORA</span>
-                  <p className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                    {profile.answer}
-                  </p>
-                </div>
-              </div>
+                      {/* QA dialogue */}
+                      <div className="s2-stepper-qa">
+                        <div className="s2-stepper-turn ask">
+                          <span className="s2-stepper-who">Shopper</span>
+                          <p className={`s2-stepper-fade ${hideClass}`}>
+                            {profile.question}
+                          </p>
+                        </div>
+                        <div className="s2-stepper-turn ora">
+                          <span className="s2-stepper-who">ORA</span>
+                          <p className={`s2-stepper-fade ${hideClass}`}>
+                            {profile.answer}
+                          </p>
+                        </div>
+                      </div>
 
-              {/* Card Footer: citation source and live action outcome */}
-              <div className="s2-stepper-foot">
-                <span className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                  {profile.source}
-                </span>
-                <b className={`s2-stepper-fade ${isFading ? 'out' : ''}`}>
-                  {profile.note}
-                </b>
+                      {/* Card Footer: citation source and live action outcome */}
+                      <div className="s2-stepper-foot">
+                        <span className={`s2-stepper-fade ${hideClass}`}>
+                          {profile.source}
+                        </span>
+                        <b className={`s2-stepper-fade ${hideClass}`}>
+                          {profile.note}
+                        </b>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

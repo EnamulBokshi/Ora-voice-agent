@@ -14,8 +14,8 @@
   --s2-card: #FFFFFF;
   --s2-card-subtle: #F8F9FA;
   --s2-card-nested: #F3F4F6;
-  --s2-border: #E8EAED;
-  --s2-border-subtle: #F1F3F5;
+  --s2-border: #D6D9DE;
+  --s2-border-subtle: #E6E8EB;
 
   --s2-text-primary: #111827;
   --s2-text-secondary: #6B7280;
@@ -27,19 +27,21 @@
 
   --s2-btn-secondary-bg: #FFFFFF;
   --s2-btn-secondary-text: #111827;
-  --s2-btn-secondary-border: #E5E7EB;
+  --s2-btn-secondary-border: #D6D9DE;
   --s2-btn-secondary-hover: #F3F4F6;
 
   --s2-brand-lime: #C8F031;
   --s2-brand-lime-text: #111111;
   --s2-brand-lime-bg: rgba(200, 240, 49, 0.16);
   --s2-brand-lime-border: rgba(200, 240, 49, 0.4);
+  --s2-accent-ink: #4E5C12; /* lime-family text that stays readable on white */
+  --s2-accent-border: rgba(107, 132, 12, 0.55); /* lime-family outline for light ground */
 
   --s2-status-green: #16A34A;
   --s2-status-green-bg: rgba(22, 163, 74, 0.1);
 
   --s2-nav-bg: rgba(255, 255, 255, 0.94);
-  --s2-nav-border: #E5E7EB;
+  --s2-nav-border: #D6D9DE;
   --s2-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   --s2-frame-shadow: 0 24px 70px -15px rgba(0, 0, 0, 0.08);
 
@@ -84,6 +86,8 @@
   --s2-brand-lime-text: #C8F031;
   --s2-brand-lime-bg: rgba(200, 240, 49, 0.14);
   --s2-brand-lime-border: rgba(200, 240, 49, 0.35);
+  --s2-accent-ink: #C8F031;
+  --s2-accent-border: rgba(200, 240, 49, 0.75);
 
   --s2-status-green: #C8F031;
   --s2-status-green-bg: rgba(200, 240, 49, 0.15);
@@ -524,6 +528,7 @@
   --s2b-text-secondary: var(--s2-text-secondary);
   --s2b-text-muted: var(--s2-text-muted);
   --s2b-accent: var(--s2-brand-lime, #C8F031);
+  --s2b-accent-ink: var(--s2-accent-ink); /* strokes, icons, small text */
   --s2b-accent-bg: var(--s2-brand-lime-bg, rgba(200, 240, 49, 0.12));
   --s2b-accent-border: var(--s2-brand-lime-border, rgba(200, 240, 49, 0.35));
 
@@ -549,6 +554,7 @@
   --s2b-text-secondary: #8B90A0;
   --s2b-text-muted: #6B7280;
   --s2b-accent: #C8F031;
+  --s2b-accent-ink: #C8F031;
   --s2b-accent-bg: rgba(200, 240, 49, 0.14);
   --s2b-accent-border: rgba(200, 240, 49, 0.35);
 }
@@ -649,7 +655,7 @@
 
 /* Identical-color monochrome icon styling (NO multicolor) */
 .start2-landing .s2b-section .s2b-mono-icon {
-  color: var(--s2b-accent);
+  color: var(--s2b-accent-ink);
   flex-shrink: 0;
 }
 
@@ -952,7 +958,7 @@
 
 .start2-landing .s2b-section .node .chip:hover {
   transform: scale(1.15);
-  border-color: var(--s2b-accent);
+  border-color: var(--s2b-accent-ink);
   background: var(--s2b-accent-bg);
 }
 
@@ -2574,12 +2580,36 @@
    ============================================================================= */
 
 .start2-landing .s2da-section {
+  /* Light by default; dark values in the override below. */
+  --s2da-bg: var(--s2-bg-subtle);
+  --s2da-line: var(--s2-border);
+  --s2da-ink: #111827;
+  --s2da-ink-3: #6B7280;
+  --s2da-flow: #84A20F;
+  --s2da-pill: #FFFFFF;
+  --s2da-pill-line: #D6D9DE;
+  --s2da-pill-hover: #F8F9FA;
+  --s2da-pill-hover-line: rgba(132, 162, 15, 0.45);
+
   padding: 6.5rem 0 7rem;
-  background: #0C0C0C;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--s2da-bg);
+  border-top: 1px solid var(--s2da-line);
+  border-bottom: 1px solid var(--s2da-line);
   position: relative;
   overflow: hidden;
+}
+
+.dark .start2-landing .s2da-section,
+[data-theme="dark"] .start2-landing .s2da-section {
+  --s2da-bg: #0C0C0C;
+  --s2da-line: rgba(255, 255, 255, 0.06);
+  --s2da-ink: #FAFAFA;
+  --s2da-ink-3: rgba(255, 255, 255, 0.38);
+  --s2da-flow: #C8F031;
+  --s2da-pill: #141413;
+  --s2da-pill-line: rgba(255, 255, 255, 0.08);
+  --s2da-pill-hover: #191918;
+  --s2da-pill-hover-line: rgba(200, 240, 49, 0.32);
 }
 
 /* Two-column Row layout (1:2 ratio: heading at 1, visual at 2) */
@@ -2610,7 +2640,7 @@
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.08;
-  color: #FAFAFA;
+  color: var(--s2da-ink);
   margin: 0;
 }
 
@@ -2705,12 +2735,14 @@
 }
 
 .start2-landing .s2da-pill-rect {
+  fill: var(--s2da-pill);
+  stroke: var(--s2da-pill-line);
   transition: stroke 0.25s ease, fill 0.25s ease;
 }
 
 .start2-landing .s2da-pill-g:hover .s2da-pill-rect {
-  stroke: rgba(200, 240, 49, 0.32);
-  fill: #191918;
+  stroke: var(--s2da-pill-hover-line);
+  fill: var(--s2da-pill-hover);
 }
 
 /* =============================================================================
@@ -2765,157 +2797,100 @@
 }
 
 /* =============================================================================
-   9. SAAS FOOTER
+   9. FOOTER — full-bleed, links only
    ============================================================================= */
-.start2-landing .s2-footer {
-  background-color: var(--s2-card);
+.start2-landing .s2-ft {
+  background-color: var(--s2-bg-subtle);
   border-top: 1px solid var(--s2-border);
-  padding: 5rem 0 2.5rem 0;
 }
 
-.start2-landing .s2-footer-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+/* No max-width: the footer runs the full page width with fluid gutters. */
+.start2-landing .s2-ft-inner {
+  padding: clamp(3.5rem, 6vw, 5rem) clamp(1.25rem, 5vw, 4rem) 2rem;
+}
+
+.start2-landing .s2-ft-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 3rem;
-  margin-bottom: 4rem;
+  flex-wrap: wrap;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid var(--s2-border);
 }
 
-@media (min-width: 768px) {
-  .start2-landing .s2-footer-grid {
-    grid-template-columns: 1.5fr repeat(2, 1fr) 1.5fr;
-  }
-}
-
-.start2-landing .s2-footer-desc {
-  font-size: 0.84rem;
-  color: var(--s2-text-secondary);
-  line-height: 1.6;
-  margin-bottom: 1rem;
-}
-
-.start2-landing .s2-sys-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.74rem;
-  color: var(--s2-status-green);
-  background-color: var(--s2-status-green-bg);
-  padding: 0.2rem 0.55rem;
-  border-radius: 9999px;
-  font-weight: 500;
-}
-
-.start2-landing .s2-pulse-dot-green {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #16A34A;
-}
-
-.dark .start2-landing .s2-pulse-dot-green {
-  background-color: #C8F031;
-}
-
-.start2-landing .s2-footer-title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--s2-text-primary);
-  margin-bottom: 1.15rem;
-}
-
-.start2-landing .s2-footer-list {
-  list-style: none;
+.start2-landing .s2-ft-brand {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-}
-
-.start2-landing .s2-footer-list a {
-  font-size: 0.84rem;
-  color: var(--s2-text-secondary);
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.start2-landing .s2-footer-list a:hover {
-  color: var(--s2-text-primary);
-}
-
-.start2-landing .s2-sub-desc {
-  font-size: 0.82rem;
-  color: var(--s2-text-secondary);
-  line-height: 1.5;
-  margin-bottom: 0.85rem;
-}
-
-.start2-landing .s2-sub-form {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.start2-landing .s2-sub-input {
-  flex: 1;
-  padding: 0.55rem 0.85rem;
-  font-size: 0.82rem;
-  border: 1px solid var(--s2-border);
-  border-radius: 6px;
-  background-color: var(--s2-card-subtle);
-  color: var(--s2-text-primary);
-}
-
-.start2-landing .s2-sub-btn {
-  background-color: var(--s2-btn-primary-bg);
-  color: var(--s2-btn-primary-text);
-  border: none;
-  padding: 0.55rem 0.85rem;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.start2-landing .s2-sub-success {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--s2-status-green);
-  background-color: var(--s2-status-green-bg);
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-}
-
-.start2-landing .s2-footer-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 2rem;
-  border-top: 1px solid var(--s2-border);
-  font-size: 0.8rem;
-  color: var(--s2-text-muted);
-  flex-wrap: wrap;
   gap: 1rem;
+  max-width: 22rem;
 }
 
-.start2-landing .s2-social-strip,
-.start2-landing .s2-legal-strip {
+.start2-landing .s2-ft-desc {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--s2-text-secondary);
+  margin: 0;
+}
+
+.start2-landing .s2-ft-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(8.5rem, auto));
+  gap: 2rem clamp(2.5rem, 6vw, 6rem);
+}
+
+.start2-landing .s2-ft-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--s2-text-muted);
+  margin: 0 0 1rem;
+}
+
+.start2-landing .s2-ft-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  align-items: center;
-  gap: 1.25rem;
+  flex-direction: column;
+  gap: 0.7rem;
 }
 
-.start2-landing .s2-social-strip a,
-.start2-landing .s2-legal-strip a {
+.start2-landing .s2-ft-link {
+  font-size: 0.9rem;
   color: var(--s2-text-secondary);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-.start2-landing .s2-social-strip a:hover,
-.start2-landing .s2-legal-strip a:hover {
+.start2-landing .s2-ft-link:hover {
   color: var(--s2-text-primary);
+}
+
+.start2-landing .s2-ft-link:focus-visible {
+  outline: 2px solid var(--s2-brand-lime);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.start2-landing .s2-ft-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 1.75rem;
+  font-size: 0.82rem;
+  color: var(--s2-text-muted);
+}
+
+@media (max-width: 640px) {
+  .start2-landing .s2-ft-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
 }
 
 /* =============================================================================
@@ -2927,30 +2902,24 @@
    ============================================================================= */
 
 .start2-landing .cc {
-  /* Dashboard slate-charcoal scale, mirroring globals.css .dark */
-  --cc-ink: #F3F4F6;
-  /* --foreground */
-  --cc-ink-2: #8B90A0;
-  /* --muted-foreground */
-  --cc-ink-3: #6B7180;
-  /* dimmer step of the same slate */
-  --cc-panel: #1A1C22;
-  /* --card / --surface-container */
-  --cc-side: #0E0F12;
-  /* --sidebar / --surface-lowest */
-  --cc-raised: #242731;
-  /* --surface-high */
-  --cc-line: #252831;
-  /* --border / --outline-variant */
-  --cc-hair: #1F222A;
-  /* one step inside the border */
-  --cc-grid: rgba(255, 255, 255, 0.05);
+  /* Light values; the dark block below mirrors globals.css .dark. */
+  --cc-ink: #111827;
+  --cc-ink-2: #6B7280;
+  --cc-ink-3: #9CA3AF;
+  --cc-panel: #FFFFFF;
+  --cc-side: #F8F9FA;
+  --cc-raised: #F3F4F6;
+  --cc-line: #D6D9DE;
+  --cc-hair: #E6E8EB;
+  --cc-hover: #F1F3F5;
+  --cc-track: #E5E7EB;
+  --cc-grid: rgba(17, 24, 39, 0.06);
   --cc-accent: #C8F031;
-  /* --primary */
-  --cc-accent-ink: #0E0F12;
-  /* --primary-foreground */
-  --cc-accent-wash: rgba(200, 240, 49, 0.05);
-  --cc-accent-soft: rgba(200, 240, 49, 0.09);
+  --cc-accent-ink: #111111;
+  --cc-chart: #84A20F;
+  --cc-accent-wash: rgba(200, 240, 49, 0.16);
+  --cc-accent-soft: rgba(200, 240, 49, 0.22);
+  --cc-shadow: 0 34px 80px -46px rgba(17, 24, 39, 0.35);
 
   max-width: 1180px;
   margin: 3rem auto 0;
@@ -2960,6 +2929,26 @@
   color: var(--cc-ink);
 }
 
+.dark .start2-landing .cc,
+[data-theme="dark"] .start2-landing .cc {
+  --cc-ink: #F3F4F6;
+  --cc-ink-2: #8B90A0;
+  --cc-ink-3: #6B7180;
+  --cc-panel: #1A1C22;
+  --cc-side: #0E0F12;
+  --cc-raised: #242731;
+  --cc-line: #252831;
+  --cc-hair: #1F222A;
+  --cc-hover: #1F222A;
+  --cc-track: #22252E;
+  --cc-grid: rgba(255, 255, 255, 0.05);
+  --cc-accent-ink: #0E0F12;
+  --cc-chart: #C8F031;
+  --cc-accent-wash: rgba(200, 240, 49, 0.05);
+  --cc-accent-soft: rgba(200, 240, 49, 0.09);
+  --cc-shadow: 0 34px 80px -46px rgba(0, 0, 0, 0.95);
+}
+
 .start2-landing .cc-app {
   border: 1px solid var(--cc-line);
   border-radius: 8px;
@@ -2967,7 +2956,7 @@
   background: var(--cc-panel);
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
-  box-shadow: 0 34px 80px -46px rgba(0, 0, 0, 0.95);
+  box-shadow: var(--cc-shadow);
 }
 
 @media (max-width: 860px) {
@@ -3055,7 +3044,7 @@
 }
 
 .start2-landing .cc-item:hover {
-  background: #1F222A;
+  background: var(--cc-hover);
   color: var(--cc-ink);
 }
 
@@ -3356,7 +3345,7 @@
 }
 
 .start2-landing .cc-row.on {
-  background: #1F222A;
+  background: var(--cc-hover);
 }
 
 .start2-landing .cc-row b {
@@ -3413,7 +3402,7 @@
   line-height: 1.55;
   padding: 11px 14px;
   border-radius: 4px;
-  background: #22252E;
+  background: var(--cc-track);
   color: var(--cc-ink-2);
 }
 
@@ -3502,7 +3491,7 @@
 }
 
 .start2-landing .cc-srow.on {
-  background: #1F222A;
+  background: var(--cc-hover);
 }
 
 .start2-landing .cc-srow b {
@@ -3647,9 +3636,36 @@
    ============================================================================= */
 
 .start2-landing .s2-stepper-section {
+  /* Card palette: light by default, dark values in the override below. */
+  --st-card: #FFFFFF;
+  --st-band: #F8F9FA;
+  --st-line: #D6D9DE;
+  --st-hair: #E6E8EB;
+  --st-ink: #111827;
+  --st-ink-2: #6B7280;
+  --st-item: #6B7280;
+  --st-accent-text: #4E5C12;
+  --st-pill-bg: rgba(200, 240, 49, 0.2);
+  --st-pill-border: rgba(132, 162, 15, 0.35);
+  --st-shadow: 0 12px 36px rgba(17, 24, 39, 0.08);
   padding: 5.5rem 0 6.5rem;
   background-color: var(--s2-bg);
   position: relative;
+}
+
+.dark .start2-landing .s2-stepper-section,
+[data-theme="dark"] .start2-landing .s2-stepper-section {
+  --st-card: #1A1C22;
+  --st-band: #13151B;
+  --st-line: #252831;
+  --st-hair: #1F222A;
+  --st-ink: #F3F4F6;
+  --st-ink-2: #8B90A0;
+  --st-item: #6B7180;
+  --st-accent-text: #C8F031;
+  --st-pill-bg: rgba(200, 240, 49, 0.08);
+  --st-pill-border: rgba(200, 240, 49, 0.18);
+  --st-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
 }
 
 .start2-landing .s2-stepper-wrap {
@@ -3710,7 +3726,7 @@
   position: relative;
   padding: 15px 0 15px 22px;
   cursor: pointer;
-  color: #6B7180;
+  color: var(--st-item);
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 500;
@@ -3757,6 +3773,13 @@
   color: var(--s2-text-muted);
   margin-top: 3px;
   opacity: 0;
+  /* max-height equals the real one-line height (line-height 1.4em, no wrap),
+     so the opening and closing notes animate in lockstep and the list's total
+     height stays constant. A larger max-height made them drift apart and the
+     whole page below bobbed by ~3px on every step. */
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   max-height: 0;
   overflow: hidden;
   transition: opacity 0.3s ease, max-height 0.3s ease;
@@ -3764,23 +3787,23 @@
 
 .start2-landing .s2-stepper-item.on em {
   opacity: 1;
-  max-height: 2em;
+  max-height: 1.4em;
 }
 
 /* Right Live Interaction Card */
 .start2-landing .s2-stepper-card {
-  border: 1px solid #252831;
+  border: 1px solid var(--st-line);
   border-radius: 6px;
-  background-color: #1A1C22;
+  background-color: var(--st-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--st-shadow);
 }
 
 .start2-landing .s2-stepper-ctop {
   padding: 18px 24px;
-  border-bottom: 1px solid #1F222A;
+  border-bottom: 1px solid var(--st-hair);
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -3791,16 +3814,16 @@
   font-family: var(--font-sans);
   font-size: 14.5px;
   font-weight: 600;
-  color: #F3F4F6;
+  color: var(--st-ink);
 }
 
 .start2-landing .s2-stepper-ctop span {
   font-family: var(--font-mono);
   font-size: 11.5px;
   font-weight: 500;
-  color: #C8F031;
-  background-color: rgba(200, 240, 49, 0.08);
-  border: 1px solid rgba(200, 240, 49, 0.18);
+  color: var(--st-accent-text);
+  background-color: var(--st-pill-bg);
+  border: 1px solid var(--st-pill-border);
   padding: 3px 9px;
   border-radius: 4px;
 }
@@ -3811,8 +3834,8 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 24px;
-  border-bottom: 1px solid #1F222A;
-  background-color: #13151B;
+  border-bottom: 1px solid var(--st-hair);
+  background-color: var(--st-band);
 }
 
 .start2-landing .s2-stepper-prod h3 {
@@ -3821,7 +3844,7 @@
   font-size: 21px;
   line-height: 1.25;
   letter-spacing: -0.015em;
-  color: #F3F4F6;
+  color: var(--st-ink);
   margin: 0;
 }
 
@@ -3829,7 +3852,7 @@
   margin-top: 6px;
   font-family: var(--font-mono);
   font-size: 11.5px;
-  color: #8B90A0;
+  color: var(--st-ink-2);
 }
 
 .start2-landing .s2-stepper-prod b {
@@ -3839,7 +3862,7 @@
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: #F3F4F6;
+  color: var(--st-ink);
 }
 
 .start2-landing .s2-stepper-qa {
@@ -3863,12 +3886,12 @@
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #8B90A0;
+  color: var(--st-ink-2);
   padding-top: 5px;
 }
 
 .start2-landing .s2-stepper-turn.ora .s2-stepper-who {
-  color: #C8F031;
+  color: var(--st-accent-text);
 }
 
 .start2-landing .s2-stepper-turn p {
@@ -3876,27 +3899,27 @@
   font-size: 15px;
   line-height: 1.55;
   font-weight: 400;
-  color: #F3F4F6;
+  color: var(--st-ink);
   margin: 0;
 }
 
 .start2-landing .s2-stepper-turn.ask p {
-  color: #8B90A0;
+  color: var(--st-ink-2);
 }
 
 .start2-landing .s2-stepper-foot {
   padding: 16px 26px;
-  border-top: 1px solid #1F222A;
+  border-top: 1px solid var(--st-hair);
   display: flex;
   justify-content: space-between;
   gap: 16px;
   font-size: 12.5px;
-  color: #8B90A0;
+  color: var(--st-ink-2);
   flex-wrap: wrap;
 }
 
 .start2-landing .s2-stepper-foot b {
-  color: #C8F031;
+  color: var(--st-accent-text);
   font-weight: 500;
 }
 
@@ -3906,6 +3929,23 @@
 
 .start2-landing .s2-stepper-fade.out {
   opacity: 0;
+}
+
+/* All six profiles share one grid cell, so the card is always as tall as the
+   longest profile and the section height never changes between cycles. */
+.start2-landing .s2-stepper-stack {
+  display: grid;
+  flex: 1;
+}
+
+.start2-landing .s2-stepper-layer {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.start2-landing .s2-stepper-layer.hidden-layer {
+  visibility: hidden;
 }
 
 /* =============================================================================
@@ -4175,7 +4215,7 @@
   font-family: var(--font-mono);
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--s2-brand-lime);
+  color: var(--s2-accent-ink);
   padding-right: 12px;
   padding-left: 4px;
 }
@@ -4246,7 +4286,7 @@
 }
 
 .start2-landing .s2p-plan.lead .s2p-note {
-  color: var(--s2-brand-lime);
+  color: var(--s2-accent-ink);
   font-weight: 600;
 }
 
@@ -4271,17 +4311,6 @@
   font-family: var(--font-sans);
   color: var(--s2p-ink-3);
   font-size: 14px;
-}
-
-.start2-landing .s2p-desc {
-  margin-top: 16px;
-  color: var(--s2p-ink-2);
-  font-family: var(--font-sans);
-  font-size: 14.5px;
-  line-height: 1.5;
-  min-height: 44px;
-  text-wrap: pretty;
-  margin-bottom: 0;
 }
 
 .start2-landing .s2p-features {
@@ -4436,12 +4465,23 @@
   height: 0;
   background: linear-gradient(
     180deg,
+    rgba(107, 132, 12, 0.06),
+    rgba(107, 132, 12, 0.5) 45%,
+    rgba(107, 132, 12, 0.9)
+  );
+  box-shadow: none;
+  transition: height .22s linear;
+}
+
+.dark .start2-landing .lch-line::after,
+[data-theme="dark"] .start2-landing .lch-line::after {
+  background: linear-gradient(
+    180deg,
     rgba(200, 240, 49, 0.06),
     rgba(200, 240, 49, 0.55) 45%,
     rgba(200, 240, 49, 0.95)
   );
   box-shadow: 0 0 14px rgba(200, 240, 49, 0.28);
-  transition: height .22s linear;
 }
 
 .start2-landing .lch-line.p::after { height: var(--p, 0); }
@@ -4490,8 +4530,8 @@
 }
 
 .start2-landing .lch-step.on .lch-dot {
-  border-color: rgba(200, 240, 49, 0.75);
-  color: var(--op-accent-ink, #4E5C12);
+  border-color: var(--s2-accent-border);
+  color: var(--s2-accent-ink);
   box-shadow: 0 0 0 5px rgba(200, 240, 49, 0.12);
 }
 
@@ -4569,7 +4609,7 @@
 
 .start2-landing .lch-tabs span.on {
   color: var(--s2-text-primary);
-  border-color: rgba(200, 240, 49, 0.8);
+  border-color: var(--s2-accent-border);
 }
 
 .start2-landing .lch-field {
@@ -4591,7 +4631,7 @@
   font-style: normal;
   font-family: var(--font-sans);
   font-size: 12px;
-  color: var(--op-accent-ink, #4E5C12);
+  color: var(--s2-accent-ink);
   font-weight: 600;
 }
 
@@ -4682,7 +4722,7 @@
   overflow-wrap: anywhere;
 }
 
-.start2-landing .lch-code b { color: var(--op-accent-ink, #4E5C12); font-weight: 600; }
+.start2-landing .lch-code b { color: var(--s2-accent-ink); font-weight: 600; }
 
 .start2-landing .lch-copy {
   margin-top: 14px;
@@ -4703,7 +4743,7 @@
 .start2-landing .lch-copy:hover { border-color: var(--s2-text-muted); }
 
 .start2-landing .lch-copy:focus-visible {
-  outline: 2px solid var(--op-accent-ink, #4E5C12);
+  outline: 2px solid var(--s2-accent-ink);
   outline-offset: 2px;
 }
 
@@ -4723,26 +4763,6 @@
    bento diagram and the equaliser bars. Rewritten from their markup context
    rather than recovered, so check them against the original intent.
    ============================================================================= */
-
-.start2-landing .s2-footer-brand-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-width: 22rem;
-}
-
-.start2-landing .s2-footer-links-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.start2-landing .s2-footer-sub-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-width: 20rem;
-}
 
 /* The ORA node at the centre of the bento connector diagram. */
 .start2-landing .s2b-ora-circle {
@@ -4769,7 +4789,7 @@
 /* =============================================================================
    CONNECTS TO WHAT YOU ALREADY RUN — port of ora-integrations.html
    =============================================================================
-   Centred serif heading, one panel split into an arc stage and a quote area.
+   Centred heading, one panel split into an arc stage and a quote area.
    Node travel, the parabolic arc, the lit centre slot, far slots collapsing to
    dots and the 300ms cross-fade are the design's. Nodes carry real platform
    marks instead of initials. Colours are the page's --s2-* tokens; the dark
@@ -4816,12 +4836,13 @@
   margin: 0 auto;
 }
 
+/* Same heading style as every other /start2 section title. */
 .start2-landing .s2-itg-title {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  font-size: clamp(2.4rem, 4.8vw, 3.4rem);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(32px, 4.2vw, 46px);
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   color: var(--s2-text-primary);
   max-width: 10.5em;
   margin: 0 auto;
@@ -4938,19 +4959,29 @@
 .start2-landing .s2-itg-label.out { opacity: 0; }
 
 /* ── Quote ─────────────────────────────────────────────────────────────────── */
+/* All quotes share one grid cell: the area is as tall as the longest quote,
+   so switching platforms never changes the section's height. */
+.start2-landing .s2-itg-quotes {
+  display: grid;
+}
+
 .start2-landing .s2-itg-quote {
+  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1rem;
   padding: 2.6rem 2.75rem 2.4rem;
   text-align: center;
-  transition: opacity .3s ease, transform .3s ease;
+  transition: opacity .3s ease, transform .3s ease, visibility 0s;
 }
 
 .start2-landing .s2-itg-quote.out {
   opacity: 0;
+  visibility: hidden;
   transform: translateY(5px);
+  transition: opacity .3s ease, transform .3s ease, visibility 0s .3s;
 }
 
 .start2-landing .s2-itg-tag {
@@ -4961,11 +4992,11 @@
 }
 
 .start2-landing .s2-itg-line {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
-  line-height: 1.45;
-  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+  line-height: 1.5;
+  letter-spacing: -0.015em;
   color: var(--s2-text-primary);
   max-width: 36ch;
   text-wrap: pretty;
@@ -4995,4 +5026,25 @@
   .start2-landing .s2-itg-mark,
   .start2-landing .s2-itg-label,
   .start2-landing .s2-itg-quote { transition: none; }
+}
+
+/* =============================================================================
+   CLOSING CTA (shared CtaSection from the main page) — theme-aware on /start2
+   =============================================================================
+   The main landing page keeps its always-dark band. Here it follows the
+   light/dark theme like every other section.
+   ============================================================================= */
+.start2-landing .lp-dark-section {
+  --lp-text-on-dark: var(--s2-text-primary);
+  --lp-text-on-dark-dim: var(--s2-text-secondary);
+  background: var(--s2-card-subtle);
+  border: 1px solid var(--s2-border);
+}
+
+.dark .start2-landing .lp-dark-section,
+[data-theme="dark"] .start2-landing .lp-dark-section {
+  --lp-text-on-dark: #FFFFFF;
+  --lp-text-on-dark-dim: #A1A1AA;
+  background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+  border-color: transparent;
 }

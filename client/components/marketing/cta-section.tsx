@@ -29,7 +29,7 @@ export function CtaSection() {
               Stop losing sales.<br />
               Start recovering revenue.
             </h2>
-            <p
+            {/* <p
               style={{
                 fontSize: '1.0625rem',
                 color: 'var(--lp-text-on-dark-dim)',
@@ -39,7 +39,7 @@ export function CtaSection() {
             >
               Join thousands of merchants already using ORA to automate their sales conversations
               and grow their revenue on autopilot.
-            </p>
+            </p> */}
 
             <Link href="/auth" className="lp-btn-lime" id="cta-get-started-btn" style={{ fontSize: '1.0625rem' }}>
               Get Started Free

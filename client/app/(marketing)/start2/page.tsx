@@ -7,7 +7,7 @@ import { Start2Steps } from '@/components/marketing/start2/start2-steps';
 import { Start2Pricing } from '@/components/marketing/start2/start2-pricing';
 import { Start2Capabilities } from '@/components/marketing/start2/start2-capabilities';
 import { Start2Testimonial } from '@/components/marketing/start2/start2-testimonial';
-import { Start2Cta } from '@/components/marketing/start2/start2-cta';
+import { CtaSection } from '@/components/marketing/cta-section';
 import { Start2Footer } from '@/components/marketing/start2/start2-footer';
 import { Start2Platforms } from '@/components/marketing/start2/start2-platforms';
 
@@ -64,8 +64,8 @@ export default function Start2Page() {
         {/* 7. High-Impact Testimonial Section in Obsidian Container */}
         <Start2Testimonial />
 
-        {/* 8. Closing Action CTA Banner with Trust Badges */}
-        <Start2Cta />
+        {/* 8. Closing CTA — same section as the main landing page (/) */}
+        <CtaSection />
       </main>
 
       {/* 9. 4-Column SaaS Footer with Newsletter Input */}

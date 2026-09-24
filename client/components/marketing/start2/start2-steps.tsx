@@ -22,11 +22,10 @@ const STEPS = [
     n: '01',
     phase: 'Connect',
     title: 'Connect your catalogue',
-    body:
-      'Authorise with Shopify OAuth or the WooCommerce REST API. ORA reads products, variants, stock and return policies.',
+    body: 'Link Shopify, WooCommerce or a product feed. ORA learns your products, stock and policies.',
     fact: (
       <>
-        Shopify, WooCommerce, or a custom feed &middot; first ingest <b>under 90 s</b>
+        First sync in <b>under 90 s</b>
       </>
     ),
   },
@@ -34,17 +33,15 @@ const STEPS = [
     n: '02',
     phase: 'Configure',
     title: 'Set the rules',
-    body:
-      'Choose the brand tone, what happens when something is out of stock, and when to flag low inventory.',
-    fact: <>Answers stay catalogue-bound &middot; the agent declines what it was not told</>,
+    body: 'Pick your brand voice and what ORA says when stock runs low.',
+    fact: <>Answers only from your catalogue</>,
   },
   {
     n: '03',
     phase: 'Launch',
     title: 'Paste one tag',
-    body:
-      'Drop the snippet into your store header or tag manager. It renders in a shadow root and loads asynchronously.',
-    fact: <>One script tag &middot; no theme changes</>,
+    body: 'Add one snippet to your site. No theme changes.',
+    fact: <>Loads in the background</>,
   },
 ];
 
