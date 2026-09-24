@@ -974,6 +974,18 @@ export function FloatingOrbWidget() {
     try {
       sessionStorage.removeItem('ora_landing_session_id');
     } catch { }
+
+    // A live session ends with ORA saying goodbye. The orb stays live while
+    // it does, and the client reports `idle` and the "ended" notice once the
+    // goodbye has played. A second click while ORA is signing off, or a
+    // session with no open socket, stops at once.
+    const client = liveClientRef.current;
+    if (wasLive && client && !client.isEnding && client.endWithGoodbye()) {
+      setShowConfirmModal(false);
+      cancelAutoDismiss();
+      return;
+    }
+
     liveClientRef.current?.stop();
     setVoiceState('idle');
     setLiveUtterance('');

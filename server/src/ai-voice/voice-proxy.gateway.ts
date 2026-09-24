@@ -48,6 +48,19 @@ import { sanitizeClientContext, sanitizePath, sanitizeText } from './client-cont
  */
 const SESSION_PARK_GRACE_MS = 30_000;
 
+/**
+ * How long a session waits for ORA's goodbye before closing without one. Covers
+ * Gemini never answering the goodbye prompt, or its turn never completing.
+ */
+const GOODBYE_FALLBACK_MS = 12_000;
+
+/**
+ * How long after the goodbye turn completes the socket is held open. Gemini
+ * generates faster than real time, so the client is still playing the goodbye
+ * when generation finishes; closing sooner would cut it off.
+ */
+const GOODBYE_DRAIN_MS = 4_000;
+
 interface ProxySession {
   /**
    * The browser currently attached, or null while parked between page loads.
@@ -69,7 +82,14 @@ interface ProxySession {
   completionTokens: number;
   isGreetingPending: boolean;
   greetingDispatchedAt: number;
-  isClosingOnIdle?: boolean;
+  /**
+   * Set once the session is ending with a spoken goodbye (idle timeout, time
+   * limit, or the customer pressing stop). Carries what `session_ended` will
+   * report when the goodbye turn completes.
+   */
+  closingWith?: { reason: string; message: string };
+  /** True once goodbye audio has actually been streamed, see `onTurnComplete`. */
+  goodbyeSpoken?: boolean;
   /** True from the first audio frame of a turn until Gemini reports turnComplete. */
   isAgentSpeaking: boolean;
   /**
@@ -1021,6 +1041,7 @@ export class VoiceProxyGateway {
           }
           session.isGreetingPending = false;
           session.isAgentSpeaking = true;
+          if (session.closingWith) session.goodbyeSpoken = true;
           if (base64AudioPcm) {
             const decodedBytes = Math.round(base64AudioPcm.length * 0.75);
             session.audioOutputBytes += decodedBytes;
@@ -1080,18 +1101,17 @@ export class VoiceProxyGateway {
           // starts when the widget acknowledges that playback has drained.
           armPlaybackAckFallback();
 
-          if (session.isClosingOnIdle) {
-            this.logger.log(`[VoiceProxyGateway] Goodbye speech turn complete for session ${sessionId}. Scheduling clean termination.`);
-            sendToClient({
-              type: 'session_ended',
-              reason: 'idle_timeout',
-              message: 'Session closed due to inactivity. Start a new session anytime!',
-            });
-            // Allow 4 seconds for the client's browser WebAudio queue to finish speaking all audio packets before closing socket
+          // Only a turn that carried goodbye audio ends the session. If ORA was
+          // mid-answer when the close was requested, that answer's own turn can
+          // complete first, and closing on it would drop the goodbye.
+          if (session.closingWith && session.goodbyeSpoken) {
+            const { reason, message } = session.closingWith;
+            this.logger.log(`[VoiceProxyGateway] Goodbye turn complete for session ${sessionId} (${reason}). Scheduling clean termination.`);
+            sendToClient({ type: 'session_ended', reason, message });
             setTimeout(() => {
               cleanup();
-              closeClient(1000, 'Idle timeout completed');
-            }, 4000);
+              closeClient(1000, reason);
+            }, GOODBYE_DRAIN_MS);
           }
         },
 
@@ -1227,6 +1247,47 @@ export class VoiceProxyGateway {
       `[VoiceProxyGateway] ✅ Session ${sessionId} is live (User: ${authenticatedUser?.name || 'Guest'}, Anon: ${isUserAnon}, Duration: ${sessionDurationSeconds}s). Active sessions: ${this.sessions.size}`,
     );
 
+    /**
+     * Ends the session with ORA saying goodbye first. It asks Gemini for a
+     * one-sentence goodbye; `onTurnComplete` then reports `session_ended` and
+     * closes once that goodbye has streamed. A silent (dictation) session has
+     * no voice to say it with and closes at once, and the fallback timer closes
+     * the session if the goodbye never arrives.
+     */
+    const endWithGoodbye = (reason: string, message: string, instruction: string) => {
+      if (session.closed || session.closingWith) return;
+
+      const closeNow = () => {
+        if (session.closed) return;
+        sendToClient({ type: 'session_ended', reason, message });
+        cleanup();
+        closeClient(1000, reason);
+      };
+
+      if (session.silentMode || !sessionControls) {
+        closeNow();
+        return;
+      }
+
+      session.closingWith = { reason, message };
+      this.logger.log(`[VoiceProxyGateway] Session ${sessionId} closing (${reason}). Requesting spoken goodbye.`);
+      try {
+        sessionControls.sendTextMessage(
+          `[SYSTEM_TRIGGER: SESSION_CLOSE] ${instruction} Say it in ONE short, warm sentence. Speak aloud now.`,
+        );
+      } catch {
+        closeNow();
+        return;
+      }
+
+      setTimeout(() => {
+        if (!session.closed) {
+          this.logger.warn(`[VoiceProxyGateway] Goodbye fallback close for session ${sessionId} (${reason}).`);
+          closeNow();
+        }
+      }, GOODBYE_FALLBACK_MS);
+    };
+
     // ── Start Session Timers (Max Duration + idle warning / terminate) ─────────
     this.sessionTimerService.startTimer(
       sessionId,
@@ -1243,13 +1304,11 @@ export class VoiceProxyGateway {
       },
       // onMaxExpiry: hard limit reached
       () => {
-        sendToClient({
-          type: 'session_ended',
-          reason: 'session_time_limit',
-          message: 'Session ended: maximum session duration reached.',
-        });
-        cleanup();
-        closeClient(1000, 'Session time limit reached');
+        endWithGoodbye(
+          'session_time_limit',
+          'Session ended: maximum session duration reached.',
+          'The session has reached its time limit. Say goodbye, thank them for chatting, and let them know they can start a new session anytime.',
+        );
       },
       // onIdleWarning: 15s of silence
       () => {
@@ -1266,27 +1325,11 @@ export class VoiceProxyGateway {
       },
       // onIdleExpiry: 20s after idle warning if still silent
       () => {
-        session.isClosingOnIdle = true;
-        this.logger.log(`[VoiceProxyGateway] Idle expiry triggered for session ${sessionId}. Requesting spoken goodbye.`);
-        try {
-          sessionControls.sendTextMessage(
-            '[SYSTEM_TRIGGER: IDLE_CLOSE] The user did not respond. Say a brief, warm goodbye in ONE short sentence and let them know they can start a new session anytime. Speak aloud now.',
-          );
-        } catch { }
-
-        // Fallback safety timer: if Gemini never responds or onTurnComplete does not fire within 15s, force close
-        setTimeout(() => {
-          if (!session.closed) {
-            this.logger.warn(`[VoiceProxyGateway] Fallback idle timeout close for session ${sessionId}`);
-            sendToClient({
-              type: 'session_ended',
-              reason: 'idle_timeout',
-              message: 'Session closed due to inactivity. Start a new session anytime!',
-            });
-            cleanup();
-            closeClient(1000, 'Idle timeout fallback');
-          }
-        }, 15000);
+        endWithGoodbye(
+          'idle_timeout',
+          'Session closed due to inactivity. Start a new session anytime!',
+          'The user did not respond. Say a brief goodbye and let them know they can start a new session anytime.',
+        );
       },
     );
 
@@ -1404,6 +1447,17 @@ export class VoiceProxyGateway {
       if (session.closed) return;
       try {
         const msg = JSON.parse(data.toString());
+
+        // The customer pressed stop and wants ORA to sign off. Their microphone
+        // is already muted, so nothing they say can interrupt the goodbye.
+        if (msg.type === 'end_session' && msg.goodbye === true) {
+          endWithGoodbye(
+            'user_ended',
+            'See you soon!',
+            'The user has ended the conversation. Say goodbye, for example "See you later!", and thank them for stopping by.',
+          );
+          return;
+        }
 
         if (msg.type === 'end_session') {
           // The customer tapped stop. A bare socket close is indistinguishable from a
