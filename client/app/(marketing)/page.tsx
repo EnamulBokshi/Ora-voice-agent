@@ -9,7 +9,7 @@ import { TestimonialSection } from '@/components/marketing/testimonial-section';
 import { CtaSection } from '@/components/marketing/cta-section';
 import { MarketingFooter } from '@/components/marketing/footer';
 
-
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { League_Gothic } from 'next/font/google';
 import { Start2Nav } from '@/components/marketing/start2/start2-nav';
@@ -107,7 +107,9 @@ export default function LandingPage() {
           <Start2Steps />
 
           {/* 5. Simple Transparent Pricing (Monthly/Yearly Toggle, Dual Cards & Free Tier Strip) */}
-          <Start2Pricing />
+          <Suspense fallback={null}>
+            <Start2Pricing />
+          </Suspense>
 
           {/* 6. Split Capabilities Section with 2x2 Resource Cards */}
           <Start2Capabilities />

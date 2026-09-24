@@ -5411,3 +5411,20 @@
     letter-spacing: 0.03em;
   }
 }
+
+/* Fix headings clipping and overlap with cards */
+.start2-landing .s2p-title,
+.start2-landing .s2-stepper-head h2 {
+  line-height: 1.18;
+  padding-bottom: 0.12em;
+  display: inline-block;
+  max-width: none;
+}
+
+.start2-landing .s2-stepper-head {
+  margin-bottom: 3.5rem;
+}
+
+.start2-landing .s2p-head {
+  align-items: center;
+}
