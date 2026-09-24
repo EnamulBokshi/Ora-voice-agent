@@ -36,6 +36,7 @@ export const BASE_TOOL_NAMES = [
   'get_store_policy',
   'update_customer_profile',
   'get_customer_profile',
+  'close_details_review',
   'navigate_to_page',
 ] as const;
 
@@ -51,6 +52,7 @@ export const COMMERCE_TOOL_NAMES = [
   'get_store_policy',
   'update_customer_profile',
   'get_customer_profile',
+  'close_details_review',
 ] as const;
 
 /** ORA's own sales and onboarding agent. */
@@ -67,6 +69,7 @@ export const PLATFORM_TOOL_NAMES = [
   // (POST /knowledge/voice-transcript), which is authenticated.
   'update_customer_profile',
   'get_customer_profile',
+  'close_details_review',
 ] as const;
 
 export interface AgentCapabilityContext {
@@ -140,6 +143,8 @@ export const TOOL_USAGE_HINTS: Record<string, string> = {
     '   - update_customer_profile: When the visitor shares their name, contact details, or preferences.',
   get_customer_profile:
     '   - get_customer_profile: When the visitor asks what details you have saved for them.',
+  close_details_review:
+    '   - close_details_review: After saving contact details a review card appears on screen. Call this with confirmed=true once the visitor says the details are right, or confirmed=false if they ask to close it. If they want a change, call update_customer_profile or capture_sales_lead again instead.',
   navigate_to_page:
     '   - navigate_to_page: When the visitor asks to be taken to a page that exists on this site. Always say one short sentence naming where you are taking them first ("Taking you to our contact page now!") — the visitor is listening, so never move the page in silence.',
   get_pricing_plans:

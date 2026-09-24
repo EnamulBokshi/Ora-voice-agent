@@ -199,6 +199,8 @@ export class AiToolsExecutor {
         case 'get_customer_profile':
         case 'get_customer_info':
           return await this.handleGetCustomerProfile(businessId, sessionId);
+        case 'close_details_review':
+          return this.handleCloseDetailsReview(args);
         // update_agent_directives / save_merchant_directives were removed: no
         // voice session is an authenticated owner acting on config, so a model
         // emitting either name now gets "Unknown tool" instead of a DB write.
@@ -1582,6 +1584,23 @@ export class AiToolsExecutor {
         data: detailsData,
         reason: 'Prompt user to review and verify their contact or shipping information',
       },
+    };
+  }
+
+  /**
+   * The review card lives in the visitor's browser, so there is nothing to do
+   * here but hand the client an action. A confirmation is persisted by the
+   * client's own `confirm_customer_details` message, the same path the card's
+   * Confirm button takes.
+   */
+  private handleCloseDetailsReview(args: Record<string, any>) {
+    const confirmed = args.confirmed === true;
+    return {
+      success: true,
+      message: confirmed
+        ? 'The details are confirmed and the review card is closed.'
+        : 'The review card is closed.',
+      action: { type: 'close_details', confirmed },
     };
   }
 

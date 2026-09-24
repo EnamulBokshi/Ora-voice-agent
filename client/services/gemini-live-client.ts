@@ -48,6 +48,8 @@ export interface LiveClientOptions {
     /** Coupon code the agent is passing to the checkout form. */
     couponCode?: string;
     planId?: string;
+    /** `close_details`: the visitor confirmed the details, not just closed the card. */
+    confirmed?: boolean;
   }) => void;
   onError?: (errMessage: string) => void;
   /**

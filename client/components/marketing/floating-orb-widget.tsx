@@ -64,12 +64,12 @@ function OrbFluidWave({ voiceState, energyLevel }: OrbFluidWaveProps) {
       const amp = isSpeaking
         ? 6 + (energyLevel / 100) * 14
         : isThinking
-        ? 5
-        : isActive
-        ? 3 + (energyLevel / 100) * 8
-        : isConnecting
-        ? 4
-        : 1.5;
+          ? 5
+          : isActive
+            ? 3 + (energyLevel / 100) * 8
+            : isConnecting
+              ? 4
+              : 1.5;
 
       const speedMult = isSpeaking ? 1.8 : isThinking ? 1.6 : isConnecting ? 1.5 : 1.0;
 
@@ -251,6 +251,9 @@ const ANCHOR_ROUTE_FALLBACKS: Record<string, string> = {
 
 /** An anchor may not be mounted yet; retry before giving up on it. */
 const ANCHOR_RETRY_MS = 250;
+
+/** How long the details review card waits, with no activity, before closing itself. */
+const REVIEW_IDLE_MS = 10000;
 const ANCHOR_MAX_RETRIES = 2;
 
 /** A page may still be streaming in when the route changes; retry briefly. */
@@ -343,6 +346,14 @@ export function FloatingOrbWidget() {
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isCardHoveredRef = useRef(false);
+  // Read when the auto-dismiss timer fires, and by `close_details` from ORA,
+  // both of which run outside the render that set them.
+  const isEditingDetailsRef = useRef(false);
+  const customerDetailsRef = useRef(customerDetails);
+  useEffect(() => {
+    isEditingDetailsRef.current = isEditingDetails;
+    customerDetailsRef.current = customerDetails;
+  }, [isEditingDetails, customerDetails]);
   const pageHistoryRef = useRef<string[]>([pathname || '/']);
   const lastSentPathRef = useRef<string>(pathname || '/');
 
@@ -353,14 +364,29 @@ export function FloatingOrbWidget() {
     }
   }, []);
 
-  const armAutoDismiss = useCallback((delayMs = 7000) => {
+  /**
+   * The review card is closed by the visitor or by ORA (`close_details`). This
+   * is only the fallback: it closes the card after REVIEW_IDLE_MS with no
+   * activity. Pointer over the card, an open editor, or conversation keeps it
+   * up — each fire while the card is in use simply re-arms.
+   */
+  const armAutoDismiss = useCallback(() => {
     cancelAutoDismiss();
-    autoDismissTimerRef.current = setTimeout(() => {
-      if (!isCardHoveredRef.current) {
-        setShowConfirmModal(false);
+    const tick = () => {
+      if (isCardHoveredRef.current || isEditingDetailsRef.current) {
+        autoDismissTimerRef.current = setTimeout(tick, REVIEW_IDLE_MS);
+        return;
       }
-    }, delayMs);
+      autoDismissTimerRef.current = null;
+      setShowConfirmModal(false);
+    };
+    autoDismissTimerRef.current = setTimeout(tick, REVIEW_IDLE_MS);
   }, [cancelAutoDismiss]);
+
+  /** Activity while the card is up restarts its idle countdown. */
+  const bumpAutoDismiss = useCallback(() => {
+    if (autoDismissTimerRef.current) armAutoDismiss();
+  }, [armAutoDismiss]);
 
   /**
    * Scroll to an in-page anchor, and fall back rather than doing nothing when
@@ -625,8 +651,8 @@ export function FloatingOrbWidget() {
             links: ['https://github.com/enamul/ora'],
           },
         }),
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   }, []);
 
   const isMountedRef = useRef(true);
@@ -676,7 +702,7 @@ export function FloatingOrbWidget() {
     const sessionId = `sess_landing_${Math.random().toString(36).slice(2, 9)}`;
     try {
       sessionStorage.setItem('ora_landing_session_id', sessionId);
-    } catch {}
+    } catch { }
     const apiBaseUrl = getApiBase();
     // A logged-in merchant gets a `visitor` ticket so the platform assistant can
     // greet them by name. Anyone else, or a failed request, is a plain visitor.
@@ -701,7 +727,7 @@ export function FloatingOrbWidget() {
           else if (status === 'listening' || status === 'connected') setVoiceState('active');
           else if (status === 'speaking') setVoiceState('ora-speaking');
           else if (status === 'error') {
-            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch { }
             if (isAuto) {
               setVoiceState('idle');
             } else {
@@ -709,12 +735,16 @@ export function FloatingOrbWidget() {
             }
           }
           else if (status === 'idle') {
-            try { sessionStorage.removeItem('ora_landing_session_id'); } catch {}
+            try { sessionStorage.removeItem('ora_landing_session_id'); } catch { }
             setVoiceState('idle');
           }
         },
         onTranscript: (sender, text) => {
           if (!isMountedRef.current) return;
+          if (sender === 'agent' || sender === 'user') {
+            // Talk while the review card is up is most likely about the card.
+            bumpAutoDismiss();
+          }
           if (sender === 'agent') {
             setLiveSpeaker('agent');
             setLiveUtterance(text);
@@ -755,7 +785,7 @@ export function FloatingOrbWidget() {
             const code = String(action.couponCode).toUpperCase();
             try {
               window.localStorage.setItem('ora.pendingCoupon', code);
-            } catch {}
+            } catch { }
 
             const planId = action.planId ? String(action.planId) : '';
             const dest = `/billing/checkout?${planId ? `planId=${encodeURIComponent(planId)}&` : ''}coupon=${encodeURIComponent(code)}`;
@@ -768,8 +798,19 @@ export function FloatingOrbWidget() {
             } else {
               try {
                 router.prefetch(dest);
-              } catch {}
+              } catch { }
               router.push(dest);
+            }
+            return;
+          }
+          if (action?.type === 'close_details') {
+            // ORA heard the visitor confirm, or ask to close the card.
+            if (action.confirmed) {
+              handleConfirmSuccess(customerDetailsRef.current);
+            } else {
+              setShowConfirmModal(false);
+              setIsEditingDetails(false);
+              cancelAutoDismiss();
             }
             return;
           }
@@ -780,7 +821,7 @@ export function FloatingOrbWidget() {
             setShowConfirmModal(true);
             setIsEditingDetails(false);
             setIsDetailsConfirmed(false);
-            armAutoDismiss(8000);
+            armAutoDismiss();
             setTimeout(() => setHighlightField(null), 1500);
           }
           if (action?.type === 'navigate' && action.destination) {
@@ -812,7 +853,7 @@ export function FloatingOrbWidget() {
                   if (pathPart && pathPart !== currentPath) {
                     try {
                       router.prefetch(pathPart);
-                    } catch {}
+                    } catch { }
                     router.push(dest);
                     setTimeout(() => goToAnchor(hashPart), 350);
                   } else {
@@ -825,7 +866,7 @@ export function FloatingOrbWidget() {
                   if (currentFull !== dest) {
                     try {
                       router.prefetch(dest);
-                    } catch {}
+                    } catch { }
                     router.push(dest);
                   }
                 }
@@ -857,7 +898,17 @@ export function FloatingOrbWidget() {
         setVoiceState('error');
       }
     }
-  }, [pathname, router, armAutoDismiss, goToAnchor, clearSessionNotice, showSessionNotice]);
+  }, [
+    pathname,
+    router,
+    armAutoDismiss,
+    bumpAutoDismiss,
+    cancelAutoDismiss,
+    handleConfirmSuccess,
+    goToAnchor,
+    clearSessionNotice,
+    showSessionNotice,
+  ]);
 
   // ── Auto-greet visitor on landing page visit or reload ──────────────────────
   useEffect(() => {
@@ -922,7 +973,7 @@ export function FloatingOrbWidget() {
     userStoppedRef.current = true;
     try {
       sessionStorage.removeItem('ora_landing_session_id');
-    } catch {}
+    } catch { }
     liveClientRef.current?.stop();
     setVoiceState('idle');
     setLiveUtterance('');
@@ -966,14 +1017,12 @@ export function FloatingOrbWidget() {
           aria-live="polite"
           onMouseEnter={() => {
             isCardHoveredRef.current = true;
-            cancelAutoDismiss();
           }}
           onMouseLeave={() => {
             isCardHoveredRef.current = false;
-            if (!isEditingDetails && !isDetailsConfirmed) {
-              armAutoDismiss(3500);
-            }
+            bumpAutoDismiss();
           }}
+          onInput={bumpAutoDismiss}
         >
           <div className="lp-orb-card-header">
             <div className="lp-orb-card-title">
@@ -989,11 +1038,7 @@ export function FloatingOrbWidget() {
                 onClick={() => {
                   const nextEdit = !isEditingDetails;
                   setIsEditingDetails(nextEdit);
-                  if (nextEdit) {
-                    cancelAutoDismiss();
-                  } else {
-                    armAutoDismiss(5000);
-                  }
+                  bumpAutoDismiss();
                 }}
                 title="Edit Information"
                 aria-label="Edit"
@@ -1064,7 +1109,7 @@ export function FloatingOrbWidget() {
                   className="lp-orb-action-btn secondary"
                   onClick={() => {
                     setIsEditingDetails(true);
-                    cancelAutoDismiss();
+                    bumpAutoDismiss();
                   }}
                 >
                   Edit
@@ -1130,7 +1175,7 @@ export function FloatingOrbWidget() {
                   className="lp-orb-action-btn secondary"
                   onClick={() => {
                     setIsEditingDetails(false);
-                    armAutoDismiss(5000);
+                    bumpAutoDismiss();
                   }}
                 >
                   Cancel
@@ -1165,7 +1210,7 @@ export function FloatingOrbWidget() {
           {isConnecting ? (
             <div className="lp-orb-island-pill connecting">
               <span className="lp-orb-status-dot connecting" />
-              <span className="lp-orb-shimmer-text">Connecting to ORA Live…</span>
+              <span className="lp-orb-shimmer-text">Connecting to ORA</span>
             </div>
           ) : voiceState === 'error' ? (
             <button
