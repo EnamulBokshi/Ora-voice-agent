@@ -60,6 +60,13 @@ export interface LiveClientOptions {
   onSessionNotice?: (notice: { kind: 'warning' | 'ended'; message: string }) => void;
 }
 
+/**
+ * How long `endWithGoodbye` waits before tearing down regardless. Longer than
+ * the server's own goodbye fallback plus drain, so the server normally closes
+ * first and this only catches a server that went silent.
+ */
+const GOODBYE_CLIENT_TIMEOUT_MS = 18_000;
+
 /** Silence after the last shopper fragment that ends their line. */
 const USER_TRANSCRIPT_PAUSE_MS = 1200;
 
@@ -94,6 +101,7 @@ export class GeminiLiveClient {
   private userTranscriptBuffer = '';
   private agentTranscriptBuffer = '';
   private userTranscriptTimer: ReturnType<typeof setTimeout> | null = null;
+  private goodbyeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: LiveClientOptions) {
     this.options = options;
@@ -101,6 +109,39 @@ export class GeminiLiveClient {
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+  }
+
+  /** True while ORA is saying goodbye after `endWithGoodbye`. */
+  public get isEnding(): boolean {
+    return this.goodbyeTimer !== null;
+  }
+
+  /**
+   * Ends the session with ORA saying goodbye, instead of cutting it off.
+   *
+   * Mutes the microphone so nothing the visitor says interrupts the goodbye,
+   * and asks the server to close with one. The server then streams the goodbye
+   * and sends `session_ended`, whose handler here waits for playback to drain
+   * before calling `stop()`.
+   *
+   * Returns false when there is no live session to say goodbye in; the caller
+   * should then `stop()` directly.
+   */
+  public endWithGoodbye(): boolean {
+    if (this.goodbyeTimer) return true;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.setupConfirmed) {
+      return false;
+    }
+
+    this.setMuted(true);
+    this.stopSpeechRecognition();
+    this.stopIdleWatcher();
+    this.ws.send(JSON.stringify({ type: 'end_session', goodbye: true }));
+    this.goodbyeTimer = setTimeout(() => {
+      this.goodbyeTimer = null;
+      this.stop();
+    }, GOODBYE_CLIENT_TIMEOUT_MS);
+    return true;
   }
 
   public sendContextUpdate(context: {
@@ -750,6 +791,10 @@ export class GeminiLiveClient {
   }
 
   public stop(silent = false) {
+    if (this.goodbyeTimer) {
+      clearTimeout(this.goodbyeTimer);
+      this.goodbyeTimer = null;
+    }
     this.flushUserTranscript();
     this.flushAgentTranscript();
     this.setupConfirmed = false;
