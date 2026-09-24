@@ -31,10 +31,10 @@ export function Start2Footer() {
     {
       title: 'Product',
       links: [
-        { label: 'Features', href: '#features' },
-        { label: 'How it works', href: '#how-it-works' },
-        { label: 'Integrations', href: '#integrations' },
-        { label: 'Pricing', href: '#pricing' },
+        { label: 'Features', href: '/#features' },
+        { label: 'How it works', href: '/#how-it-works' },
+        { label: 'Pricing', href: '/pricing' },
+        { label: 'Docs', href: '/docs' },
       ],
     },
     {

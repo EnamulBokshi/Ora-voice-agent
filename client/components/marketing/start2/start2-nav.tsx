@@ -93,10 +93,10 @@ export function Start2Nav() {
 
           {/* Navigation Links */}
           <nav className="s2-nav-links" aria-label="Main Navigation">
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How It Works</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#capabilities">Integrations</a>
+            <Link href="/#features">Features</Link>
+            <Link href="/#how-it-works">How It Works</Link>
+            <Link href="/pricing">Pricing</Link>
+            <Link href="/docs">Docs</Link>
           </nav>
 
           {/* Nav Actions */}
