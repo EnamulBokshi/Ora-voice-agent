@@ -4,6 +4,7 @@ import { Suspense } from "react"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/context/auth-context"
 import { Toaster } from "@/components/ui/sonner"
 import { FloatingOrbWidget } from "@/components/marketing/floating-orb-widget"
 import { cn } from "@/lib/utils"
@@ -94,11 +95,13 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning>
         <ThemeProvider>
-          {children}
-          <Suspense fallback={null}>
-            <FloatingOrbWidget />
-          </Suspense>
-          <Toaster />
+          <AuthProvider>
+            {children}
+            <Suspense fallback={null}>
+              <FloatingOrbWidget />
+            </Suspense>
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

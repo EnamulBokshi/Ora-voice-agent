@@ -12,45 +12,22 @@ import {
   Loader2,
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
-import { getMeApi, logoutApi } from '@/services/auth-service';
+import { useAuth } from '@/context/auth-context';
 import { User } from '@/types/auth';
 
 export function MarketingNavbar() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const { user, isAuthenticated: isLoggedIn, logout, isLoading } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
-
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        getMeApi(token)
-          .then((data) => {
-            if (data?.user) {
-              setIsLoggedIn(true);
-              setUser(data.user);
-            } else {
-              setIsLoggedIn(false);
-              setUser(null);
-            }
-          })
-          .catch(() => {
-            setIsLoggedIn(false);
-            setUser(null);
-          });
-      } else {
-        setIsLoggedIn(false);
-        setUser(null);
-      }
-    }
-
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -77,18 +54,13 @@ export function MarketingNavbar() {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      await logoutApi();
+      await logout();
+      setDropdownOpen(false);
+      window.location.href = '/auth';
     } catch {
       // Ignore network errors during logout
     } finally {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
-        setIsLoggedIn(false);
-        setUser(null);
-        setDropdownOpen(false);
-        window.location.href = '/auth';
-      }
+      setLoggingOut(false);
     }
   };
 
@@ -153,7 +125,7 @@ export function MarketingNavbar() {
           <ThemeToggle />
 
           {/* Primary CTA (shown only when logged out) */}
-          {!isLoggedIn && (
+          {(!mounted || !isLoggedIn) && (
             <Link
               href="/auth"
               className="lp-btn-primary lp-nav-cta"
@@ -164,7 +136,7 @@ export function MarketingNavbar() {
           )}
 
           {/* Profile Dropdown (when logged in) */}
-          {isLoggedIn && user && (
+          {mounted && isLoggedIn && user && (
             <div className="lp-user-menu-wrapper" ref={dropdownRef}>
               <button
                 type="button"

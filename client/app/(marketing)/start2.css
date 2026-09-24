@@ -299,6 +299,167 @@
   text-decoration: none;
 }
 
+/* User Profile Menu in Start2 Nav */
+.start2-landing .s2-user-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.start2-landing .s2-user-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.25rem;
+  background-color: var(--s2-card);
+  border: 1px solid var(--s2-border);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--s2-text-primary);
+}
+
+.start2-landing .s2-user-trigger-btn:hover {
+  border-color: var(--s2-brand-lime-border);
+}
+
+.start2-landing .s2-user-avatar {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 9999px;
+  background-color: var(--s2-btn-primary-bg);
+  color: var(--s2-btn-primary-text);
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.start2-landing .s2-user-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--s2-text-primary);
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.start2-landing .s2-user-dropdown {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  width: 250px;
+  background-color: var(--s2-card);
+  border: 1px solid var(--s2-border);
+  border-radius: 14px;
+  box-shadow: var(--s2-card-shadow);
+  padding: 0.75rem;
+  z-index: 150;
+  animation: s2DropdownFade 0.15s ease-out;
+}
+
+@keyframes s2DropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.start2-landing .s2-user-info-section {
+  padding: 0.5rem 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--s2-border);
+  margin-bottom: 0.5rem;
+}
+
+.start2-landing .s2-user-info-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--s2-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.start2-landing .s2-user-info-email {
+  font-size: 0.75rem;
+  color: var(--s2-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.35rem;
+}
+
+.start2-landing .s2-user-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: var(--s2-brand-lime-bg);
+  color: var(--s2-accent-ink);
+  border: 1px solid var(--s2-brand-lime-border);
+}
+
+.start2-landing .s2-user-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.start2-landing .s2-user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--s2-text-primary);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.start2-landing .s2-user-menu-item:hover {
+  background-color: var(--s2-card-nested);
+  color: var(--s2-text-primary);
+}
+
+.start2-landing .s2-user-menu-item.danger {
+  color: #ef4444;
+}
+
+.start2-landing .s2-user-menu-item.danger:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.start2-landing .s2-nav-skeleton {
+  width: 90px;
+  height: 34px;
+  border-radius: 9999px;
+  background: var(--s2-border);
+  opacity: 0.4;
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* =============================================================================
    2. HERO SECTION & LIVE COMMAND CENTER
    ============================================================================= */
