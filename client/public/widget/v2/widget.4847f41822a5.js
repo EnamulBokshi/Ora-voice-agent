@@ -611,6 +611,19 @@
         } catch (e) {}
       }
 
+      var selectedVariantId = null;
+      try {
+        var varInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (varInput && varInput.value) {
+          selectedVariantId = String(varInput.value);
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          selectedVariantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+        } else {
+          var urlVar = new URLSearchParams(window.location.search).get('variant');
+          if (urlVar) selectedVariantId = urlVar;
+        }
+      } catch (e) {}
+
       var contentSignature = title + '|' + metaDesc + '|' + headings.map(function(h){return h.text}).join(',') + '|' + (product ? (product.name + ':' + product.price + ':' + product.currency) : '') + '|' + cleanBodyText.slice(0, 500);
       var contentHash = hashString(contentSignature);
 
@@ -624,6 +637,7 @@
         contacts: contacts,
         bodyTextSnippet: cleanBodyText,
         product: product,
+        selectedVariantId: selectedVariantId,
         contentHash: contentHash
       };
     } catch (err) {
@@ -639,7 +653,8 @@
       title: telemetry.title,
       pathname: telemetry.pathname,
       isProductPage: !!telemetry.product,
-      product: telemetry.product
+      product: telemetry.product,
+      selectedVariantId: telemetry.selectedVariantId
     };
   }
 
@@ -2223,6 +2238,16 @@
     window.addEventListener('pagehide', parkSessionForNavigation);
     window.addEventListener('beforeunload', parkSessionForNavigation);
 
+    // ── Live Shopify Cart Synchronization ────────────────────────────────────
+    if (isShopifyStorefront()) {
+      document.addEventListener('cart:updated', function () { syncShopifyCart(); });
+      document.addEventListener('cart:refresh', function () { syncShopifyCart(); });
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) syncShopifyCart();
+      });
+      window.addEventListener('focus', function () { syncShopifyCart(); });
+    }
+
     // ── Resume a conversation the previous page was holding ──────────────────
     // Only when it was actually live. A session the customer had let lapse to standby
     // stays parked but silent: they get their history back when they tap, and are not
@@ -2851,9 +2876,34 @@
   }
 
   function addToShopifyCart(action) {
-    if (!action || !action.variantId) return;
+    if (!action) return;
+
+    var variantId = action.variantId;
+    if (!variantId) {
+      // DOM fail-safe: if shopper is on a Shopify PDP, read the active variant id from the form
+      try {
+        var domInput = document.querySelector('form[action*="/cart/add"] [name="id"], [data-selected-variant-id]');
+        if (domInput && domInput.value) {
+          variantId = domInput.value;
+          action.variantId = variantId;
+        } else if (window.ShopifyAnalytics && window.ShopifyAnalytics.meta && window.ShopifyAnalytics.meta.selectedVariantId) {
+          variantId = String(window.ShopifyAnalytics.meta.selectedVariantId);
+          action.variantId = variantId;
+        }
+      } catch (e) {}
+    }
+
+    // Both exits below used to return in silence, which is the worst of the two
+    // outcomes: ORA has already told the shopper the item is in their cart, and
+    // nothing ever contradicts it. Report the failure so the server drops the line
+    // and the agent corrects itself out loud.
+    if (!variantId) {
+      reportCartSync(action, false, 'no-variant-id');
+      return;
+    }
 
     if (!isShopifyStorefront()) {
+      reportCartSync(action, false, 'not-a-shopify-storefront');
       return;
     }
 
@@ -2898,12 +2948,111 @@
             refreshCartSections().then(openCartDrawer);
           }, 60);
         }
+        syncShopifyCart();
       })
       .catch(function (err) {
         console.error('[ORA Widget] Failed to add item to Shopify cart:', err);
         showToastNotification('Could not add to cart. Please try the product page.');
         reportCartSync(action, false, err && err.message);
       });
+  }
+
+  /**
+   * Reads Shopify /cart.js and sends real-time cart state to the server via WebSocket.
+   */
+  function syncShopifyCart() {
+    if (!isShopifyStorefront()) return;
+    try {
+      fetch('/cart.js', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('Cart fetch failed');
+          return res.json();
+        })
+        .then(function (cartData) {
+          if (geminiWs && geminiWs.readyState === WebSocket.OPEN) {
+            geminiWs.send(
+              JSON.stringify({
+                type: 'cart_telemetry',
+                cart: cartData,
+              })
+            );
+          }
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  /**
+   * Updates an item quantity in Shopify cart via /cart/change.js (or removes if quantity is 0).
+   */
+  function updateShopifyCart(action) {
+    if (!action || !action.variantId) return;
+    if (!isShopifyStorefront()) return;
+
+    var newQty = action.quantity !== undefined ? Number(action.quantity) : 0;
+    var name = action.productName || 'Item';
+
+    if (newQty === 0) {
+      showToastNotification('Removed from cart: ' + name);
+    } else {
+      showToastNotification('Updated ' + name + ' quantity to ' + newQty);
+    }
+
+    fetch('/cart/change.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ id: String(action.variantId), quantity: newQty }),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.description || data.message || 'Cart update failed');
+          return data;
+        });
+      })
+      .then(function (data) {
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(function () {
+            refreshCartSections().then(openCartDrawer);
+          });
+        } else {
+          setTimeout(function () {
+            refreshCartSections().then(openCartDrawer);
+          }, 60);
+        }
+        syncShopifyCart();
+      })
+      .catch(function (err) {
+        console.error('[ORA Widget] Failed to update Shopify cart:', err);
+        showToastNotification('Could not update cart.');
+      });
+  }
+
+  /**
+   * Clears all items from the Shopify cart via /cart/clear.js.
+   */
+  function clearShopifyCart() {
+    if (!isShopifyStorefront()) return;
+    showToastNotification('Shopping cart cleared');
+    fetch('/cart/clear.js', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart: data } }));
+        document.dispatchEvent(new CustomEvent('cart:refresh'));
+        refreshCartSections();
+        syncShopifyCart();
+      })
+      .catch(function () {});
   }
 
   // ─── Audio Playback (24 kHz PCM with 80ms Jitter Buffer) ────────────────────
@@ -3557,8 +3706,13 @@
       const custPayload = resolveCustomerPayload();
       const curPath = (typeof window !== 'undefined' && window.location.pathname) ? window.location.pathname : '/';
       const curTitle = (typeof document !== 'undefined' && document.title) ? document.title : '';
+      // Declares that the noise gate above runs before anything is transmitted, so
+      // the server can use its fast turn-detection profile. Only a client with a
+      // gate may send this: without one the server's HIGH start sensitivity reads
+      // room noise as speech. Remove the gate and this flag goes with it.
       let wsUri = wsBase + '/ws/voice' +
         '?publishableKey=' + encodeURIComponent(publishableKey) +
+        '&gatedAudio=true' +
         '&sessionId=' + encodeURIComponent(sessionId) +
         '&deviceId=' + encodeURIComponent(custPayload.deviceId) +
         '&currentPath=' + encodeURIComponent(curPath) +
@@ -3602,7 +3756,8 @@
             currentPath: pageCtx.pathname || window.location.pathname || '/',
             title: pageCtx.title || document.title || '',
             history: [pageCtx.pathname || window.location.pathname || '/'],
-            product: pageCtx.product || null
+            product: pageCtx.product || null,
+            selectedVariantId: pageCtx.selectedVariantId || null
           }));
           if (custPayload.identified) {
             ws.send(JSON.stringify({
@@ -3611,6 +3766,7 @@
               userData: custPayload.identified
             }));
           }
+          syncShopifyCart();
         } catch (e) {}
       };
 
@@ -3778,6 +3934,14 @@
 
             if (msg.action && msg.action.type === 'shopify_add_to_cart') {
               addToShopifyCart(msg.action);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_update_cart') {
+              updateShopifyCart(msg.action);
+            }
+
+            if (msg.action && msg.action.type === 'shopify_clear_cart') {
+              clearShopifyCart();
             }
 
             if (msg.action && msg.action.type === 'navigate' && msg.action.destination) {

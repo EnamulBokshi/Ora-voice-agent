@@ -1,107 +1,75 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
+import { getBillingPlansApi } from '@/services/billing-service';
+import type { Plan } from '@/types/billing';
 
-interface PlanFeature {
-  text: string;
-  strong?: string;
-}
+/**
+ * Pricing, driven by the plans managed in the admin panel
+ * (GET /billing/plans returns every active, public plan).
+ *
+ * Monthly shows plans billed monthly; Yearly shows plans billed yearly. The
+ * Yearly button stays visible but disabled until the admin creates at least
+ * one yearly plan. The card marked with a badge in the admin panel is the
+ * highlighted one; without any badge, the middle card is highlighted.
+ */
 
-interface PlanItem {
-  id: string;
-  name: string;
-  note: string;
-  monthlyPrice: string;
-  yearlyPrice: string;
-  isFixed?: boolean;
-  desc: string;
-  features: PlanFeature[];
-  cta: string;
-  ctaHref: string;
-  featured?: boolean;
-  foot: string;
-}
+type Interval = 'month' | 'year';
 
-const PLANS: PlanItem[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    note: 'Free forever',
-    monthlyPrice: '$0',
-    yearlyPrice: '$0',
-    isFixed: true,
-    desc: 'Test voice in a sandbox. No credit card required.',
-    features: [
-      { text: '100 streaming voice minutes a month', strong: '100' },
-      { text: '1 storefront connection', strong: '1' },
-      { text: 'Sub-350 ms turn latency', strong: 'Sub-350 ms' },
-      { text: 'Catalogue and variant stock sync' },
-      { text: '48kHz studio audio quality' },
-      { text: 'Community support and docs' },
-    ],
-    cta: 'Try Sandbox',
-    ctaHref: '/auth',
-    featured: false,
-    foot: 'No credit card required.',
-  },
-  {
-    id: 'growth',
-    name: 'Growth',
-    note: '14-day trial',
-    monthlyPrice: '$49',
-    yearlyPrice: '$39',
-    desc: 'For Shopify, WooCommerce, and custom storefronts.',
-    features: [
-      { text: '2,000 streaming voice minutes a month', strong: '2,000' },
-      { text: 'Up to 500 voice-assisted orders', strong: '500' },
-      { text: 'Sub-350 ms turn latency', strong: 'Sub-350 ms' },
-      { text: 'Catalogue and variant stock sync' },
-      { text: 'In-conversation cart and checkout links' },
-      { text: 'Call transcripts and conversion telemetry' },
-    ],
-    cta: 'Start free trial',
-    ctaHref: '/auth',
-    featured: true,
-    foot: 'No card required to start.',
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    note: 'Dedicated infrastructure',
-    monthlyPrice: '$149',
-    yearlyPrice: '$119',
-    desc: 'For high-volume stores and large SKU catalogues.',
-    features: [
-      { text: 'Everything in Growth' },
-      { text: 'Unlimited voice minutes', strong: 'Unlimited' },
-      { text: 'Unlimited voice-assisted orders', strong: 'Unlimited' },
-      { text: 'Brand voice tuning and persona control' },
-      { text: 'Shopify, WooCommerce, and ERP connectors' },
-      { text: 'Solutions engineer, 99.99% uptime SLA', strong: '99.99%' },
-    ],
-    cta: 'Talk to sales',
-    ctaHref: '/auth',
-    featured: false,
-    foot: 'Annual contracts available.',
-  },
-];
+// Plans have been saved as 'month', 'monthly', 'year' or 'yearly'.
+const intervalOf = (p: Plan): Interval => (/^year/i.test(p.billingInterval ?? '') ? 'year' : 'month');
 
-function renderFeature(f: PlanFeature) {
-  if (!f.strong) return f.text;
-  const idx = f.text.indexOf(f.strong);
-  if (idx === -1) return f.text;
+const formatPrice = (cents: number) =>
+  `$${(cents / 100).toLocaleString('en-US', {
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+// "Starter Plan" reads as "Starter" on a pricing card.
+const displayName = (name: string) => name.replace(/\s+plan$/i, '');
+
+// Bold a leading quantity ("2,500 live voice minutes", "Unlimited seats").
+function renderFeature(text: string) {
+  const m = text.match(/^((?:Up to\s+)?[\d.,]+\+?|Unlimited)(\s.*)$/i);
+  if (!m) return text;
   return (
     <>
-      {f.text.slice(0, idx)}
-      <b>{f.strong}</b>
-      {f.text.slice(idx + f.strong.length)}
+      <b>{m[1]}</b>
+      {m[2]}
     </>
   );
 }
 
 export function Start2Pricing() {
-  const [yearly, setYearly] = useState(false);
+  const [plans, setPlans] = useState<Plan[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [billing, setBilling] = useState<Interval>('month');
+
+  useEffect(() => {
+    let alive = true;
+    getBillingPlansApi()
+      .then((data) => alive && setPlans(data))
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const byInterval = useMemo(() => {
+    const sorted = [...(plans ?? [])].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.priceUsdCents - b.priceUsdCents,
+    );
+    return {
+      month: sorted.filter((p) => intervalOf(p) === 'month'),
+      year: sorted.filter((p) => intervalOf(p) === 'year'),
+    };
+  }, [plans]);
+
+  const hasYearly = byInterval.year.length > 0;
+  const visible = byInterval[billing];
+  const anyBadge = visible.some((p) => p.badge);
+  const cols = Math.max(1, Math.min(visible.length || 3, 4));
 
   return (
     <section className="s2-pricing-section" id="pricing" aria-label="Pricing plans">
@@ -109,78 +77,75 @@ export function Start2Pricing() {
         <div className="s2p-head">
           <div>
             <h2 className="s2p-title">Pricing</h2>
-            <p className="s2p-sub">Three plans. All include the full agent; the difference is volume.</p>
           </div>
           <div className="s2p-toggle" role="group" aria-label="Billing frequency">
             <button
               type="button"
-              className={!yearly ? 'on' : ''}
-              onClick={() => setYearly(false)}
+              className={billing === 'month' ? 'on' : ''}
+              aria-pressed={billing === 'month'}
+              onClick={() => setBilling('month')}
             >
               Monthly
             </button>
             <button
               type="button"
-              className={yearly ? 'on' : ''}
-              onClick={() => setYearly(true)}
+              className={billing === 'year' ? 'on' : ''}
+              aria-pressed={billing === 'year'}
+              disabled={!hasYearly}
+              title={hasYearly ? undefined : 'Yearly billing is not available yet'}
+              onClick={() => setBilling('year')}
             >
               Yearly
             </button>
-            <span>−20%</span>
+            {!hasYearly && plans && <span>Soon</span>}
           </div>
         </div>
 
-        <div className="s2p-plans">
-          {PLANS.map((plan) => {
-            const price = plan.isFixed
-              ? plan.monthlyPrice
-              : yearly
-                ? plan.yearlyPrice
-                : plan.monthlyPrice;
-            const period = plan.isFixed
-              ? 'per month'
-              : yearly
-                ? 'per month, billed yearly'
-                : 'per month';
+        {failed ? (
+          <p className="s2p-status">
+            Plans could not be loaded right now. <Link href="/auth">Create an account</Link> to see
+            every plan.
+          </p>
+        ) : (
+          <div className="s2p-plans" style={{ '--s2p-cols': cols } as CSSProperties}>
+            {plans === null
+              ? [0, 1, 2].map((i) => <div key={i} className="s2p-plan s2p-skeleton" aria-hidden="true" />)
+              : visible.map((plan, i) => {
+                  const featured = anyBadge ? Boolean(plan.badge) : visible.length > 2 && i === 1;
+                  const trial = plan.trialDays ?? 0;
+                  return (
+                    <div key={plan._id} className={`s2p-plan${featured ? ' lead' : ''}`}>
+                      <div>
+                        <div className="s2p-tier">
+                          <h3>{displayName(plan.name)}</h3>
+                          <span className="s2p-note">
+                            {plan.badge || (trial > 0 ? `${trial}-day free trial` : '')}
+                          </span>
+                        </div>
 
-            return (
-              <div
-                key={plan.id}
-                className={`s2p-plan${plan.featured ? ' lead' : ''}`}
-              >
-                <div>
-                  <div className="s2p-tier">
-                    <h3>{plan.name}</h3>
-                    <span className="s2p-note">{plan.note}</span>
-                  </div>
+                        <div className="s2p-price">
+                          <b>{formatPrice(plan.priceUsdCents)}</b>
+                          <span>{billing === 'year' ? 'per year' : 'per month'}</span>
+                        </div>
 
-                  <div className="s2p-price">
-                    <b>{price}</b>
-                    <span>{period}</span>
-                  </div>
+                        <ul className="s2p-features">
+                          {plan.features.map((feat) => (
+                            <li key={feat}>{renderFeature(feat)}</li>
+                          ))}
+                        </ul>
+                      </div>
 
-                  <p className="s2p-desc">{plan.desc}</p>
-
-                  <ul className="s2p-features">
-                    {plan.features.map((feat, i) => (
-                      <li key={i}>{renderFeature(feat)}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <Link
-                    href={plan.ctaHref}
-                    className={`s2p-btn${plan.featured ? ' solid' : ''}`}
-                  >
-                    <span>{plan.cta}</span>
-                  </Link>
-                  <div className="s2p-foot">{plan.foot}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                      <div>
+                        <Link href="/auth" className={`s2p-btn${featured ? ' solid' : ''}`}>
+                          <span>{trial > 0 ? 'Start free trial' : 'Get started'}</span>
+                        </Link>
+                        {trial > 0 && <div className="s2p-foot">No card required for the trial.</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+          </div>
+        )}
       </div>
     </section>
   );

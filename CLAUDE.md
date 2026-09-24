@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-Orientation file for Claude Code working in this repository. It covers what exists, how to run and verify it, and where the documented rules diverge from the code.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+It covers what exists, how to run and verify it, and where the documented rules diverge from the code.
 
 **Engineering rules live elsewhere and are authoritative.** Read them before writing code; do not rely on this file for conventions.
 
@@ -21,12 +23,13 @@ Four actor types, deliberately distinct — see `AGENTS.md` section 2 before tou
 
 ## Layout
 
-pnpm workspace. `pnpm-workspace.yaml` globs `client`, `server`, `packages/*`. **`packages/` does not exist yet** and there is **no root `package.json`**.
+pnpm workspace. `pnpm-workspace.yaml` globs `client`, `server`, `packages/*`. There is **no root `package.json`**.
 
 ```
 ORA/
 ├── client/                 Next.js 16 dashboard, admin console, marketing site
-├── server/                 NestJS API, 25 feature modules under src/
+├── server/                 NestJS API, feature modules under src/
+├── packages/shopify-app/   Shopify CLI app config + theme extension (ora-voice-widget)
 ├── docs/                   Integration guides and analyses
 ├── graphify-out/           Generated code-graph reports (see below)
 ├── deploy/ docker-compose*.yml
@@ -35,16 +38,17 @@ ORA/
 
 ### Server modules (`server/src/`)
 
-`admin agent-config ai-voice api-access auth billing common conversations customers dashboard events gateway ingestion invoices knowledge live-desk mail notifications orders products rag scripts usage users vector`
+`admin agent-config ai-voice api-access auth billing common conversations customers dashboard events gateway ingestion invoices knowledge live-desk mail notifications orders products rag shopify usage users vector`
 
 Load-bearing pieces worth knowing before editing:
 
-- `main.ts` — `rawBody: true`, global prefix `api/v1`, global `ValidationPipe({ whitelist, forbidNonWhitelisted, transform })`, global `TransformInterceptor` and `AllExceptionsFilter`, then a raw `ws` server attached at `/ws/voice` after Nest binds.
+- `main.ts` — `rawBody: true`, global prefix `api/v1`, global `ValidationPipe({ whitelist, forbidNonWhitelisted, transform })`, global `TransformInterceptor` and `AllExceptionsFilter`, then a raw `ws` server attached at `/ws/voice` after Nest binds. CORS is `origin: true` with `credentials: false` on purpose (the widget runs on arbitrary merchant domains; the dashboard and Shopify embedded app are same-origin via nginx). Never make both permissive at once.
 - `auth/strategies/jwt.strategy.ts` — every JWT requires a live Redis session keyed by `sessionId`. Any new login path must create that session or its tokens are inert.
 - `common/guards/` — `jwt-auth`, `tenant-scope`, `roles`, `api-key` (publishable key), `dual-auth`, `plan-limit`, `optional-jwt-auth`.
 - `common/utils/` — `encryption.util.ts`, `business-credentials.util.ts` (read encrypted connector credentials through this, never the raw field), `api-key.util.ts`, `pii-redactor.util.ts`.
 - `ingestion/` — four catalog connector tiers: Shopify, WooCommerce, feed, sitemap crawl, manual endpoint. One shared webhook route at `POST /api/v1/ingestion/webhooks/shopify` handles HMAC verification, 24-hour Redis dedupe, and tenant resolution from the signed shop domain only.
-- `billing/providers/` — `payment-provider.interface.ts` with `stripe.provider.ts` and `bkash.provider.ts`. Add new providers here, not in feature modules.
+- `shopify/` — the Shopify app integration (install/provisioning, staff roles, storefront key, GDPR compliance webhooks) plus a BullMQ `ShopifySyncProcessor` for catalog sync. `shopify.constants.ts` holds `SHOPIFY_API_VERSION`, shared by this module, the ingestion connector, and the Shopify billing provider. Bump it there, not per call site.
+- `billing/providers/` — `payment-provider.interface.ts` with `stripe.provider.ts`, `bkash.provider.ts`, and `shopify.provider.ts`. Add new providers here, not in feature modules.
 
 ### Client (`client/`)
 
@@ -61,7 +65,10 @@ There is no root `package.json`, so **root-level `pnpm build` / `pnpm test` fail
 pnpm --filter server start:dev      # watch mode
 pnpm --filter server build
 pnpm --filter server test           # append a pattern, e.g. `test shopify`
+pnpm --filter server test -- src/shopify/shopify.service.spec.ts   # single file
+pnpm --filter server test -- -t "test name"                          # single test by name
 pnpm --filter server test:cov
+pnpm --filter server test:e2e       # test/jest-e2e.json
 pnpm --filter server lint
 
 # Client
@@ -77,14 +84,21 @@ docker compose up -d
 pnpm --filter server seed:admin
 pnpm --filter server seed:dev-store
 pnpm --filter server migrate:hash-keys
+pnpm --filter server migrate:archetype-profiles
+pnpm --filter server shopify:queue-sync
+pnpm --filter server shopify:backfill-domain
+
+# Shopify app (Shopify CLI v4 via npx)
+pnpm --filter shopify-app shopify:dev
+pnpm --filter shopify-app shopify:deploy
 ```
+
+Server Jest config is inline in `server/package.json` (`rootDir: src`, `ts-jest`); specs sit next to the code as `*.spec.ts`.
 
 ## Verified baseline
 
-Measured at commit `25f217d`:
-
-- `pnpm --filter server test` — 43 suites, 224 tests, all passing, about 16s. Passing runs print `ERROR` lines from `AuthService`, `ShopifyConnectorService`, and `WooCommerceConnectorService`; these are deliberate negative-path assertions, not failures.
-- `pnpm --filter client typecheck` — clean.
+- `pnpm --filter client typecheck` — clean at `e69145a`.
+- `pnpm --filter server test` — last green count (43 suites, 224 tests) was at `25f217d`; the `shopify/` module and its specs came later, so that count is stale. Passing runs print `ERROR` lines from `AuthService`, `ShopifyConnectorService`, and `WooCommerceConnectorService`; these are deliberate negative-path assertions, not failures. If Jest reports `Module ts-jest in the transform option was not found`, `server/node_modules` is incomplete — run `pnpm install` first.
 
 Re-measure rather than trusting these numbers if the tree has moved on.
 
@@ -93,13 +107,11 @@ Re-measure rather than trusting these numbers if the tree has moved on.
 Each item below is a place where a rules document describes something the code does not do. Do not "fix" the code to match the doc without asking — some of these are aspirational roadmap, not regressions.
 
 - `AGENTS.md` section 8 instructs agents to verify with `pnpm build` and `pnpm test`. Both fail at the repo root. Use the `--filter` forms above.
-- `AGENTS.md` names `packages/shared-types` as the home for shared types. The `packages/` directory does not exist; types are currently duplicated between `client/types/` and server DTOs.
+- `AGENTS.md` names `packages/shared-types` as the home for shared types. Only `packages/shopify-app` exists; types are currently duplicated between `client/types/` and server DTOs.
 - `client/AGENTS.md` section 6 describes RTK for client state. Redux Toolkit is not a dependency of `client/package.json`.
 - `client/AGENTS.md` section 4 requires Server Actions in `actions/`. That directory does not exist; data access goes through `services/` and `lib/api-client.ts`.
 - `server/AGENTS.md` section 3.4 specifies invoice PDFs stored in S3. No AWS SDK dependency is installed.
-- `bkash.provider.ts` reads `BKASH_APP_KEY`, `BKASH_APP_SECRET`, `BKASH_USERNAME`, `BKASH_PASSWORD`, and `BKASH_BASE_URL`. None appear in `server/.env.example` (28 keys, none of them bKash).
-- `server/src/ingestion/services/shopify-connector.service.ts:197` pins Shopify API version `2024-01`, which is past Shopify's support window.
-- `main.ts` configures CORS as `origin: (origin, callback) => callback(null, true)` together with `credentials: true`, reflecting any origin with credentials. Known issue; the current branch `fix/credential-auth-hardening` is where it belongs.
+- `AGENTS.md` links to `client/AGENTS.md` and `server/AGENTS.md` with absolute `file:///home/nullpointer/...` paths from another machine. Use the repo-relative files.
 
 ## Credentials model
 
@@ -119,7 +131,7 @@ Full API surface: `docs/shopify-store-api-guide.md`, `docs/machine-api-developer
 
 `graphify-out/` holds generated graph reports — `GRAPH_REPORT.md` for community hubs and navigation, `graph.json` for the full node and edge set, dated subdirectories for history.
 
-Check freshness first. The report states the commit it was built from; compare against `git rev-parse HEAD`. As of this writing the report is from `6a613496` while `HEAD` is `25f217d`, so treat it as a map of where things live, not as truth about current file contents. `graphify update .` refreshes it at no API cost.
+Check freshness first. The report header gives its build date; compare it against `git log -1` and treat it as a map of where things live, not as truth about current file contents. `graphify update .` refreshes it at no API cost.
 
 Use it to locate a subsystem quickly, then read the actual files before making claims about behavior.
 

@@ -196,7 +196,7 @@ export function Start2CommandCenter() {
                     </g>
                     <path
                       d="M0 150 C 70 142, 110 128, 175 132 S 280 104, 350 96 S 470 78, 525 62 S 640 40, 700 28"
-                      stroke="var(--cc-accent)"
+                      stroke="var(--cc-chart)"
                       strokeWidth="1.6"
                       vectorEffect="non-scaling-stroke"
                     />

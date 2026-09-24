@@ -1,109 +1,78 @@
-'use client';
-
-import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check } from 'lucide-react';
+
+/**
+ * /start2 footer. Full-bleed, and every entry goes somewhere real: a section
+ * on this page, a marketing route, or sign-in. The newsletter form, status
+ * badge, social links and legal links were removed because none of them were
+ * wired to anything.
+ */
+
+const COLUMNS = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Features', href: '#features' },
+      { label: 'How it works', href: '#how-it-works' },
+      { label: 'Integrations', href: '#integrations' },
+      { label: 'Pricing', href: '#pricing' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { label: 'Documentation', href: '/docs' },
+      { label: 'Quickstart', href: '/docs#quickstart' },
+      { label: 'Shopify setup', href: '/docs#shopify-setup' },
+      { label: 'Solutions', href: '/solutions' },
+    ],
+  },
+  {
+    title: 'Account',
+    links: [
+      { label: 'Sign in', href: '/auth' },
+      { label: 'Start free', href: '/auth' },
+    ],
+  },
+];
 
 export function Start2Footer() {
-  const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
-    }
-  };
-
   return (
-    <footer className="s2-footer">
-      <div className="s2-container">
-        <div className="s2-footer-grid">
-          {/* Brand Col */}
-          <div className="s2-footer-brand-col">
-            <Link href="/start2" className="s2-nav-logo mb-3">
+    <footer className="s2-ft">
+      <div className="s2-ft-inner">
+        <div className="s2-ft-top">
+          <div className="s2-ft-brand">
+            <Link href="/start2" className="s2-nav-logo">
               <span className="s2-logo-mark">O</span>
               <span className="s2-logo-text">ORA</span>
             </Link>
-            <p className="s2-footer-desc">
-              Autonomous real-time voice agent engineered for website sales, after-hours lead conversion, and deterministic support.
+            <p className="s2-ft-desc">
+              A voice sales agent for your business. Answers shoppers and closes sales, day and night.
             </p>
-            <div className="s2-sys-status">
-              <span className="s2-pulse-dot-green" />
-              <span>All systems operational &middot; 99.99% SLA</span>
-            </div>
           </div>
 
-          {/* Platform Links */}
-          <div className="s2-footer-links-col">
-            <h4 className="s2-footer-title">Platform</h4>
-            <ul className="s2-footer-list">
-              <li><a href="#features">Voice Engine</a></li>
-              <li><a href="#how-it-works">Storefront Embed</a></li>
-              <li><a href="#capabilities">Integrations</a></li>
-              <li><a href="#pricing">Pricing Plans</a></li>
-              <li><a href="#demo-console">Live Telemetry</a></li>
-            </ul>
-          </div>
-
-          {/* Company Links */}
-          <div className="s2-footer-links-col">
-            <h4 className="s2-footer-title">Company</h4>
-            <ul className="s2-footer-list">
-              <li><a href="#">About Us</a></li>
-              <li><a href="#">Security &amp; Privacy</a></li>
-              <li><a href="#">Status Page</a></li>
-              <li><a href="#">Contact Support</a></li>
-              <li><a href="#">Documentation</a></li>
-            </ul>
-          </div>
-
-          {/* Newsletter Subscription */}
-          <div className="s2-footer-sub-col">
-            <h4 className="s2-footer-title">Subscribe to newsletter</h4>
-            <p className="s2-sub-desc">
-              Get product updates, new voice archetypes, and conversion benchmarks delivered to your inbox.
-            </p>
-
-            {subscribed ? (
-              <div className="s2-sub-success">
-                <Check size={14} className="text-[#16A34A] dark:text-[#C8F031]" />
-                <span>Thank you for subscribing!</span>
+          <nav className="s2-ft-cols" aria-label="Footer">
+            {COLUMNS.map((col) => (
+              <div key={col.title} className="s2-ft-col">
+                <h2 className="s2-ft-title">{col.title}</h2>
+                <ul>
+                  {col.links.map((l) => (
+                    <li key={l.label}>
+                      <Link href={l.href} className="s2-ft-link">
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="s2-sub-form">
-                <input
-                  type="email"
-                  placeholder="name@workemail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="s2-sub-input"
-                  required
-                />
-                <button type="submit" className="s2-sub-btn" aria-label="Subscribe">
-                  <ArrowRight size={14} />
-                </button>
-              </form>
-            )}
-          </div>
+            ))}
+          </nav>
         </div>
 
-        {/* Bottom Strip */}
-        <div className="s2-footer-bottom">
-          <div className="s2-social-strip">
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer">Twitter / X</a>
-            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a href="https://discord.com" target="_blank" rel="noopener noreferrer">Discord</a>
-          </div>
-
-          <div className="s2-legal-strip">
-            <a href="#">Terms of use</a>
-            <a href="#">Privacy policy</a>
-            <a href="#">Security</a>
-            <span>&copy; {new Date().getFullYear()} ORA Technologies Inc.</span>
-          </div>
+        <div className="s2-ft-bottom">
+          <span>&copy; {new Date().getFullYear()} ORA Technologies Inc.</span>
+          <a href="#main-content" className="s2-ft-link">
+            Back to top &uarr;
+          </a>
         </div>
       </div>
     </footer>

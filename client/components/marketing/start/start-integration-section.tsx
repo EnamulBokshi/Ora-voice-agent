@@ -13,9 +13,7 @@ export function StartIntegrationSection() {
           <h2 className="fs-section-title">
             Connect, Automate, and Scale
           </h2>
-          <p className="fs-section-sub">
-            ORA integrates effortlessly with your favorite platforms, ensuring a smooth and automated workflow.
-          </p>
+
         </div>
 
         {/* Integration Hub Box */}
@@ -52,7 +50,7 @@ export function StartIntegrationSection() {
           {/* Testimonial Quote Card Placed Beneath Constellation */}
           <div className="fs-hub-quote-card">
             <p className="fs-hub-quote-text">
-              &ldquo;ORA has transformed how we engage night visitors. Inquiries get answered in real-time 
+              &ldquo;ORA has transformed how we engage night visitors. Inquiries get answered in real-time
               with zero hallucinations, saving our team 15+ hours per week. The best voice AI tool we have used.&rdquo;
             </p>
             <div className="fs-hub-author">

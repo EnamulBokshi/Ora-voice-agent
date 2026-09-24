@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Three steps to launch — port of `ora-launch.html` from the ORA Design System.
@@ -12,41 +12,19 @@ import { useEffect, useRef } from 'react';
  * 82% track fill are carried over unchanged.
  *
  * Colour and type are this project's rather than the design's: the source is a
- * dark page in Newsreader and Archivo, this section sits on start2's light
+ * dark page in Newsreader and Archivo; this section follows start2's light/dark
  * ground and uses the same tokens as the sections around it, with Space
  * Grotesk headings per globals.css and Inter for everything else.
  */
 
 const STEPS = [
-  {
-    n: '01',
-    phase: 'Connect',
-    title: 'Connect your catalogue',
-    body:
-      'Authorise with Shopify OAuth or the WooCommerce REST API. ORA reads products, variants, stock and return policies.',
-    fact: (
-      <>
-        Shopify, WooCommerce, or a custom feed &middot; first ingest <b>under 90 s</b>
-      </>
-    ),
-  },
-  {
-    n: '02',
-    phase: 'Configure',
-    title: 'Set the rules',
-    body:
-      'Choose the brand tone, what happens when something is out of stock, and when to flag low inventory.',
-    fact: <>Answers stay catalogue-bound &middot; the agent declines what it was not told</>,
-  },
-  {
-    n: '03',
-    phase: 'Launch',
-    title: 'Paste one tag',
-    body:
-      'Drop the snippet into your store header or tag manager. It renders in a shadow root and loads asynchronously.',
-    fact: <>One script tag &middot; no theme changes</>,
-  },
+  { n: '01', phase: 'Connect', title: 'Connect your catalogue', body: 'Link Shopify, WooCommerce or a product feed.', win: 'catalogue' },
+  { n: '02', phase: 'Configure', title: 'Set the rules', body: 'Choose your brand voice and stock rules.', win: 'rules' },
+  { n: '03', phase: 'Launch', title: 'Paste one tag', body: 'One snippet on your site. No theme changes.', win: 'embed' },
 ];
+
+const TAG_SNIPPET =
+  '<script src="cdn.ora.ai/widget/loader.js" data-ora-id="biz_live_891" async></script>';
 
 export function Start2Steps() {
   const lineRef = useRef<HTMLDivElement>(null);
@@ -116,7 +94,7 @@ export function Start2Steps() {
       <div className="s2-container">
         <div className="lch-head">
           <h2 className="lch-title">Three steps to launch.</h2>
-          <p className="lch-sub">From catalogue to live voice answers in about three minutes.</p>
+          {/* <p className="lch-sub">From catalogue to live voice answers in about three minutes.</p> */}
         </div>
 
         <div className="lch-line" ref={lineRef}>
@@ -136,10 +114,15 @@ export function Start2Steps() {
                   <span className="lch-phase">{s.phase}</span>
                   <h3 className="lch-h">{s.title}</h3>
                   <p>{s.body}</p>
-                  <div className="lch-facts">{s.fact}</div>
                 </div>
 
                 <div className="lch-viz">
+                  <div className="lch-win" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                    <span>ora · {s.win}</span>
+                  </div>
                   {i === 0 && <ConnectViz />}
                   {i === 1 && <RulesViz />}
                   {i === 2 && <TagViz />}
@@ -179,15 +162,12 @@ function RulesViz() {
   return (
     <div className="lch-rows">
       {[
-        ['Stock urgency', 'Alert when 3 or fewer remain', true],
-        ['Checkout links', 'Pre-filled cart sent mid-call', true],
-        ['Off-catalogue answers', 'Agent declines and offers a handoff', false],
-      ].map(([t, d, on]) => (
+        ['Stock urgency', true],
+        ['Checkout links', true],
+        ['Off-catalogue answers', false],
+      ].map(([t, on]) => (
         <div className="lch-r" key={t as string}>
-          <div>
-            <b>{t}</b>
-            <span>{d}</span>
-          </div>
+          <b>{t}</b>
           <span className={`lch-sw${on ? ' on' : ''}`} aria-hidden="true" />
         </div>
       ))}
@@ -196,9 +176,20 @@ function RulesViz() {
 }
 
 function TagViz() {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(TAG_SNIPPET);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Clipboard can be blocked (insecure origin, permissions); leave the label as is.
+    }
+  };
+
   return (
     <>
-      <span className="lch-phase">Universal tag</span>
       <div className="lch-code">
         {'<script '}
         <b>src</b>
@@ -206,8 +197,8 @@ function TagViz() {
         <b>data-ora-id</b>
         {'="biz_live_891" async></script>'}
       </div>
-      <button type="button" className="lch-copy">
-        Copy tag
+      <button type="button" className="lch-copy" onClick={copy}>
+        {copied ? 'Copied' : 'Copy tag'}
       </button>
     </>
   );

@@ -21,7 +21,13 @@ export interface Plan {
   name: string;
   priceUsdCents: number;
   priceBdtPaisa: number;
-  billingInterval: 'monthly' | 'yearly';
+  /** Saved as 'month'/'year' by the server; older admin saves used 'monthly'/'yearly'. */
+  billingInterval: 'month' | 'year' | 'monthly' | 'yearly';
+  description?: string;
+  /** Admin-set highlight label, e.g. "Most popular". */
+  badge?: string;
+  sortOrder?: number;
+  isCustom?: boolean;
   limits: PlanLimits;
   features: string[];
   /** Free-trial length applied before the first charge. */
