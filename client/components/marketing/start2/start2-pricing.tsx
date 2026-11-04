@@ -249,7 +249,7 @@ export function Start2Pricing() {
                   const trial = plan.trialDays ?? 0;
                   const discount = yearlyDiscountOf(plan);
                   const priceMinor = planAmountMinor(plan, currency, billing);
-                  const showStrike = billing === 'year' && discount > 0;
+                  const hasDiscount = discount > 0;
                   const isAuthed = mounted && isAuthenticated;
 
                   const planHref = isAuthed
@@ -265,32 +265,75 @@ export function Start2Pricing() {
                       ? 'Admin Console'
                       : role === 'user'
                       ? trial > 0
-                        ? 'Start 14-day free trial'
+                        ? `Start ${trial}-day free trial`
                         : 'Select plan'
                       : 'Switch plan'
                     : trial > 0
-                    ? 'Start 14-day free trial'
+                    ? `Start ${trial}-day free trial`
                     : 'Get started';
 
                   return (
                     <div key={plan._id} className={`s2p-plan${featured ? ' lead' : ''}`}>
                       <div>
                         <div className="s2p-tier">
-                          <h3>{displayName(plan.name)}</h3>
-                          <span className="s2p-note">
-                            {plan.badge || (trial > 0 ? `${trial}-day free trial` : '')}
-                          </span>
+                          <div className="s2p-tier-head">
+                            <h3>{displayName(plan.name)}</h3>
+                            {hasDiscount && (
+                              <span className="s2p-discount-pill" title={`${discount}% discount applied`}>
+                                −{discount}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="s2p-tier-badges">
+                            {plan.badge ? (
+                              <span className="s2p-badge-pill">{plan.badge}</span>
+                            ) : trial > 0 ? (
+                              <span className="s2p-note">{trial}-day free trial</span>
+                            ) : null}
+                          </div>
                         </div>
 
                         <div className="s2p-price">
                           <b>{formatMinor(priceMinor, currency)}</b>
                           <span>{billing === 'year' ? 'per year' : 'per month'}</span>
                         </div>
-                        {showStrike && (
-                          <div className="s2p-save">
-                            <s>{formatMinor(planYearlyListMinor(plan, currency), currency)}</s>
-                            <em>Save {discount}%</em>
-                          </div>
+
+                        {billing === 'year' ? (
+                          hasDiscount ? (
+                            <div className="s2p-save">
+                              <s>{formatMinor(planYearlyListMinor(plan, currency), currency)}</s>
+                              <em>Save {discount}%</em>
+                              <span className="s2p-save-equiv">
+                                ({formatMinor(Math.round(priceMinor / 12), currency)}/mo)
+                              </span>
+                            </div>
+                          ) : (
+                            plan.badge && trial > 0 ? (
+                              <div className="s2p-trial-hint">{trial}-day free trial</div>
+                            ) : null
+                          )
+                        ) : (
+                          hasDiscount ? (
+                            <div
+                              className="s2p-save s2p-save-preview"
+                              onClick={() => setBilling('year')}
+                              title="Click to view yearly billing discount"
+                            >
+                              <span className="s2p-save-yearly-amt">
+                                {formatMinor(planAmountMinor(plan, currency, 'year'), currency)} / yr
+                              </span>
+                              <s>{formatMinor(planYearlyListMinor(plan, currency), currency)}</s>
+                              <em>−{discount}%</em>
+                            </div>
+                          ) : (
+                            plan.badge && trial > 0 ? (
+                              <div className="s2p-trial-hint">{trial}-day free trial</div>
+                            ) : null
+                          )
+                        )}
+
+                        {plan.badge && trial > 0 && hasDiscount && (
+                          <div className="s2p-trial-hint">{trial}-day free trial</div>
                         )}
 
                         <ul className="s2p-features">

@@ -182,14 +182,18 @@ export function PricingPageClient() {
   const getPlanPriceDisplay = (plan: Plan) => {
     const currency = provider === 'bkash' ? 'BDT' : 'USD';
     const discount = yearlyDiscountOf(plan);
+    const yearlyMinor = planAmountMinor(plan, currency, 'year');
+    const yearlyListMinor = planYearlyListMinor(plan, currency);
     return {
       label: formatMinor(planAmountMinor(plan, currency, cycle), currency),
       period: cycle === 'year' ? '/year' : '/month',
       strike:
         cycle === 'year' && discount > 0
-          ? formatMinor(planYearlyListMinor(plan, currency), currency)
+          ? formatMinor(yearlyListMinor, currency)
           : null,
-      discount: cycle === 'year' ? discount : 0,
+      discount,
+      yearlyFormatted: formatMinor(yearlyMinor, currency),
+      yearlyListFormatted: formatMinor(yearlyListMinor, currency),
     };
   };
 
@@ -496,17 +500,35 @@ export function PricingPageClient() {
 
                   {/* Plan Header */}
                   <div style={{ marginBottom: '1.5rem' }}>
-                    <h3
-                      className="lp-headline"
-                      style={{
-                        fontSize: '1.375rem',
-                        fontWeight: 700,
-                        color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
-                        marginBottom: '0.5rem',
-                      }}
-                    >
-                      {plan.name}
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <h3
+                        className="lp-headline"
+                        style={{
+                          fontSize: '1.375rem',
+                          fontWeight: 700,
+                          color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)',
+                          margin: 0,
+                        }}
+                      >
+                        {plan.name}
+                      </h3>
+                      {price.discount > 0 && (
+                        <span
+                          style={{
+                            fontSize: '0.6875rem',
+                            fontWeight: 700,
+                            fontFamily: 'var(--lp-font-mono)',
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '999px',
+                            backgroundColor: 'rgba(200, 240, 49, 0.16)',
+                            color: 'var(--lp-primary)',
+                            border: '1px solid rgba(200, 240, 49, 0.4)',
+                          }}
+                        >
+                          −{price.discount}%
+                        </span>
+                      )}
+                    </div>
                     <p
                       style={{
                         fontSize: '0.8125rem',
@@ -557,34 +579,72 @@ export function PricingPageClient() {
                       {price.period}
                     </span>
                   </div>
-                  {price.strike && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        marginTop: '-0.75rem',
-                        marginBottom: '1.25rem',
-                        fontSize: '0.8125rem',
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      <s style={{ color: isSelected ? 'var(--lp-text-on-dark-dim)' : 'var(--lp-text-secondary)' }}>
-                        {price.strike}
-                      </s>
-                      <span
+                  {cycle === 'year' ? (
+                    price.strike && (
+                      <div
                         style={{
-                          fontSize: '0.6875rem',
-                          fontWeight: 700,
-                          padding: '0.1rem 0.5rem',
-                          borderRadius: '999px',
-                          backgroundColor: 'var(--lp-primary)',
-                          color: 'var(--lp-dark)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          marginTop: '-0.75rem',
+                          marginBottom: '1.25rem',
+                          fontSize: '0.8125rem',
+                          fontVariantNumeric: 'tabular-nums',
                         }}
                       >
-                        Save {price.discount}%
-                      </span>
-                    </div>
+                        <s style={{ color: isSelected ? 'var(--lp-text-on-dark-dim)' : 'var(--lp-text-secondary)' }}>
+                          {price.strike}
+                        </s>
+                        <span
+                          style={{
+                            fontSize: '0.6875rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.5rem',
+                            borderRadius: '999px',
+                            backgroundColor: 'var(--lp-primary)',
+                            color: 'var(--lp-dark)',
+                          }}
+                        >
+                          Save {price.discount}%
+                        </span>
+                      </div>
+                    )
+                  ) : (
+                    price.discount > 0 && (
+                      <div
+                        onClick={() => setCycle('year')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          marginTop: '-0.75rem',
+                          marginBottom: '1.25rem',
+                          fontSize: '0.8125rem',
+                          fontVariantNumeric: 'tabular-nums',
+                          cursor: 'pointer',
+                        }}
+                        title="Click to view yearly discount"
+                      >
+                        <span style={{ fontWeight: 600, color: isSelected ? 'var(--lp-text-on-dark)' : 'var(--lp-text-primary)' }}>
+                          {price.yearlyFormatted} / yr
+                        </span>
+                        <s style={{ color: isSelected ? 'var(--lp-text-on-dark-dim)' : 'var(--lp-text-secondary)' }}>
+                          {price.yearlyListFormatted}
+                        </s>
+                        <span
+                          style={{
+                            fontSize: '0.6875rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.5rem',
+                            borderRadius: '999px',
+                            backgroundColor: 'var(--lp-primary)',
+                            color: 'var(--lp-dark)',
+                          }}
+                        >
+                          −{price.discount}%
+                        </span>
+                      </div>
+                    )
                   )}
 
                   {/* Capability List */}

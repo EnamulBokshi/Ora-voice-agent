@@ -572,11 +572,29 @@ export class GeminiLiveClient {
         registerProcessor('pcm-recorder-processor', PCMRecorderProcessor);
       `;
 
-      let workletUrl = '';
-      try {
-        const blob = new Blob([workletCode], { type: 'application/javascript' });
-        workletUrl = URL.createObjectURL(blob);
-      } catch {}
+      let workletLoaded = false;
+      let blobUrl: string | null = null;
+      if (inputAudioCtx.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+        try {
+          const blob = new Blob([workletCode], { type: 'application/javascript' });
+          blobUrl = URL.createObjectURL(blob);
+          await inputAudioCtx.audioWorklet.addModule(blobUrl);
+          workletLoaded = true;
+        } catch (blobErr) {
+          try {
+            await inputAudioCtx.audioWorklet.addModule('/audio-processors/pcm-recorder-worklet.js');
+            workletLoaded = true;
+          } catch (fileErr) {
+            console.warn('[GeminiLiveClient] Worklet registration failed, will use ScriptProcessor fallback');
+          }
+        } finally {
+          if (blobUrl) {
+            setTimeout(() => {
+              try { URL.revokeObjectURL(blobUrl!); } catch {}
+            }, 10000);
+          }
+        }
+      }
 
       const [stream] = await Promise.all([
         navigator.mediaDevices.getUserMedia({
@@ -590,16 +608,7 @@ export class GeminiLiveClient {
         }),
         inputAudioCtx.state === 'suspended' ? inputAudioCtx.resume() : Promise.resolve(),
         outputAudioCtx.state === 'suspended' ? outputAudioCtx.resume() : Promise.resolve(),
-        workletUrl && inputAudioCtx.audioWorklet
-          ? inputAudioCtx.audioWorklet.addModule(workletUrl).catch((err) => {
-              console.warn('[GeminiLiveClient] Worklet registration warning:', err);
-            })
-          : Promise.resolve(),
       ]);
-
-      if (workletUrl) {
-        try { URL.revokeObjectURL(workletUrl); } catch {}
-      }
 
       this.micStream = stream;
       this.nextPlayTime = Math.max(this.nextPlayTime, outputAudioCtx.currentTime);
@@ -655,8 +664,8 @@ export class GeminiLiveClient {
       updateVolume();
 
       let workletActive = false;
-      try {
-        if (inputAudioCtx.audioWorklet) {
+      if (workletLoaded) {
+        try {
           const workletNode = new AudioWorkletNode(inputAudioCtx, 'pcm-recorder-processor');
           this.workletNode = workletNode;
 
@@ -678,9 +687,9 @@ export class GeminiLiveClient {
 
           source.connect(workletNode);
           workletActive = true;
+        } catch (workletErr) {
+          console.warn('[GeminiLiveClient] AudioWorklet activation fallback:', workletErr);
         }
-      } catch (workletErr) {
-        console.warn('[GeminiLiveClient] AudioWorklet activation fallback:', workletErr);
       }
 
       if (!workletActive) {
